@@ -1,0 +1,420 @@
+2024-06-25 21:03:15,506 - Parsed 57 probes
+2024-06-25 21:03:15,506 - Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Species: None
+Probe: POL
+Accession: AJG42161.1
+
+2024-06-25 21:03:16,488 - Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Species: None
+Probe: POL
+Accession: CAA48535.1
+
+2024-06-25 21:03:17,272 - Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Species: None
+Probe: POL
+Accession: ATN28189.1
+
+2024-06-25 21:03:18,182 - Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Species: None
+Probe: POL
+Accession: AAD45226.1
+
+2024-06-25 21:03:19,723 - Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Species: None
+Probe: POL
+Accession: AJR27940.1
+
+2024-06-25 21:03:20,516 - Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Species: None
+Probe: POL
+Accession: AAL38193.1
+
+2024-06-25 21:03:21,362 - Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Species: None
+Probe: POL
+Accession: YP_009513211.1
+
+2024-06-25 21:03:22,255 - Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Species: None
+Probe: POL
+Accession: BAA00544.1
+
+2024-06-25 21:03:22,991 - Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Species: None
+Probe: POL
+Accession: AAD34842.1
+
+2024-06-25 21:03:23,898 - Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Species: None
+Probe: POL
+Accession: AAD30048.1
+
+2024-06-25 21:03:24,783 - Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Species: None
+Probe: POL
+Accession: NP_789740.1
+
+2024-06-25 21:03:25,670 - Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: POL
+Accession: CAA40318A
+
+2024-06-25 21:03:26,364 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 21:03:28,366 - Retrying... (attempt 2)
+2024-06-25 21:03:28,367 - Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: POL
+Accession: CAA40318A
+
+2024-06-25 21:03:29,106 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 21:03:33,111 - Retrying... (attempt 3)
+2024-06-25 21:03:33,112 - Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: POL
+Accession: CAA40318A
+
+2024-06-25 21:03:33,700 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 21:03:33,701 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 21:03:33,702 - Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Species: None
+Probe: POL
+Accession: AFR79239.1
+
+2024-06-25 21:03:34,568 - Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Species: None
+Probe: POL
+Accession: CAA11581.1
+
+2024-06-25 21:03:35,427 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: None
+Probe: POL
+Accession: KAI5929250.1
+
+2024-06-25 21:03:36,362 - Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Species: None
+Probe: ENV
+Accession: AJG42162.1
+
+2024-06-25 21:03:37,181 - Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Species: None
+Probe: ENV
+Accession: CAA48536.1
+
+2024-06-25 21:03:37,919 - Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Species: None
+Probe: ENV
+Accession: ATN28190.1
+
+2024-06-25 21:03:38,791 - Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Species: None
+Probe: ENV
+Accession: NP_041188.1
+
+2024-06-25 21:03:39,703 - Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Species: None
+Probe: ENV
+Accession: AJR27937.1
+
+2024-06-25 21:03:40,430 - Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Species: None
+Probe: ENV
+Accession: CAA76583.1
+
+2024-06-25 21:03:41,228 - Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Species: None
+Probe: ENV
+Accession: YP_009513212.1
+
+2024-06-25 21:03:42,019 - Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Species: None
+Probe: ENV
+Accession: ALB75304.1
+
+2024-06-25 21:03:42,836 - Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Species: None
+Probe: ENV
+Accession: AAD34843.1
+
+2024-06-25 21:03:43,605 - Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Species: None
+Probe: ENV
+Accession: AAD30049.1
+
+2024-06-25 21:03:44,397 - Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Species: None
+Probe: ENV
+Accession: AAC82596.1
+
+2024-06-25 21:03:46,025 - Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: ENV
+Accession: AAB59940.1
+
+2024-06-25 21:03:46,843 - Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Species: None
+Probe: ENV
+Accession: AAB68771.1
+
+2024-06-25 21:03:48,052 - Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Species: None
+Probe: ENV
+Accession: CAA70076.1
+
+2024-06-25 21:03:49,548 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: None
+Probe: ENV
+Accession: KAI5946619.1
+
+2024-06-25 21:03:50,680 - Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Species: None
+Probe: GAG
+Accession: AJG42160.1
+
+2024-06-25 21:03:51,483 - Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Species: None
+Probe: GAG
+Accession: CAA48534.1
+
+2024-06-25 21:03:52,249 - Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Species: None
+Probe: GAG
+Accession: ATN28187.1
+
+2024-06-25 21:03:53,129 - Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Species: None
+Probe: GAG
+Accession: AAA89180.1
+
+2024-06-25 21:03:53,983 - Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Species: None
+Probe: GAG
+Accession: AJR27933.1
+
+2024-06-25 21:03:54,726 - Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Species: None
+Probe: GAG
+Accession: ADG27335.1
+
+2024-06-25 21:03:55,462 - Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Species: None
+Probe: GAG
+Accession: AAF15097.1
+
+2024-06-25 21:03:56,360 - Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Species: None
+Probe: GAG
+Accession: AAC82585.1
+
+2024-06-25 21:03:57,309 - Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Species: None
+Probe: GAG
+Accession: AAB59884.1
+
+2024-06-25 21:03:58,247 - Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Species: None
+Probe: GAG
+Accession: AAD30047.1
+
+2024-06-25 21:03:59,125 - Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Species: None
+Probe: GAG
+Accession: AAC82593.1
+
+2024-06-25 21:04:00,025 - Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: GAG
+Accession: AAB59936.1
+
+2024-06-25 21:04:00,940 - Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Species: None
+Probe: GAG
+Accession: AAB68769.1
+
+2024-06-25 21:04:01,833 - Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Species: None
+Probe: GAG
+Accession: CAA70074.1
+
+2024-06-25 21:04:02,725 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: None
+Probe: GAG
+Accession: KAI5943785.1
+
+2024-06-25 21:04:03,712 - Family: Orthoretrovirus
+Virus: Visna maedi
+Abbreviation: VMW
+Species: None
+Probe: VIF
+Accession: AAB25461.1
+
+2024-06-25 21:04:04,791 - Family: Orthoretrovirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Species: None
+Probe: VIF
+Accession: AAF20197.1
+
+2024-06-25 21:04:05,701 - Family: Orthoretrovirus
+Virus: Simian immunodeficiency virus
+Abbreviation: SIV
+Species: None
+Probe: VIF
+Accession: AAP97009.1
+
+2024-06-25 21:04:06,688 - Family: Orthoretrovirus
+Virus: Small ruminant lentivirus
+Abbreviation: SRLV
+Species: None
+Probe: VIF
+Accession: ALU34105.1
+
+2024-06-25 21:04:07,725 - Family: Orthoretrovirus
+Virus: Puma lentivirus
+Abbreviation: PLV
+Species: None
+Probe: VIF
+Accession: QIG38012.1
+
+2024-06-25 21:04:08,661 - Family: Orthoretrovirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Species: None
+Probe: VIF
+Accession: WPT10369.1
+
+2024-06-25 21:04:09,494 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: N_protein
+Accession: AAR36966.2
+
+2024-06-25 21:04:10,250 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: P_protein
+Accession: AAR36968.2
+
+2024-06-25 21:04:11,212 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: G_protein
+Accession: NP_042023.1
+
+2024-06-25 21:04:12,088 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: L_protein
+Accession: UPO09296.1
+
+2024-06-25 21:04:12,912 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: X_protein
+Accession: WWZ81731.1
+
+2024-06-25 21:04:13,740 - Family: Bornavirus
+Virus: Borna disease virus
+Abbreviation: BDV
+Species: None
+Probe: M_protein
+Accession: WXB24237.1
+
