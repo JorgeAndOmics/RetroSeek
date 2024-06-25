@@ -1077,3 +1077,165 @@ Probe: POL
 Accession: gnl|BL_ORD_ID|31
 
 2024-06-25 22:39:11,220 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:13,223 - Retrying... (attempt 2)
+2024-06-25 22:39:13,223 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:13,904 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:17,909 - Retrying... (attempt 3)
+2024-06-25 22:39:17,909 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:18,591 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:18,591 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:18,592 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:19,266 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:21,269 - Retrying... (attempt 2)
+2024-06-25 22:39:21,270 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:21,941 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:25,946 - Retrying... (attempt 3)
+2024-06-25 22:39:25,946 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:26,648 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:26,648 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:26,649 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:27,297 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:29,299 - Retrying... (attempt 2)
+2024-06-25 22:39:29,300 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:30,023 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:34,028 - Retrying... (attempt 3)
+2024-06-25 22:39:34,029 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:34,739 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:34,740 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:34,740 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:35,451 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:37,454 - Retrying... (attempt 2)
+2024-06-25 22:39:37,454 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:38,068 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:42,073 - Retrying... (attempt 3)
+2024-06-25 22:39:42,073 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:42,733 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:42,734 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:42,734 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:43,379 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:45,382 - Retrying... (attempt 2)
+2024-06-25 22:39:45,382 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:46,051 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:50,056 - Retrying... (attempt 3)
+2024-06-25 22:39:50,057 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:50,741 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:50,742 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:50,742 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:51,424 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:53,427 - Retrying... (attempt 2)
+2024-06-25 22:39:53,427 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:54,110 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:58,115 - Retrying... (attempt 3)
+2024-06-25 22:39:58,115 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:58,765 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request
+2024-06-25 22:39:58,765 - Failed to fetch the GenBank record after 3 attempts.
+2024-06-25 22:39:58,766 - Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Species: Rhinolophus_ferrumequinum
+Probe: POL
+Accession: gnl|BL_ORD_ID|31
+
+2024-06-25 22:39:59,465 - An error occurred while fetching the genbank record: HTTP Error 400: Bad Request

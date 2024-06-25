@@ -141,7 +141,7 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
         Raises:
             Exception: If an error occurs while running tblastn.
     """
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=defaults.TMP_DIR) as fasta_temp_file:
+    with tempfile.NamedTemporaryFile(mode='w', delete=True, dir=defaults.TMP_DIR) as fasta_temp_file:
         if instance.get_fasta():
             fasta_temp_file.write(instance.get_fasta())
             fasta_temp_path = fasta_temp_file.name
