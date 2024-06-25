@@ -1,5 +1,6 @@
 import os
 import io
+from io import StringIO
 import subprocess
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     probe_dict = unpickler(os.path.join('..', 'data', 'pickles'), 'probe_dict.pkl')
 
     species_seq_retriever(probe_dict=probe_dict,
-                          online_database='Nucleotide',
+                          online_database='nucleotide',
                           species_database_path=defaults.SPECIES_DB,
                           species=defaults.SPECIES,
                           output_pickle_directory_path=defaults.PICKLE_DIR,

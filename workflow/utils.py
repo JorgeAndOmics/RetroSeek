@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import io
+from io import StringIO
 import time
 import subprocess
 import tempfile
@@ -8,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Any
 import defaults
 import pickle
+import re
 
 import random
 import string
@@ -78,51 +80,6 @@ def unpickler(directory_path, file_name):
         return pickle.load(f)
 
 
-def seq_fetcher(instance, online_database, attempt = 1, max_attempts=3):
-    '''
-    Fetch the tblastn results for a given sequence and appends it to the objects
-        
-        Args:
-            instance: The Object instance containing information about the query.
-            online_database: The database to fetch the sequence from.
-            attempt: The number of current attempts to fetch the sequence. Default is 1.
-            max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
-        
-        Returns:
-            object [Optional]: The Object instance with the fetched sequence appended. The function
-            updates the input object, but returns the object for convenience.
-            
-        Raises:
-            Exception: If an error occurs while fetching the sequence.
-    '''
-    Entrez.email = defaults.ENTREZ_EMAIL
-    logging.info(instance.display_info())
-    kwargs = {
-        'db': str(online_database),
-        'id': instance.accession,
-        'rettype': 'gb',
-        'retmode': 'text'
-    }
-    if instance.HSP:
-        kwargs |= {
-            'seq_start': instance.HSP.sbjct_start,
-            'seq_stop': instance.HSP.sbjct_end,
-        }
-    try:
-        with Entrez.efetch(**kwargs) as handle:
-            genbank_record = handle.read()
-            instance.set_genbank(genbank_record)
-        return instance
-    except Exception as e:
-        logging.error(f'An error occurred while fetching the genbank record: {str(e)}')
-
-        if attempt < max_attempts:
-            time.sleep(2 ** attempt)
-            logging.info(f'Retrying... (attempt {attempt + 1})')
-            return seq_fetcher(instance, online_database, attempt + 1, max_attempts)
-        else:
-            logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
-            return instance
 
 def blaster(instance, command: str, species_database_path, unit: str, outfmt:str= '5'):
     """
@@ -197,16 +154,18 @@ def blaster_parser(result, object, unit):
                     logging.warning('No alignments found.')
                     continue
                 for hsp in alignment.hsps:
-                    
-                    random_string: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-                    alignment_dict[f'{alignment.hit_id}-{random_string}'] = Object(
+                    regex_pattern = re.compile(defaults.ACCESSION_ID_REGEX)
+                    accession_by_regex = regex_pattern.search(alignment.title.split('|')[-1]).group()
+
+                    random_string: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    alignment_dict[f'{accession_by_regex}-{random_string}'] = Object(
                         family=str(object.family),
                         virus=str(object.virus),
                         abbreviation=str(object.abbreviation),
                         species=str(unit),
                         probe=str(object.probe),
-                        accession=str(alignment.hit_id),
+                        accession=str(accession_by_regex),
                         alignment=alignment,
                         HSP=hsp
                     )
@@ -217,6 +176,56 @@ def blaster_parser(result, object, unit):
         return None
 
     return alignment_dict
+
+
+def seq_fetcher(instance, online_database, attempt=1, max_attempts=3):
+    '''
+    Fetch the tblastn results for a given sequence and appends it to the objects
+
+        Args:
+            instance: The Object instance containing information about the query.
+            online_database: The database to fetch the sequence from.
+            attempt: The number of current attempts to fetch the sequence. Default is 1.
+            max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
+
+        Returns:
+            object [Optional]: The Object instance with the fetched sequence appended. The function
+            updates the input object, but returns the object for convenience.
+
+        Raises:
+            Exception: If an error occurs while fetching the sequence.
+    '''
+    Entrez.email = defaults.ENTREZ_EMAIL
+    logging.info(instance.display_info())
+
+    kwargs = {
+        'db': str(online_database),
+        'id': str(instance.accession),
+        'rettype': 'gb',
+        'retmode': 'text'
+    }
+    if instance.HSP:
+        kwargs |= {
+            'seq_start': instance.HSP.sbjct_start,
+            'seq_stop': instance.HSP.sbjct_end,
+     }
+    logging.debug(f"Fetching with parameters: {kwargs}")
+    try:
+        with Entrez.efetch(**kwargs) as handle:
+            genbank_record = handle.read()
+            instance.set_genbank(genbank_record)
+        return instance
+    except Exception as e:
+        logging.error(f'An error occurred while fetching the genbank record: {str(e)}')
+
+        if attempt < max_attempts:
+            time.sleep(2 ** attempt)
+            logging.info(f'Retrying... (attempt {attempt + 1})')
+            return seq_fetcher(instance, online_database, attempt + 1, max_attempts)
+        else:
+            logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
+            return instance
+
 
 @dataclass
 class Object:
