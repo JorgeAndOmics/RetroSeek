@@ -17,18 +17,18 @@ ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 EXPANSION_SIZE: int = 5000
 E_VALUE: float = 0.1
 EXPANSION_SWITCH: str = 'N'
-ACCESSION_ID_REGEX = '[A-Z]*\d*[._]\d*'
+ACCESSION_ID_REGEX = '[A-Z]{2,}_?\d*\.\d{1,2}'
 PROBE_MIN_LENGTH: dict = {
-    'gag': 0,
-    'pol': 0,
-    'env': 0,
-    'vif': 0,
-    'n_protein': 0,
-    'p_protein': 0,
-    'g_protein': 0,
-    'l_protein': 0,
-    'x_protein': 0,
-    'm_protein': 0
+    'GAG': 400,
+    'POL': 200,
+    'ENV': 400,
+    'VIG': 400,
+    'N_protein': 400,
+    'P_protein': 400,
+    'G_protein': 400,
+    'L_protein': 400,
+    'X_protein': 400,
+    'M_protein': 400
 }
 
 # Define a custom level style to color INFO level logs green

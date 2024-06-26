@@ -6,7 +6,9 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import defaults
-from utils import *
+from utils import pickler, unpickler, colored_logging
+from object import Object
+from seq_utils import blaster, blaster_parser, seq_fetcher
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
@@ -14,13 +16,27 @@ from Bio import Entrez
 import logging, coloredlogs
 
 def tblastn_task(value, species_database_path, unit):
+    '''
+    Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
+    in the ThreadPoolExecutor
+
+        Args:
+            value (Object): The probe instance
+            species_database_path (str): The path to the input species database
+            unit (str): The species to run tblastn against. Scientific name joined by '_'
+
+        Returns:
+            dict: A dictionary containing the tblastn results parsed by [blaster_parser] function
+
+        Raises:
+            Exception: If the tblastn process fails
+
+    '''
     try:
         if blast_result := blaster(value, 'tblastn', species_database_path, unit):
-            parsed_result = blaster_parser(blast_result, value, unit)
-            return parsed_result
-        else:
-            logging.warning(f'Could not parse sequences for {value.probe}, {value.virus} against {unit}')
-            return None
+            return blaster_parser(blast_result, value, unit)
+        logging.warning(f'Could not parse sequences for {value.probe}, {value.virus} against {unit}')
+        return None
     except Exception as e:
         logging.error(f'Error running tblastn for {value.probe}, {value.virus} against {unit}: {e}')
         return None
@@ -40,24 +56,40 @@ def tblastn_er(probe_dict, species_database_path, species):
     tasks = []
     with ThreadPoolExecutor() as executor:
         for unit in species:
-            for key, value in probe_dict.items():
-                tasks.append(executor.submit(tblastn_task, value, species_database_path, unit))
-
+            tasks.extend(
+                executor.submit(
+                    tblastn_task, value, species_database_path, unit
+                )
+                for key, value in probe_dict.items()
+            )
         for future in as_completed(tasks):
-            result = future.result()
-            if result:
+            if result := future.result():
                 full_parsed_results |= result
 
     return full_parsed_results
 
-def species_seq_retriever(probe_dict,
-                          online_database,
-                          species_database_path,
-                          species,
+def species_seq_retriever(probe_dict: dict,
+                          online_database: str,
+                          species_database_path: str,
+                          species: list,
                           output_pickle_directory_path,
                           output_pickle_file_name):
     '''
     Orchestrates the sequence retrieval process
+    
+        Args:
+            probe_dict (dict): A dictionary containing the probe: object pairs from Entrez
+            online_database (str): The database to retrieve the sequences from
+            species_database_path (str): The path to the input species database
+            species (list): A list of species to run tblastn against. Scientific name joined by '_'
+            output_pickle_directory_path (str): The path to the output pickle directory
+            output_pickle_file_name (str): The name of the output pickle file
+            
+        Returns:
+            None
+            
+        Raises:
+            None
     '''
     tblastn_results = tblastn_er(probe_dict=probe_dict,
                species_database_path=species_database_path,
