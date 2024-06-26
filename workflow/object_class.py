@@ -82,30 +82,85 @@ class Object:
                 f'{self.identifier}')
 
     def get_alignment(self):
+        '''
+        Returns the Alignment file associated with the object
+
+            Returns:
+                Alignment or None: The Alignment file content
+
+            Raises:
+                None
+        '''
         try:
             return self.alignment
         except Exception as e:
             logging.warning(f'Could not retrieve alignment: {e}')
 
     def set_alignment(self, alignment):
+        '''
+        Associates an Alignment file with the object
+
+            Returns:
+                None
+
+            Raises:
+                None
+        '''
         self.alignment = alignment
 
     def get_HSP(self):
+        '''
+        Retrieves the HSP object
+
+                Arguments: None
+
+                Returns:
+                    HSP: The HSP object
+        '''
         try:
             return self.HSP
         except Exception as e:
             logging.warning(f'Could not retrieve HSP: {e}')
 
     def set_HSP(self, HSP):
+        '''
+        Associates an HSP file with the object
+
+            Returns:
+                None
+
+            Raises:
+                None
+        '''
         self.HSP = HSP
 
     def get_genbank(self):
+        '''
+        Returns the GenBank file associated with the object
+
+            Returns:
+                str or None: The GenBank file content
+
+            Raises:
+                None
+        '''
+
         try:
             return self.genbank
         except Exception as e:
             logging.warning(f'Could not retrieve genbank: {e}')
 
     def set_genbank(self, genbank):
+        '''
+        Associates a GenBank file with the object. Also sets the FASTA and GFF files from the GenBank file
+        generated through the extract_fasta_from_genbank and extract_gff_from_genbank methods
+
+            Returns:
+                None
+
+            Raises:
+                None
+        '''
         try:
             handle = StringIO(genbank)
             self.genbank = SeqIO.read(handle, 'genbank')
@@ -115,6 +170,16 @@ class Object:
             logging.warning(f'Could not set genbank: {e}')
 
     def get_fasta(self):
+        '''
+        Returns the FASTA file associated with the object
+
+            Returns:
+                str or None: The FASTA file content
+
+            Raises:
+                None
+        '''
+
         if self.genbank:
             try:
                 return self.fasta
@@ -125,6 +190,16 @@ class Object:
             return None
 
     def get_gff(self):
+        '''
+        Returns the GFF file associated with the object
+
+            Returns:
+                str or None: The GFF file content
+
+            Raises:
+                None
+        '''
+
         if self.genbank:
             try:
                 return self.gff
@@ -135,6 +210,16 @@ class Object:
             return None
 
     def extract_fasta_from_genbank(self, genbank_record):
+        '''
+        Extracts the FASTA file from the GenBank record
+
+            Returns:
+                str or None: The FASTA file content
+
+            Raises:
+                None
+        '''
+
         try:
             with StringIO() as handle:
                 SeqIO.write(genbank_record, handle, 'fasta')
@@ -145,6 +230,15 @@ class Object:
             return None
 
     def extract_gff_from_genbank(self, genbank_record):
+        '''
+        Extracts the GFF file from the GenBank record
+
+            Returns:
+                str or None: The GFF file content
+
+            Raises:
+                None
+        '''
         try:
             with StringIO() as handle:
                 for feature in genbank_record.features:
@@ -157,7 +251,17 @@ class Object:
             return None
 
     def display_info(self) -> str:
-        return (f'Family: {self.family}\n'
+        '''
+        Displays human-readable information about the object. If there are HSPs associated with the object,
+        it will also display  HSP information
+
+            Returns:
+                str or None: Object information
+
+            Raises:
+                None
+        '''
+        general_info = (f'Family: {self.family}\n'
                 f'Virus: {self.virus}\n'
                 f'Abbreviation: {self.abbreviation}\n'
                 f'Species: {self.species}\n'
@@ -165,23 +269,86 @@ class Object:
                 f'Accession: {self.accession}\n'
                 f'Identifier: {self.identifier}\n')
 
+        if self.HSP:
+            HSP_info = (f'HSP Start: {self.HSP.sbjct_start}\n'
+                        f'HSP End: {self.HSP.sbjct_end}\n'
+                        f'HSP Length: {self.HSP.align_length}\n')
+
+            return general_info + HSP_info
+
+        return general_info
+
 
     def display_alignment(self) -> str:
+        '''
+        Displays human-readable information about the object's alignment
+
+            Returns:
+                str or None: The instance's Alignment information
+
+            Raises:
+                None
+        '''
         return (f'Alignment:\n {self.alignment}\n')
 
     def display_HSP(self) -> str:
+        '''
+        Displays human-readable information about the object's HSP
+
+            Returns:
+                str or None: The instance's HSP information
+
+            Raises:
+                None
+        '''
         return (f'HSP:\n {self.HSP}\n')
 
     def display_genbank(self) -> str:
+        '''
+        Displays human-readable information about the object's Genbank record
+
+            Returns:
+                str or None: The instance's Genbank information
+
+            Raises:
+                None
+        '''
         return (f'Genbank:\n {self.genbank}\n')
 
     def display_fasta(self) -> str:
+        '''
+        Displays human-readable information about the object's FASTA file
+
+            Returns:
+                str or None: The instance's FASTA file content
+
+            Raises:
+                None
+        '''
         return f'Fasta:\n {self.fasta}\n'
 
     def display_gff(self) -> str:
+        '''
+        Displays human-readable information about the GFF file associated with the object
+
+            Returns:
+                HSP or None: The GFF file content
+
+            Raises:
+                None
+        '''
         return f'GFF:\n {self.gff}\n'
 
     def is_complete(self) -> bool:
+        '''
+        Checks if the object contains Genbank, FASTA and GFF records
+
+            Returns:
+                Bool: True if the object contains all three records, False otherwise
+
+            Raises:
+                None
+        '''
         return bool(self.alignment and self.HSP and self.genbank)
 
 

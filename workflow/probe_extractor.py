@@ -2,8 +2,9 @@ import os
 import pandas as pd
 
 from utils import pickler, unpickler
+import defaults
 from object_class import Object
-from seq_utils import seq_fetcher
+from seq_utils import gb_fetcher
 from colored_logging import colored_logging
 
 import logging, coloredlogs
@@ -11,6 +12,12 @@ import logging, coloredlogs
 def table_parser(input_csv_file):
     '''
     Parse the CSV files containing the probe genes and their respective IDs
+
+        Args:
+            input_csv_file (str): The path to the CSV file containing probe info.
+
+        Returns:
+            probe_dict: A dictionary containing object pairs.
     '''
     probe_dict = {}
     # Read the CSV file
@@ -29,20 +36,26 @@ def table_parser(input_csv_file):
 
 def probe_extractor(input_csv_file, output_pickle_directory_path, output_pickle_file_name, online_database):
     '''
-    Orchestrates the probe extraction process
+    Orchestrates the probe extraction process, retrieves GenBank information and pickles
+
+        Args:
+            input_csv_file (str): The path to the CSV file containing probe info.
+            output_pickle_directory_path (str): The path to the directory where the pickled file will be saved.
+            output_pickle_file_name (str): The name of the pickled file to be saved.
+            online_database (str): The online database to be used for sequence retrieval.
     '''
     probe_dict = table_parser(input_csv_file)
     for key, value in probe_dict.items():
-        seq_fetcher(value, online_database)
+        gb_fetcher(value, online_database)
     pickler(probe_dict, output_pickle_directory_path, output_pickle_file_name)
 
 if __name__ == '__main__':
     colored_logging('probe_extractor.txt')
 
-    probe_extractor(os.path.join('..', 'data', 'tables', 'Probes.csv'),
-                    os.path.join('..', 'data', 'pickles'),
-                    'probe_dict.pkl',
-                    'protein')
+    probe_extractor(input_csv_file=os.path.join('..', 'data', 'tables', 'Probes.csv'),
+                    output_pickle_directory_path=defaults.PICKLE_DIR,
+                    output_pickle_file_name='probe_dict.pkl',
+                    online_database='protein')
 
     logging.info(f'Probe extraction completed')
 

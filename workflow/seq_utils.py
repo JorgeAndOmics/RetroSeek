@@ -74,12 +74,12 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
         return None
 
 
-def blaster_parser(result, instance, unit):
+def blaster_parser(result, instance, unit:str):
     """
     Args:
         result: The result of [blaster] function.
         instance: The Object instance containing information about the query.
-        unit: The particular species against whose database it's being BLASTed
+        unit: The particular species against whose database it's being BLASTed.
 
     Returns:
         alignment_dict: A dictionary containing the parsed results of the [blaster] function:
@@ -106,7 +106,7 @@ def blaster_parser(result, instance, unit):
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
-                        species=str(unit),
+                        species=unit,
                         probe=str(instance.probe),
                         accession=str(accession_by_regex),
                         identifier=random_string,
@@ -127,15 +127,16 @@ def blaster_parser(result, instance, unit):
     return alignment_dict
 
 
-def seq_fetcher(instance, online_database, attempt=1, max_attempts=3):
+def gb_fetcher(instance, online_database:str, attempt:int=1, max_attempts:int=3, expand_by:int=0):
     '''
-    Fetch the tblastn results for a given sequence and appends it to the objects
+    Fetch the GenBank results for a given sequence and appends it to the objects
 
         Args:
             instance: The Object instance containing information about the query.
             online_database: The database to fetch the sequence from.
             attempt: The number of current attempts to fetch the sequence. Default is 1.
             max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
+            expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
 
         Returns:
             object [Optional]: The Object instance with the fetched sequence appended. The function
@@ -147,15 +148,15 @@ def seq_fetcher(instance, online_database, attempt=1, max_attempts=3):
     Entrez.email = defaults.ENTREZ_EMAIL
 
     kwargs = {
-        'db': str(online_database),
+        'db': online_database,
         'id': str(instance.accession),
         'rettype': 'gb',
-        'retmode': 'text'
+        'retmode': 'text',
     }
     if instance.HSP:
         kwargs |= {
-            'seq_start': instance.HSP.sbjct_start,
-            'seq_stop': instance.HSP.sbjct_end,
+            'seq_start': max(1, instance.HSP.sbjct_start + expand_by),
+            'seq_stop': instance.HSP.sbjct_end + expand_by,
      }
     try:
         with Entrez.efetch(**kwargs) as handle:
@@ -169,7 +170,7 @@ def seq_fetcher(instance, online_database, attempt=1, max_attempts=3):
         if attempt < max_attempts:
             time.sleep(2 ** attempt)
             logging.info(f'Retrying... (attempt {attempt + 1})')
-            return seq_fetcher(instance, online_database, attempt + 1, max_attempts)
+            return gb_fetcher(instance, online_database, attempt + 1, max_attempts)
         else:
             logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
@@ -205,7 +206,7 @@ def blast_task(command, value, input_database_path, unit):
 
 def blast_threadpool_executor(object_dict, command, input_database_path, species):
     '''
-    Run tblastn for the Entrez-retrieved probe sequences against the species database
+    Runs BLAST tasks asyncronally using ThreadPoolExecutor
 
         Args:
             object_dict (dict): A dictionary containing object pairs
@@ -231,6 +232,36 @@ def blast_threadpool_executor(object_dict, command, input_database_path, species
 
     return full_parsed_results
 
+def gb_threadpool_executor(object_dict, online_database, expand_by:int=0):
+    '''
+    Fetches GenBank sequences for the objects in the dictionary using ThreadPoolExecutor
+
+        Args:
+            object_dict (dict): A dictionary containing object pairs
+            online_database (str): The database to retrieve the sequences from
+            expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+
+        Returns:
+            dict: A dictionary containing the objects with the fetched GenBank sequences appended
+
+        Raises:
+            Exception: If an error occurs while fetching the sequences
+    '''
+    full_retrieved_results = {}
+
+    tasks = []
+    with ThreadPoolExecutor() as executor:
+        tasks.extend(
+            executor.submit(
+                gb_fetcher, instance=value, online_database=online_database, expand_by=expand_by
+            )
+            for key, value in object_dict.items()
+        )
+        for future in as_completed(tasks):
+            if result := future.result():
+                full_retrieved_results |= result
+
+    return full_retrieved_results
 
 def blast2gb2pickle(object_dict: dict,
                     command: str,
@@ -257,12 +288,13 @@ def blast2gb2pickle(object_dict: dict,
         Raises:
             None
     '''
-    tblastn_results = blast_threadpool_executor(object_dict=object_dict,
+    blast_results = blast_threadpool_executor(object_dict=object_dict,
                                                 command=command,
                                                 input_database_path=input_database_path,
                                                 species=species)
 
-    for key, value in tblastn_results.items():
-        seq_fetcher(value, online_database)
-    pickler(tblastn_results, output_pickle_directory_path, output_pickle_file_name)
+    blast_gb_results = gb_threadpool_executor(object_dict=blast_results,
+                                              online_database=online_database)
+
+    pickler(blast_gb_results, output_pickle_directory_path, output_pickle_file_name)
 
