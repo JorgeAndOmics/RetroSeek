@@ -1,46 +1,9 @@
-import pandas as pd
-import os
-from io import StringIO
-import time
-import subprocess
-import tempfile
-from dataclasses import dataclass, field
-from typing import Optional, Any
-import defaults
 import pickle
-import re
+import os
 
-import random
-import string
+import defaults
+from object_class import Object
 
-from Bio import SeqIO, Entrez
-from Bio.Blast import NCBIXML, NCBIWWW
-
-import logging, coloredlogs
-
-def colored_logging(file_name: str):
-    """
-    Sets up logging and configures coloredlogs with the custom fields and level styles
-    
-        Args:
-            file_name: The name of the file to save the log in.
-        
-        Returns:
-            None
-    """
-    # Configure coloredlogs with the custom field and level styles
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', handlers=[
-        logging.FileHandler(os.path.join(defaults.LOG_DIR, file_name), mode='w'),
-        logging.StreamHandler()
-    ]
-                        )
-
-    coloredlogs.install(
-        level='DEBUG',
-        fmt='%(asctime)s - %(message)s',
-        level_styles=defaults.LEVEL_STYLES,
-        field_styles=defaults.FIELD_STYLES
-    )
 
 def pickler(data, directory_path, file_name):
     """
