@@ -14,9 +14,8 @@ PROBES: list = ['gag',
                 'x_protein',
                 'm_protein']
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
-EXPANSION_SIZE: int = 5000
+EXPANSION_SIZE: int = 0
 E_VALUE: float = 0.1
-EXPANSION_SWITCH: str = 'N'
 ACCESSION_ID_REGEX = '[A-Z]{2,}_?\d*\.\d{1,2}'
 PROBE_MIN_LENGTH: dict = {
     'GAG': 400,
@@ -57,5 +56,5 @@ VIRUS_DB = '/mnt/v/databases/ncbi_virus_db/ncbi_virus'
 VIRUS_FASTA = '/mnt/v/databases/refseq_virus_db/viral.1.1.genomic.fna'
 FASTA_DIR = os.path.join('data', 'fastas')
 LOG_DIR = os.path.join('..', 'logs')
-PICKLE_DIR = os.path.join('..', 'pickles')
+PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
