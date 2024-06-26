@@ -1,9 +1,10 @@
 import os
 import pandas as pd
 
-from utils import pickler, unpickler, colored_logging
-from object import Object
+from utils import pickler, unpickler
+from object_class import Object
 from seq_utils import seq_fetcher
+from colored_logging import colored_logging
 
 import logging, coloredlogs
 

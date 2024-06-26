@@ -1,5 +1,4 @@
-from dataclasses import dataclass, field
-from typing import Optional, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 import pandas as pd
 import subprocess
@@ -11,6 +10,10 @@ import string
 import time
 import os
 import re
+
+from object_class import Object
+from utils import pickler, unpickler
+from colored_logging import colored_logging
 
 from Bio import SeqIO, Entrez
 from Bio.Blast import NCBIXML, NCBIWWW
@@ -57,7 +60,7 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
         result = subprocess.run(tblastn_command, capture_output=True, text=True)
 
         # Delete temporal file
-        os.unlink(fasta_temp_path)
+        os.remove(fasta_temp_path)
 
         # Output captured in result.stdout
         blast_output = result.stdout
@@ -71,11 +74,11 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
         return None
 
 
-def blaster_parser(result, object, unit):
+def blaster_parser(result, instance, unit):
     """
     Args:
         result: The result of [blaster] function.
-        object: The Object instance containing information about the query.
+        instance: The Object instance containing information about the query.
         unit: The particular species against whose database it's being BLASTed
 
     Returns:
@@ -100,19 +103,21 @@ def blaster_parser(result, object, unit):
 
                     random_string: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                     instance = Object(
-                        family=str(object.family),
-                        virus=str(object.virus),
-                        abbreviation=str(object.abbreviation),
+                        family=str(instance.family),
+                        virus=str(instance.virus),
+                        abbreviation=str(instance.abbreviation),
                         species=str(unit),
-                        probe=str(object.probe),
+                        probe=str(instance.probe),
                         accession=str(accession_by_regex),
+                        identifier=random_string,
                         alignment=alignment,
-                        HSP=hsp
+                        HSP=hsp,
                     )
 
-                    if instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[object.probe]:
+                    if instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[instance.probe]:
                         alignment_dict[f'{accession_by_regex}-{random_string}'] = instance
-                        logging.info(f'Added {accession_by_regex}-{random_string} -> {instance.display_info()}')
+                        logging.info(f'Added {accession_by_regex}-{random_string} to Alignment Dictionary:'
+                                     f'\n{instance.display_info()}')
 
 
     except Exception as e:
@@ -168,4 +173,96 @@ def seq_fetcher(instance, online_database, attempt=1, max_attempts=3):
         else:
             logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
+
+
+def blast_task(command, value, input_database_path, unit):
+    '''
+    Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
+    in the ThreadPoolExecutor
+
+        Args:
+            command (str): The type of BLAST to run
+            value (Object): The probe instance
+            input_database_path (str): The path to the input database (species, virus...)
+            unit (str): The species to run tblastn against. Scientific name joined by '_'
+
+        Returns:
+            dict: A dictionary containing the tblastn results parsed by [blaster_parser] function
+
+        Raises:
+            Exception: If the tblastn process fails
+
+    '''
+    try:
+        if blast_result := blaster(value, command, input_database_path, unit):
+            return blaster_parser(blast_result, value, unit)
+        logging.warning(f'Could not parse sequences for {value.probe}, {value.virus} against {unit}')
+        return None
+    except Exception as e:
+        logging.error(f'Error running tblastn for {value.probe}, {value.virus} against {unit}: {e}')
+        return None
+
+
+def blast_threadpool_executor(object_dict, command, input_database_path, species):
+    '''
+    Run tblastn for the Entrez-retrieved probe sequences against the species database
+
+        Args:
+            object_dict (dict): A dictionary containing object pairs
+            command (str): The type of BLAST to run
+            input_database_path (str): The path to the input database (species, virus...)
+            species (list): A list of species to run tblastn against. Scientific name joined by '_'
+            online_database (str): The database to retrieve the sequences from
+    '''
+    full_parsed_results = {}
+
+    tasks = []
+    with ThreadPoolExecutor() as executor:
+        for unit in species:
+            tasks.extend(
+                executor.submit(
+                    blast_task, value=value, command=command, input_database_path=input_database_path, unit=unit
+                )
+                for key, value in object_dict.items()
+            )
+        for future in as_completed(tasks):
+            if result := future.result():
+                full_parsed_results |= result
+
+    return full_parsed_results
+
+
+def blast2gb2pickle(object_dict: dict,
+                    command: str,
+                    online_database: str,
+                    input_database_path: str,
+                    species: list,
+                    output_pickle_directory_path,
+                    output_pickle_file_name):
+    '''
+    Orchestrates the BLAST process, adds GenBank sequence and pickles
+
+        Args:
+            object_dict (dict): A dictionary containing object pairs
+            command (str): The type of BLAST to run
+            online_database (str): The database to retrieve the sequences from
+            input_database_path (str): The path to the input database (species, virus...)
+            species (list): A list of species to run tblastn against. Scientific name joined by '_'
+            output_pickle_directory_path (str): The path to the output pickle directory
+            output_pickle_file_name (str): The name of the output pickle file
+
+        Returns:
+            None
+
+        Raises:
+            None
+    '''
+    tblastn_results = blast_threadpool_executor(object_dict=object_dict,
+                                                command=command,
+                                                input_database_path=input_database_path,
+                                                species=species)
+
+    for key, value in tblastn_results.items():
+        seq_fetcher(value, online_database)
+    pickler(tblastn_results, output_pickle_directory_path, output_pickle_file_name)
 

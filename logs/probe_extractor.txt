@@ -1,5 +1,5 @@
-2024-06-26 16:29:48,726 - Parsed 57 probes
-2024-06-26 16:29:49,513 - Fetched GenBank record for:
+2024-06-26 16:44:19,455 - Parsed 57 probes
+2024-06-26 16:44:20,763 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Avian leukosis virus
 Abbreviation: ALV
@@ -7,7 +7,7 @@ Species: None
 Probe: POL
 Accession: AJG42161.1
 
-2024-06-26 16:29:50,469 - Fetched GenBank record for:
+2024-06-26 16:44:21,649 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Rous sarcoma virus
 Abbreviation: RSV
@@ -15,7 +15,7 @@ Species: None
 Probe: POL
 Accession: CAA48535.1
 
-2024-06-26 16:29:51,230 - Fetched GenBank record for:
+2024-06-26 16:44:22,801 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
@@ -23,7 +23,7 @@ Species: None
 Probe: POL
 Accession: ATN28189.1
 
-2024-06-26 16:29:52,109 - Fetched GenBank record for:
+2024-06-26 16:44:23,670 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Jaagsiekte sheep retrovirus
 Abbreviation: JSRV
@@ -31,7 +31,7 @@ Species: None
 Probe: POL
 Accession: AAD45226.1
 
-2024-06-26 16:29:52,959 - Fetched GenBank record for:
+2024-06-26 16:44:24,558 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Desmodus rotundus endogenous retrovirus
 Abbreviation: DrERV
@@ -39,7 +39,7 @@ Species: None
 Probe: POL
 Accession: AJR27940.1
 
-2024-06-26 16:29:54,100 - Fetched GenBank record for:
+2024-06-26 16:44:25,536 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Porcine endogenous retrovirus
 Abbreviation: PoERV
@@ -47,7 +47,7 @@ Species: None
 Probe: POL
 Accession: AAL38193.1
 
-2024-06-26 16:29:55,025 - Fetched GenBank record for:
+2024-06-26 16:44:26,428 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Koala retrovirus
 Abbreviation: KoRV
@@ -55,7 +55,7 @@ Species: None
 Probe: POL
 Accession: YP_009513211.1
 
-2024-06-26 16:29:55,909 - Fetched GenBank record for:
+2024-06-26 16:44:27,364 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Bovine Leukemia virus
 Abbreviation: BLV
@@ -63,7 +63,7 @@ Species: None
 Probe: POL
 Accession: BAA00544.1
 
-2024-06-26 16:29:56,849 - Fetched GenBank record for:
+2024-06-26 16:44:28,252 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Human T lymphotropic virus 2
 Abbreviation: HTLV
@@ -71,7 +71,7 @@ Species: None
 Probe: POL
 Accession: AAD34842.1
 
-2024-06-26 16:29:57,636 - Fetched GenBank record for:
+2024-06-26 16:44:29,013 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Walleye epidermal hyperplasia virus 1
 Abbreviation: WEHV
@@ -79,7 +79,7 @@ Species: None
 Probe: POL
 Accession: AAD30048.1
 
-2024-06-26 16:29:58,604 - Fetched GenBank record for:
+2024-06-26 16:44:29,852 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Human immunodeficiency virus 1
 Abbreviation: HIV-1
@@ -87,7 +87,7 @@ Species: None
 Probe: POL
 Accession: NP_789740.1
 
-2024-06-26 16:29:59,470 - Fetched GenBank record for:
+2024-06-26 16:44:30,745 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Feline immunodeficiency virus
 Abbreviation: FIV
@@ -95,7 +95,7 @@ Species: None
 Probe: POL
 Accession: CAA40318.1
 
-2024-06-26 16:30:00,213 - Fetched GenBank record for:
+2024-06-26 16:44:31,707 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Bovine foamy virus
 Abbreviation: BFV
@@ -103,7 +103,7 @@ Species: None
 Probe: POL
 Accession: AFR79239.1
 
-2024-06-26 16:30:00,989 - Fetched GenBank record for:
+2024-06-26 16:44:32,579 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Feline foamy virus
 Abbreviation: FFV
@@ -111,7 +111,7 @@ Species: None
 Probe: POL
 Accession: CAA11581.1
 
-2024-06-26 16:30:01,871 - Fetched GenBank record for:
+2024-06-26 16:44:33,496 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Manis javanica Endogenous retrovirus group K
 Abbreviation: MjERVk
@@ -119,7 +119,7 @@ Species: None
 Probe: POL
 Accession: KAI5929250.1
 
-2024-06-26 16:30:02,744 - Fetched GenBank record for:
+2024-06-26 16:44:34,272 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Avian leukosis virus
 Abbreviation: ALV
@@ -127,7 +127,7 @@ Species: None
 Probe: ENV
 Accession: AJG42162.1
 
-2024-06-26 16:30:03,500 - Fetched GenBank record for:
+2024-06-26 16:44:35,270 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Rous sarcoma virus
 Abbreviation: RSV
@@ -135,7 +135,7 @@ Species: None
 Probe: ENV
 Accession: CAA48536.1
 
-2024-06-26 16:30:04,348 - Fetched GenBank record for:
+2024-06-26 16:44:36,138 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
@@ -143,7 +143,7 @@ Species: None
 Probe: ENV
 Accession: ATN28190.1
 
-2024-06-26 16:30:05,130 - Fetched GenBank record for:
+2024-06-26 16:44:37,060 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Jaagsiekte sheep retrovirus
 Abbreviation: JSRV
@@ -151,7 +151,7 @@ Species: None
 Probe: ENV
 Accession: NP_041188.1
 
-2024-06-26 16:30:05,990 - Fetched GenBank record for:
+2024-06-26 16:44:37,801 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Desmodus rotundus endogenous retrovirus
 Abbreviation: DrERV
@@ -159,7 +159,7 @@ Species: None
 Probe: ENV
 Accession: AJR27937.1
 
-2024-06-26 16:30:06,849 - Fetched GenBank record for:
+2024-06-26 16:44:38,743 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Porcine endogenous retrovirus
 Abbreviation: PoERV
@@ -167,7 +167,7 @@ Species: None
 Probe: ENV
 Accession: CAA76583.1
 
-2024-06-26 16:30:07,720 - Fetched GenBank record for:
+2024-06-26 16:44:39,607 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Koala retrovirus
 Abbreviation: KoRV
@@ -175,7 +175,7 @@ Species: None
 Probe: ENV
 Accession: YP_009513212.1
 
-2024-06-26 16:30:08,896 - Fetched GenBank record for:
+2024-06-26 16:44:40,475 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Bovine Leukemia virus
 Abbreviation: BLV
@@ -183,7 +183,7 @@ Species: None
 Probe: ENV
 Accession: ALB75304.1
 
-2024-06-26 16:30:09,938 - Fetched GenBank record for:
+2024-06-26 16:44:41,357 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Human T lymphotropic virus 2
 Abbreviation: HTLV
@@ -191,7 +191,7 @@ Species: None
 Probe: ENV
 Accession: AAD34843.1
 
-2024-06-26 16:30:10,820 - Fetched GenBank record for:
+2024-06-26 16:44:42,669 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Walleye epidermal hyperplasia virus 1
 Abbreviation: WEHV
@@ -199,7 +199,7 @@ Species: None
 Probe: ENV
 Accession: AAD30049.1
 
-2024-06-26 16:30:11,569 - Fetched GenBank record for:
+2024-06-26 16:44:43,420 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Human immunodeficiency virus 1
 Abbreviation: HIV-1
@@ -207,7 +207,7 @@ Species: None
 Probe: ENV
 Accession: AAC82596.1
 
-2024-06-26 16:30:12,429 - Fetched GenBank record for:
+2024-06-26 16:44:44,255 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Feline immunodeficiency virus
 Abbreviation: FIV
@@ -215,7 +215,7 @@ Species: None
 Probe: ENV
 Accession: AAB59940.1
 
-2024-06-26 16:30:13,282 - Fetched GenBank record for:
+2024-06-26 16:44:45,123 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Bovine foamy virus
 Abbreviation: BFV
@@ -223,7 +223,7 @@ Species: None
 Probe: ENV
 Accession: AAB68771.1
 
-2024-06-26 16:30:14,439 - Fetched GenBank record for:
+2024-06-26 16:44:45,965 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Feline foamy virus
 Abbreviation: FFV
@@ -231,7 +231,7 @@ Species: None
 Probe: ENV
 Accession: CAA70076.1
 
-2024-06-26 16:30:15,576 - Fetched GenBank record for:
+2024-06-26 16:44:47,038 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Manis javanica Endogenous retrovirus group K
 Abbreviation: MjERVk
@@ -239,7 +239,7 @@ Species: None
 Probe: ENV
 Accession: KAI5946619.1
 
-2024-06-26 16:30:17,100 - Fetched GenBank record for:
+2024-06-26 16:44:47,801 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Avian leukosis virus
 Abbreviation: ALV
@@ -247,7 +247,7 @@ Species: None
 Probe: GAG
 Accession: AJG42160.1
 
-2024-06-26 16:30:17,970 - Fetched GenBank record for:
+2024-06-26 16:44:48,706 - Fetched GenBank record for:
 Family: Alpharetrovirus
 Virus: Rous sarcoma virus
 Abbreviation: RSV
@@ -255,7 +255,7 @@ Species: None
 Probe: GAG
 Accession: CAA48534.1
 
-2024-06-26 16:30:18,879 - Fetched GenBank record for:
+2024-06-26 16:44:49,513 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
@@ -263,7 +263,7 @@ Species: None
 Probe: GAG
 Accession: ATN28187.1
 
-2024-06-26 16:30:19,678 - Fetched GenBank record for:
+2024-06-26 16:44:50,405 - Fetched GenBank record for:
 Family: Betaretrovirus
 Virus: Jaagsiekte sheep retrovirus
 Abbreviation: JSRV
@@ -271,7 +271,7 @@ Species: None
 Probe: GAG
 Accession: AAA89180.1
 
-2024-06-26 16:30:20,562 - Fetched GenBank record for:
+2024-06-26 16:44:51,219 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Desmodus rotundus endogenous retrovirus
 Abbreviation: DrERV
@@ -279,7 +279,7 @@ Species: None
 Probe: GAG
 Accession: AJR27933.1
 
-2024-06-26 16:30:21,412 - Fetched GenBank record for:
+2024-06-26 16:44:51,992 - Fetched GenBank record for:
 Family: Gammaretrovirus
 Virus: Porcine endogenous retrovirus
 Abbreviation: PoERV
@@ -287,7 +287,7 @@ Species: None
 Probe: GAG
 Accession: ADG27335.1
 
-2024-06-26 16:30:22,263 - Fetched GenBank record for:
+2024-06-26 16:44:52,776 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Koala retrovirus
 Abbreviation: KoRV
@@ -295,7 +295,7 @@ Species: None
 Probe: GAG
 Accession: AAF15097.1
 
-2024-06-26 16:30:23,078 - Fetched GenBank record for:
+2024-06-26 16:44:53,639 - Fetched GenBank record for:
 Family: Deltaretrovirus
 Virus: Bovine Leukemia virus
 Abbreviation: BLV
@@ -303,7 +303,7 @@ Species: None
 Probe: GAG
 Accession: AAC82585.1
 
-2024-06-26 16:31:27,681 - Fetched GenBank record for:
+2024-06-26 16:44:54,480 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Human T lymphotropic virus 2
 Abbreviation: HTLV
@@ -311,7 +311,7 @@ Species: None
 Probe: GAG
 Accession: AAB59884.1
 
-2024-06-26 16:31:28,533 - Fetched GenBank record for:
+2024-06-26 16:44:55,319 - Fetched GenBank record for:
 Family: Epsilonretrovirus
 Virus: Walleye epidermal hyperplasia virus 1
 Abbreviation: WEHV
@@ -319,7 +319,7 @@ Species: None
 Probe: GAG
 Accession: AAD30047.1
 
-2024-06-26 16:31:29,261 - Fetched GenBank record for:
+2024-06-26 16:44:56,221 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Human immunodeficiency virus 1
 Abbreviation: HIV-1
@@ -327,7 +327,7 @@ Species: None
 Probe: GAG
 Accession: AAC82593.1
 
-2024-06-26 16:31:30,119 - Fetched GenBank record for:
+2024-06-26 16:44:56,991 - Fetched GenBank record for:
 Family: Lentivirus
 Virus: Feline immunodeficiency virus
 Abbreviation: FIV
@@ -335,7 +335,7 @@ Species: None
 Probe: GAG
 Accession: AAB59936.1
 
-2024-06-26 16:31:31,045 - Fetched GenBank record for:
+2024-06-26 16:44:57,869 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Bovine foamy virus
 Abbreviation: BFV
@@ -343,7 +343,7 @@ Species: None
 Probe: GAG
 Accession: AAB68769.1
 
-2024-06-26 16:31:31,923 - Fetched GenBank record for:
+2024-06-26 16:44:58,729 - Fetched GenBank record for:
 Family: Spumaretrovirus
 Virus: Feline foamy virus
 Abbreviation: FFV
@@ -351,7 +351,7 @@ Species: None
 Probe: GAG
 Accession: CAA70074.1
 
-2024-06-26 16:31:32,883 - Fetched GenBank record for:
+2024-06-26 16:44:59,727 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Manis javanica Endogenous retrovirus group K
 Abbreviation: MjERVk
@@ -359,7 +359,7 @@ Species: None
 Probe: GAG
 Accession: KAI5943785.1
 
-2024-06-26 16:31:33,747 - Fetched GenBank record for:
+2024-06-26 16:45:00,627 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Visna maedi
 Abbreviation: VMW
@@ -367,7 +367,7 @@ Species: None
 Probe: VIF
 Accession: AAB25461.1
 
-2024-06-26 16:31:34,605 - Fetched GenBank record for:
+2024-06-26 16:45:01,516 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Human immunodeficiency virus 1
 Abbreviation: HIV-1
@@ -375,7 +375,7 @@ Species: None
 Probe: VIF
 Accession: AAF20197.1
 
-2024-06-26 16:31:35,435 - Fetched GenBank record for:
+2024-06-26 16:45:02,374 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Simian immunodeficiency virus
 Abbreviation: SIV
@@ -383,7 +383,7 @@ Species: None
 Probe: VIF
 Accession: AAP97009.1
 
-2024-06-26 16:31:36,436 - Fetched GenBank record for:
+2024-06-26 16:45:03,308 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Small ruminant lentivirus
 Abbreviation: SRLV
@@ -391,7 +391,7 @@ Species: None
 Probe: VIF
 Accession: ALU34105.1
 
-2024-06-26 16:31:37,248 - Fetched GenBank record for:
+2024-06-26 16:45:04,194 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Puma lentivirus
 Abbreviation: PLV
@@ -399,7 +399,7 @@ Species: None
 Probe: VIF
 Accession: QIG38012.1
 
-2024-06-26 16:31:38,142 - Fetched GenBank record for:
+2024-06-26 16:45:05,093 - Fetched GenBank record for:
 Family: Orthoretrovirus
 Virus: Feline immunodeficiency virus
 Abbreviation: FIV
@@ -407,7 +407,7 @@ Species: None
 Probe: VIF
 Accession: WPT10369.1
 
-2024-06-26 16:31:39,077 - Fetched GenBank record for:
+2024-06-26 16:45:05,997 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -415,7 +415,7 @@ Species: None
 Probe: N_protein
 Accession: AAR36966.2
 
-2024-06-26 16:31:40,000 - Fetched GenBank record for:
+2024-06-26 16:45:06,740 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -423,7 +423,7 @@ Species: None
 Probe: P_protein
 Accession: AAR36968.2
 
-2024-06-26 16:31:40,901 - Fetched GenBank record for:
+2024-06-26 16:45:07,492 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -431,7 +431,7 @@ Species: None
 Probe: G_protein
 Accession: NP_042023.1
 
-2024-06-26 16:31:41,640 - Fetched GenBank record for:
+2024-06-26 16:45:08,359 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -439,7 +439,7 @@ Species: None
 Probe: L_protein
 Accession: UPO09296.1
 
-2024-06-26 16:31:42,441 - Fetched GenBank record for:
+2024-06-26 16:45:09,214 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -447,7 +447,7 @@ Species: None
 Probe: X_protein
 Accession: WWZ81731.1
 
-2024-06-26 16:31:43,192 - Fetched GenBank record for:
+2024-06-26 16:45:10,007 - Fetched GenBank record for:
 Family: Bornavirus
 Virus: Borna disease virus
 Abbreviation: BDV
@@ -455,3 +455,4 @@ Species: None
 Probe: M_protein
 Accession: WXB24237.1
 
+2024-06-26 16:45:10,022 - Probe extraction completed

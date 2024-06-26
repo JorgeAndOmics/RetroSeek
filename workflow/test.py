@@ -1,12 +1,23 @@
-import defaults
-from utils import *
+import os
 import io
+from io import StringIO
+import subprocess
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import defaults
+from utils import pickler, unpickler, colored_logging
+from object_class import Object
+from seq_utils import blaster, blaster_parser, seq_fetcher
+
+from Bio.Blast import NCBIXML
+from Bio import Entrez
+
+import logging, coloredlogs
 
 test = unpickler(os.path.join('..', 'data', 'pickles'), 'probe_dict.pkl')
 # print(test['AJG42161.1'].get_gff())
 
 handle = test['AJG42161.1'].get_fasta()
-with tempfile.NamedTemporaryFile(mode='w', delete=True, dir=defaults.TMP_DIR) as fasta_temp_file:
-    fasta_temp_file.write(handle)
-    fasta_temp_path = fasta_temp_file.name
-    print(fasta_temp_path)
+
+print(handle)
