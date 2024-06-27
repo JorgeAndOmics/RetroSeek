@@ -315,8 +315,7 @@ def seq_merger(object_dict):
     is another dictionary with fewer instances, where the HSP.sbjct_start and HSP.sbjct_end coordinates have been
     updated to reflect the merged sequences, in order to download the full sequence from Entrez.
 
-    CAUTION 1!: This function assumes that the sequences are sorted by their start coordinate.
-    CAUTION 2!: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
+    CAUTION!: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
 
         Args:
             object_dict (dict): A dictionary with object pairs to merge.
@@ -351,7 +350,7 @@ def seq_merger(object_dict):
         if all(instance.HSP.sbjct_start < instance.HSP.sbjct_end for _, instance in instances):
             instances.sort(key=lambda x: x[1].HSP.sbjct_start)
         elif all(instance.HSP.sbjct_end < instance.HSP.sbjct_start for _, instance in instances):
-            instances.sort(key=lambda x: x[1].HSP.sbjct_start, reverse=True)
+            instances.sort(key=lambda x: x[1].HSP.sbjct_end)
         else:
             logging.critical('Critical error: Sequences could not be sorted by their start coordinate. Exiting.')
             return merged_dict
@@ -360,11 +359,22 @@ def seq_merger(object_dict):
         merged_instance = instances[0][1]
 
         for _, instance in instances[1:]:
-            if ranges_overlap(instance.HSP.sbjct_start, instance.HSP.sbjct_end,
-                              merged_instance.HSP.sbjct_start, merged_instance.HSP.sbjct_end):
+            # Determine the true start and end for the instance
+            instance_start = min(instance.HSP.sbjct_start, instance.HSP.sbjct_end)
+            instance_end = max(instance.HSP.sbjct_start, instance.HSP.sbjct_end)
+            merged_start = min(merged_instance.HSP.sbjct_start, merged_instance.HSP.sbjct_end)
+            merged_end = max(merged_instance.HSP.sbjct_start, merged_instance.HSP.sbjct_end)
+
+            if ranges_overlap(instance_start, instance_end, merged_start, merged_end):
                 # Merge the sequences by updating the coordinates
-                merged_instance.HSP.sbjct_start = min(instance.HSP.sbjct_start, merged_instance.HSP.sbjct_start)
-                merged_instance.HSP.sbjct_end = max(instance.HSP.sbjct_end, merged_instance.HSP.sbjct_end)
+                new_start = min(instance_start, merged_start)
+                new_end = max(instance_end, merged_end)
+                if instance.HSP.sbjct_start < instance.HSP.sbjct_end:
+                    merged_instance.HSP.sbjct_start = new_start
+                    merged_instance.HSP.sbjct_end = new_end
+                else:
+                    merged_instance.HSP.sbjct_end = new_start
+                    merged_instance.HSP.sbjct_start = new_end
             else:
                 # If they do not overlap, add the merged_instance to the dictionary
                 new_key = f"{merged_instance.accession}-{merged_instance.identifier}"

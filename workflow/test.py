@@ -21,4 +21,6 @@ import logging, coloredlogs
 
 test = unpickler(os.path.join('..', 'data', 'pickles'), 'tblastn_results.pkl')
 
-print(len(test.items()))
+probes = {value.probe for value in test.values()}
+print(probes)
+    
