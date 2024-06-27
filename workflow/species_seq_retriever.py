@@ -5,7 +5,7 @@ import subprocess
 from collections import defaultdict
 
 import defaults
-from utils import pickler, unpickler
+from utils import pickler, unpickler, directory_content_eraser
 from object_class import Object
 from seq_utils import *
 from colored_logging import colored_logging
@@ -29,3 +29,5 @@ if __name__ == '__main__':
                     species=defaults.SPECIES,
                     output_pickle_directory_path=defaults.PICKLE_DIR,
                     output_pickle_file_name='tblastn_results.pkl')
+
+    directory_content_eraser(defaults.TMP_DIR)
