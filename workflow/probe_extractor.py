@@ -50,7 +50,7 @@ def probe_extractor(input_csv_file, output_pickle_directory_path, output_pickle_
     pickler(probe_dict, output_pickle_directory_path, output_pickle_file_name)
 
 if __name__ == '__main__':
-    colored_logging('probe_extractor.txt')
+    colored_logging(log_file_name='probe_extractor.txt')
 
     probe_extractor(input_csv_file=os.path.join('..', 'data', 'tables', 'Probes.csv'),
                     output_pickle_directory_path=defaults.PICKLE_DIR,
