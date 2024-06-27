@@ -47,4 +47,4 @@ VIRUS_FASTA = '/mnt/v/databases/refseq_virus_db/viral.1.1.genomic.fna'
 LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
-MAX_RETRIEVAL_ATTEMPTS = 7
+MAX_RETRIEVAL_ATTEMPTS = 9

@@ -103,22 +103,23 @@ def blaster_parser(result, instance, unit:str):
                     accession_by_regex = regex_pattern.search(alignment.title.split('|')[-1]).group()
 
                     random_string: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-                    instance = Object(
+                    new_instance = Object(
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
                         species=unit,
                         probe=str(instance.probe),
                         accession=str(accession_by_regex),
-                        identifier=instance.identifier or random_string,
-                        alignment=alignment,
-                        HSP=hsp,
-                    )
+                        identifier=instance.identifier or random_string)
 
-                    if instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[instance.probe]:
-                        alignment_dict[f'{accession_by_regex}-{random_string}'] = instance
+                    new_instance.set_alignment(alignment),
+                    new_instance.set_HSP(hsp),
+
+
+                    if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
+                        alignment_dict[f'{accession_by_regex}-{random_string}'] = new_instance
                         logging.info(f'Added {accession_by_regex}-{random_string} to Alignment Dictionary:'
-                                     f'\n{instance.display_info()}')
+                                     f'\n{new_instance.display_info()}')
 
 
     except Exception as e:
@@ -205,7 +206,9 @@ def gb_fetcher(instance,
 
         Returns:
             object [Optional]: The Object instance with the fetched sequence appended. The function
-            updates the input object, but returns the object for convenience.
+            returns the instance whether it has been updated or not. If the sequence could not be fetched,
+            the instance will be returned as is. If the sequence was fetched, the instance will be updated
+            with the GenBank record. See [incomplete_dict_cleaner] function to remove incomplete objects.
 
         Raises:
             Exception: If an error occurs while fetching the sequence.
@@ -274,6 +277,7 @@ def gb_threadpool_executor(object_dict, online_database, expand_by:int=0, max_at
         for future in as_completed(tasks):
             if result := future.result():
                 full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
+                logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary:')
 
     return full_retrieved_results
 
