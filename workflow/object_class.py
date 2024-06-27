@@ -82,6 +82,78 @@ class Object:
                 f'{self.accession},'
                 f'{self.identifier}')
 
+    # Static Methods
+    @staticmethod
+    def extract_fasta_from_genbank(genbank_record):
+        """
+        Extracts the FASTA file from the GenBank record
+
+            Returns:
+                str or None: The FASTA file content
+
+            Raises:
+                None
+        """
+
+        try:
+            with StringIO() as handle:
+                SeqIO.write(genbank_record, handle, 'fasta')
+                fasta = handle.getvalue()
+            return fasta
+        except Exception as e:
+            logging.warning(f'Could not extract fasta: {e}')
+            return None
+
+    @staticmethod
+    def extract_gff_from_genbank(genbank_record):
+        """
+        Extracts the GFF file from the GenBank record
+
+            Returns:
+                str or None: The GFF file content
+
+            Raises:
+                None
+        """
+        try:
+            with StringIO() as handle:
+                for feature in genbank_record.features:
+                    gff_line = f'{genbank_record.id}\t{feature.type}\t{feature.location}\n'
+                    handle.write(gff_line)
+                gff = handle.getvalue()
+            return gff
+        except Exception as e:
+            logging.warning(f'Could not extract gff: {e}')
+            return None
+
+    @staticmethod
+    def extract_strand_from_HSP(HSP: Any) -> str:
+        """
+        Extracts the strand information from the HSP object
+
+            Returns:
+                None
+
+            Raises:
+                None
+        """
+        try:
+            if HSP.frame:
+                if HSP.frame[-1] > 0 and isinstance(HSP.frame[-1], int):
+                    return '+'
+                if HSP.frame[-1] < 0 and isinstance(HSP.frame[-1], int):
+                    return '-'
+            else:
+                if HSP.sbjct_start < HSP.sbjct_end:
+                    return '+'
+                if HSP.sbjct_start > HSP.sbjct_end:
+                    return '-'
+
+        except Exception as e:
+            logging.warning(f'Could not extract strand: {e}')
+            return None
+
+    # Getters and Setters
     def get_alignment(self):
         """
         Returns the Alignment file associated with the object
@@ -212,76 +284,7 @@ class Object:
             logging.warning('Genbank not set. Could not retrieve gff.')
             return None
 
-    @staticmethod
-    def extract_fasta_from_genbank(genbank_record):
-        """
-        Extracts the FASTA file from the GenBank record
-
-            Returns:
-                str or None: The FASTA file content
-
-            Raises:
-                None
-        """
-
-        try:
-            with StringIO() as handle:
-                SeqIO.write(genbank_record, handle, 'fasta')
-                fasta = handle.getvalue()
-            return fasta
-        except Exception as e:
-            logging.warning(f'Could not extract fasta: {e}')
-            return None
-
-    @staticmethod
-    def extract_gff_from_genbank(genbank_record):
-        """
-        Extracts the GFF file from the GenBank record
-
-            Returns:
-                str or None: The GFF file content
-
-            Raises:
-                None
-        """
-        try:
-            with StringIO() as handle:
-                for feature in genbank_record.features:
-                    gff_line = f'{genbank_record.id}\t{feature.type}\t{feature.location}\n'
-                    handle.write(gff_line)
-                gff = handle.getvalue()
-            return gff
-        except Exception as e:
-            logging.warning(f'Could not extract gff: {e}')
-            return None
-
-    @staticmethod
-    def extract_strand_from_HSP(HSP: Any) -> str:
-        """
-        Extracts the strand information from the HSP object
-
-            Returns:
-                None
-
-            Raises:
-                None
-        """
-        try:
-            if HSP.frame:
-                if HSP.frame[-1] > 0 and isinstance(HSP.frame[-1], int):
-                    return '+'
-                if HSP.frame[-1] < 0 and isinstance(HSP.frame[-1], int):
-                    return '-'
-            else:
-                if HSP.sbjct_start < HSP.sbjct_end:
-                    return '+'
-                if HSP.sbjct_start > HSP.sbjct_end:
-                    return '-'
-
-        except Exception as e:
-            logging.warning(f'Could not extract strand: {e}')
-            return None
-
+    # Display methods and Verifier methods
     def display_info(self) -> str:
         """
         Displays human-readable information about the object. If there are HSPs associated with the object,
@@ -310,10 +313,7 @@ class Object:
                      f'HSP Strand: {self.strand}\n')
 
         if self.is_complete():
-            info += f'Complete Record\n'
-        else:
-            info += f'Non-Complete Record\n'
-
+            info += f'Complete Record'
 
         return info
 
