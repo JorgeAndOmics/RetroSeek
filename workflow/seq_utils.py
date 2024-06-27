@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 from io import StringIO
 import pandas as pd
 import subprocess
@@ -21,14 +22,14 @@ from Bio.Blast import NCBIXML, NCBIWWW
 import logging, coloredlogs
 
 
-def blaster(instance, command: str, species_database_path, unit: str, _outfmt:str= '5'):
+def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str= '5'):
     """
     Run a tblastn search for a given object against a given database
 
         Args:
             instance: The Object instance containing information about the query.
             command: The command to run tblastn.
-            species_database_path: The path to the database.
+            input_database_path: The path to the database.
             unit: The particular species against whose database it's being BLASTed
             _outfmt: The output format for the BLAST results. Default is 5.
 
@@ -47,7 +48,7 @@ def blaster(instance, command: str, species_database_path, unit: str, _outfmt:st
         tblastn_command = [
             command,
             '-db',
-            os.path.join(species_database_path, unit, unit),
+            os.path.join(input_database_path, unit, unit),
             '-query',
             fasta_temp_path,  # BLAST+ doesn't take in SeqRecord objects, but files
             '-evalue',
@@ -75,7 +76,7 @@ def blaster(instance, command: str, species_database_path, unit: str, _outfmt:st
         return None
 
 
-def blaster_parser(result, instance, unit:str):
+def _blaster_parser(result, instance, unit:str):
     """
     Args:
         result: The result of [blaster] function.
@@ -129,7 +130,7 @@ def blaster_parser(result, instance, unit:str):
     return alignment_dict
 
 
-def blast_task(instance, command, unit):
+def _blast_task(instance, command, unit, input_database_path):
     """
     Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
@@ -147,10 +148,11 @@ def blast_task(instance, command, unit):
 
     """
     try:
-        if blast_result := blaster(instance=instance,
-                                   command=command,
-                                   unit=unit):
-            return blaster_parser(blast_result, instance, unit)
+        if blast_result := _blaster(instance=instance,
+                                    command=command,
+                                    unit=unit,
+                                    input_database_path=input_database_path):
+            return _blaster_parser(blast_result, instance, unit)
         logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {unit}')
         return None
     except Exception as e:
@@ -158,15 +160,19 @@ def blast_task(instance, command, unit):
         return None
 
 
-def blast_threadpool_executor(object_dict, command, input_database_path, species):
+def blast_threadpool_executor(object_dict,
+                              command,
+                              species,
+                              input_database_path):
     """
     Runs BLAST tasks asyncronally using ThreadPoolExecutor
 
         Args:
             object_dict (dict): A dictionary containing object pairs
             command (str): The type of BLAST to run
-            input_database_path (str): The path to the input database (species, virus...)
             species (list): A list of species to run tblastn against. Scientific name joined by '_'
+            input_database_path (str): The path to the input database (species, virus...)
+
 
         Returns:
             full_parsed_results (dict): A dictionary containing the parsed BLAST results
@@ -178,7 +184,11 @@ def blast_threadpool_executor(object_dict, command, input_database_path, species
         for unit in species:
             tasks.extend(
                 executor.submit(
-                    blast_task, value=value, command=command, input_database_path=input_database_path, unit=unit
+                    _blast_task,
+                    instance=value,
+                    command=command,
+                    unit=unit,
+                    input_database_path=input_database_path
                 )
                 for key, value in object_dict.items()
             )
@@ -186,16 +196,23 @@ def blast_threadpool_executor(object_dict, command, input_database_path, species
             if result := future.result():
                 full_parsed_results |= result
 
+    if not full_parsed_results:
+        logging.critical('BLAST results are empty. Exiting.')
+        return
+
     return full_parsed_results
 
-def gb_fetcher(instance,
+def _gb_fetcher(instance,
                online_database:str,
                _attempt:int=1,
                max_attempts:int=3,
                expand_by:int=0,
                _entrez_email:str=defaults.ENTREZ_EMAIL):
     """
-    Fetch the GenBank results for a given sequence and appends it to the objects
+    Fetch the GenBank results for a given sequence and appends it to the objects.
+
+    CAUTION 1: Expansion and merging of sequences are done simultaneously in this function. New overlaps
+    may be created by expanding the sequence.
 
         Args:
             instance: The Object instance containing information about the query.
@@ -206,7 +223,7 @@ def gb_fetcher(instance,
             _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
 
         Returns:
-            object [Optional]: The Object instance with the fetched sequence appended. The function
+            object: The Object instance with the fetched sequence appended. The function
             returns the instance whether it has been updated or not. If the sequence could not be fetched,
             the instance will be returned as is. If the sequence was fetched, the instance will be updated
             with the GenBank record. See [incomplete_dict_cleaner] function to remove incomplete objects.
@@ -239,15 +256,18 @@ def gb_fetcher(instance,
         if _attempt < max_attempts:
             time.sleep(2 ** _attempt)
             logging.warning(f'Retrying... (attempt {_attempt + 1})')
-            return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
+            return _gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
         else:
             logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
 
 
-def gb_threadpool_executor(object_dict, online_database, expand_by:int=0, max_attempts:int=3):
+def gb_threadpool_executor(object_dict,
+                           online_database,
+                           expand_by:int=defaults.EXPANSION_SIZE,
+                           max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
     """
-    Fetches GenBank sequences for the objects in the dictionary using ThreadPoolExecutor
+    Fetches GenBank sequences for the objects in an object dictionary using ThreadPoolExecutor
 
         Args:
             object_dict (dict): A dictionary containing object pairs
@@ -267,7 +287,7 @@ def gb_threadpool_executor(object_dict, online_database, expand_by:int=0, max_at
     with ThreadPoolExecutor() as executor:
         tasks.extend(
             executor.submit(
-                gb_fetcher,
+                _gb_fetcher,
                 instance=value,
                 online_database=online_database,
                 expand_by=expand_by,
@@ -278,64 +298,86 @@ def gb_threadpool_executor(object_dict, online_database, expand_by:int=0, max_at
         for future in as_completed(tasks):
             if result := future.result():
                 full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-                logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary:')
+                logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary\n')
+
+    if not full_retrieved_results:
+        logging.critical('No fetched GenBank results. Exiting.')
+        return
 
     return full_retrieved_results
 
-def blast2gb2pickle(object_dict: dict,
-                    command: str,
-                    online_database: str,
-                    input_database_path: str,
-                    species: list,
-                    output_pickle_directory_path,
-                    output_pickle_file_name,
-                    expand_by:int=defaults.EXPANSION_SIZE,
-                    max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
+
+# Function to merge overlapping sequences within each group
+
+def seq_merger(object_dict):
     """
-    Orchestrates the BLAST process, adds GenBank sequences and pickles
+    Function to merge overlapping sequences. The function groups sequences by species, accession, strand, and virus.
+    Then it merges the sequences within each group by updating the coordinates of the merged sequence. The results
+    is another dictionary with fewer instances, where the HSP.sbjct_start and HSP.sbjct_end coordinates have been
+    updated to reflect the merged sequences, in order to download the full sequence from Entrez.
+
+    CAUTION 1: This function assumes that the sequences are sorted by their start coordinate.
+    CAUTION 2*: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
 
         Args:
-            object_dict (dict): A dictionary containing object pairs
-            command (str): The type of BLAST to run
-            online_database (str): The database to retrieve the sequences from
-            input_database_path (str): The path to the input database (species, virus...)
-            species (list): A list of species to run tblastn against. Scientific name joined by '_'
-            output_pickle_directory_path (str): The path to the output pickle directory
-            output_pickle_file_name (str): The name of the output pickle file
-            expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Retrieves from defaults.
-            max_attempts (int): The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+            object_dict (dict): A dictionary with of object pairs to merge.
 
         Returns:
-            None
-
-        Raises:
-            None
+            merged_dict (dict): A dictionary with the merged* sequences.
     """
-    blast_results:dict = blast_threadpool_executor(object_dict=object_dict,
-                                                command=command,
-                                                input_database_path=input_database_path,
-                                                species=species)
+    # Function to group sequences by species, accession, strand, and virus
+    def seq_grouper(object_dict):
+        logging.debug('Grouping sequences by species, accession, strand, and virus')
+        grouped_sequences = defaultdict(list)
 
-    if not blast_results:
-        logging.critical('BLAST results are empty. Exiting.')
-        return
+        for key, instance in object_dict.items():
+            group_key = (instance.species, instance.accession, instance.strand, instance.virus)
+            grouped_sequences[group_key].append((key, instance))
 
-    blast_gb_results:dict = gb_threadpool_executor(object_dict=blast_results,
-                                              online_database=online_database,
-                                              expand_by=expand_by,
-                                              max_attempts=max_attempts)
+        return grouped_sequences
 
-    if not isinstance(blast_gb_results, dict):
-        logging.critical('Fetched GenBank results are not a dictionary. Exiting.')
-        return
+    # Helper function to check if two ranges overlap
+    def ranges_overlap(start1, end1, start2, end2):
+        return max(start1, start2) <= min(end1, end2)
 
-    logging.debug('Cleaning up incomplete objects...')
-    clean_blast_gb_results = incomplete_dict_cleaner(blast_gb_results)
+    grouped_sequences = seq_grouper(object_dict=object_dict)
 
-    pickler(clean_blast_gb_results, output_pickle_directory_path, output_pickle_file_name)
+    merged_dict = {}
 
-    logging.debug('Cleaning up temporal files...')
-    directory_content_eraser(defaults.TMP_DIR)
+    for group_key, instances in grouped_sequences.items():
+        if not instances:
+            continue
 
-    logging.info(f'Successfully performed {command} and retrieval on {len(blast_gb_results)} sequences.')
+        # TODO: REVISE: Add a sorting function to sort the sequences by their positive frame? (sbjct_start < sbjct_end)
 
+        # Organize all HSP coordinates from smallest to largest. This is necessary to merge the sequences.
+        # Orientation is already defined by the strand attribute.
+        if instances.HSP.sbjct_start > instances.HSP.sbjct_end:
+            instances.HSP.sbjct_start, instances.HSP.sbjct_end = instances.HSP.sbjct_end, instances.HSP.sbjct_start
+
+        # Sort instances by their start coordinate
+        instances.sort(key=lambda x: x[1].HSP.sbjct_start)
+
+        # Initialize the merged_instance with the first instance in the group
+        merged_instance = instances[0][1]
+
+        for _, instance in instances[1:]:
+            if ranges_overlap(instance.HSP.sbjct_start, instance.HSP.sbjct_end,
+                              merged_instance.HSP.sbjct_start, merged_instance.HSP.sbjct_end):
+                # Merge the sequences by updating the coordinates
+                merged_instance.HSP.sbjct_start = min(instance.HSP.sbjct_start, merged_instance.HSP.sbjct_start)
+                merged_instance.HSP.sbjct_end = max(instance.HSP.sbjct_end, merged_instance.HSP.sbjct_end)
+            else:
+                # If they do not overlap, add the merged_instance to the dictionary
+                new_key = f"{merged_instance.accession}-{merged_instance.identifier}"
+                merged_dict[new_key] = merged_instance
+                logging.info(f'Added {new_key} to Merging Dictionary')
+                # Set the current instance as the new merged_instance
+                merged_instance = instance
+
+        # Add the last merged_instance to the dictionary
+        new_key = f"{merged_instance.accession}-{merged_instance.identifier}"
+        merged_dict[new_key] = merged_instance
+        logging.info(f'Added {new_key} to Merging Dictionary')
+
+    return merged_dict
