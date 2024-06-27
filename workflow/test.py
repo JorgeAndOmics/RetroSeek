@@ -16,9 +16,41 @@ from Bio import Entrez
 
 import logging, coloredlogs
 
-test = unpickler(os.path.join('..', 'data', 'pickles'), 'probe_dict.pkl')
+
+def extract_strand_from_HSP(HSP_object) -> str:
+    """
+    Extracts the strand information from the HSP object
+
+        Returns:
+            None
+
+        Raises:
+            None
+    """
+    try:
+        if HSP_object.frame:
+            if HSP_object.frame[-1] > 0 and isinstance(HSP_object.frame[-1], int):
+                return '+'
+            if HSP_object.frame[-1] < 0 and isinstance(HSP_object.frame[-1], int):
+                return '-'
+        else:
+            if HSP_object.sbjct_start < HSP_object.sbjct_end:
+                return '+'
+            if HSP_object.sbjct_start > HSP_object.sbjct_end:
+                return '-'
+    except Exception as e:
+        logging.warning(f'Could not extract strand: {e}')
+        return None
+
+test = unpickler(os.path.join('..', 'data', 'pickles'), 'tblastn_results.pkl')
 # print(test['AJG42161.1'].get_gff())
 
-handle = test['AJG42161.1'].HSP
+test_instance = (test['CM014239.1-CEPMGO'])
 
-print(handle)
+test_hsp = test_instance.HSP
+
+test_frame = test_hsp.frame
+
+test_frame_method = extract_strand_from_HSP(test_hsp)
+
+print(test_hsp)

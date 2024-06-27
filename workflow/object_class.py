@@ -71,14 +71,15 @@ class Object:
     genbank: Optional[Any] = field(default=None)
     fasta: Optional[Any] = field(default=None, init=False, repr=False)
     gff: Optional[Any] = field(default=None, init=False, repr=False)
+    strand: Optional[Any] = field(default=None, init=False, repr=False)
 
     def __str__(self):
-        return (f'{self.family}, '
-                f'{self.virus}, '
-                f'{self.abbreviation}, '
-                f'{self.species}, '
-                f'{self.probe}, '
-                f'{self.accession}',
+        return (f'{self.family},'
+                f'{self.virus},'
+                f'{self.abbreviation},'
+                f'{self.species},'
+                f'{self.probe},'
+                f'{self.accession},'
                 f'{self.identifier}')
 
     def get_alignment(self):
@@ -96,7 +97,7 @@ class Object:
         except Exception as e:
             logging.warning(f'Could not retrieve alignment: {e}')
 
-    def set_alignment(self, alignment):
+    def set_alignment(self, alignment_object):
         """
         Associates an Alignment file with the object
 
@@ -106,7 +107,7 @@ class Object:
             Raises:
                 None
         """
-        self.alignment = alignment
+        self.alignment = alignment_object
 
     def get_HSP(self):
         """
@@ -122,9 +123,10 @@ class Object:
         except Exception as e:
             logging.warning(f'Could not retrieve HSP: {e}')
 
-    def set_HSP(self, HSP):
+    def set_HSP(self, HSP_object):
+
         """
-        Associates an HSP file with the object
+        Associates an HSP file with the object. Sets strand attribute from the HSP object.
 
             Returns:
                 None
@@ -132,7 +134,8 @@ class Object:
             Raises:
                 None
         """
-        self.HSP = HSP
+        self.HSP = HSP_object
+        self.strand = self.extract_strand_from_HSP(self.HSP)
 
     def get_genbank(self):
         """
@@ -153,7 +156,7 @@ class Object:
     def set_genbank(self, genbank):
         """
         Associates a GenBank file with the object. Also sets the FASTA and GFF files from the GenBank file
-        generated through the extract_fasta_from_genbank and extract_gff_from_genbank methods
+        generated through the [extract_fasta_from_genbank] and [extract_gff_from_genbank] methods.
 
             Returns:
                 None
@@ -252,6 +255,33 @@ class Object:
             logging.warning(f'Could not extract gff: {e}')
             return None
 
+    @staticmethod
+    def extract_strand_from_HSP(HSP: Any) -> str:
+        """
+        Extracts the strand information from the HSP object
+
+            Returns:
+                None
+
+            Raises:
+                None
+        """
+        try:
+            if HSP.frame:
+                if HSP.frame[-1] > 0 and isinstance(HSP.frame[-1], int):
+                    return '+'
+                if HSP.frame[-1] < 0 and isinstance(HSP.frame[-1], int):
+                    return '-'
+            else:
+                if HSP.sbjct_start < HSP.sbjct_end:
+                    return '+'
+                if HSP.sbjct_start > HSP.sbjct_end:
+                    return '-'
+
+        except Exception as e:
+            logging.warning(f'Could not extract strand: {e}')
+            return None
+
     def display_info(self) -> str:
         """
         Displays human-readable information about the object. If there are HSPs associated with the object,
@@ -264,21 +294,25 @@ class Object:
                 None
         """
         info = (f'Family: {self.family}\n'
-                f'Virus: {self.virus}\n'
-                f'Abbreviation: {self.abbreviation}\n'
-                f'Species: {self.species}\n'
-                f'Probe: {self.probe}\n'
-                f'Accession: {self.accession}\n')
+               f'Virus: {self.virus}\n'
+               f'Abbreviation: {self.abbreviation}\n'
+               f'Probe: {self.probe}\n'
+               f'Accession: {self.accession}\n')
 
+        if self.species:
+            info += f'Species: {self.species.replace("_", " ")}\n'
 
         if self.HSP:
             info += (f'Identifier: {self.identifier}\n'
                      f'HSP Start: {self.HSP.sbjct_start}\n'
                      f'HSP End: {self.HSP.sbjct_end}\n'
-                     f'HSP Length: {self.HSP.align_length}\n')
+                     f'HSP Length: {self.HSP.align_length}\n'
+                     f'HSP Strand: {self.strand}\n')
 
         if self.is_complete():
             info += f'Complete Record\n'
+        else:
+            info += f'Non-Complete Record\n'
 
 
         return info
