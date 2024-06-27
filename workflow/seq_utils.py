@@ -22,7 +22,7 @@ from Bio.Blast import NCBIXML, NCBIWWW
 import logging, coloredlogs
 
 
-def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str= '5'):
+def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:str= '5'):
     """
     Run a tblastn search for a given object against a given database
 
@@ -30,7 +30,7 @@ def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str
             instance: The Object instance containing information about the query.
             command: The command to run tblastn.
             input_database_path: The path to the database.
-            unit: The particular species against whose database it's being BLASTed
+            subject: The particular genome against whose database it's being BLASTed
             _outfmt: The output format for the BLAST results. Default is 5.
 
         Returns:
@@ -48,7 +48,7 @@ def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str
         tblastn_command = [
             command,
             '-db',
-            os.path.join(input_database_path, unit, unit),
+            os.path.join(input_database_path, subject, subject),
             '-query',
             fasta_temp_path,  # BLAST+ doesn't take in SeqRecord objects, but files
             '-evalue',
@@ -58,7 +58,7 @@ def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str
         ]
 
         # Run the command
-        logging.debug(f'Running tblastn for {instance.probe} against {unit}\n{instance.display_info()}')
+        logging.debug(f'Running tblastn for {instance.probe} against {subject}\n{instance.display_info()}')
         result = subprocess.run(tblastn_command, capture_output=True, text=True)
 
         # Delete temporal file
@@ -69,19 +69,19 @@ def _blaster(instance, command: str, input_database_path, unit: str, _outfmt:str
         if blast_output.strip():
             return blast_output
 
-        logging.error(f'BLAST output is empty for {instance.probe} against {unit}:\n{result.stderr}')
+        logging.error(f'BLAST output is empty for {instance.probe} against {subject}:\n{result.stderr}')
         return None
     except Exception as e:
         logging.error(f'An error occurred while running tblastn: {str(e)}')
         return None
 
 
-def _blaster_parser(result, instance, unit:str):
+def _blaster_parser(result, instance, subject:str):
     """
     Args:
         result: The result of [blaster] function.
         instance: The Object instance containing information about the query.
-        unit: The particular species against whose database it's being BLASTed.
+        subject: The particular genome against whose database it's being BLASTed.
 
     Returns:
         alignment_dict: A dictionary containing the parsed results of the [blaster] function:
@@ -108,7 +108,7 @@ def _blaster_parser(result, instance, unit:str):
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
-                        species=unit,
+                        species=instance.species or subject, # In order to use the function for virus, species comes already from the input object
                         probe=str(instance.probe),
                         accession=str(accession_by_regex),
                         identifier=instance.identifier or random_string)
@@ -130,7 +130,7 @@ def _blaster_parser(result, instance, unit:str):
     return alignment_dict
 
 
-def _blast_task(instance, command, unit, input_database_path):
+def _blast_task(instance, command, subject, input_database_path):
     """
     Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
@@ -138,7 +138,7 @@ def _blast_task(instance, command, unit, input_database_path):
         Args:
             instance: The Object instance containing information about the query.
             command (str): The type of BLAST to run
-            unit (str): The species to run tblastn against. Scientific name joined by '_'
+            subject (str): The species to run tblastn against. Scientific name joined by '_'
 
         Returns:
             dict: A dictionary containing the tblastn results parsed by [blaster_parser] function
@@ -150,19 +150,19 @@ def _blast_task(instance, command, unit, input_database_path):
     try:
         if blast_result := _blaster(instance=instance,
                                     command=command,
-                                    unit=unit,
+                                    subject=subject,
                                     input_database_path=input_database_path):
-            return _blaster_parser(blast_result, instance, unit)
-        logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {unit}')
+            return _blaster_parser(blast_result, instance, subject)
+        logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {subject}')
         return None
     except Exception as e:
-        logging.error(f'Error running tblastn for {instance.probe}, {instance.virus} against {unit}: {e}')
+        logging.error(f'Error running tblastn for {instance.probe}, {instance.virus} against {subject}: {e}')
         return None
 
 
 def blast_threadpool_executor(object_dict,
                               command,
-                              species,
+                              genome,
                               input_database_path):
     """
     Runs BLAST tasks asyncronally using ThreadPoolExecutor
@@ -170,7 +170,7 @@ def blast_threadpool_executor(object_dict,
         Args:
             object_dict (dict): A dictionary containing object pairs
             command (str): The type of BLAST to run
-            species (list): A list of species to run tblastn against. Scientific name joined by '_'
+            genome (list): A list of genome to run tblastn against (Mammals, Virus...). Scientific name joined by '_'.
             input_database_path (str): The path to the input database (species, virus...)
 
 
@@ -181,13 +181,13 @@ def blast_threadpool_executor(object_dict,
 
     tasks = []
     with ThreadPoolExecutor() as executor:
-        for unit in species:
+        for subject in genome:
             tasks.extend(
                 executor.submit(
                     _blast_task,
                     instance=value,
                     command=command,
-                    unit=unit,
+                    subject=subject,
                     input_database_path=input_database_path
                 )
                 for key, value in object_dict.items()
@@ -308,31 +308,30 @@ def gb_threadpool_executor(object_dict,
 
 
 # Function to merge overlapping sequences within each group
-
 def seq_merger(object_dict):
     """
     Function to merge overlapping sequences. The function groups sequences by species, accession, strand, and virus.
-    Then it merges the sequences within each group by updating the coordinates of the merged sequence. The results
+    Then it merges the sequences within each group by updating the coordinates of the merged sequence. The result
     is another dictionary with fewer instances, where the HSP.sbjct_start and HSP.sbjct_end coordinates have been
     updated to reflect the merged sequences, in order to download the full sequence from Entrez.
 
-    CAUTION 1: This function assumes that the sequences are sorted by their start coordinate.
-    CAUTION 2*: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
+    CAUTION 1!: This function assumes that the sequences are sorted by their start coordinate.
+    CAUTION 2!: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
 
         Args:
-            object_dict (dict): A dictionary with of object pairs to merge.
+            object_dict (dict): A dictionary with object pairs to merge.
 
         Returns:
-            merged_dict (dict): A dictionary with the merged* sequences.
+            merged_dict (dict): A dictionary with the merged sequences.
     """
     # Function to group sequences by species, accession, strand, and virus
     def seq_grouper(object_dict):
         logging.debug('Grouping sequences by species, accession, strand, and virus')
         grouped_sequences = defaultdict(list)
 
-        for key, instance in object_dict.items():
+        for key_identifier, instance in object_dict.items():
             group_key = (instance.species, instance.accession, instance.strand, instance.virus)
-            grouped_sequences[group_key].append((key, instance))
+            grouped_sequences[group_key].append((key_identifier, instance)) # It stores both keys and objects in tuple pairs
 
         return grouped_sequences
 
@@ -348,15 +347,14 @@ def seq_merger(object_dict):
         if not instances:
             continue
 
-        # TODO: REVISE: Add a sorting function to sort the sequences by their positive frame? (sbjct_start < sbjct_end)
-
-        # Organize all HSP coordinates from smallest to largest. This is necessary to merge the sequences.
-        # Orientation is already defined by the strand attribute.
-        if instances.HSP.sbjct_start > instances.HSP.sbjct_end:
-            instances.HSP.sbjct_start, instances.HSP.sbjct_end = instances.HSP.sbjct_end, instances.HSP.sbjct_start
-
-        # Sort instances by their start coordinate
-        instances.sort(key=lambda x: x[1].HSP.sbjct_start)
+        # Sort instances based on their coordinates
+        if all(instance.HSP.sbjct_start < instance.HSP.sbjct_end for _, instance in instances):
+            instances.sort(key=lambda x: x[1].HSP.sbjct_start)
+        elif all(instance.HSP.sbjct_end < instance.HSP.sbjct_start for _, instance in instances):
+            instances.sort(key=lambda x: x[1].HSP.sbjct_start, reverse=True)
+        else:
+            logging.critical('Critical error: Sequences could not be sorted by their start coordinate. Exiting.')
+            return merged_dict
 
         # Initialize the merged_instance with the first instance in the group
         merged_instance = instances[0][1]
