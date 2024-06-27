@@ -38,7 +38,7 @@ def tblastn_retriever(object_dict,
     """
     tblastn_results = blast_threadpool_executor(object_dict=object_dict,
                                                 command=command,
-                                                species=species,
+                                                genome=species,
                                                 input_database_path=input_database_path)
 
     tblastn_merged_results = seq_merger(object_dict=tblastn_results)
