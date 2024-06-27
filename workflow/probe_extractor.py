@@ -10,7 +10,7 @@ from colored_logging import colored_logging
 import logging, coloredlogs
 
 def table_parser(input_csv_file):
-    '''
+    """
     Parse the CSV files containing the probe genes and their respective IDs
 
         Args:
@@ -18,24 +18,24 @@ def table_parser(input_csv_file):
 
         Returns:
             probe_dict: A dictionary containing object pairs.
-    '''
-    probe_dict = {}
+    """
     # Read the CSV file
     probe_table = pd.read_csv(input_csv_file)
-    for index, row in probe_table.iterrows():
-        probe_dict[str(row['Accession'])] = Object(
-                                  family=str(row['Family']),
-                                  virus=str(row['Name']),
-                                  abbreviation=str(row['Abbreviation']),
-                                  probe=str(row['Probe']),
-                                  accession=str(row['Accession'])
-                                              )
-
+    probe_dict = {
+        str(row['Accession']): Object(
+            family=str(row['Family']),
+            virus=str(row['Name']),
+            abbreviation=str(row['Abbreviation']),
+            probe=str(row['Probe']),
+            accession=str(row['Accession']),
+        )
+        for index, row in probe_table.iterrows()
+    }
     logging.info(f'Parsed {len(probe_dict)} probes')
     return probe_dict
 
 def probe_extractor(input_csv_file, output_pickle_directory_path, output_pickle_file_name, online_database):
-    '''
+    """
     Orchestrates the probe extraction process, retrieves GenBank information and pickles
 
         Args:
@@ -43,7 +43,7 @@ def probe_extractor(input_csv_file, output_pickle_directory_path, output_pickle_
             output_pickle_directory_path (str): The path to the directory where the pickled file will be saved.
             output_pickle_file_name (str): The name of the pickled file to be saved.
             online_database (str): The online database to be used for sequence retrieval.
-    '''
+    """
     probe_dict = table_parser(input_csv_file)
     for key, value in probe_dict.items():
         gb_fetcher(value, online_database)
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                     output_pickle_file_name='probe_dict.pkl',
                     online_database='protein')
 
-    logging.info(f'Probe extraction completed')
+    logging.info('Probe extraction completed')
 
 
 

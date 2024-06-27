@@ -41,6 +41,37 @@ def unpickler(directory_path, file_name):
     with open(os.path.join(directory_path, file_name), 'rb') as f:
         return pickle.load(f)
 
+def directory_content_eraser(directory_path):
+    """
+    Erases the content of the specified directory.
+
+    Args:
+        directory_path (str): The directory to erase the content of.
+
+    Raises:
+        OSError: If the directory cannot be created.
+        IOError: If the file cannot be written.
+    """
+    for file in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            logging.warning(f'Failed to delete {file_path}: {e}')
+
+
+def incomplete_dict_cleaner(object_dict: dict):
+    """
+    Removes incomplete objects from an object dictionary.
+
+    Args:
+        object_dict (dict): The dictionary to clean.
+
+    Returns:
+        dict: The cleaned dictionary.
+    """
+    return {key: value for key, value in object_dict.items() if value.is_complete()}
 
 
 
