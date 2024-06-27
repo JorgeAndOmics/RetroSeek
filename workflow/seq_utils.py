@@ -21,7 +21,7 @@ from Bio.Blast import NCBIXML, NCBIWWW
 import logging, coloredlogs
 
 
-def blaster(instance, command: str, species_database_path, unit: str, outfmt:str= '5'):
+def blaster(instance, command: str, species_database_path, unit: str, _outfmt:str= '5'):
     """
     Run a tblastn search for a given object against a given database
 
@@ -30,7 +30,7 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
             command: The command to run tblastn.
             species_database_path: The path to the database.
             unit: The particular species against whose database it's being BLASTed
-            outfmt: The output format for the BLAST results. Default is 5.
+            _outfmt: The output format for the BLAST results. Default is 5.
 
         Returns:
             blast_output: The output of the tblastn search, captured from std_out.
@@ -53,7 +53,7 @@ def blaster(instance, command: str, species_database_path, unit: str, outfmt:str
             '-evalue',
             str(defaults.E_VALUE),
             '-outfmt',
-            outfmt,
+            _outfmt,
         ]
 
         # Run the command
@@ -129,15 +129,14 @@ def blaster_parser(result, instance, unit:str):
     return alignment_dict
 
 
-def blast_task(command, value, input_database_path, unit):
+def blast_task(instance, command, unit):
     """
     Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
 
         Args:
+            instance: The Object instance containing information about the query.
             command (str): The type of BLAST to run
-            value (Object): The probe instance
-            input_database_path (str): The path to the input database (species, virus...)
             unit (str): The species to run tblastn against. Scientific name joined by '_'
 
         Returns:
@@ -148,12 +147,14 @@ def blast_task(command, value, input_database_path, unit):
 
     """
     try:
-        if blast_result := blaster(value, command, input_database_path, unit):
-            return blaster_parser(blast_result, value, unit)
-        logging.warning(f'Could not parse sequences for {value.probe}, {value.virus} against {unit}')
+        if blast_result := blaster(instance=instance,
+                                   command=command,
+                                   unit=unit):
+            return blaster_parser(blast_result, instance, unit)
+        logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {unit}')
         return None
     except Exception as e:
-        logging.error(f'Error running tblastn for {value.probe}, {value.virus} against {unit}: {e}')
+        logging.error(f'Error running tblastn for {instance.probe}, {instance.virus} against {unit}: {e}')
         return None
 
 
