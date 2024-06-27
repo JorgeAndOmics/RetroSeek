@@ -18,7 +18,7 @@ import logging, coloredlogs
 
 def tblastn_retriever(object_dict,
                       command,
-                      species,
+                      genome,
                       online_database,
                       input_database_path):
     """
@@ -38,7 +38,7 @@ def tblastn_retriever(object_dict,
     """
     tblastn_results = blast_threadpool_executor(object_dict=object_dict,
                                                 command=command,
-                                                genome=species,
+                                                genome=genome,
                                                 input_database_path=input_database_path)
 
     tblastn_merged_results = seq_merger(object_dict=tblastn_results)
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     clean_tblastn2gb_results = tblastn_retriever(object_dict=probe_dict,
                                                  command='tblastn',
-                                                 species=defaults.SPECIES,
+                                                 genome=defaults.SPECIES,
                                                  online_database='nucleotide',
                                                  input_database_path=defaults.SPECIES_DB)
 
