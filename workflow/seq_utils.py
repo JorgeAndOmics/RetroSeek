@@ -448,8 +448,8 @@ def blast_retriever(object_dict: dict,
                     display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
                     multi_threading=True):
     """
-    Orchestrates the tblastn retrieval process. It first performs the tblastn search, then merges the results, and
-    finally retrieves the sequences from the online database.
+    Orchestrates the blast retrieval process. It first performs the blast search, then merges the results, and
+    finally retrieves the sequences from the online database and removes incomplete records.
 
         Args:
             object_dict (dict): A dictionary of objects
@@ -458,7 +458,7 @@ def blast_retriever(object_dict: dict,
             online_database (str): The online database to retrieve the sequences from.
             input_database_path (str): The path to the local database (species, virus...).
             display_warning (bool): Toggle display of request warning messages. Default from defaults.
-            multi_threading (bool): Use of multi-threading. Default is False. See NCBI guidelines.
+            multi_threading (bool): Use of multi-threading. Default is True. Execution limiter parameters from defaults.
 
         Returns:
             tblastn_merged2gb_results (dict): A dictionary with the post-BLAST merged and
