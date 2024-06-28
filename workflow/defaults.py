@@ -4,7 +4,7 @@ import shutil
 
 SPECIES: list = ['Rhinolophus_ferrumequinum']
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
-NCBI_API_TOKEN = 'faa9e17bb461e82963f079c167ec5c7aac08'
+NCBI_API_TOKEN = '-'
 EXPANSION_SIZE: int = 0
 E_VALUE: float = 0.1
 ACCESSION_ID_REGEX = '[A-Z]{2,}_?\d*\.\d{1,2}'
