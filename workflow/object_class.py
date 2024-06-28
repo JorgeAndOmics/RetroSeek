@@ -1,23 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any
 from io import StringIO
-import pandas as pd
-import subprocess
-import tempfile
-import defaults
-import pickle
-import random
-import string
-import time
-import os
-import re
+import logging
 
-from Bio import SeqIO, Entrez
-from Bio.Blast import NCBIXML, NCBIWWW
-
-from colored_logging import colored_logging
-
-import logging, coloredlogs
+from Bio import SeqIO
 
 @dataclass
 class Object:

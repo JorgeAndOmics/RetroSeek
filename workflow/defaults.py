@@ -4,6 +4,7 @@ import shutil
 
 SPECIES: list = ['Rhinolophus_ferrumequinum']
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
+NCBI_API_TOKEN = 'faa9e17bb461e82963f079c167ec5c7aac08'
 EXPANSION_SIZE: int = 0
 E_VALUE: float = 0.1
 ACCESSION_ID_REGEX = '[A-Z]{2,}_?\d*\.\d{1,2}'
@@ -48,3 +49,6 @@ LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
 MAX_RETRIEVAL_ATTEMPTS = 9
+MAX_EXECUTION_ATTEMPTS_PER_SECOND = 10
+MIN_EXECUTION_INTERVAL = 1 # seconds
+DISPLAY_REQUESTS_WARNING = False
