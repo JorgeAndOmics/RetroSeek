@@ -1,25 +1,20 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from io import StringIO
-import pandas as pd
 import subprocess
 import tempfile
-import defaults
-import pickle
+import logging
 import random
 import string
 import time
-import os
 import re
 
 from object_class import Object
-from utils import pickler, unpickler, directory_content_eraser, incomplete_dict_cleaner
-from colored_logging import colored_logging
 
-from Bio import SeqIO, Entrez
-from Bio.Blast import NCBIXML, NCBIWWW
+from Bio.Blast import NCBIXML
+from Bio import Entrez
 
-import logging, coloredlogs
+from utils import *
 
 
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:str= '5'):
@@ -120,7 +115,7 @@ def _blaster_parser(result, instance, subject:str):
                     if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
                         alignment_dict[f'{accession_by_regex}-{random_string}'] = new_instance
                         logging.info(f'Added {accession_by_regex}-{random_string} to Alignment Dictionary:'
-                                     f'\n{new_instance.display_info()}')
+                                     f'\n{new_instance.display_info()}\n')
 
 
     except Exception as e:
@@ -202,12 +197,15 @@ def blast_threadpool_executor(object_dict,
 
     return full_parsed_results
 
+
 def _gb_fetcher(instance,
                online_database:str,
                _attempt:int=1,
                max_attempts:int=3,
                expand_by:int=0,
-               _entrez_email:str=defaults.ENTREZ_EMAIL):
+               display_warning:bool=True,
+               _entrez_email:str=defaults.ENTREZ_EMAIL,
+               _entrez_api_token:str=defaults.NCBI_API_TOKEN):
     """
     Fetch the GenBank results for a given sequence and appends it to the objects.
 
@@ -220,7 +218,9 @@ def _gb_fetcher(instance,
             _attempt: The number of current attempts to fetch the sequence. Default is 1.
             max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
             expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            display_warning: Toggle display of request warning messages. Default is True.
             _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
+            _entrez_api_token: The API token to use for the Entrez API. Default is retrieved from defaults.
 
         Returns:
             object: The Object instance with the fetched sequence appended. The function
@@ -232,6 +232,7 @@ def _gb_fetcher(instance,
             Exception: If an error occurs while fetching the sequence.
     """
     Entrez.email = _entrez_email
+    Entrez.api_key = _entrez_api_token
 
     kwargs = {
         'db': online_database,
@@ -248,22 +249,23 @@ def _gb_fetcher(instance,
         with Entrez.efetch(**kwargs) as handle:
             genbank_record = handle.read()
             instance.set_genbank(genbank_record)
-            logging.info(f'Fetched GenBank record for:\n{instance.display_info()}')
         return instance
-    except Exception as e:
-        logging.warning(f'While fetching the genbank record: {str(e)}')
 
+    except Exception as e:
         if _attempt < max_attempts:
             time.sleep(2 ** _attempt)
-            logging.warning(f'Retrying... (attempt {_attempt + 1})')
+            if display_warning:
+                logging.warning(f'While fetching the genbank record: {str(e)}. Retrying... (attempt {_attempt + 1})')
             return _gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
         else:
             logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
 
 
+
 def gb_threadpool_executor(object_dict,
                            online_database,
+                           display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
                            expand_by:int=defaults.EXPANSION_SIZE,
                            max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
     """
@@ -272,6 +274,56 @@ def gb_threadpool_executor(object_dict,
         Args:
             object_dict (dict): A dictionary containing object pairs
             online_database (str): The database to retrieve the sequences from
+            display_warning (bool): Toggle display of request warning messages - in [_gb_fetcher] -. Default from defaults.
+            expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            max_attempts (int): The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+
+        Returns:
+            full_retrieved_results (dict): A dictionary containing the input objects + the fetched GenBank sequences
+
+        Raises:
+            Exception: If an error occurs while fetching the sequences
+    """
+    full_retrieved_results:dict = {}
+
+    tasks = []
+    with ThreadPoolExecutor() as executor:
+        tasks.extend(
+            executor.submit(
+                execution_limiter,
+                func=_gb_fetcher,
+                instance=value,
+                online_database=online_database,
+                expand_by=expand_by,
+                max_attempts=max_attempts,
+                display_warning=display_warning)
+
+            for key, value in object_dict.items()
+        )
+        for future in as_completed(tasks):
+            if result := future.result():
+                full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
+                logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to '
+                f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
+
+    if len(full_retrieved_results.items()) == 0:
+        logging.critical('No fetched GenBank results. Exiting.')
+        return
+
+    return full_retrieved_results
+
+def gb_monothread_executor(object_dict,
+                           online_database,
+                           display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
+                           expand_by:int=defaults.EXPANSION_SIZE,
+                           max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
+    """
+    Fetches GenBank sequences for the objects in an object dictionary using single thread execution.
+
+        Args:
+            object_dict (dict): A dictionary containing object pairs.
+            online_database (str): The database to retrieve the sequences from.
+            display_warning (bool): Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
             expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
             max_attempts (int): The maximum number of attempts to fetch the sequence. Retrieves from defaults.
 
@@ -283,24 +335,22 @@ def gb_threadpool_executor(object_dict,
     """
     full_retrieved_results = {}
 
-    tasks = []
-    with ThreadPoolExecutor() as executor:
-        tasks.extend(
-            executor.submit(
-                _gb_fetcher,
-                instance=value,
-                online_database=online_database,
-                expand_by=expand_by,
-                max_attempts=max_attempts
-            )
-            for key, value in object_dict.items()
+    if results := [
+        _gb_fetcher(
+            instance=value,
+            online_database=online_database,
+            expand_by=expand_by,
+            max_attempts=max_attempts,
+            display_warning=defaults.DISPLAY_REQUESTS_WARNING,
         )
-        for future in as_completed(tasks):
-            if result := future.result():
-                full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-                logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary\n')
+        for key, value in object_dict.items()
+    ]:
+        for result in results:
+            full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
+            logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to '
+            f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}')
 
-    if not full_retrieved_results:
+    if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
         return
 
@@ -389,3 +439,45 @@ def seq_merger(object_dict):
         logging.info(f'Added {new_key} to Merging Dictionary')
 
     return merged_dict
+
+def blast_retriever(object_dict: dict,
+                    command: str,
+                    genome: str,
+                    online_database: str,
+                    input_database_path,
+                    display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
+                    multi_threading=True):
+    """
+    Orchestrates the tblastn retrieval process. It first performs the tblastn search, then merges the results, and
+    finally retrieves the sequences from the online database.
+
+        Args:
+            object_dict (dict): A dictionary of objects
+            command (str): The BLAST command to run.
+            genome (str): The species to search for. Retrieved from defaults.
+            online_database (str): The online database to retrieve the sequences from.
+            input_database_path (str): The path to the local database (species, virus...).
+            display_warning (bool): Toggle display of request warning messages. Default from defaults.
+            multi_threading (bool): Use of multi-threading. Default is False. See NCBI guidelines.
+
+        Returns:
+            tblastn_merged2gb_results (dict): A dictionary with the post-BLAST merged and
+            retrieved sequences from the online database.
+    """
+    blast_results = blast_threadpool_executor(object_dict=object_dict,
+                                                command=command,
+                                                genome=genome,
+                                                input_database_path=input_database_path)
+
+    blast_merged_results = seq_merger(object_dict=blast_results)
+
+    if multi_threading is True:
+        blast_merged2gb_results = gb_threadpool_executor(object_dict=blast_merged_results,
+                                                         online_database=online_database,
+                                                         display_warning=display_warning)
+    else:
+        blast_merged2gb_results = gb_monothread_executor(object_dict=blast_merged_results,
+                                                         online_database=online_database,
+                                                         display_warning=display_warning)
+
+    return incomplete_dict_cleaner(object_dict=blast_merged2gb_results)

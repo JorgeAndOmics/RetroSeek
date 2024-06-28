@@ -1,11 +1,13 @@
+from ratelimit import limits, sleep_and_retry
 import pickle
 import os
 
 import defaults
 from object_class import Object
 
+import logging, coloredlogs
 
-def pickler(data, output_directory_path, output_file_name):
+def pickler(data, output_directory_path, output_file_name)-> None:
     """
     Pickles the data to the specified path.
 
@@ -41,7 +43,7 @@ def unpickler(input_directory_path, input_file_name):
     with open(os.path.join(input_directory_path, input_file_name), 'rb') as f:
         return pickle.load(f)
 
-def directory_content_eraser(directory_path):
+def directory_content_eraser(directory_path)-> None:
     """
     Erases the content of the specified directory.
 
@@ -63,7 +65,7 @@ def directory_content_eraser(directory_path):
             logging.warning(f'Failed to delete {file_path}: {e}')
 
 
-def incomplete_dict_cleaner(object_dict: dict):
+def incomplete_dict_cleaner(object_dict: dict)-> dict:
     """
     Removes incomplete objects from an object dictionary.
 
@@ -77,5 +79,9 @@ def incomplete_dict_cleaner(object_dict: dict):
 
     return {key: value for key, value in object_dict.items() if value.is_complete()}
 
+@sleep_and_retry
+@limits(calls=defaults.MAX_EXECUTION_ATTEMPTS_PER_SECOND, period=defaults.MIN_EXECUTION_INTERVAL)
+def execution_limiter(func,*args, **kwargs)-> None:
+    return func(*args, **kwargs)
 
 

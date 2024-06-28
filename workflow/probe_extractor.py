@@ -1,13 +1,12 @@
-import os
-import pandas as pd
-
-from utils import pickler, unpickler
-import defaults
+from colored_logging import colored_logging
 from object_class import Object
 from seq_utils import gb_fetcher
-from colored_logging import colored_logging
+from utils import pickler
+import pandas as pd
+import defaults
+import logging
+import os
 
-import logging, coloredlogs
 
 def table_parser(input_csv_file):
     """
