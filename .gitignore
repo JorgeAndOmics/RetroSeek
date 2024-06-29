@@ -1,0 +1,5 @@
+# Ignore all contents of tmp
+data/tmp/*
+# But do not ignore the directory itself
+!data/tmp
+

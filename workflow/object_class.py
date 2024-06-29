@@ -20,7 +20,6 @@ class Object:
             species: The BLASTed species or agent
             probe: The probe used to identify genomic regions in ERVs
             accession: The accession number of the current contained sequence
-            counter: The number of times the accession has been identified
             identifier: A random, 6-character string to uniquely identify the object
             alignment: Alignment object from BLAST
             HSP: High-scoring pair object from Alignment
@@ -55,7 +54,6 @@ class Object:
     species: str = field(default=None)
     probe: str = field(default=None)
     accession: str = field(default=None)
-    counter: int = field(default=None)
     identifier: str = field(default=None)
     alignment: Optional[Any] = field(default=None)
     HSP: Optional[Any] = field(default=None)
@@ -64,7 +62,7 @@ class Object:
     gff: Optional[Any] = field(default=None, init=False, repr=False)
     strand: Optional[Any] = field(default=None, init=False, repr=False)
 
-    def __str__(self):
+    def __repr__(self):
         return (f'{self.family},'
                 f'{self.virus},'
                 f'{self.abbreviation},'
@@ -72,6 +70,14 @@ class Object:
                 f'{self.probe},'
                 f'{self.accession},'
                 f'{self.identifier}')
+
+    def __hash__(self):  # Needs a hash in order to be used as a dictionary key
+        return hash(self.identifier)
+
+    def __eq__(self, other):
+        if isinstance(other, Object):
+            return self.identifier == other.identifier
+        return false
 
     # Static Methods
     @staticmethod
