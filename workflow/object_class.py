@@ -233,21 +233,39 @@ class Object:
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self):
+    def get_genbank(self, output_type=None):
         """
-        Returns the GenBank file associated with the object
+        Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
+        record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
+        the FASTA.
+
+        CAUTION! The GenBank record is already a SeqRecord object. If output_type is set to 'seqrecord', it will raise
+        an error. Use only default or 'tempfile' output_type.
+
+            Args:
+                output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
             Returns:
-                str or None: The GenBank file content
+                str or None: The FASTA file content
 
             Raises:
-                None
+                Error if output_type is not 'tempfile'
         """
+        if self.genbank:
+            try:
+                if output_type:
+                    return self.extract_seq2rec(seq_obj=str(self.genbank),
+                                                obj_type='genbank',
+                                                output_type=output_type)
+                else:
+                    return self.genbank
 
-        try:
-            return self.genbank
-        except Exception as e:
-            logging.warning(f'Could not retrieve genbank: {e}')
+            except Exception as e:
+                logging.warning(f'Could not retrieve genbank: {e}')
+
+        else:
+            logging.warning('Genbank not set. Could not retrieve genbank.')
+            return None
 
     def set_genbank(self, genbank):
         """
@@ -283,7 +301,6 @@ class Object:
             Raises:
                 None
         """
-
         if self.genbank:
             try:
                 if output_type:
@@ -292,6 +309,7 @@ class Object:
                                                 output_type=output_type)
                 else:
                     return self.fasta
+
             except Exception as e:
                 logging.warning(f'Could not retrieve fasta: {e}')
         else:

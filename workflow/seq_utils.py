@@ -77,6 +77,8 @@ def _blaster_parser(result, instance, subject:str):
 
     Raises:
         Exception: If an error occurs while parsing the BLAST output.
+
+    CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict = {}
     result = StringIO(result)
@@ -88,17 +90,17 @@ def _blaster_parser(result, instance, subject:str):
                     continue
                 for hsp in alignment.hsps:
 
-                    regex_pattern = re.compile(defaults.ACCESSION_ID_REGEX)
-                    accession_by_regex = regex_pattern.search(alignment.title.split('|')[-1]).group()
+                    accession_by_regex = accession_finder(query=alignment.title.split('|')[-1],
+                                                          pattern=defaults.ACCESSION_ID_REGEX)
+                    random_string = random_string_generator(6)
 
-                    random_string: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                     new_instance = Object(
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
                         species=instance.species or subject, # In order to use the function for virus, species comes already from the input object
                         probe=str(instance.probe),
-                        accession=str(accession_by_regex),
+                        accession= accession_by_regex,
                         identifier=instance.identifier or random_string)
 
                     new_instance.set_alignment(alignment),
@@ -150,16 +152,19 @@ def _blast_task(instance, command, subject, input_database_path):
 
 def blast_threadpool_executor(object_dict,
                               command,
-                              genome,
-                              input_database_path):
+                              input_database_path,
+                              genome=None):
     """
-    Runs BLAST tasks asyncronally using ThreadPoolExecutor
+    Runs BLAST tasks asynchronously using ThreadPoolExecutor
 
         Args:
             object_dict (dict): A dictionary containing object pairs
             command (str): The type of BLAST to run
-            genome (list): A list of genome to run tblastn against (Mammals, Virus...). Scientific name joined by '_'.
             input_database_path (str): The path to the input database (species, virus...)
+            
+            genome: Optional (list): A list of genomes to run BLAST against (Mammals, Virus...), in order to locate
+            the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs
+            the query dictionary against the specified database.
 
 
         Returns:
@@ -169,7 +174,10 @@ def blast_threadpool_executor(object_dict,
 
     tasks = []
     with ThreadPoolExecutor() as executor:
-        for subject in genome:
+
+        subjects = genome or [None]
+
+        for subject in subjects:
             tasks.extend(
                 executor.submit(
                     _blast_task,
@@ -180,6 +188,7 @@ def blast_threadpool_executor(object_dict,
                 )
                 for key, value in object_dict.items()
             )
+
         for future in as_completed(tasks):
             if result := future.result():
                 full_parsed_results |= result
@@ -191,7 +200,7 @@ def blast_threadpool_executor(object_dict,
     return full_parsed_results
 
 
-def _gb_fetcher(instance,
+def gb_fetcher(instance,
                online_database:str,
                _attempt:int=1,
                max_attempts:int=3,
@@ -249,7 +258,7 @@ def _gb_fetcher(instance,
             time.sleep(2 ** _attempt)
             if display_warning:
                 logging.warning(f'While fetching the genbank record: {str(e)}. Retrying... (attempt {_attempt + 1})')
-            return _gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
+            return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
         else:
             logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
@@ -284,7 +293,7 @@ def gb_threadpool_executor(object_dict,
         tasks.extend(
             executor.submit(
                 execution_limiter,
-                func=_gb_fetcher,
+                func=gb_fetcher,
                 instance=value,
                 online_database=online_database,
                 expand_by=expand_by,
@@ -296,8 +305,9 @@ def gb_threadpool_executor(object_dict,
         for future in as_completed(tasks):
             if result := future.result():
                 full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-                logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to '
-                f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
+                logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].accession}-'
+                f'{full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to GenBank Dictionary'
+                f'\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
 
     if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
@@ -329,7 +339,7 @@ def gb_monothread_executor(object_dict,
     full_retrieved_results = {}
 
     if results := [
-        _gb_fetcher(
+        gb_fetcher(
             instance=value,
             online_database=online_database,
             expand_by=expand_by,
