@@ -23,4 +23,4 @@ if __name__ == '__main__':
 
     directory_content_eraser(directory_path=defaults.TMP_DIR)
 
-    logging.info(f'Successfully performed Virus BLASTn and retrieval on {len(clean_tblastn2gb_results)} sequences.')
+    logging.info(f'Successfully performed Virus BLASTn and retrieval on {len(clean_blastn2gb_results)} sequences.')

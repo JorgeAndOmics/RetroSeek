@@ -1,6 +1,6 @@
 from colored_logging import colored_logging
 from object_class import Object
-from seq_utils import gb_fetcher
+from seq_utils import *
 from utils import pickler
 import pandas as pd
 import defaults

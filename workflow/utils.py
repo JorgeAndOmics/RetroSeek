@@ -1,6 +1,7 @@
 from ratelimit import limits, sleep_and_retry
 import pickle
 import os
+import re
 
 import defaults
 from object_class import Object
@@ -83,5 +84,37 @@ def incomplete_dict_cleaner(object_dict: dict)-> dict:
 @limits(calls=defaults.MAX_EXECUTION_ATTEMPTS_PER_SECOND, period=defaults.MIN_EXECUTION_INTERVAL)
 def execution_limiter(func,*args, **kwargs)-> None:
     return func(*args, **kwargs)
+
+def random_string_generator(length: int)-> str:
+    """
+    Generates a random string of the specified length.
+
+    Args:
+        length (int): The length of the string to generate.
+
+    Returns:
+        str: The generated string.
+    """
+    import random
+    import string
+
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def accession_finder(query:str, pattern:str)-> str:
+    """
+    Finds the accession ID in a query using a regex pattern.
+
+    Args:
+        query (str): The query to search the accession ID in.
+        pattern (str): The regex pattern to use for the search.
+
+    Returns:
+        str: The accession ID found in the query.
+
+    CAUTION!: The function returns the first occurrence matching the pattern.
+    """
+    regex_pattern = re.compile(pattern)
+    return str(regex_pattern.search(query).group())
+
 
 
