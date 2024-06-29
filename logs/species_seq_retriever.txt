@@ -1,0 +1,140 @@
+2024-06-29 16:20:13,110 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: POL
+Accession: AJG42161.1
+
+2024-06-29 16:20:13,111 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: AAD45226.1
+
+2024-06-29 16:20:13,113 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Probe: POL
+Accession: CAA48535.1
+
+2024-06-29 16:20:13,119 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Probe: POL
+Accession: AJR27940.1
+
+2024-06-29 16:20:13,120 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Probe: POL
+Accession: AAL38193.1
+
+2024-06-29 16:20:13,124 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Probe: POL
+Accession: YP_009513211.1
+
+2024-06-29 16:20:13,125 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Probe: POL
+Accession: BAA00544.1
+
+2024-06-29 16:20:13,126 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ATN28189.1
+
+2024-06-29 16:20:13,128 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Probe: POL
+Accession: AAD34842.1
+
+2024-06-29 16:20:13,129 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Probe: POL
+Accession: AAD30048.1
+
+2024-06-29 16:20:13,131 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Probe: POL
+Accession: NP_789740.1
+
+2024-06-29 16:20:13,134 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Probe: POL
+Accession: CAA11581.1
+
+2024-06-29 16:20:13,136 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Probe: POL
+Accession: CAA40318.1
+
+2024-06-29 16:20:13,139 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Probe: POL
+Accession: AFR79239.1
+
+2024-06-29 16:20:13,141 - Running tblastn for ENV against Rhinolophus_ferrumequinum
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: ENV
+Accession: AJG42162.1
+
+2024-06-29 16:20:13,142 - Running tblastn for POL against Rhinolophus_ferrumequinum
+Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Probe: POL
+Accession: KAI5929250.1
+
+2024-06-29 16:20:13,143 - Running tblastn for ENV against Rhinolophus_ferrumequinum
+Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Probe: ENV
+Accession: CAA48536.1
+
+2024-06-29 16:20:13,147 - Running tblastn for ENV against Rhinolophus_ferrumequinum
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: ATN28190.1
+
+2024-06-29 16:20:13,157 - Running tblastn for ENV against Rhinolophus_ferrumequinum
+Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Probe: ENV
+Accession: AJR27937.1
+
+2024-06-29 16:20:13,160 - Running tblastn for ENV against Rhinolophus_ferrumequinum
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: NP_041188.1
+

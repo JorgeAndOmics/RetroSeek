@@ -34,10 +34,6 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         Raises:
             Exception: If an error occurs while running tblastn.
     """
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=defaults.TMP_DIR) as fasta_temp_file:
-        if instance.get_fasta():
-            fasta_temp_file.write(instance.get_fasta())
-            fasta_temp_path = fasta_temp_file.name
     try:
         # Construct the tblastn command
         tblastn_command = [
@@ -45,7 +41,7 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
             '-db',
             os.path.join(input_database_path, subject, subject),
             '-query',
-            fasta_temp_path,  # BLAST+ doesn't take in SeqRecord objects, but files
+            instance.get_fasta('tempfile'),  # BLAST+ doesn't take in SeqRecord objects, but files
             '-evalue',
             str(defaults.E_VALUE),
             '-outfmt',
@@ -55,9 +51,6 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         # Run the command
         logging.debug(f'Running tblastn for {instance.probe} against {subject}\n{instance.display_info()}')
         result = subprocess.run(tblastn_command, capture_output=True, text=True)
-
-        # Delete temporal file
-        os.remove(fasta_temp_path)
 
         # Output captured in result.stdout
         blast_output = result.stdout
@@ -481,3 +474,5 @@ def blast_retriever(object_dict: dict,
                                                          display_warning=display_warning)
 
     return incomplete_dict_cleaner(object_dict=blast_merged2gb_results)
+
+
