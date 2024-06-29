@@ -29,6 +29,10 @@ class Object:
             gff: The GFF record of the sequence
 
         Methods:
+            extract_fasta_from_genbank: Extracts the FASTA record from the Genbank record
+            extract_gff_from_genbank: Extracts the GFF record from the Genbank record
+            extract_strand_from_HSP: Extracts the strand information from the HSP object
+            extract_seq2rec: Parse text (eg: FASTA) into a SeqRecord object or a temporary file in tmp directory
             get_alignment: Retrieves the alignment object
             set_alignment: Sets the alignment object
             get_HSP: Retrieves the HSP object
@@ -37,8 +41,6 @@ class Object:
             set_genbank: Sets the Genbank record. Also sets the FASTA and GFF records from the Genbank record
             get_fasta: Retrieves the FASTA record
             get_gff: Retrieves the GFF record
-            extract_fasta_from_genbank: Extracts the FASTA record from the Genbank record
-            extract_gff_from_genbank: Extracts the GFF record from the Genbank record
             display_info: Displays the information contained in the object
             display_alignment: Displays the alignment object
             display_HSP: Displays the HSP object
@@ -143,12 +145,13 @@ class Object:
             return None
         
     @staticmethod
-    def extract_fasta2rec(fasta_text, output_type='seqrecord'):
+    def extract_seq2rec(seq_obj:str, obj_type:str, output_type:str= 'seqrecord'):
         """
-        Parse a FASTA text into a SeqRecord object or a temporary file in /data/tmp.
+        Parse text (eg. FASTA) into a SeqRecord object or a temporary file in tmp directory.
 
             Args:
-                fasta_text (str): The FASTA text variable to parse (e.g. Instance.get_fasta()).
+                seq_obj (str): The text variable to parse (e.g. Instance.fasta, Instance.gff).
+                obj_type (str): The Seq object to parse the FASTA text into (e.g. 'fasta', 'gff').
                 output_type (str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
             Returns:
@@ -163,12 +166,12 @@ class Object:
         with tempfile.NamedTemporaryFile(mode='w',
                                          delete=False,
                                          dir=defaults.TMP_DIR,
-                                         suffix='.fasta') as tmp_file:
-            tmp_file.write(fasta_text)
+                                         suffix=f'.{obj_type}') as tmp_file:
+            tmp_file.write(seq_obj)
 
         # Determine the return type based on output_type parameter
         if output_type == 'seqrecord':
-            return SeqIO.read(tmp_file.name, 'fasta')
+            return SeqIO.read(tmp_file.name, obj_type)
         elif output_type == 'tempfile':
             return tmp_file.name
         else:
@@ -284,8 +287,9 @@ class Object:
         if self.genbank:
             try:
                 if output_type:
-                    return self.extract_fasta2rec(fasta_text=self.fasta,
-                                                  output_type=output_type)
+                    return self.extract_seq2rec(seq_obj=self.fasta,
+                                                obj_type='fasta',
+                                                output_type=output_type)
                 else:
                     return self.fasta
             except Exception as e:
