@@ -157,14 +157,13 @@ def blast_threadpool_executor(object_dict,
     """
     Runs BLAST tasks asynchronously using ThreadPoolExecutor
 
-        Args:
+    Args:
             object_dict (dict): A dictionary containing object pairs
             command (str): The type of BLAST to run
             input_database_path (str): The path to the input database (species, virus...)
-            
             genome: Optional (list): A list of genomes to run BLAST against (Mammals, Virus...), in order to locate
-            the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs
-            the query dictionary against the specified database.
+            the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query
+            dictionary against the specified database.
 
 
         Returns:

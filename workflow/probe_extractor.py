@@ -20,13 +20,17 @@ def table_parser(input_csv_file):
     """
     # Read the CSV file
     probe_table = pd.read_csv(input_csv_file)
+
+    random_string = random_string_generator(6)
+
     probe_dict = {
-        str(row['Accession']): Object(
+            f'{str(row["Accession"])}-{random_string}': Object(
             family=str(row['Family']),
             virus=str(row['Name']),
             abbreviation=str(row['Abbreviation']),
             probe=str(row['Probe']),
             accession=str(row['Accession']),
+            identifier=random_string
         )
         for index, row in probe_table.iterrows()
     }

@@ -1,5 +1,7 @@
 from ratelimit import limits, sleep_and_retry
 import pickle
+import random
+import string
 import os
 import re
 
@@ -71,10 +73,10 @@ def incomplete_dict_cleaner(object_dict: dict)-> dict:
     Removes incomplete objects from an object dictionary.
 
     Args:
-        object_dict (dict): The dictionary to clean.
+        object_dict (dict): The dictionary to remove incomplete records from.
 
     Returns:
-        dict: The cleaned dictionary.
+        dict: The input dictionary without incomplete records.
     """
     logging.debug('Cleaning up incomplete objects...')
 
@@ -83,6 +85,15 @@ def incomplete_dict_cleaner(object_dict: dict)-> dict:
 @sleep_and_retry
 @limits(calls=defaults.MAX_EXECUTION_ATTEMPTS_PER_SECOND, period=defaults.MIN_EXECUTION_INTERVAL)
 def execution_limiter(func,*args, **kwargs)-> None:
+    """
+    Limits the number of executions of a function per second.
+
+        Args:
+            func (function): The function to limit.
+
+        Returns:
+            Any: The result of the function.
+    """
     return func(*args, **kwargs)
 
 def random_string_generator(length: int)-> str:
@@ -95,10 +106,7 @@ def random_string_generator(length: int)-> str:
     Returns:
         str: The generated string.
     """
-    import random
-    import string
-
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
 def accession_finder(query:str, pattern:str)-> str:
     """
