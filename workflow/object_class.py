@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any
 from io import StringIO
+import tempfile
 import logging
+
+import defaults
 
 from Bio import SeqIO
 
@@ -138,6 +141,38 @@ class Object:
         except Exception as e:
             logging.warning(f'Could not extract strand: {e}')
             return None
+        
+    @staticmethod
+    def extract_fasta2rec(fasta_text, output_type='seqrecord'):
+        """
+        Parse a FASTA text into a SeqRecord object or a temporary file in /data/tmp.
+
+            Args:
+                fasta_text (str): The FASTA text variable to parse (e.g. Instance.get_fasta()).
+                output_type (str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
+
+            Returns:
+                SeqRecord: A SeqRecord object containing the parsed FASTA text.
+                or
+                tempfile: Path to a temporary file containing the parsed FASTA text.
+
+            Raises:
+                ValueError: If an invalid output_type is provided.
+        """
+        # Create a temporary file to write the FASTA text
+        with tempfile.NamedTemporaryFile(mode='w',
+                                         delete=False,
+                                         dir=defaults.TMP_DIR,
+                                         suffix='.fasta') as tmp_file:
+            tmp_file.write(fasta_text)
+
+        # Determine the return type based on output_type parameter
+        if output_type == 'seqrecord':
+            return SeqIO.read(tmp_file.name, 'fasta')
+        elif output_type == 'tempfile':
+            return tmp_file.name
+        else:
+            raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
 
     # Getters and Setters
     def get_alignment(self):
@@ -230,9 +265,14 @@ class Object:
         except Exception as e:
             logging.warning(f'Could not set genbank: {e}')
 
-    def get_fasta(self):
+    def get_fasta(self, output_type=None):
         """
-        Returns the FASTA file associated with the object
+        Returns the FASTA file associated with the object. If no output_type is provided, it will return the FASTA
+        as string. If output_type is set to 'seqrecord', it will return the FASTA as a SeqRecord object. If output_type
+        is set to 'tempfile', it will return the path to a temporary file containing the FASTA.
+
+            Args:
+                output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
             Returns:
                 str or None: The FASTA file content
@@ -243,7 +283,11 @@ class Object:
 
         if self.genbank:
             try:
-                return self.fasta
+                if output_type:
+                    return self.extract_fasta2rec(fasta_text=self.fasta,
+                                                  output_type=output_type)
+                else:
+                    return self.fasta
             except Exception as e:
                 logging.warning(f'Could not retrieve fasta: {e}')
         else:
