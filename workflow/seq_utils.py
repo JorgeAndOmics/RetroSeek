@@ -350,7 +350,6 @@ def gb_monothread_executor(object_dict,
     return full_retrieved_results
 
 
-# Function to merge overlapping sequences within each group
 def seq_merger(object_dict):
     """
     Function to merge overlapping sequences. The function groups sequences by species, accession, strand, and virus.
@@ -435,7 +434,7 @@ def seq_merger(object_dict):
 
 def blast_retriever(object_dict: dict,
                     command: str,
-                    genome: str,
+                    genome: list,
                     online_database: str,
                     input_database_path,
                     display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
@@ -447,7 +446,7 @@ def blast_retriever(object_dict: dict,
         Args:
             object_dict (dict): A dictionary of objects
             command (str): The BLAST command to run.
-            genome (str): The species to search for. Retrieved from defaults.
+            genome (list): The species to search for. Retrieved from defaults.
             online_database (str): The online database to retrieve the sequences from.
             input_database_path (str): The path to the local database (species, virus...).
             display_warning (bool): Toggle display of request warning messages. Default from defaults.
@@ -458,9 +457,9 @@ def blast_retriever(object_dict: dict,
             retrieved sequences from the online database.
     """
     blast_results = blast_threadpool_executor(object_dict=object_dict,
-                                                command=command,
-                                                genome=genome,
-                                                input_database_path=input_database_path)
+                                              command=command,
+                                              genome=genome,
+                                              input_database_path=input_database_path)
 
     blast_merged_results = seq_merger(object_dict=blast_results)
 
