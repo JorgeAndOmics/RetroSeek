@@ -7,7 +7,6 @@ import logging
 import random
 import string
 import time
-import re
 
 from object_class import Object
 
@@ -19,7 +18,7 @@ from utils import *
 
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:str= '5'):
     """
-    Run a tblastn search for a given object against a given database
+    Runs a BLAST search for a given object against a given database
 
         Args:
             instance: The Object instance containing information about the query.
@@ -32,11 +31,11 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
             blast_output: The output of the tblastn search, captured from std_out.
 
         Raises:
-            Exception: If an error occurs while running tblastn.
+            Exception: If an error occurs while running BLAST.
     """
     try:
-        # Construct the tblastn command
-        tblastn_command = [
+        # Construct the BLAST command
+        blast_command = [
             command,
             '-db',
             os.path.join(input_database_path, subject, subject),
@@ -49,8 +48,8 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         ]
 
         # Run the command
-        logging.debug(f'Running tblastn for {instance.probe} against {subject}\n{instance.display_info()}')
-        result = subprocess.run(tblastn_command, capture_output=True, text=True)
+        logging.debug(f'Running {command} for {instance.probe} against {subject}\n{instance.display_info()}')
+        result = subprocess.run(blast_command, capture_output=True, text=True)
 
         # Output captured in result.stdout
         blast_output = result.stdout
@@ -60,7 +59,7 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         logging.error(f'BLAST output is empty for {instance.probe} against {subject}:\n{result.stderr}')
         return None
     except Exception as e:
-        logging.error(f'An error occurred while running tblastn: {str(e)}')
+        logging.error(f'An error occurred while running {command}: {str(e)}')
         return None
 
 
@@ -90,8 +89,7 @@ def _blaster_parser(result, instance, subject:str):
                     continue
                 for hsp in alignment.hsps:
 
-                    accession_by_regex = accession_finder(query=alignment.title.split('|')[-1],
-                                                          pattern=defaults.ACCESSION_ID_REGEX)
+                    accession_id = alignment.hit_def.split(' ')[0]
                     random_string = random_string_generator(6)
 
                     new_instance = Object(
@@ -100,16 +98,16 @@ def _blaster_parser(result, instance, subject:str):
                         abbreviation=str(instance.abbreviation),
                         species=instance.species or subject, # In order to use the function for virus, species comes already from the input object
                         probe=str(instance.probe),
-                        accession= accession_by_regex,
-                        identifier=instance.identifier or random_string)
+                        accession=accession_id,
+                        identifier=random_string) # If identifier is inherited from the instance, multiple HSPs will share the same identifier
 
                     new_instance.set_alignment(alignment),
                     new_instance.set_HSP(hsp),
 
 
                     if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
-                        alignment_dict[f'{accession_by_regex}-{random_string}'] = new_instance
-                        logging.info(f'Added {accession_by_regex}-{random_string} to Alignment Dictionary:'
+                        alignment_dict[f'{accession_id}-{random_string}'] = new_instance
+                        logging.info(f'Added {accession_id}-{random_string} to Alignment Dictionary:'
                                      f'\n{new_instance.display_info()}\n')
 
 
@@ -375,7 +373,7 @@ def seq_merger(object_dict):
             merged_dict (dict): A dictionary with the merged sequences.
     """
     # Function to group sequences by species, accession, strand, and virus
-    def seq_grouper(object_dict):
+    def seq_grouper(object_dict:dict):
         logging.debug('Grouping sequences by species, accession, strand, and virus')
         grouped_sequences = defaultdict(list)
 
@@ -386,7 +384,7 @@ def seq_merger(object_dict):
         return grouped_sequences
 
     # Helper function to check if two ranges overlap
-    def ranges_overlap(start1, end1, start2, end2):
+    def ranges_overlap(start1:int, end1:int, start2:int, end2:int):
         return max(start1, start2) <= min(end1, end2)
 
     grouped_sequences = seq_grouper(object_dict=object_dict)
