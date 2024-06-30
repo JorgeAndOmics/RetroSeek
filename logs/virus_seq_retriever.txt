@@ -2588,3 +2588,893 @@ HSP End: 32191819
 HSP Length: 206
 HSP Strand: -
 Complete Record
+2024-06-30 14:03:22,798 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: GJLOVW
+HSP Start: 31138471
+HSP End: 31139211
+HSP Length: 261
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,532 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: Q4FOUQ
+HSP Start: 34882142
+HSP End: 34884310
+HSP Length: 724
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,542 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: RF1SH2
+HSP Start: 32523863
+HSP End: 32524417
+HSP Length: 202
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,545 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 2Y0A6J
+HSP Start: 35085483
+HSP End: 35087612
+HSP Length: 713
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,562 - Running blastn for ENV against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: EAP1L3
+HSP Start: 35611368
+HSP End: 35612933
+HSP Length: 529
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,572 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: BNDZIB
+HSP Start: 32904999
+HSP End: 32905649
+HSP Length: 218
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,580 - Running blastn for GAG against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 771900
+HSP Start: 35726440
+HSP End: 35727627
+HSP Length: 405
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,584 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: Z3SCJE
+HSP Start: 31012654
+HSP End: 31015169
+HSP Length: 469
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,597 - Running blastn for GAG against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: U8S6AY
+HSP Start: 30886685
+HSP End: 30887896
+HSP Length: 412
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,598 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: KY6R39
+HSP Start: 36955028
+HSP End: 36955585
+HSP Length: 203
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,600 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: QA58TG
+HSP Start: 34955911
+HSP End: 34956567
+HSP Length: 223
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,607 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 2EQYEW
+HSP Start: 35613359
+HSP End: 35613913
+HSP Length: 202
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,607 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: S9BBXY
+HSP Start: 37248207
+HSP End: 37248857
+HSP Length: 218
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,627 - Running blastn for GAG against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: SX7OQM
+HSP Start: 34885053
+HSP End: 34886240
+HSP Length: 405
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,631 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: BUW83J
+HSP Start: 37792157
+HSP End: 37792813
+HSP Length: 223
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,633 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 85C60W
+HSP Start: 29243696
+HSP End: 29244643
+HSP Length: 330
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,640 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 58QA58
+HSP Start: 35823696
+HSP End: 35824346
+HSP Length: 218
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,651 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: R19YK7
+HSP Start: 38601961
+HSP End: 38602842
+HSP Length: 303
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:23,669 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: DY4M6X
+HSP Start: 37482111
+HSP End: 37482710
+HSP Length: 204
+HSP Strand: -
+Complete Record
+2024-06-30 14:03:26,554 - Added OR572101.1-XVVWMM to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: XVVWMM
+HSP Start: 3547
+HSP End: 2892
+HSP Length: 656
+HSP Strand: -
+
+
+2024-06-30 14:03:26,555 - Added OR761827.1-RXBWEN to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: RXBWEN
+HSP Start: 3547
+HSP End: 2892
+HSP Length: 656
+HSP Strand: -
+
+
+2024-06-30 14:03:26,556 - Added OR761826.1-O7HOAN to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: O7HOAN
+HSP Start: 3547
+HSP End: 2892
+HSP Length: 656
+HSP Strand: -
+
+
+2024-06-30 14:03:26,557 - Added OR761825.1-OIFO8U to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: OIFO8U
+HSP Start: 3547
+HSP End: 2892
+HSP Length: 656
+HSP Strand: -
+
+
+2024-06-30 14:03:26,566 - Added OR761828.1-LPAT3S to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: LPAT3S
+HSP Start: 3547
+HSP End: 2892
+HSP Length: 656
+HSP Strand: -
+
+
+2024-06-30 14:03:26,567 - Added ON893141.1-56XGRA to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: 56XGRA
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:03:26,575 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: LAC11P
+HSP Start: 38602844
+HSP End: 38604025
+HSP Length: 404
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:15,724 - Running blastn for ENV against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: FC9DKN
+HSP Start: 29329047
+HSP End: 29330243
+HSP Length: 419
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,355 - Added OR572101.1-PJNMQI to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: PJNMQI
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,359 - Added OR572101.1-9KPOP6 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9KPOP6
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,360 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: HJKB05
+HSP Start: 37047647
+HSP End: 37048303
+HSP Length: 223
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,362 - Added OR761827.1-2N9SGL to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: 2N9SGL
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,365 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: D6AFEW
+HSP Start: 39332068
+HSP End: 39333456
+HSP Length: 464
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,366 - Added OR761827.1-UQQYYQ to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: UQQYYQ
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,371 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 4YCYH0
+HSP Start: 39306925
+HSP End: 39307638
+HSP Length: 254
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,377 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: Q5Y683
+HSP Start: 39333587
+HSP End: 39334237
+HSP Length: 217
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,380 - Added OR761826.1-MFZNDV to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: MFZNDV
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,382 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: IJWZIE
+HSP Start: 29443381
+HSP End: 29444328
+HSP Length: 329
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,382 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: AVULR4
+HSP Start: 39442911
+HSP End: 39443468
+HSP Length: 203
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,383 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: S7XJ68
+HSP Start: 39258209
+HSP End: 39259510
+HSP Length: 434
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,383 - Added OR761826.1-5YK623 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: 5YK623
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,390 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: WCPI1L
+HSP Start: 30448606
+HSP End: 30450279
+HSP Length: 562
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,404 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: O1ODA6
+HSP Start: 39347652
+HSP End: 39348593
+HSP Length: 320
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,406 - Added OR761825.1-WMJITJ to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: WMJITJ
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,411 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: P9KX1R
+HSP Start: 40072757
+HSP End: 40073737
+HSP Length: 331
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,411 - Running blastn for ENV against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 2HL9AF
+HSP Start: 39330090
+HSP End: 39331658
+HSP Length: 529
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,413 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: U0SRWI
+HSP Start: 40716462
+HSP End: 40717169
+HSP Length: 236
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,416 - Added ON893141.1-O8TVCT to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: O8TVCT
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,417 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: F78X95
+HSP Start: 42667509
+HSP End: 42668816
+HSP Length: 436
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,421 - Running blastn for GAG against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: JHNISK
+HSP Start: 39334977
+HSP End: 39336164
+HSP Length: 405
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,421 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: D3CKUH
+HSP Start: 40457969
+HSP End: 40460194
+HSP Length: 744
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,422 - Added OR761828.1-1236XY to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: 1236XY
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+
+2024-06-30 14:09:16,450 - Added ON893141.1-UBDAN7 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: UBDAN7
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,448 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: OZCZES
+HSP Start: 44675714
+HSP End: 44676361
+HSP Length: 220
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,437 - Added OR761825.1-W3BGJX to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: W3BGJX
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,456 - Added OR761828.1-LBNAK6 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: LBNAK6
+HSP Start: 3544
+HSP End: 2892
+HSP Length: 653
+HSP Strand: -
+
+
+2024-06-30 14:09:16,458 - Running blastn for GAG against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: BLQDUR
+HSP Start: 40461051
+HSP End: 40462238
+HSP Length: 405
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:16,473 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 5X35IY
+HSP Start: 40073754
+HSP End: 40074623
+HSP Length: 290
+HSP Strand: -
+Complete Record
+2024-06-30 14:09:21,816 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: QS10CY
+HSP Start: 44538333
+HSP End: 44539118
+HSP Length: 271
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,127 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: EPBVNP
+HSP Start: 30979823
+HSP End: 30980419
+HSP Length: 201
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,847 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 6HKG03
+HSP Start: 43680741
+HSP End: 43682723
+HSP Length: 663
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,852 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: BIY0CI
+HSP Start: 43815709
+HSP End: 43817691
+HSP Length: 663
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,880 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 6DJOJE
+HSP Start: 49262269
+HSP End: 49263177
+HSP Length: 320
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,887 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 73XH2N
+HSP Start: 45641482
+HSP End: 45642081
+HSP Length: 204
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,893 - Running blastn for ENV against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: T4AQ0F
+HSP Start: 45053418
+HSP End: 45054983
+HSP Length: 529
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,895 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: 7K46NK
+HSP Start: 46364456
+HSP End: 46365394
+HSP Length: 326
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,895 - Running blastn for POL against NCBI_virus
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: CM014226.1
+Species: Rhinolophus ferrumequinum
+Identifier: XQOK82
+HSP Start: 45660386
+HSP End: 45660982
+HSP Length: 218
+HSP Strand: -
+Complete Record
+2024-06-30 14:14:52,906 - Added OR572101.1-PDZHQ8 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: PDZHQ8
+HSP Start: 3548
+HSP End: 2892
+HSP Length: 657
+HSP Strand: -
+
+

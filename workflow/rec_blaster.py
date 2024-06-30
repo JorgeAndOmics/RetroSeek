@@ -41,19 +41,20 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
     def get_max_blast_hit(blast_results):
         # Ordered based on HSP bitscore
+        # TODO: Implement a discrimination function in case of identical max bitscores.
         return {key: max(value, key=lambda x: x.HSP.bits) for key, value in blast_results.items()}
 
-    def fasta_desc(instance):
+    def hit_desc(instance):
         if isinstance(instance, Object):
-            return instance.get_fasta('seqrecord').description
+            return instance.alignment.hit_def
 
     # Can't compare instances through identifiers, due to them being randomly generated at BLAST parsing.
     def reciprocal_hit_finder(route_a_max, route_b_max):
         reciprocal_hits = []
-        for x, y in route_a_max.items():  # x: Virus Object; y: Probe Object
-            for i, j in route_b_max.items():  # i: Probe Object; j: Virus Object
-                if fasta_desc(x) == fasta_desc(j) and fasta_desc(y) == fasta_desc(i):  # Now it compares FASTA headers
-                # directly. HSP selection is made at max() bitscore selection.
+        for x, y in route_a_max.items():  # x: Virus Object w/f; y: Probe Object
+            for i, j in route_b_max.items():  # i: Probe Object w/f; j: Virus Object
+                if hit_desc(x) == hit_desc(j) and hit_desc(y) == hit_desc(i):  # Now it alignment.hit_def attributes
+                # directly (identical to FASTA headers). HSP selection is made at max() bitscore selection.
                     reciprocal_hits.append({x: y})
         return reciprocal_hits
 
