@@ -21,10 +21,10 @@ def reciprocal_blast_experimental(object_dict_a: dict,
         Args:
             object_dict_a (dict): The dictionary containing the Virus object pairs.
             object_dict_b (dict): The dictionary containing the Probes object pairs.
-            command_a (str): The BLAST command to run from A to B (eg. "blastx").
-            command_b (str): The BLAST command to run from B to A (eg. "tblastn").
-            input_database_a (str): The path to the dictionary a (eg. Virus) database.
-            input_database_b (str): The path to the dictionary b (eg. Probes) database.
+            command_a (str): The BLAST command to run from A to B (e.g. "blastx").
+            command_b (str): The BLAST command to run from B to A (e.g. "tblastn").
+            input_database_a (str): The path to the dictionary a (e.g. Virus) database.
+            input_database_b (str): The path to the dictionary b (e.g. Probes) database.
 
         Returns:
             list: A list of dictionaries containing the reciprocal hits as key value dictionaries.
@@ -43,11 +43,17 @@ def reciprocal_blast_experimental(object_dict_a: dict,
         # Ordered based on HSP bitscore
         return {key: max(value, key=lambda x: x.HSP.bits) for key, value in blast_results.items()}
 
-    def find_reciprocal_hits(route_a_max, route_b_max):
+    def fasta_desc(instance):
+        if isinstance(instance, Object):
+            return instance.get_fasta('seqrecord').description
+
+    # Can't compare instances through identifiers, due to them being randomly generated at BLAST parsing.
+    def reciprocal_hit_finder(route_a_max, route_b_max):
         reciprocal_hits = []
         for x, y in route_a_max.items():  # x: Virus Object; y: Probe Object
             for i, j in route_b_max.items():  # i: Probe Object; j: Virus Object
-                if x == j and y == i:
+                if fasta_desc(x) == fasta_desc(j) and fasta_desc(y) == fasta_desc(i):  # Now it compares FASTA headers
+                # directly. HSP selection is made at max() bitscore selection.
                     reciprocal_hits.append({x: y})
         return reciprocal_hits
 
@@ -70,7 +76,7 @@ def reciprocal_blast_experimental(object_dict_a: dict,
     route_b_max = get_max_blast_hit(blast_results=route_b)
 
     # Find reciprocal hits
-    reciprocal_hits = find_reciprocal_hits(route_a_max=route_a_max,
+    reciprocal_hits = reciprocal_hit_finder(route_a_max=route_a_max,
                                            route_b_max=route_b_max)
 
     return reciprocal_hits

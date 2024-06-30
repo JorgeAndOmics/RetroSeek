@@ -108,21 +108,7 @@ def random_string_generator(length: int)-> str:
     """
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-def accession_finder(query:str, pattern:str)-> str:
-    """
-    Finds the accession ID in a query using a regex pattern.
 
-    Args:
-        query (str): The query to search the accession ID in.
-        pattern (str): The regex pattern to use for the search.
-
-    Returns:
-        str: The accession ID found in the query.
-
-    CAUTION!: The function returns the first occurrence matching the pattern.
-    """
-    regex_pattern = re.compile(pattern)
-    return str(regex_pattern.search(query).group())
 
 
 
