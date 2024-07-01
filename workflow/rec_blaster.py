@@ -12,22 +12,23 @@ def reciprocal_blast_experimental(object_dict_a: dict,
                                   command_a: str,
                                   command_b: str,
                                   input_database_a: str,
-                                  input_database_b: str):
+                                  input_database_b: str) -> list[dict]:
     """
     Perform reciprocal BLAST between two object pair dictionaries, provided existing databases from their FASTA files.
     route_a: virus -> probes
     route_b: probes -> virus
 
-        Args:
-            object_dict_a (dict): The dictionary containing the Virus object pairs.
-            object_dict_b (dict): The dictionary containing the Probes object pairs.
-            command_a (str): The BLAST command to run from A to B (e.g. "blastx").
-            command_b (str): The BLAST command to run from B to A (e.g. "tblastn").
-            input_database_a (str): The path to the dictionary a (e.g. Virus) database.
-            input_database_b (str): The path to the dictionary b (e.g. Probes) database.
+        Parameters
+        ------------
+            :param object_dict_a: The dictionary containing the Virus object pairs.
+            :param object_dict_b: The dictionary containing the Probes object pairs.
+            :param command_a: The BLAST command to run from A to B (e.g. "blastx").
+            :param command_b: The BLAST command to run from B to A (e.g. "tblastn").
+            :param input_database_a: The path to the dictionary a (e.g. Virus) database.
+            :param input_database_b: The path to the dictionary b (e.g. Probes) database.
 
         Returns:
-            list: A list of dictionaries containing the reciprocal hits as key value dictionaries.
+            :returns: A list of dictionaries containing the reciprocal hits as key value dictionaries.
     """
 
     # Let's assume databases are already created. [blast_threadpool_executor] already generates

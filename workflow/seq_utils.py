@@ -16,22 +16,25 @@ from Bio import Entrez
 from utils import *
 
 
-def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:str= '5'):
+def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
     """
     Runs a BLAST search for a given object against a given database
 
-        Args:
-            instance: The Object instance containing information about the query.
-            command: The command to run tblastn.
-            input_database_path: The path to the database.
-            subject: The particular genome against whose database it's being BLASTed
-            _outfmt: The output format for the BLAST results. Default is 5.
+        Parameters
+        ----------
+            :param instance: The Object instance containing information about the query.
+            :param command: The command to run tblastn.
+            :param input_database_path: The path to the database.
+            :param subject: The particular genome against whose database it's being BLASTed
+            :param _outfmt: The output format for the BLAST results. Default is 5.
 
-        Returns:
-            blast_output: The output of the tblastn search, captured from std_out.
+        Returns
+        -------
+            :returns: The output of the tblastn search, captured from std_out.
 
-        Raises:
-            Exception: If an error occurs while running BLAST.
+        Raises
+        ------
+            :raise Exception: If an error occurs while running BLAST.
     """
     try:
         # Construct the BLAST command
@@ -64,19 +67,22 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         return None
 
 
-def _blaster_parser(result, instance, subject:str):
+def _blaster_parser(result, instance: object, subject: str)-> dict:
     """
-    Args:
-        result: The result of [blaster] function.
-        instance: The Object instance containing information about the query.
-        subject: The particular genome against whose database it's being BLASTed.
+        Parameters
+        ----------
+        :param result: The result of [blaster] function.
+        :param instance: The Object instance containing information about the query.
+        :param subject: The particular genome against whose database it's being BLASTed.
 
-    Returns:
-        alignment_dict: A dictionary containing the parsed results of the [blaster] function:
+    Returns
+    -------
+        :returns: A dictionary containing the parsed results of the [blaster] function:
         alignment_dict[f'{alignment.id}-{random_string}'] = Object
 
-    Raises:
-        Exception: If an error occurs while parsing the BLAST output.
+    Raises
+    ------
+        :raise Exception: If an error occurs while parsing the BLAST output.
 
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
@@ -97,14 +103,14 @@ def _blaster_parser(result, instance, subject:str):
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
-                        species=instance.species or subject, # In order to use the function for virus, species comes already from the input object
+                        species=instance.species or subject,
+                        # In order to use the function for virus, species comes already from the input object
                         probe=str(instance.probe),
                         accession=accession_id,
-                        identifier=random_string) # If identifier is inherited from the instance, multiple HSPs will share the same identifier
+                        identifier=random_string)  # If identifier is inherited from the instance, multiple HSPs will share the same identifier
 
                     new_instance.set_alignment(alignment),
                     new_instance.set_HSP(hsp),
-
 
                     if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
                         alignment_dict[f'{accession_id}-{random_string}'] = new_instance
@@ -119,12 +125,13 @@ def _blaster_parser(result, instance, subject:str):
     return alignment_dict
 
 
-def _blast_task(instance, command, subject, input_database_path):
+def _blast_task(instance: object, command: str, subject: str, input_database_path) -> dict:
     """
     Run BLAST command for the Entrez-retrieved probe sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
 
-        Args:
+        Parameters
+        ----------
             instance: The Object instance containing information about the query.
             command (str): The type of BLAST to run
             subject (str): The species to run tblastn against. Scientific name joined by '_'
@@ -149,24 +156,24 @@ def _blast_task(instance, command, subject, input_database_path):
         return None
 
 
-def blast_threadpool_executor(object_dict,
-                              command,
+def blast_threadpool_executor(object_dict: dict,
+                              command: str,
                               input_database_path,
-                              genome=None):
+                              genome: list=None):
     """
     Runs BLAST tasks asynchronously using ThreadPoolExecutor
 
-    Args:
-            object_dict (dict): A dictionary containing object pairs
-            command (str): The type of BLAST to run
-            input_database_path (str): The path to the input database (species, virus...)
-            genome: Optional (list): A list of genomes to run BLAST against (Mammals, Virus...), in order to locate
-            the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query
-            dictionary against the specified database.
+        Parameters
+        ----------
+            :param object_dict: A dictionary containing object pairs
+            :param command: The type of BLAST to run
+            :param input_database_path: The path to the input database (species, virus...)
+            :param genome: Optional: A list of genomes to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
 
 
-        Returns:
-            full_parsed_results (dict): A dictionary containing the parsed BLAST results
+        Returns
+        -------
+            :returns: A dictionary containing the parsed BLAST results
     """
     full_parsed_results = {}
 
@@ -198,38 +205,41 @@ def blast_threadpool_executor(object_dict,
     return full_parsed_results
 
 
-def gb_fetcher(instance,
-               online_database:str,
-               _attempt:int=1,
-               max_attempts:int=3,
-               expand_by:int=0,
-               display_warning:bool=True,
-               _entrez_email:str=defaults.ENTREZ_EMAIL,
-               _entrez_api_token:str=defaults.NCBI_API_TOKEN):
+def gb_fetcher(instance: object,
+               online_database: str,
+               _attempt: int = 1,
+               max_attempts: int = 3,
+               expand_by: int = 0,
+               display_warning: bool = True,
+               _entrez_email: str = defaults.ENTREZ_EMAIL,
+               _entrez_api_token: str = defaults.NCBI_API_TOKEN):
     """
     Fetch the GenBank results for a given sequence and appends it to the objects.
 
     CAUTION 1: Expansion and merging of sequences are done simultaneously in this function. New overlaps
     may be created by expanding the sequence.
 
-        Args:
-            instance: The Object instance containing information about the query.
-            online_database: The database to fetch the sequence from.
-            _attempt: The number of current attempts to fetch the sequence. Default is 1.
-            max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
-            expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
-            display_warning: Toggle display of request warning messages. Default is True.
-            _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
-            _entrez_api_token: The API token to use for the Entrez API. Default is retrieved from defaults.
+        Parameters
+        ----------
+            :param instance: The Object instance containing information about the query.
+            :param online_database: The database to fetch the sequence from.
+            :param _attempt: The number of current attempts to fetch the sequence. Default is 1.
+            :param max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
+            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            :param display_warning: Toggle display of request warning messages. Default is True.
+            :param _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
+            :param _entrez_api_token: The API token to use for the Entrez API. Default is retrieved from defaults.
 
-        Returns:
-            object: The Object instance with the fetched sequence appended. The function
+        Returns
+        -------
+            :returns: The Object instance with the fetched sequence appended. The function
             returns the instance whether it has been updated or not. If the sequence could not be fetched,
             the instance will be returned as is. If the sequence was fetched, the instance will be updated
             with the GenBank record. See [incomplete_dict_cleaner] function to remove incomplete objects.
 
-        Raises:
-            Exception: If an error occurs while fetching the sequence.
+        Raises
+        ------
+            :raise Exception: If an error occurs while fetching the sequence.
     """
     Entrez.email = _entrez_email
     Entrez.api_key = _entrez_api_token
@@ -244,7 +254,7 @@ def gb_fetcher(instance,
         kwargs |= {
             'seq_start': max(1, instance.HSP.sbjct_start + expand_by),
             'seq_stop': instance.HSP.sbjct_end + expand_by,
-     }
+        }
     try:
         with Entrez.efetch(**kwargs) as handle:
             genbank_record = handle.read()
@@ -262,29 +272,32 @@ def gb_fetcher(instance,
             return instance
 
 
-
-def gb_threadpool_executor(object_dict,
-                           online_database,
-                           display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
-                           expand_by:int=defaults.EXPANSION_SIZE,
-                           max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
+# noinspection PyTypeChecker
+def gb_threadpool_executor(object_dict: dict,
+                           online_database: str,
+                           display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                           expand_by: int = defaults.EXPANSION_SIZE,
+                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS):
     """
     Fetches GenBank sequences for the objects in an object dictionary using ThreadPoolExecutor
 
-        Args:
-            object_dict (dict): A dictionary containing object pairs
-            online_database (str): The database to retrieve the sequences from
-            display_warning (bool): Toggle display of request warning messages - in [_gb_fetcher] -. Default from defaults.
-            expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
-            max_attempts (int): The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+        Parameters
+        ----------
+            :param object_dict: A dictionary containing object pairs
+            :param online_database: The database to retrieve the sequences from
+            :param display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default from defaults.
+            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
 
-        Returns:
-            full_retrieved_results (dict): A dictionary containing the input objects + the fetched GenBank sequences
+        Returns
+        -------
+            :returns: A dictionary containing the input objects + the fetched GenBank sequences
 
-        Raises:
-            Exception: If an error occurs while fetching the sequences
+        Raises
+        ------
+            :raise Exception: If an error occurs while fetching the sequences
     """
-    full_retrieved_results:dict = {}
+    full_retrieved_results: dict = {}
 
     tasks = []
     with ThreadPoolExecutor() as executor:
@@ -304,8 +317,8 @@ def gb_threadpool_executor(object_dict,
             if result := future.result():
                 full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
                 logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].accession}-'
-                f'{full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to GenBank Dictionary'
-                f'\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
+                             f'{full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to GenBank Dictionary'
+                             f'\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
 
     if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
@@ -313,23 +326,26 @@ def gb_threadpool_executor(object_dict,
 
     return full_retrieved_results
 
-def gb_monothread_executor(object_dict,
-                           online_database,
-                           display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
-                           expand_by:int=defaults.EXPANSION_SIZE,
-                           max_attempts:int=defaults.MAX_RETRIEVAL_ATTEMPTS):
+
+# TODO: Correct gb_monothread_executor function
+def gb_monothread_executor(object_dict: dict,
+                           online_database: str,
+                           display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                           expand_by: int = defaults.EXPANSION_SIZE,
+                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS):
     """
     Fetches GenBank sequences for the objects in an object dictionary using single thread execution.
 
-        Args:
-            object_dict (dict): A dictionary containing object pairs.
-            online_database (str): The database to retrieve the sequences from.
-            display_warning (bool): Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
-            expand_by (int): The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
-            max_attempts (int): The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+        Parameters
+        ----------
+            object_dict: A dictionary containing object pairs.
+            online_database: The database to retrieve the sequences from.
+            display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
+            expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
 
         Returns:
-            full_retrieved_results (dict): A dictionary containing the input objects + the fetched GenBank sequences
+            full_retrieved_results: A dictionary containing the input objects + the fetched GenBank sequences
 
         Raises:
             Exception: If an error occurs while fetching the sequences
@@ -349,7 +365,7 @@ def gb_monothread_executor(object_dict,
         for result in results:
             full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
             logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to '
-            f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}')
+                         f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}')
 
     if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
@@ -358,7 +374,7 @@ def gb_monothread_executor(object_dict,
     return full_retrieved_results
 
 
-def seq_merger(object_dict):
+def seq_merger(object_dict: dict):
     """
     Function to merge overlapping sequences. The function groups sequences by species, accession, strand, and virus.
     Then it merges the sequences within each group by updating the coordinates of the merged sequence. The result
@@ -367,25 +383,29 @@ def seq_merger(object_dict):
 
     CAUTION!: Only HSP.sbjct_start and HSP.sbjct_end are updated. The rest of the attributes are not updated.
 
-        Args:
-            object_dict (dict): A dictionary with object pairs to merge.
+        Parameters
+        ----------
+            :param object_dict: A dictionary with object pairs to merge.
 
-        Returns:
-            merged_dict (dict): A dictionary with the merged sequences.
+        Returns
+        -------
+            :returns: A dictionary with the merged sequences.
     """
+
     # Function to group sequences by species, accession, strand, and virus
-    def seq_grouper(object_dict:dict):
+    def seq_grouper(object_dict: dict):
         logging.debug('Grouping sequences by species, accession, strand, and virus')
         grouped_sequences = defaultdict(list)
 
         for key_identifier, instance in object_dict.items():
             group_key = (instance.species, instance.accession, instance.strand, instance.virus)
-            grouped_sequences[group_key].append((key_identifier, instance)) # It stores both keys and objects in tuple pairs
+            grouped_sequences[group_key].append(
+                (key_identifier, instance))  # It stores both keys and objects in tuple pairs
 
         return grouped_sequences
 
     # Helper function to check if two ranges overlap
-    def ranges_overlap(start1:int, end1:int, start2:int, end2:int):
+    def ranges_overlap(start1: int, end1: int, start2: int, end2: int):
         return max(start1, start2) <= min(end1, end2)
 
     grouped_sequences = seq_grouper(object_dict=object_dict)
@@ -440,46 +460,46 @@ def seq_merger(object_dict):
 
     return merged_dict
 
+
 def blast_retriever(object_dict: dict,
                     command: str,
                     genome: list,
                     online_database: str,
                     input_database_path,
-                    display_warning:bool=defaults.DISPLAY_REQUESTS_WARNING,
-                    multi_threading=True):
+                    display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                    multi_threading: bool = True) -> dict:
     """
     Orchestrates the blast retrieval process. It first performs the blast search, then merges the results, and
     finally retrieves the sequences from the online database and removes incomplete records.
 
-        Args:
-            object_dict (dict): A dictionary of objects
-            command (str): The BLAST command to run.
-            genome (list): The species to search for. Retrieved from defaults.
-            online_database (str): The online database to retrieve the sequences from.
-            input_database_path (str): The path to the local database (species, virus...).
-            display_warning (bool): Toggle display of request warning messages. Default from defaults.
-            multi_threading (bool): Use of multi-threading. Default is True. Execution limiter parameters from defaults.
+        Parameters
+        ----------
+            :param object_dict: A dictionary of objects
+            :param command: The BLAST command to run.
+            :param genome: The species to search for. Retrieved from defaults.
+            :param online_database: The online database to retrieve the sequences from.
+            :param input_database_path: The path to the local database (species, virus...).
+            :param display_warning: Toggle display of request warning messages. Default from defaults.
+            :param multi_threading: Use of multi-threading. Default is True. Execution limiter parameters from defaults.
 
-        Returns:
-            tblastn_merged2gb_results (dict): A dictionary with the post-BLAST merged and
-            retrieved sequences from the online database.
+        Returns
+        -------
+            :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
     """
-    blast_results = blast_threadpool_executor(object_dict=object_dict,
+    blast_results: dict = blast_threadpool_executor(object_dict=object_dict,
                                               command=command,
                                               genome=genome,
                                               input_database_path=input_database_path)
 
-    blast_merged_results = seq_merger(object_dict=blast_results)
+    blast_merged_results: dict = seq_merger(object_dict=blast_results)
 
-    if multi_threading is True:
-        blast_merged2gb_results = gb_threadpool_executor(object_dict=blast_merged_results,
+    if multi_threading:
+        blast_merged2gb_results: dict = gb_threadpool_executor(object_dict=blast_merged_results,
                                                          online_database=online_database,
                                                          display_warning=display_warning)
     else:
-        blast_merged2gb_results = gb_monothread_executor(object_dict=blast_merged_results,
+        blast_merged2gb_results: dict = gb_monothread_executor(object_dict=blast_merged_results,
                                                          online_database=online_database,
                                                          display_warning=display_warning)
 
     return incomplete_dict_cleaner(object_dict=blast_merged2gb_results)
-
-
