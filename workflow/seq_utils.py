@@ -48,7 +48,8 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         ]
 
         # Run the command
-        logging.debug(f'Running {command} for {instance.probe} against {subject}\n{instance.display_info()}')
+        logging.debug(f'Running {command} for {instance.accession}: {instance.probe} probe against {subject}'
+                      f'\n{instance.display_info()}')
         result = subprocess.run(blast_command, capture_output=True, text=True)
 
         # Output captured in result.stdout
@@ -120,7 +121,7 @@ def _blaster_parser(result, instance, subject:str):
 
 def _blast_task(instance, command, subject, input_database_path):
     """
-    Run tblastn for the Entrez-retrieved probe sequences against the species database. This function is used as a task
+    Run BLAST command for the Entrez-retrieved probe sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
 
         Args:
@@ -144,7 +145,7 @@ def _blast_task(instance, command, subject, input_database_path):
         logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {subject}')
         return None
     except Exception as e:
-        logging.error(f'Error running tblastn for {instance.probe}, {instance.virus} against {subject}: {e}')
+        logging.error(f'Error running BLAST for {instance.probe}, {instance.virus} against {subject}: {e}')
         return None
 
 
