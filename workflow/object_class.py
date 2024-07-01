@@ -8,12 +8,14 @@ import defaults
 
 from Bio import SeqIO
 
+
 @dataclass
 class Object:
     """
-    A class to store data from genomic objects
+    A class to store data from genomic objects.
 
-        Attributes:
+        Parameters
+        ----------
             family: The family of the virus
             virus: The name of the virus
             abbreviation: The abbreviation of the virus
@@ -27,7 +29,8 @@ class Object:
             fasta: The fasta record of the sequence
             gff: The GFF record of the sequence
 
-        Methods:
+        Methods
+        -------
             extract_fasta_from_genbank: Extracts the FASTA record from the Genbank record
             extract_gff_from_genbank: Extracts the GFF record from the Genbank record
             extract_strand_from_HSP: Extracts the strand information from the HSP object
@@ -77,19 +80,22 @@ class Object:
     def __eq__(self, other):
         if isinstance(other, Object):
             return self.identifier == other.identifier
-        return false
+        return False
 
     # Static Methods
     @staticmethod
-    def extract_fasta_from_genbank(genbank_record):
+    def extract_fasta_from_genbank(genbank_record) -> str:
         """
-        Extracts the FASTA file from the GenBank record
+        Extracts the FASTA file from the GenBank record.
 
-            Returns:
-                str or None: The FASTA file content
+            Parameters
+            ----------
+                :param genbank_record: The GenBank record to extract the FASTA from.
 
-            Raises:
-                None
+            Returns
+            -------
+                :returns: The FASTA file content.
+
         """
 
         try:
@@ -102,15 +108,18 @@ class Object:
             return None
 
     @staticmethod
-    def extract_gff_from_genbank(genbank_record):
+    def extract_gff_from_genbank(genbank_record) -> str:
         """
-        Extracts the GFF file from the GenBank record
+        Extracts the GFF file from the GenBank record.
 
-            Returns:
-                str or None: The GFF file content
+            Parameters
+            ----------
+                :param genbank_record: The GenBank record to extract the GFF from.
 
-            Raises:
-                None
+            Returns
+            -------
+                :returns: The GFF file content.
+
         """
         try:
             with StringIO() as handle:
@@ -130,11 +139,14 @@ class Object:
         return the strand based on the frame. If the frame is not available, it will return the strand based on the
         orientation of the HSP sbjct_start and sbjct_end values.
 
-            Returns:
-                str or None: The strand information (+ or -)
+            Parameters
+            ----------
+                :param HSP: The HSP object to extract the strand from.
 
-            Raises:
-                None
+            Returns
+            -------
+                :returns: The strand information (+ or -).
+
         """
         try:
             if HSP.frame:
@@ -151,24 +163,26 @@ class Object:
         except Exception as e:
             logging.warning(f'Could not extract strand: {e}')
             return None
-        
+
     @staticmethod
-    def extract_seq2rec(seq_obj:str, obj_type:str, output_type:str= 'seqrecord'):
+    def extract_seq2rec(seq_obj: str, obj_type: str, output_type: str = 'seqrecord'):
         """
-        Parse text (eg. FASTA) into a SeqRecord object or a temporary file in tmp directory.
+        Parse text (e.g. FASTA) into a SeqRecord object or a temporary file in tmp directory.
 
-            Args:
-                seq_obj (str): The text variable to parse (e.g. Instance.fasta, Instance.gff).
-                obj_type (str): The Seq object to parse the FASTA text into (e.g. 'fasta', 'gff').
-                output_type (str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
+            Parameters
+            ----------
+                :param seq_obj: The text variable to parse (e.g. Instance.fasta, Instance.gff).
+                :param obj_type: The Seq object to parse the FASTA text into (e.g. 'fasta', 'gff').
+                :param output_type: The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns:
-                SeqRecord: A SeqRecord object containing the parsed FASTA text.
-                or
-                tempfile: Path to a temporary file containing the parsed FASTA text.
+            Returns
+            -------
+                :returns: A SeqRecord object containing the parsed FASTA text **or** Path to a temporary file containing the parsed FASTA text.
 
-            Raises:
-                ValueError: If an invalid output_type is provided.
+            Raises
+            ------
+                :raise ValueError: If an invalid output_type is provided.
+
         """
         # Create a temporary file to write the FASTA text
         with tempfile.NamedTemporaryFile(mode='w',
@@ -186,62 +200,59 @@ class Object:
             raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
 
     # Getters and Setters
-    def get_alignment(self):
+    def get_alignment(self) -> str or None:
         """
-        Returns the Alignment file associated with the object
+        Returns the Alignment file associated with the object.
 
-            Returns:
-                Alignment or None: The Alignment file content
+            Returns
+            ----------
+                :returns: Alignment or None: The Alignment file content.
 
-            Raises:
-                None
         """
         try:
             return self.alignment
         except Exception as e:
             logging.warning(f'Could not retrieve alignment: {e}')
 
-    def set_alignment(self, alignment_object):
+    def set_alignment(self, alignment_object: object) -> None:
         """
-        Associates an Alignment file with the object
+        Associates an Alignment file with the object.
 
-            Returns:
-                None
+            Parameters
+            ----------
+                :param alignment_object: The Alignment object to associate with the object.
 
-            Raises:
-                None
         """
         self.alignment = alignment_object
 
-    def get_HSP(self):
+    def get_HSP(self) -> object:
         """
-        Retrieves the HSP object
+        Retrieves the HSP object.
 
-                Arguments: None
+                Returns
+                -------
+                    :returns: The HSP object.
 
-                Returns:
-                    HSP: The HSP object
         """
         try:
             return self.HSP
         except Exception as e:
             logging.warning(f'Could not retrieve HSP: {e}')
 
-    def set_HSP(self, HSP_object):
+    def set_HSP(self, HSP_object: object) -> None:
 
         """
         Associates an HSP file with the object. Sets strand attribute from the HSP object.
 
-            Returns:
-                None
+            Parameters
+            ----------
+                :param HSP_object: The HSP object to associate with the object.
 
-            Raises:
-                None
         """
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self, output_type=None):
+    def get_genbank(self, output_type=None) -> str or None:
         """
         Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
         record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
@@ -250,14 +261,18 @@ class Object:
         CAUTION! The GenBank record is already a SeqRecord object. If output_type is set to 'seqrecord', it will raise
         an error. Use only default or 'tempfile' output_type.
 
-            Args:
-                output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
+            Parameters
+            ----------
+                :param output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns:
-                str or None: The FASTA file content
+            Returns
+            -------
+                :returns: str or None: The FASTA file content.
 
-            Raises:
-                Error if output_type is not 'tempfile'
+            Raises
+            ------
+                :raise Error: If output_type is not 'tempfile'.
+
         """
         if self.genbank:
             try:
@@ -275,19 +290,18 @@ class Object:
             logging.warning('Genbank not set. Could not retrieve genbank.')
             return None
 
-    def set_genbank(self, genbank):
+    def set_genbank(self, genbank_obj: str) -> None:
         """
         Associates a GenBank file with the object. Also sets the FASTA and GFF files from the GenBank file
         generated through the [extract_fasta_from_genbank] and [extract_gff_from_genbank] methods.
 
-            Returns:
-                None
+            Parameters
+            ----------
+                :param genbank_obj: The GenBank file to associate with the object.
 
-            Raises:
-                None
         """
         try:
-            handle = StringIO(genbank)
+            handle = StringIO(genbank_obj)
             self.genbank = SeqIO.read(handle, 'genbank')
             self.fasta = self.extract_fasta_from_genbank(self.genbank)
             self.gff = self.extract_gff_from_genbank(self.genbank)
@@ -300,14 +314,14 @@ class Object:
         as string. If output_type is set to 'seqrecord', it will return the FASTA as a SeqRecord object. If output_type
         is set to 'tempfile', it will return the path to a temporary file containing the FASTA.
 
-            Args:
-                output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
+            Parameters
+            ----------
+                :param output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns:
-                str or None: The FASTA file content
+            Returns
+            -------
+                :returns: str or None: The FASTA file content.
 
-            Raises:
-                None
         """
         if self.genbank:
             try:
@@ -326,13 +340,12 @@ class Object:
 
     def get_gff(self):
         """
-        Returns the GFF file associated with the object
+        Returns the GFF file associated with the object.
 
-            Returns:
-                str or None: The GFF file content
+            Returns
+            -------
+                :returns: str or None: The GFF file content.
 
-            Raises:
-                None
         """
 
         if self.genbank:
@@ -348,19 +361,18 @@ class Object:
     def display_info(self) -> str:
         """
         Displays human-readable information about the object. If there are HSPs associated with the object,
-        it will also display  HSP information
+        it will also display  HSP information.
 
-            Returns:
-                str or None: Object information
+            Returns
+            -------
+                :returns: str or None: Object information.
 
-            Raises:
-                None
         """
         info = (f'Family: {self.family}\n'
-               f'Virus: {self.virus}\n'
-               f'Abbreviation: {self.abbreviation}\n'
-               f'Probe: {self.probe}\n'
-               f'Accession: {self.accession}\n')
+                f'Virus: {self.virus}\n'
+                f'Abbreviation: {self.abbreviation}\n'
+                f'Probe: {self.probe}\n'
+                f'Accession: {self.accession}\n')
 
         if self.species:
             info += f'Species: {self.species.replace("_", " ")}\n'
@@ -377,78 +389,68 @@ class Object:
 
         return info
 
-
-    def display_alignment(self) -> str:
+    def display_alignment(self) -> str or None:
         """
-        Displays human-readable information about the object's alignment
+        Displays human-readable information about the object's alignment.
 
-            Returns:
-                str or None: The instance's Alignment information
+            Returns
+            -------
+                :returns: str or None: The instance's Alignment information.
 
-            Raises:
-                None
         """
         return f'Alignment:\n {self.alignment}\n'
 
-    def display_HSP(self) -> str:
+    def display_HSP(self) -> str or None:
         """
-        Displays human-readable information about the object's HSP
+        Displays human-readable information about the object's HSP.
 
-            Returns:
-                str or None: The instance's HSP information
+            Returns
+            -------
+                :returns: str or None: The instance's HSP information.
 
-            Raises:
-                None
         """
         return f'HSP:\n {self.HSP}\n'
 
-    def display_genbank(self) -> str:
+    def display_genbank(self) -> str or None:
         """
-        Displays human-readable information about the object's Genbank record
+        Displays human-readable information about the object's Genbank record.
 
-            Returns:
-                str or None: The instance's Genbank information
+            Returns
+            -------
+                :returns: str or None: The instance's Genbank information.
 
-            Raises:
-                None
         """
         return f'Genbank:\n {self.genbank}\n'
 
-    def display_fasta(self) -> str:
+    def display_fasta(self) -> str or None:
         """
-        Displays human-readable information about the object's FASTA file
+        Displays human-readable information about the object's FASTA file.
 
-            Returns:
-                str or None: The instance's FASTA file content
+            Returns
+            -------
+                :returns: str or None: The instance's FASTA file content.
 
-            Raises:
-                None
         """
         return f'Fasta:\n {self.fasta}\n'
 
-    def display_gff(self) -> str:
+    def display_gff(self) -> str or None:
         """
-        Displays human-readable information about the GFF file associated with the object
+        Displays human-readable information about the GFF file associated with the object.
 
-            Returns:
-                HSP or None: The GFF file content
+            Returns
+            -------
+                :returns: HSP or None: The GFF file content.
 
-            Raises:
-                None
         """
         return f'GFF:\n {self.gff}\n'
 
     def is_complete(self) -> bool:
         """
-        Checks if the object contains Genbank, FASTA and GFF records
+        Checks if the object contains Genbank, FASTA and GFF records.
 
-            Returns:
-                Bool: True if the object contains all three records, False otherwise
+            Returns
+            -------
+                :returns: True if the object contains all three records, False otherwise.
 
-            Raises:
-                None
         """
         return bool(self.alignment and self.HSP and self.genbank)
-
-
-

@@ -12,11 +12,13 @@ def table_parser(input_csv_file):
     """
     Parse the CSV files containing the probe genes and their respective IDs
 
-        Args:
-            input_csv_file (str): The path to the CSV file containing probe info.
+        Parameters
+        ----------
+            :param input_csv_file: The path to the CSV file containing probe info.
 
-        Returns:
-            probe_dict: A dictionary containing object pairs.
+        Returns
+        -------
+            :returns: A dictionary containing object pairs.
     """
     # Read the CSV file
     probe_table = pd.read_csv(input_csv_file)
@@ -37,15 +39,22 @@ def table_parser(input_csv_file):
     logging.info(f'Parsed {len(probe_dict)} probes')
     return probe_dict
 
+
 def probe_extractor(input_csv_file, output_pickle_directory_path, output_pickle_file_name, online_database):
     """
     Orchestrates the probe extraction process, retrieves GenBank information and pickles
+    the dictionary containing the probe objects.
 
-        Args:
-            input_csv_file (str): The path to the CSV file containing probe info.
-            output_pickle_directory_path (str): The path to the directory where the pickled file will be saved.
-            output_pickle_file_name (str): The name of the pickled file to be saved.
-            online_database (str): The online database to be used for sequence retrieval.
+        Parameters
+        ----------
+            :param input_csv_file: The path to the CSV file containing probe info.
+            :param output_pickle_directory_path: The path to the directory where the pickled file will be saved.
+            :param output_pickle_file_name: The name of the pickled file to be saved.
+            :param online_database: The online database to be used for sequence retrieval.
+
+        Returns
+        -------
+            :returns: None
     """
     probe_dict = table_parser(input_csv_file)
     for key, value in probe_dict.items():
