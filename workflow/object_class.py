@@ -126,10 +126,12 @@ class Object:
     @staticmethod
     def extract_strand_from_HSP(HSP: Any) -> str:
         """
-        Extracts the strand information from the HSP object
+        Extracts the strand information from the HSP object. If the HSP object contains frame information, it will
+        return the strand based on the frame. If the frame is not available, it will return the strand based on the
+        orientation of the HSP sbjct_start and sbjct_end values.
 
             Returns:
-                None
+                str or None: The strand information (+ or -)
 
             Raises:
                 None
@@ -371,7 +373,7 @@ class Object:
                      f'HSP Strand: {self.strand}\n')
 
         if self.is_complete():
-            info += f'Complete Record'
+            info += f'Complete Record: \n{self.alignment.hit_def}\n'
 
         return info
 
