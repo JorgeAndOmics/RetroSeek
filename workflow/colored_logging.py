@@ -2,7 +2,7 @@ import coloredlogs
 import logging
 import os
 
-import defaults
+from workflow import defaults
 
 
 def colored_logging(log_file_name: str) -> None:

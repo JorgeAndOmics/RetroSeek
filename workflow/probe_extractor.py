@@ -1,11 +1,12 @@
 from colored_logging import colored_logging
-from object_class import Object
-from seq_utils import *
-from utils import pickler
 import pandas as pd
-import defaults
 import logging
 import os
+
+from object_class import Object
+from workflow import seq_utils
+from workflow import utils
+from workflow import defaults
 
 
 def table_parser(input_csv_file):
@@ -30,7 +31,7 @@ def table_parser(input_csv_file):
             abbreviation=str(row['Abbreviation']),
             probe=str(row['Probe']),
             accession=str(row['Accession']),
-            identifier=random_string_generator(6)
+            identifier=utils.random_string_generator(6)
         )
         for index, row in probe_table.iterrows()
     }
@@ -39,47 +40,18 @@ def table_parser(input_csv_file):
     return probe_dict
 
 
-def probe_extractor(probe_dict: dict, online_database: str) -> dict:
-    """
-    Orchestrates the probe extraction process, retrieves GenBank information and pickles
-    the dictionary containing the probe objects.
-
-        Parameters
-        ----------
-            :param probe_dict: The dictionary containing the probe objects.
-            :param online_database: The online database to be used for sequence retrieval.
-
-        Returns
-        -------
-            :returns: None
-
-        Raises
-        ------
-            :raises Exception: If the retrieval process fails.
-
-    """
-    for value in probe_dict.values():
-        try:
-            gb_fetcher(value, online_database)
-            logging.info(f'Successfully retrieved {value.accession}-{value.identifier} GenBank information')
-        except Exception as e:
-            logging.warning(f'Failed to retrieve {value.accession}-{value.identifier} GenBank information: {e}')
-
-    return probe_dict
-
-
 if __name__ == '__main__':
     colored_logging(log_file_name='probe_extractor.txt')
 
     probe_dict: dict = table_parser(input_csv_file=os.path.join('..', 'data', 'tables', 'Probes.csv'))
 
-    probe_extraction: dict = probe_extractor(probe_dict=probe_dict,
-                                             online_database='protein')
+    probe_extraction: dict = seq_utils.gb_threadpool_executor(object_dict=probe_dict,
+                                                              online_database='protein')
 
-    incomplete_dict_cleaner(object_dict=probe_extraction)
+    utils.incomplete_dict_cleaner(object_dict=probe_extraction)
 
-    pickler(data=probe_extraction,
-            output_directory_path=defaults.PICKLE_DIR,
-            output_file_name='probe_dict.pkl')
+    utils.pickler(data=probe_extraction,
+                  output_directory_path=defaults.PICKLE_DIR,
+                  output_file_name='probe_dict.pkl')
 
     logging.info('Probe extraction and retrieval completed')

@@ -4,7 +4,7 @@ import random
 import string
 import os
 
-import defaults
+from workflow import defaults
 
 import logging
 
