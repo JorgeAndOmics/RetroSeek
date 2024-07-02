@@ -4,9 +4,9 @@ import logging
 import os
 
 from object_class import Object
-from workflow import seq_utils
-from workflow import utils
-from workflow import defaults
+import seq_utils
+import utils
+import defaults
 
 
 def table_parser(input_csv_file):

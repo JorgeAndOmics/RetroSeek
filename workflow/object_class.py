@@ -4,7 +4,7 @@ from io import StringIO
 import tempfile
 import logging
 
-from workflow import defaults
+import defaults
 
 from Bio import SeqIO
 

@@ -1,8 +1,8 @@
-from workflow import seq_utils
-from workflow import utils
-from workflow import defaults
+import seq_utils
+import utils
+import defaults
 
-from workflow.colored_logging import colored_logging
+from colored_logging import colored_logging
 import logging
 
 if __name__ == '__main__':

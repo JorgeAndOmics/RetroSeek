@@ -9,13 +9,13 @@ import string
 import time
 import os
 
-from workflow.object_class import Object
+from object_class import Object
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
 
-from workflow import utils
-from workflow import defaults
+import utils
+import defaults
 
 
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
