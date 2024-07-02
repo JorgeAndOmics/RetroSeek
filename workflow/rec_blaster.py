@@ -1,12 +1,12 @@
 # TODO: Database generation and sorting
 from collections import defaultdict
 
-from workflow import seq_utils
-from workflow import utils
-from workflow import defaults
-from workflow.object_class import Object
+import seq_utils
+import utils
+import defaults
+from object_class import Object
 
-from workflow.colored_logging import colored_logging
+from colored_logging import colored_logging
 import logging
 
 
