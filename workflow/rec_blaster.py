@@ -1,11 +1,14 @@
 # TODO: Database generation and sorting
 from collections import defaultdict
 
-from seq_utils import *
-from utils import *
+from workflow import seq_utils
+from workflow import utils
+from workflow import defaults
+from workflow.object_class import Object
 
-from colored_logging import colored_logging
+from workflow.colored_logging import colored_logging
 import logging
+
 
 def reciprocal_blast_experimental(object_dict_a: dict,
                                   object_dict_b: dict,
@@ -33,22 +36,22 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
     # Let's assume databases are already created. [blast_threadpool_executor] already generates
     # fasta files for the input.
-    def run_blast_looper(object_dict, command, input_database_path)-> dict[list]:
+    def run_blast_looper(object_dict, command, input_database_path) -> dict[list]:
         results = defaultdict(list)
         for key, obj in object_dict.items():
             query: dict = {key: obj}
-            results[key].append(blast_threadpool_executor(object_dict=query,
-                                                          command=command,
-                                                          input_database_path=input_database_path).values())
+            results[key].append(seq_utils.blast_threadpool_executor(object_dict=query,
+                                                                    command=command,
+                                                                    input_database_path=input_database_path).values())
         return results
 
     # TODO: EXPERIMENTAL: Filters a range of returns based on a minimum threshold for bitscore, identity, and E-value.
-    def get_range_blast_hit(blast_results: dict, bitscore: int, identity: float, e_value: float)-> dict:
+    def get_range_blast_hit(blast_results: dict, bitscore: int, identity: float, e_value: float) -> dict:
         return {key: [value for value in values if value.HSP.bits >= bitscore and
                       (value.HSP.identities / value.HSP.align_length) >= identity and
                       value.HSP.expect <= e_value] for key, values in blast_results.items()}
 
-    def get_max_blast_hit(blast_results)-> dict:
+    def get_max_blast_hit(blast_results) -> dict:
         # Ordered first based on HSP bitscore
         selected_hits: dict = {key: max(value, key=lambda x: x.HSP.bits) for key, value in blast_results.items()}
         if len(selected_hits.values()) > 1:
@@ -65,12 +68,12 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
         return selected_hits
 
-    def hit_desc(instance)-> str:
+    def hit_desc(instance) -> str:
         if isinstance(instance, Object):
             return instance.alignment.hit_def
 
     # TODO: EXPERIMENTAL: Reciprocal hit finder for a range of returns based on a minimum threshold for bitscore, identity, and E-value.
-    def reciprocal_hit_range(route_a_max: dict, route_b_max: dict)-> list[dict]:
+    def reciprocal_hit_range(route_a_max: dict, route_b_max: dict) -> list[dict]:
         reciprocal_hits = []
         for x, y in route_a_max.items():  # x: Virus Object w/f; y: Probe Object List
             for i, j in route_b_max.items():  # i: Probe Object w/f; j: Virus Object List
@@ -88,7 +91,7 @@ def reciprocal_blast_experimental(object_dict_a: dict,
                                 f'{hit_desc(y)} | {hit_desc(y_obj)}')
 
     # Can't compare instances through identifiers, due to them being randomly generated at BLAST parsing.
-    def reciprocal_hit_finder(route_a_max:dict, route_b_max:dict)-> list[dict]:
+    def reciprocal_hit_finder(route_a_max: dict, route_b_max: dict) -> list[dict]:
         reciprocal_hits = []
         for x, y in route_a_max.items():  # x: Virus Object w/f; y: Probe Object
             for i, j in route_b_max.items():  # i: Probe Object w/f; j: Virus Object
@@ -117,7 +120,7 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
     # Find reciprocal hits
     reciprocal_hits: list[dict] = reciprocal_hit_finder(route_a_max=route_a_max,
-                                           route_b_max=route_b_max)
+                                                        route_b_max=route_b_max)
 
     return reciprocal_hits
 
@@ -125,15 +128,15 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 if __name__ == '__main__':
     colored_logging(log_file_name='rec_blaster.txt')
 
-    virus_dict: dict = unpickler(input_directory_path=os.path.join('..', 'data', 'pickles'),
-                           input_file_name='virus_dict.pkl')
+    virus_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
+                                       input_file_name='virus_dict.pkl')
 
-    probe_dict: dict = unpickler(input_directory_path=os.path.join('..', 'data', 'pickles'),
-                           input_file_name='probe_dict.pkl')
+    probe_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
+                                       input_file_name='probe_dict.pkl')
 
     reciprocal_hits: list[dict] = reciprocal_blast_experimental(object_dict_a=virus_dict,
-                                                    object_dict_b=probe_dict,
-                                                    command_a='blastx',
-                                                    command_b='tblastn',
-                                                    input_database_a='placeholder',
-                                                    input_database_b='placeholder')
+                                                                object_dict_b=probe_dict,
+                                                                command_a='blastx',
+                                                                command_b='tblastn',
+                                                                input_database_a='placeholder',
+                                                                input_database_b='placeholder')

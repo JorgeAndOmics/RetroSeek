@@ -7,14 +7,15 @@ import logging
 import random
 import string
 import time
+import os
 
-from object_class import Object
+from workflow.object_class import Object
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
 
-from utils import *
-import defaults
+from workflow import utils
+from workflow import defaults
 
 
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
@@ -98,7 +99,7 @@ def _blaster_parser(result, instance: object, subject: str)-> dict:
                 for hsp in alignment.hsps:
 
                     accession_id = alignment.hit_def.split(' ')[0]
-                    random_string = random_string_generator(6)
+                    random_string = utils.random_string_generator(6)
 
                     new_instance = Object(
                         family=str(instance.family),
@@ -306,7 +307,7 @@ def gb_threadpool_executor(object_dict: dict,
     with ThreadPoolExecutor() as executor:
         tasks.extend(
             executor.submit(
-                execution_limiter,
+                utils.execution_limiter,
                 func=gb_fetcher,
                 instance=value,
                 online_database=online_database,
@@ -507,4 +508,4 @@ def blast_retriever(object_dict: dict,
                                                                online_database=online_database,
                                                                display_warning=display_warning)
 
-    return incomplete_dict_cleaner(object_dict=blast_merged2gb_results)
+    return utils.incomplete_dict_cleaner(object_dict=blast_merged2gb_results)
