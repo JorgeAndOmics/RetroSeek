@@ -14,6 +14,7 @@ from Bio.Blast import NCBIXML
 from Bio import Entrez
 
 from utils import *
+import defaults
 
 
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
@@ -132,15 +133,17 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
 
         Parameters
         ----------
-            instance: The Object instance containing information about the query.
-            command (str): The type of BLAST to run
-            subject (str): The species to run tblastn against. Scientific name joined by '_'
+            :param instance: The Object instance containing information about the query.
+            :param command: The type of BLAST to run
+            :param subject: The species to run tblastn against. Scientific name joined by '_'
 
-        Returns:
-            dict: A dictionary containing the tblastn results parsed by [blaster_parser] function
+        Returns
+        -------
+            :returns: A dictionary containing the tblastn results parsed by [blaster_parser] function
 
-        Raises:
-            Exception: If the tblastn process fails
+        Raises
+        ------
+            :raises Exception: If the tblastn process fails
 
     """
     try:
@@ -159,7 +162,7 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
 def blast_threadpool_executor(object_dict: dict,
                               command: str,
                               input_database_path,
-                              genome: list=None):
+                              genome: list = None):
     """
     Runs BLAST tasks asynchronously using ThreadPoolExecutor
 
@@ -257,7 +260,7 @@ def gb_fetcher(instance: object,
         }
     try:
         with Entrez.efetch(**kwargs) as handle:
-            genbank_record = handle.read()
+            genbank_record: object = handle.read()
             instance.set_genbank(genbank_record)
         return instance
 
@@ -332,23 +335,25 @@ def gb_monothread_executor(object_dict: dict,
                            online_database: str,
                            display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
                            expand_by: int = defaults.EXPANSION_SIZE,
-                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS):
+                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS) -> dict:
     """
     Fetches GenBank sequences for the objects in an object dictionary using single thread execution.
 
         Parameters
         ----------
-            object_dict: A dictionary containing object pairs.
-            online_database: The database to retrieve the sequences from.
-            display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
-            expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
-            max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+            :param object_dict: A dictionary containing object pairs.
+            :param online_database: The database to retrieve the sequences from.
+            :param display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
+            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
+            :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
 
-        Returns:
-            full_retrieved_results: A dictionary containing the input objects + the fetched GenBank sequences
+        Returns
+        -------
+            :returns: full_retrieved_results: A dictionary containing the input objects + the fetched GenBank sequences
 
-        Raises:
-            Exception: If an error occurs while fetching the sequences
+        Raises
+        ------
+            :raises Exception: If an error occurs while fetching the sequences
     """
     full_retrieved_results = {}
 
@@ -358,7 +363,7 @@ def gb_monothread_executor(object_dict: dict,
             online_database=online_database,
             expand_by=expand_by,
             max_attempts=max_attempts,
-            display_warning=defaults.DISPLAY_REQUESTS_WARNING,
+            display_warning=display_warning,
         )
         for key, value in object_dict.items()
     ]:
@@ -487,19 +492,19 @@ def blast_retriever(object_dict: dict,
             :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
     """
     blast_results: dict = blast_threadpool_executor(object_dict=object_dict,
-                                              command=command,
-                                              genome=genome,
-                                              input_database_path=input_database_path)
+                                                    command=command,
+                                                    genome=genome,
+                                                    input_database_path=input_database_path)
 
     blast_merged_results: dict = seq_merger(object_dict=blast_results)
 
     if multi_threading:
         blast_merged2gb_results: dict = gb_threadpool_executor(object_dict=blast_merged_results,
-                                                         online_database=online_database,
-                                                         display_warning=display_warning)
+                                                               online_database=online_database,
+                                                               display_warning=display_warning)
     else:
         blast_merged2gb_results: dict = gb_monothread_executor(object_dict=blast_merged_results,
-                                                         online_database=online_database,
-                                                         display_warning=display_warning)
+                                                               online_database=online_database,
+                                                               display_warning=display_warning)
 
     return incomplete_dict_cleaner(object_dict=blast_merged2gb_results)

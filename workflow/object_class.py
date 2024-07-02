@@ -84,7 +84,7 @@ class Object:
 
     # Static Methods
     @staticmethod
-    def extract_fasta_from_genbank(genbank_record) -> str:
+    def extract_fasta_from_genbank(genbank_record) -> str or None:
         """
         Extracts the FASTA file from the GenBank record.
 
@@ -108,7 +108,7 @@ class Object:
             return None
 
     @staticmethod
-    def extract_gff_from_genbank(genbank_record) -> str:
+    def extract_gff_from_genbank(genbank_record) -> Optional[str]:
         """
         Extracts the GFF file from the GenBank record.
 
@@ -133,7 +133,7 @@ class Object:
             return None
 
     @staticmethod
-    def extract_strand_from_HSP(HSP: Any) -> str:
+    def extract_strand_from_HSP(HSP_obj) -> Optional[str]:
         """
         Extracts the strand information from the HSP object. If the HSP object contains frame information, it will
         return the strand based on the frame. If the frame is not available, it will return the strand based on the
@@ -141,7 +141,7 @@ class Object:
 
             Parameters
             ----------
-                :param HSP: The HSP object to extract the strand from.
+                :param HSP_obj: The HSP object to extract the strand from.
 
             Returns
             -------
@@ -149,15 +149,15 @@ class Object:
 
         """
         try:
-            if HSP.frame:
-                if HSP.frame[-1] > 0 and isinstance(HSP.frame[-1], int):
+            if HSP_obj.frame:
+                if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
                     return '+'
-                if HSP.frame[-1] < 0 and isinstance(HSP.frame[-1], int):
+                if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
                     return '-'
             else:
-                if HSP.sbjct_start < HSP.sbjct_end:
+                if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
                     return '+'
-                if HSP.sbjct_start > HSP.sbjct_end:
+                if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
                     return '-'
 
         except Exception as e:
@@ -177,7 +177,7 @@ class Object:
 
             Returns
             -------
-                :returns: A SeqRecord object containing the parsed FASTA text **or** Path to a temporary file containing the parsed FASTA text.
+            :returns: A SeqRecord object **or** Path to temporary file containing the parsed FASTA text.
 
             Raises
             ------
@@ -200,7 +200,7 @@ class Object:
             raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
 
     # Getters and Setters
-    def get_alignment(self) -> str or None:
+    def get_alignment(self) -> Optional[str]:
         """
         Returns the Alignment file associated with the object.
 
@@ -252,7 +252,7 @@ class Object:
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self, output_type=None) -> str or None:
+    def get_genbank(self, output_type=None) -> Optional[str]:
         """
         Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
         record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
@@ -389,7 +389,7 @@ class Object:
 
         return info
 
-    def display_alignment(self) -> str or None:
+    def display_alignment(self) -> Optional[str]:
         """
         Displays human-readable information about the object's alignment.
 
@@ -400,7 +400,7 @@ class Object:
         """
         return f'Alignment:\n {self.alignment}\n'
 
-    def display_HSP(self) -> str or None:
+    def display_HSP(self) -> Optional[str]:
         """
         Displays human-readable information about the object's HSP.
 
@@ -411,7 +411,7 @@ class Object:
         """
         return f'HSP:\n {self.HSP}\n'
 
-    def display_genbank(self) -> str or None:
+    def display_genbank(self) -> Optional[str]:
         """
         Displays human-readable information about the object's Genbank record.
 
@@ -422,7 +422,7 @@ class Object:
         """
         return f'Genbank:\n {self.genbank}\n'
 
-    def display_fasta(self) -> str or None:
+    def display_fasta(self) -> Optional[str]:
         """
         Displays human-readable information about the object's FASTA file.
 
@@ -433,7 +433,7 @@ class Object:
         """
         return f'Fasta:\n {self.fasta}\n'
 
-    def display_gff(self) -> str or None:
+    def display_gff(self) -> Optional[str]:
         """
         Displays human-readable information about the GFF file associated with the object.
 
