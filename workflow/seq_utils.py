@@ -156,7 +156,7 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
         logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {subject}')
         return None
     except Exception as e:
-        logging.error(f'Error running BLAST for {instance.probe}, {instance.virus} against {subject}: {e}')
+        logging.error(f'Error running BLAST for {instance.probe}, {instance.virus} against {subject.replace("_", " ")}: {e}')
         return None
 
 

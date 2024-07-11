@@ -1,0 +1,88 @@
+---
+title: "enERVate Modular Analysis"
+output: html_notebook
+---
+
+```{r warning=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggmosaic)
+```
+
+```{r}
+data <- read.csv('../data/tables/output/tblastn_results.csv')
+```
+
+```{r}
+print(data)
+```
+
+```{r}
+plot1 <- ggplot(data, aes(x=Family)) +
+         geom_bar() + 
+         facet_grid(.~Species) +
+         geom_bar(fill = "steelblue") +
+         theme_minimal() +
+         labs(title = "Distribution of Virus Families",
+           x = "Virus Family",
+           y = "Count") +
+         theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plot1
+```
+
+```{r}
+probe_counts <- data %>%
+  count(Probe) %>%
+  mutate(proportion = n / sum(n))
+
+plot2 <- ggplot(probe_counts, aes(x = "", y = proportion, fill = Probe)) +
+         geom_bar(stat = "identity", width = 1) +
+         coord_polar(theta = "y") +
+         theme_void() +
+         labs(title = "Full Proportion of Probe Types") +
+         theme(legend.position = "right")
+
+plot2
+```
+
+```{r}
+# Summarize the data to get counts of Probe types within each Family
+probe_family_counts <- data %>%
+  count(Family, Probe)
+
+# Create the stacked bar plot
+plot3 <- ggplot(probe_family_counts, aes(x = Family, y = n, fill = Probe)) +
+         geom_bar(stat = "identity", position = "stack") +
+         theme_minimal() +
+         labs(title = "Relative Abundance of Probes Related to Families",
+             x = "Virus Family",
+             y = "Proportion",
+             fill = "Probe") +
+         theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot3
+```
+
+```{r}
+# Summarize the data to get counts of Probes within each Virus
+probe_virus_counts <- data %>%
+  count(Abbreviation, Probe)
+
+
+ggplot(probe_virus_counts, aes(x = Abbreviation, y = n, color = Probe)) +
+  geom_point(size = 3, position = position_jitter(width = 0.2, height = 0)) +
+  theme_minimal() +
+  labs(title = "Distribution of Probe Findings Across Viruses",
+       x = "Virus Abbreviation",
+       y = "Number of Findings",
+       color = "Probe") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+
+```

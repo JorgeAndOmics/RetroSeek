@@ -1,21 +1,5 @@
-2024-07-02 13:40:02,684 - Parsed 57 probes
-2024-07-02 13:40:03,491 - Added ATN28189.1-W2WX9Y to GenBank Dictionary
-Family: Betaretrovirus
-Virus: Simian retrovirus 2
-Abbreviation: SRV
-Probe: POL
-Accession: ATN28189.1
-
-
-2024-07-02 13:40:03,530 - Added AJR27940.1-BMG18L to GenBank Dictionary
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: POL
-Accession: AJR27940.1
-
-
-2024-07-02 13:40:03,582 - Added CAA48535.1-1K8AN5 to GenBank Dictionary
+2024-07-02 14:17:20,765 - Parsed 57 probes
+2024-07-02 14:17:21,596 - Added CAA48535.1-BKBBR5 to GenBank Dictionary
 Family: Alpharetrovirus
 Virus: Rous sarcoma virus
 Abbreviation: RSV
@@ -23,391 +7,15 @@ Probe: POL
 Accession: CAA48535.1
 
 
-2024-07-02 13:40:03,586 - Added YP_009513211.1-93ZKRV to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Koala retrovirus
-Abbreviation: KoRV
-Probe: POL
-Accession: YP_009513211.1
-
-
-2024-07-02 13:40:03,622 - Added AAD45226.1-TR6200 to GenBank Dictionary
-Family: Betaretrovirus
-Virus: Jaagsiekte sheep retrovirus
-Abbreviation: JSRV
-Probe: POL
-Accession: AAD45226.1
-
-
-2024-07-02 13:40:03,655 - Added AJG42161.1-WWYP47 to GenBank Dictionary
-Family: Alpharetrovirus
-Virus: Avian leukosis virus
-Abbreviation: ALV
-Probe: POL
-Accession: AJG42161.1
-
-
-2024-07-02 13:40:03,730 - Added AAD30048.1-NCJNAW to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Walleye epidermal hyperplasia virus 1
-Abbreviation: WEHV
-Probe: POL
-Accession: AAD30048.1
-
-
-2024-07-02 13:40:04,228 - Added KAI5929250.1-JDQQFJ to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Manis javanica Endogenous retrovirus group K
-Abbreviation: MjERVk
-Probe: POL
-Accession: KAI5929250.1
-
-
-2024-07-02 13:40:04,256 - Added CAA11581.1-1KTT6X to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Feline foamy virus
-Abbreviation: FFV
-Probe: POL
-Accession: CAA11581.1
-
-
-2024-07-02 13:40:04,339 - Added AJR27937.1-HANOL6 to GenBank Dictionary
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: AJR27937.1
-
-
-2024-07-02 13:40:04,744 - Added ATN28190.1-Q0PSFK to GenBank Dictionary
+2024-07-02 14:17:21,664 - Added ATN28189.1-FSSKE1 to GenBank Dictionary
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
-Probe: ENV
-Accession: ATN28190.1
-
-
-2024-07-02 13:40:04,761 - Added CAA48536.1-UUAQEK to GenBank Dictionary
-Family: Alpharetrovirus
-Virus: Rous sarcoma virus
-Abbreviation: RSV
-Probe: ENV
-Accession: CAA48536.1
-
-
-2024-07-02 13:40:04,781 - Added CAA40318.1-UXU75K to GenBank Dictionary
-Family: Lentivirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
 Probe: POL
-Accession: CAA40318.1
+Accession: ATN28189.1
 
 
-2024-07-02 13:40:05,216 - Added AAB68771.1-MB7SWW to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Bovine foamy virus
-Abbreviation: BFV
-Probe: ENV
-Accession: AAB68771.1
-
-
-2024-07-02 13:40:05,377 - Added AAB59940.1-NGLEPP to GenBank Dictionary
-Family: Lentivirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
-Probe: ENV
-Accession: AAB59940.1
-
-
-2024-07-02 13:40:05,378 - Added ALB75304.1-C8G6KC to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Bovine Leukemia virus
-Abbreviation: BLV
-Probe: ENV
-Accession: ALB75304.1
-
-
-2024-07-02 13:40:05,394 - Added AAD30049.1-AGEGMA to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Walleye epidermal hyperplasia virus 1
-Abbreviation: WEHV
-Probe: ENV
-Accession: AAD30049.1
-
-
-2024-07-02 13:40:05,407 - Added AAC82596.1-QGAYP5 to GenBank Dictionary
-Family: Lentivirus
-Virus: Human immunodeficiency virus 1
-Abbreviation: HIV-1
-Probe: ENV
-Accession: AAC82596.1
-
-
-2024-07-02 13:40:05,427 - Added AAD34843.1-15TKXI to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Human T lymphotropic virus 2
-Abbreviation: HTLV
-Probe: ENV
-Accession: AAD34843.1
-
-
-2024-07-02 13:40:05,527 - Added CAA70076.1-WR3SI7 to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Feline foamy virus
-Abbreviation: FFV
-Probe: ENV
-Accession: CAA70076.1
-
-
-2024-07-02 13:40:06,229 - Added KAI5946619.1-P115QT to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Manis javanica Endogenous retrovirus group K
-Abbreviation: MjERVk
-Probe: ENV
-Accession: KAI5946619.1
-
-
-2024-07-02 13:40:06,234 - Added AJG42160.1-OB1Q94 to GenBank Dictionary
-Family: Alpharetrovirus
-Virus: Avian leukosis virus
-Abbreviation: ALV
-Probe: GAG
-Accession: AJG42160.1
-
-
-2024-07-02 13:40:06,305 - Added AJR27933.1-5OJRE2 to GenBank Dictionary
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: GAG
-Accession: AJR27933.1
-
-
-2024-07-02 13:40:06,351 - Added AAF15097.1-ODMP2G to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Koala retrovirus
-Abbreviation: KoRV
-Probe: GAG
-Accession: AAF15097.1
-
-
-2024-07-02 13:40:06,367 - Added AAC82585.1-7TW5K2 to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Bovine Leukemia virus
-Abbreviation: BLV
-Probe: GAG
-Accession: AAC82585.1
-
-
-2024-07-02 13:40:06,378 - Added CAA48534.1-DFUMRV to GenBank Dictionary
-Family: Alpharetrovirus
-Virus: Rous sarcoma virus
-Abbreviation: RSV
-Probe: GAG
-Accession: CAA48534.1
-
-
-2024-07-02 13:40:06,430 - Added ATN28187.1-DUYDMS to GenBank Dictionary
-Family: Betaretrovirus
-Virus: Simian retrovirus 2
-Abbreviation: SRV
-Probe: GAG
-Accession: ATN28187.1
-
-
-2024-07-02 13:40:07,038 - Added AAB59884.1-1GH94Y to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Human T lymphotropic virus 2
-Abbreviation: HTLV
-Probe: GAG
-Accession: AAB59884.1
-
-
-2024-07-02 13:40:07,095 - Added AAD30047.1-FRNAGW to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Walleye epidermal hyperplasia virus 1
-Abbreviation: WEHV
-Probe: GAG
-Accession: AAD30047.1
-
-
-2024-07-02 13:40:07,236 - Added AAC82593.1-VT16Q7 to GenBank Dictionary
-Family: Lentivirus
-Virus: Human immunodeficiency virus 1
-Abbreviation: HIV-1
-Probe: GAG
-Accession: AAC82593.1
-
-
-2024-07-02 13:40:07,330 - Added AAB68769.1-0DO6MX to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Bovine foamy virus
-Abbreviation: BFV
-Probe: GAG
-Accession: AAB68769.1
-
-
-2024-07-02 13:40:07,341 - Added CAA70074.1-46YDY6 to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Feline foamy virus
-Abbreviation: FFV
-Probe: GAG
-Accession: CAA70074.1
-
-
-2024-07-02 13:40:07,363 - Added KAI5943785.1-XQPTKU to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Manis javanica Endogenous retrovirus group K
-Abbreviation: MjERVk
-Probe: GAG
-Accession: KAI5943785.1
-
-
-2024-07-02 13:40:07,808 - Added AAB25461.1-UBKLP0 to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Visna maedi
-Abbreviation: VMW
-Probe: VIF
-Accession: AAB25461.1
-
-
-2024-07-02 13:40:07,908 - Added AAF20197.1-E52274 to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Human immunodeficiency virus 1
-Abbreviation: HIV-1
-Probe: VIF
-Accession: AAF20197.1
-
-
-2024-07-02 13:40:07,966 - Added AAP97009.1-ZFSQDO to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Simian immunodeficiency virus
-Abbreviation: SIV
-Probe: VIF
-Accession: AAP97009.1
-
-
-2024-07-02 13:40:08,318 - Added WPT10369.1-8CQGDG to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
-Probe: VIF
-Accession: WPT10369.1
-
-
-2024-07-02 13:40:08,329 - Added QIG38012.1-5PUSO0 to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Puma lentivirus
-Abbreviation: PLV
-Probe: VIF
-Accession: QIG38012.1
-
-
-2024-07-02 13:40:08,588 - Added AAR36966.2-6BE744 to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: N_protein
-Accession: AAR36966.2
-
-
-2024-07-02 13:40:08,702 - Added AAR36968.2-WZ2W2D to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: P_protein
-Accession: AAR36968.2
-
-
-2024-07-02 13:40:09,133 - Added UPO09296.1-OT0XTX to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: L_protein
-Accession: UPO09296.1
-
-
-2024-07-02 13:46:43,504 - Added AJG42162.1-8WJ8S4 to GenBank Dictionary
-Family: Alpharetrovirus
-Virus: Avian leukosis virus
-Abbreviation: ALV
-Probe: ENV
-Accession: AJG42162.1
-
-
-2024-07-02 13:46:43,508 - Added AAD34842.1-Q5IW2V to GenBank Dictionary
-Family: Epsilonretrovirus
-Virus: Human T lymphotropic virus 2
-Abbreviation: HTLV
-Probe: POL
-Accession: AAD34842.1
-
-
-2024-07-02 13:46:43,616 - Added AAB59936.1-I13T4J to GenBank Dictionary
-Family: Lentivirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
-Probe: GAG
-Accession: AAB59936.1
-
-
-2024-07-02 13:46:43,627 - Added AFR79239.1-4Q6V72 to GenBank Dictionary
-Family: Spumaretrovirus
-Virus: Bovine foamy virus
-Abbreviation: BFV
-Probe: POL
-Accession: AFR79239.1
-
-
-2024-07-02 13:46:43,630 - Added YP_009513212.1-GU1LRM to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Koala retrovirus
-Abbreviation: KoRV
-Probe: ENV
-Accession: YP_009513212.1
-
-
-2024-07-02 13:46:43,631 - Added AAA89180.1-44K9QT to GenBank Dictionary
-Family: Betaretrovirus
-Virus: Jaagsiekte sheep retrovirus
-Abbreviation: JSRV
-Probe: GAG
-Accession: AAA89180.1
-
-
-2024-07-02 13:46:43,632 - Added NP_789740.1-861GY4 to GenBank Dictionary
-Family: Lentivirus
-Virus: Human immunodeficiency virus 1
-Abbreviation: HIV-1
-Probe: POL
-Accession: NP_789740.1
-
-
-2024-07-02 13:46:43,633 - Added CAA76583.1-WRSF94 to GenBank Dictionary
-Family: Gammaretrovirus
-Virus: Porcine endogenous retrovirus
-Abbreviation: PoERV
-Probe: ENV
-Accession: CAA76583.1
-
-
-2024-07-02 13:46:43,634 - Added ADG27335.1-DZBU7N to GenBank Dictionary
-Family: Gammaretrovirus
-Virus: Porcine endogenous retrovirus
-Abbreviation: PoERV
-Probe: GAG
-Accession: ADG27335.1
-
-
-2024-07-02 13:46:43,638 - Added ALU34105.1-6MBFIB to GenBank Dictionary
-Family: Orthoretrovirus
-Virus: Small ruminant lentivirus
-Abbreviation: SRLV
-Probe: VIF
-Accession: ALU34105.1
-
-
-2024-07-02 13:46:43,644 - Added AAL38193.1-0BLYG7 to GenBank Dictionary
+2024-07-02 14:17:21,666 - Added AAL38193.1-6ZT8ZB to GenBank Dictionary
 Family: Gammaretrovirus
 Virus: Porcine endogenous retrovirus
 Abbreviation: PoERV
@@ -415,7 +23,63 @@ Probe: POL
 Accession: AAL38193.1
 
 
-2024-07-02 13:46:43,660 - Added NP_041188.1-PIQ2FZ to GenBank Dictionary
+2024-07-02 14:17:21,681 - Added AAD34842.1-GL8LJ5 to GenBank Dictionary
+Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Probe: POL
+Accession: AAD34842.1
+
+
+2024-07-02 14:17:21,685 - Added AJR27940.1-RS0G4I to GenBank Dictionary
+Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Probe: POL
+Accession: AJR27940.1
+
+
+2024-07-02 14:17:21,687 - Added AAD45226.1-HF4LK1 to GenBank Dictionary
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: AAD45226.1
+
+
+2024-07-02 14:17:21,689 - Added AAD30048.1-8KY3DA to GenBank Dictionary
+Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Probe: POL
+Accession: AAD30048.1
+
+
+2024-07-02 14:17:21,711 - Added AJG42161.1-2JZKCO to GenBank Dictionary
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: POL
+Accession: AJG42161.1
+
+
+2024-07-02 14:17:22,025 - Added YP_009513211.1-6NR7V4 to GenBank Dictionary
+Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Probe: POL
+Accession: YP_009513211.1
+
+
+2024-07-02 14:17:22,664 - Added CAA11581.1-Q8F8AE to GenBank Dictionary
+Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Probe: POL
+Accession: CAA11581.1
+
+
+2024-07-02 14:17:23,003 - Added NP_041188.1-U7J3YH to GenBank Dictionary
 Family: Betaretrovirus
 Virus: Jaagsiekte sheep retrovirus
 Abbreviation: JSRV
@@ -423,37 +87,19 @@ Probe: ENV
 Accession: NP_041188.1
 
 
-2024-07-02 13:46:43,714 - Added BAA00544.1-3XWXAT to GenBank Dictionary
-Family: Deltaretrovirus
-Virus: Bovine Leukemia virus
-Abbreviation: BLV
+2024-07-02 14:17:23,038 - Added CAA48536.1-24GBXG to GenBank Dictionary
+Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Probe: ENV
+Accession: CAA48536.1
+
+
+2024-07-02 14:17:23,138 - Added CAA40318.1-HM6F2O to GenBank Dictionary
+Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
 Probe: POL
-Accession: BAA00544.1
+Accession: CAA40318.1
 
 
-2024-07-02 13:46:48,634 - Added NP_042023.1-XI56MM to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: G_protein
-Accession: NP_042023.1
-
-
-2024-07-02 13:46:48,740 - Added WWZ81731.1-BGOBNP to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: X_protein
-Accession: WWZ81731.1
-
-
-2024-07-02 13:46:48,977 - Added WXB24237.1-3KPI5B to GenBank Dictionary
-Family: Bornavirus
-Virus: Borna disease virus
-Abbreviation: BDV
-Probe: M_protein
-Accession: WXB24237.1
-
-
-2024-07-02 13:46:48,980 - Cleaning up incomplete objects...
-2024-07-02 13:46:48,990 - Probe extraction and retrieval completed
