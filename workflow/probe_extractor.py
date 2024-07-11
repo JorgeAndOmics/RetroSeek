@@ -43,7 +43,7 @@ def table_parser(input_csv_file):
 if __name__ == '__main__':
     colored_logging(log_file_name='probe_extractor.txt')
 
-    probe_dict: dict = table_parser(input_csv_file=os.path.join('..', 'data', 'tables', 'Probes.csv'))
+    probe_dict: dict = table_parser(input_csv_file=os.path.join(defaults.TABLE_INPUT_DIR, 'Probes.csv'))
 
     probe_extraction: dict = seq_utils.gb_threadpool_executor(object_dict=probe_dict,
                                                               online_database='protein')

@@ -385,7 +385,7 @@ class Object:
                      f'HSP Strand: {self.strand}\n')
 
         if self.is_complete():
-            info += f'Complete Record: \n{self.alignment.hit_def}\n'
+            info += f'Complete Record: {self.alignment.hit_def}\n'
 
         return info
 

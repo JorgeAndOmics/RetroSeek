@@ -38,10 +38,24 @@ def unpickler(input_directory_path, input_file_name: str) -> dict:
         Returns
         -------
             :returns: The unpickled data.
+            
+        Raises
+        ------
+            :raises FileNotFoundError: If the file does not exist.
+            :raises pickle.UnpicklingError: If the file is not a valid pickle file or is corrupted.
+            :raises Exception: If an error occurs while unpickling the file.
 
     """
-    with open(os.path.join(input_directory_path, input_file_name), 'rb') as f:
-        return pickle.load(f)
+    try:
+        file_path = os.path.join(input_directory_path, input_file_name)
+        with open(file_path, 'rb') as f:
+            return pickle.load(f)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"The file {file_path} does not exist.") from e
+    except pickle.UnpicklingError:
+        raise pickle.UnpicklingError(f"The file {file_path} is not a valid pickle file or is corrupted.")
+    except Exception as e:
+        raise Exception(f"An error occurred while unpickling the file {file_path}: {e}")
 
 
 def directory_content_eraser(directory_path) -> None:
