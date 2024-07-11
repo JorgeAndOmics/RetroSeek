@@ -4278,3 +4278,1467 @@ HSP Length: 698
 HSP Strand: -
 Complete Record: CM014245.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 20, whole genome shotgun sequence
 
+2024-07-11 16:07:33,498 - BLAST output is empty for POL against NCBI_virus:
+Error: NCBI C++ Exception:
+    T0 "c++/include/corelib/ncbidiag.hpp", line 980: Critical: (CCoreException::eNullPtr) ncbi::CObject::ThrowNullPointerException() - Attempt to access NULL pointer.
+     Stack trace:
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CObject::ThrowNullPointerException() offset=0xA2 addr=0x7f79cefa9a32
+      /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CBlastTracebackSearch::Run() offset=0x8CA addr=0x7f79d03314ba
+      /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CLocalBlast::Run() offset=0x100E addr=0x7f79d02eb69e
+      blastn ???:0 CBlastnApp::x_RunMTBySplitDB() offset=0x179C addr=0x5652213e406c
+      blastn ???:0 CBlastnApp::Run() offset=0x49 addr=0x5652213e6859
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplicationAPI::x_TryMain(ncbi::EAppDiagStream, char const*, int*, bool*) offset=0x1C7 addr=0x7f79cef15967
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplicationAPI::AppMain(int, char const* const*, char const* const*, ncbi::EAppDiagStream, char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) offset=0x5DD addr=0x7f79cef15f8d
+      blastn ???:0 main offset=0x347 addr=0x5652213dc237
+      /lib/x86_64-linux-gnu/libc.so.6 ???:0  offset=0x29D90 addr=0x7f79ce9d2d90
+      /lib/x86_64-linux-gnu/libc.so.6 ???:0 __libc_start_main offset=0x80 addr=0x7f79ce9d2e40
+      blastn ???:0 _start offset=0x25 addr=0x5652213dda15
+
+
+2024-07-11 16:07:33,498 - Could not parse sequences for POL, Simian retrovirus 2 against NCBI_virus
+2024-07-11 16:07:33,504 - Running blastn for CM014245.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014245.1
+Species: Rhinolophus ferrumequinum
+Identifier: Y4W9UF
+HSP Start: 57517060
+HSP End: 57517668
+HSP Length: 215
+HSP Strand: -
+Complete Record: CM014245.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 20, whole genome shotgun sequence
+
+2024-07-11 16:07:45,442 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: Y9DTML
+HSP Start: 26545901
+HSP End: 26546848
+HSP Length: 325
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,453 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: HUOR4U
+HSP Start: 41966790
+HSP End: 41967614
+HSP Length: 279
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,456 - Running blastn for CM014232.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: VU4MCO
+HSP Start: 65757604
+HSP End: 65759696
+HSP Length: 504
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,463 - Running blastn for CM014232.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: CHHXEX
+HSP Start: 65760442
+HSP End: 65762397
+HSP Length: 681
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,465 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: UD2S1G
+HSP Start: 89702820
+HSP End: 89703482
+HSP Length: 225
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,470 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: 6ESQ2R
+HSP Start: 76729444
+HSP End: 76730253
+HSP Length: 280
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,481 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: R0E2IY
+HSP Start: 90257581
+HSP End: 90258390
+HSP Length: 279
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,483 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: HGFTR4
+HSP Start: 97316418
+HSP End: 97317614
+HSP Length: 403
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:07:45,501 - Running blastn for CM014228.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014228.1
+Species: Rhinolophus ferrumequinum
+Identifier: D9KUAB
+HSP Start: 1998183
+HSP End: 1998824
+HSP Length: 218
+HSP Strand: -
+Complete Record: CM014228.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 3, whole genome shotgun sequence
+
+2024-07-11 16:07:45,527 - Added OR572101.1-K9QMA3 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: K9QMA3
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,528 - Added OR761827.1-5KF0HD to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: 5KF0HD
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,530 - Added OR761826.1-JLTA6R to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: JLTA6R
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,531 - Added OR761825.1-R2CUNM to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: R2CUNM
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,533 - Added OR761828.1-38KTA0 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: 38KTA0
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,534 - Added ON893141.1-VMNCNZ to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: VMNCNZ
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:07:45,554 - Running blastn for CM014233.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014233.1
+Species: Rhinolophus ferrumequinum
+Identifier: O7CR0L
+HSP Start: 76328452
+HSP End: 76330191
+HSP Length: 672
+HSP Strand: +
+Complete Record: CM014233.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 8, whole genome shotgun sequence
+
+2024-07-11 16:07:47,565 - Running blastn for CM014228.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014228.1
+Species: Rhinolophus ferrumequinum
+Identifier: CLLOUL
+HSP Start: 50224348
+HSP End: 50225844
+HSP Length: 504
+HSP Strand: -
+Complete Record: CM014228.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 3, whole genome shotgun sequence
+
+2024-07-11 16:15:45,640 - Added ON893141.1-KXUSBE to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: KXUSBE
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,672 - Added OR572101.1-VZBKXU to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: VZBKXU
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,682 - Added OR761827.1-IFIZAB to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: IFIZAB
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,683 - Running blastn for CM014248.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014248.1
+Species: Rhinolophus ferrumequinum
+Identifier: OQBK0L
+HSP Start: 43319806
+HSP End: 43320594
+HSP Length: 271
+HSP Strand: -
+Complete Record: CM014248.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 23, whole genome shotgun sequence
+
+2024-07-11 16:15:45,689 - Added OR761826.1-1LPLFU to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: 1LPLFU
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,700 - Running blastn for CM014241.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: ZV93L8
+HSP Start: 35650177
+HSP End: 35651187
+HSP Length: 349
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:15:45,703 - Running blastn for CM014241.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9NIXXB
+HSP Start: 56821200
+HSP End: 56822024
+HSP Length: 279
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:15:45,704 - Running blastn for CM014244.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014244.1
+Species: Rhinolophus ferrumequinum
+Identifier: RR07BL
+HSP Start: 38750655
+HSP End: 38751428
+HSP Length: 272
+HSP Strand: -
+Complete Record: CM014244.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 19, whole genome shotgun sequence
+
+2024-07-11 16:15:45,705 - Running blastn for CM014244.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014244.1
+Species: Rhinolophus ferrumequinum
+Identifier: 1LJBCX
+HSP Start: 13220129
+HSP End: 13220698
+HSP Length: 204
+HSP Strand: -
+Complete Record: CM014244.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 19, whole genome shotgun sequence
+
+2024-07-11 16:15:45,707 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: L13Z7R
+HSP Start: 22461575
+HSP End: 22463236
+HSP Length: 556
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:15:45,709 - Running blastn for CM014230.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014230.1
+Species: Rhinolophus ferrumequinum
+Identifier: 043Z4K
+HSP Start: 15454372
+HSP End: 15455869
+HSP Length: 230
+HSP Strand: +
+Complete Record: CM014230.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 5, whole genome shotgun sequence
+
+2024-07-11 16:15:45,710 - Running blastn for CM014248.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014248.1
+Species: Rhinolophus ferrumequinum
+Identifier: 19WMI7
+HSP Start: 39858258
+HSP End: 39858833
+HSP Length: 215
+HSP Strand: -
+Complete Record: CM014248.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 23, whole genome shotgun sequence
+
+2024-07-11 16:15:45,710 - Added OR761825.1-KURCRH to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: KURCRH
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,712 - Running blastn for CM014230.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014230.1
+Species: Rhinolophus ferrumequinum
+Identifier: XZM9DH
+HSP Start: 25420159
+HSP End: 25421661
+HSP Length: 505
+HSP Strand: +
+Complete Record: CM014230.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 5, whole genome shotgun sequence
+
+2024-07-11 16:15:45,713 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9RNW5F
+HSP Start: 28106527
+HSP End: 28107336
+HSP Length: 285
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:15:45,714 - Running blastn for CM014230.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014230.1
+Species: Rhinolophus ferrumequinum
+Identifier: UC95BU
+HSP Start: 15025134
+HSP End: 15026195
+HSP Length: 368
+HSP Strand: +
+Complete Record: CM014230.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 5, whole genome shotgun sequence
+
+2024-07-11 16:15:45,714 - Running blastn for CM014230.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014230.1
+Species: Rhinolophus ferrumequinum
+Identifier: CUUJX8
+HSP Start: 24881250
+HSP End: 24882023
+HSP Length: 273
+HSP Strand: +
+Complete Record: CM014230.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 5, whole genome shotgun sequence
+
+2024-07-11 16:15:45,721 - Running blastn for CM014248.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014248.1
+Species: Rhinolophus ferrumequinum
+Identifier: ISNTUB
+HSP Start: 44098335
+HSP End: 44099168
+HSP Length: 297
+HSP Strand: -
+Complete Record: CM014248.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 23, whole genome shotgun sequence
+
+2024-07-11 16:15:45,724 - Running blastn for CM014230.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014230.1
+Species: Rhinolophus ferrumequinum
+Identifier: GIE88K
+HSP Start: 15023756
+HSP End: 15024364
+HSP Length: 206
+HSP Strand: +
+Complete Record: CM014230.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 5, whole genome shotgun sequence
+
+2024-07-11 16:15:45,725 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: 24VD5U
+HSP Start: 26724309
+HSP End: 26726867
+HSP Length: 859
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:15:45,728 - Running blastn for CM014239.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: D8WQ4W
+HSP Start: 25151596
+HSP End: 25152684
+HSP Length: 419
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:15:45,733 - Added OR761828.1-CIYSAY to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: CIYSAY
+HSP Start: 3716
+HSP End: 3054
+HSP Length: 664
+HSP Strand: -
+
+
+2024-07-11 16:15:45,761 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: A6O8OD
+HSP Start: 26388229
+HSP End: 26389242
+HSP Length: 349
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:15:47,319 - Added OR572101.1-OB6TGZ to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: OB6TGZ
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,321 - Added OR761827.1-ODGH61 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: ODGH61
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,321 - Added OR761826.1-YYF474 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: YYF474
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,322 - Added OR761825.1-4381GW to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: 4381GW
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,323 - Added OR761828.1-8LHSER to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: 8LHSER
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,323 - Added ON893141.1-YQK38X to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: YQK38X
+HSP Start: 3716
+HSP End: 2892
+HSP Length: 825
+HSP Strand: -
+
+
+2024-07-11 16:15:47,330 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: ZDEOD2
+HSP Start: 29049298
+HSP End: 29050107
+HSP Length: 283
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:22:34,775 - BLAST output is empty for POL against NCBI_virus:
+Error: NCBI C++ Exception:
+    T0 "c++/include/corelib/ncbidiag.hpp", line 980: Critical: (CCoreException::eNullPtr) ncbi::CObject::ThrowNullPointerException() - Attempt to access NULL pointer.
+     Stack trace:
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CObject::ThrowNullPointerException() offset=0xA2 addr=0x7f7c3c028a32
+      /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CBlastTracebackSearch::Run() offset=0x8CA addr=0x7f7c3d3b04ba
+      /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CLocalBlast::Run() offset=0x100E addr=0x7f7c3d36a69e
+      blastn ???:0 CBlastnApp::x_RunMTBySplitDB() offset=0x179C addr=0x55a7e2a8f06c
+      blastn ???:0 CBlastnApp::Run() offset=0x49 addr=0x55a7e2a91859
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplicationAPI::x_TryMain(ncbi::EAppDiagStream, char const*, int*, bool*) offset=0x1C7 addr=0x7f7c3bf94967
+      /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplicationAPI::AppMain(int, char const* const*, char const* const*, ncbi::EAppDiagStream, char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) offset=0x5DD addr=0x7f7c3bf94f8d
+      blastn ???:0 main offset=0x347 addr=0x55a7e2a87237
+      /lib/x86_64-linux-gnu/libc.so.6 ???:0  offset=0x29D90 addr=0x7f7c3ba51d90
+      /lib/x86_64-linux-gnu/libc.so.6 ???:0 __libc_start_main offset=0x80 addr=0x7f7c3ba51e40
+      blastn ???:0 _start offset=0x25 addr=0x55a7e2a88a15
+
+
+2024-07-11 16:22:34,777 - Could not parse sequences for POL, Simian retrovirus 2 against NCBI_virus
+2024-07-11 16:22:34,788 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: GSHYYT
+HSP Start: 29480555
+HSP End: 29481364
+HSP Length: 280
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:24:00,325 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: ARCY9L
+HSP Start: 31242935
+HSP End: 31243555
+HSP Length: 222
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:24:00,328 - Running blastn for CM014239.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: JGGSVD
+HSP Start: 30112260
+HSP End: 30113729
+HSP Length: 513
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:24:00,344 - Running blastn for CM014239.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: WC9TR2
+HSP Start: 30109422
+HSP End: 30111514
+HSP Length: 504
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:24:00,350 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: 915W0R
+HSP Start: 76727989
+HSP End: 76728951
+HSP Length: 329
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:24:00,368 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: NL2SLV
+HSP Start: 26547341
+HSP End: 26548150
+HSP Length: 280
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:24:00,370 - Running blastn for CM014229.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: C1HT8W
+HSP Start: 2749869
+HSP End: 2751961
+HSP Length: 203
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,371 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: JWTL7L
+HSP Start: 28558202
+HSP End: 28558840
+HSP Length: 213
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:24:00,377 - Running blastn for CM014245.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014245.1
+Species: Rhinolophus ferrumequinum
+Identifier: 0ZQU9K
+HSP Start: 40608364
+HSP End: 40610956
+HSP Length: 548
+HSP Strand: -
+Complete Record: CM014245.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 20, whole genome shotgun sequence
+
+2024-07-11 16:24:00,380 - Running blastn for CM014229.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: F043W0
+HSP Start: 84879885
+HSP End: 84881974
+HSP Length: 203
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,381 - Running blastn for CM014229.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: NS9YVB
+HSP Start: 84877237
+HSP End: 84878790
+HSP Length: 547
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,383 - Running blastn for CM014229.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: IPK1V7
+HSP Start: 8798022
+HSP End: 8798846
+HSP Length: 279
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,383 - Running blastn for CM014229.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: 7VLPIV
+HSP Start: 96630642
+HSP End: 96631466
+HSP Length: 279
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,386 - Running blastn for CM014229.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014229.1
+Species: Rhinolophus ferrumequinum
+Identifier: P0ZWQE
+HSP Start: 67524673
+HSP End: 67525254
+HSP Length: 206
+HSP Strand: +
+Complete Record: CM014229.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 4, whole genome shotgun sequence
+
+2024-07-11 16:24:00,389 - Running blastn for CM014232.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014232.1
+Species: Rhinolophus ferrumequinum
+Identifier: T3RMMX
+HSP Start: 28557028
+HSP End: 28557795
+HSP Length: 261
+HSP Strand: -
+Complete Record: CM014232.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 7, whole genome shotgun sequence
+
+2024-07-11 16:24:00,391 - Running blastn for CM014228.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014228.1
+Species: Rhinolophus ferrumequinum
+Identifier: W54KYK
+HSP Start: 50227722
+HSP End: 50229200
+HSP Length: 516
+HSP Strand: -
+Complete Record: CM014228.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 3, whole genome shotgun sequence
+
+2024-07-11 16:24:00,393 - Running blastn for CM014241.1: GAG probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: GAG
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: OD18D2
+HSP Start: 3634183
+HSP End: 3636051
+HSP Length: 683
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:24:02,900 - Added OR572101.1-9U4CWE to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9U4CWE
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,901 - Added OR761827.1-AOYTL8 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: AOYTL8
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,901 - Added OR761826.1-WW909Q to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: WW909Q
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,902 - Added OR761825.1-S95AGN to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: S95AGN
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,903 - Added OR761828.1-LKYUUS to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: LKYUUS
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,904 - Added ON893141.1-0JYZAE to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: 0JYZAE
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:24:02,915 - Running blastn for CM014228.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014228.1
+Species: Rhinolophus ferrumequinum
+Identifier: AN664A
+HSP Start: 3054539
+HSP End: 3055123
+HSP Length: 207
+HSP Strand: -
+Complete Record: CM014228.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 3, whole genome shotgun sequence
+
+2024-07-11 16:32:17,006 - Running blastn for CM014234.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: V6N2B8
+HSP Start: 50070211
+HSP End: 50071035
+HSP Length: 279
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,012 - Running blastn for CM014241.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: MNUUCW
+HSP Start: 57838472
+HSP End: 57839356
+HSP Length: 308
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:32:17,012 - Running blastn for CM014234.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: 5WHB98
+HSP Start: 29667336
+HSP End: 29669129
+HSP Length: 611
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,013 - Running blastn for CM014234.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: 1ATH97
+HSP Start: 93121519
+HSP End: 93122175
+HSP Length: 238
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,014 - Running blastn for CM014234.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: N324RX
+HSP Start: 81752525
+HSP End: 81754617
+HSP Length: 537
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,016 - Running blastn for CM014234.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: 83XC09
+HSP Start: 19115873
+HSP End: 19116790
+HSP Length: 306
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,020 - Running blastn for CM014241.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: L1G1AT
+HSP Start: 57839774
+HSP End: 57840733
+HSP Length: 327
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:32:17,022 - Running blastn for CM014241.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014241.1
+Species: Rhinolophus ferrumequinum
+Identifier: 97Y65D
+HSP Start: 35649048
+HSP End: 35649986
+HSP Length: 313
+HSP Strand: +
+Complete Record: CM014241.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 16, whole genome shotgun sequence
+
+2024-07-11 16:32:17,024 - Running blastn for CM014247.1: ENV probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: ENV
+Accession: CM014247.1
+Species: Rhinolophus ferrumequinum
+Identifier: Z9H819
+HSP Start: 7529910
+HSP End: 7531217
+HSP Length: 439
+HSP Strand: +
+Complete Record: CM014247.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 22, whole genome shotgun sequence
+
+2024-07-11 16:32:17,037 - Running blastn for CM014234.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014234.1
+Species: Rhinolophus ferrumequinum
+Identifier: W3A06I
+HSP Start: 91642559
+HSP End: 91644349
+HSP Length: 606
+HSP Strand: -
+Complete Record: CM014234.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 9, whole genome shotgun sequence
+
+2024-07-11 16:32:17,038 - Added OR572101.1-9M53U2 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9M53U2
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,039 - Running blastn for CM014247.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014247.1
+Species: Rhinolophus ferrumequinum
+Identifier: 3O0AHO
+HSP Start: 7527065
+HSP End: 7529447
+HSP Length: 252
+HSP Strand: +
+Complete Record: CM014247.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 22, whole genome shotgun sequence
+
+2024-07-11 16:32:17,041 - Running blastn for CM014247.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014247.1
+Species: Rhinolophus ferrumequinum
+Identifier: HFJIPC
+HSP Start: 17304404
+HSP End: 17305228
+HSP Length: 279
+HSP Strand: +
+Complete Record: CM014247.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 22, whole genome shotgun sequence
+
+2024-07-11 16:32:17,041 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: RU01DE
+HSP Start: 25149156
+HSP End: 25151561
+HSP Length: 826
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:32:17,050 - Running blastn for CM014247.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014247.1
+Species: Rhinolophus ferrumequinum
+Identifier: VVNQP5
+HSP Start: 27852228
+HSP End: 27854057
+HSP Length: 615
+HSP Strand: +
+Complete Record: CM014247.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 22, whole genome shotgun sequence
+
+2024-07-11 16:32:17,050 - Running blastn for CM014247.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014247.1
+Species: Rhinolophus ferrumequinum
+Identifier: FK8ZXC
+HSP Start: 27069775
+HSP End: 27070581
+HSP Length: 279
+HSP Strand: +
+Complete Record: CM014247.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 22, whole genome shotgun sequence
+
+2024-07-11 16:32:17,053 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: A7IYEA
+HSP Start: 34365816
+HSP End: 34366616
+HSP Length: 269
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:32:17,061 - Added OR761827.1-Q2U01I to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: Q2U01I
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,072 - Added OR761826.1-9M6OCL to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: 9M6OCL
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,073 - Added OR761825.1-JEBI84 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: JEBI84
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,074 - Added OR761828.1-QCE1A4 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: QCE1A4
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,074 - Added ON893141.1-58YBM0 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: 58YBM0
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:17,081 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: WJ2FH8
+HSP Start: 34545480
+HSP End: 34546289
+HSP Length: 280
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
+2024-07-11 16:32:18,641 - Added OR572101.1-2N9UGW to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR572101.1
+Species: Rhinolophus ferrumequinum
+Identifier: 2N9UGW
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,643 - Added OR761827.1-YQVOLF to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761827.1
+Species: Rhinolophus ferrumequinum
+Identifier: YQVOLF
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,644 - Added OR761826.1-DS4HR4 to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761826.1
+Species: Rhinolophus ferrumequinum
+Identifier: DS4HR4
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,645 - Added OR761825.1-WN3JDQ to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761825.1
+Species: Rhinolophus ferrumequinum
+Identifier: WN3JDQ
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,646 - Added OR761828.1-64XE9O to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: OR761828.1
+Species: Rhinolophus ferrumequinum
+Identifier: 64XE9O
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,647 - Added ON893141.1-KCW3MN to Alignment Dictionary:
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ON893141.1
+Species: Rhinolophus ferrumequinum
+Identifier: KCW3MN
+HSP Start: 2892
+HSP End: 3716
+HSP Length: 825
+HSP Strand: +
+
+
+2024-07-11 16:32:18,654 - Running blastn for CM014239.1: POL probe against NCBI_virus
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: CM014239.1
+Species: Rhinolophus ferrumequinum
+Identifier: MF5SVO
+HSP Start: 26445164
+HSP End: 26445796
+HSP Length: 221
+HSP Strand: -
+Complete Record: CM014239.1 Rhinolophus ferrumequinum isolate MPI-CBG mRhiFer1 chromosome 14, whole genome shotgun sequence
+
