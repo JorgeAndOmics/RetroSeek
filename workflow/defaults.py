@@ -6,19 +6,19 @@ VIRUS: list = ['NCBI_virus']
 
 # BLAST
 EXPANSION_SIZE: int = 0
-E_VALUE: float = 0.1
+E_VALUE: float = 0.09
 ACCESSION_ID_REGEX: str = r'[A-Z]{2,}_?\d*\.\d{1,2}'
 PROBE_MIN_LENGTH: dict = {
-    'GAG': 400,
+    'GAG': 200,
     'POL': 200,
-    'ENV': 400,
-    'VIG': 400,
-    'N_protein': 400,
-    'P_protein': 400,
-    'G_protein': 400,
-    'L_protein': 400,
-    'X_protein': 400,
-    'M_protein': 400
+    'ENV': 200,
+    'VIF': 200,
+    'N_protein': 200,
+    'P_protein': 200,
+    'G_protein': 200,
+    'L_protein': 200,
+    'X_protein': 200,
+    'M_protein': 200
 }
 
 # Logging
@@ -42,7 +42,7 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_DB = os.path.join('/mnt/', 'c', 'Users', 'Administrator', 'Documents', 'Databases', 'local')
+ROOT_DB = os.path.join('/mnt/', 'v', 'databases', 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'virus')
 
