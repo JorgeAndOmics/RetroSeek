@@ -208,6 +208,46 @@ def blast_threadpool_executor(object_dict: dict,
 
     return full_parsed_results
 
+def blast_monothread_executor(object_dict: dict,
+                              command: str,
+                              input_database_path,
+                              genome: list = None):
+    """
+    Runs BLAST tasks sequentially without using ThreadPoolExecutor
+
+        Parameters
+        ----------
+            :param object_dict: A dictionary containing object pairs
+            :param command: The type of BLAST to run
+            :param input_database_path: The path to the input database (species, virus...)
+            :param genome: Optional: A list of genomes to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
+
+        Returns
+        -------
+            :returns: A dictionary containing the parsed BLAST results
+    """
+    full_parsed_results = {}
+
+    subjects = genome or [None]
+
+    for subject in subjects:
+        for key, value in object_dict.items():
+            result = _blast_task(
+                instance=value,
+                command=command,
+                subject=subject,
+                input_database_path=input_database_path
+            )
+            if result:
+                full_parsed_results.update(result)
+
+    if not full_parsed_results:
+        logging.critical('BLAST results are empty. Exiting.')
+        return
+
+    return full_parsed_results
+
+
 
 def gb_fetcher(instance: object,
                online_database: str,
@@ -338,7 +378,7 @@ def gb_monothread_executor(object_dict: dict,
                            expand_by: int = defaults.EXPANSION_SIZE,
                            max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS) -> dict:
     """
-    Fetches GenBank sequences for the objects in an object dictionary using single thread execution.
+    Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
 
         Parameters
         ----------
@@ -358,26 +398,24 @@ def gb_monothread_executor(object_dict: dict,
     """
     full_retrieved_results = {}
 
-    if results := [
-        gb_fetcher(
+    for key, value in object_dict.items():
+        result = gb_fetcher(
             instance=value,
             online_database=online_database,
             expand_by=expand_by,
             max_attempts=max_attempts,
             display_warning=display_warning,
         )
-        for key, value in object_dict.items()
-    ]:
-        for result in results:
+        if result:
             full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-            logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to '
-                         f'GenBank Dictionary\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}')
+            logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary\n{result.display_info()}')
 
-    if len(full_retrieved_results.items()) == 0:
+    if len(full_retrieved_results) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
         return
 
     return full_retrieved_results
+
 
 
 def seq_merger(object_dict: dict):
@@ -492,10 +530,16 @@ def blast_retriever(object_dict: dict,
         -------
             :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
     """
-    blast_results: dict = blast_threadpool_executor(object_dict=object_dict,
-                                                    command=command,
-                                                    genome=genome,
-                                                    input_database_path=input_database_path)
+    if multi_threading:
+        blast_results: dict = blast_threadpool_executor(object_dict=object_dict,
+                                                        command=command,
+                                                        genome=genome,
+                                                        input_database_path=input_database_path)
+    else:
+        blast_results: dict = blast_monothread_executor(object_dict=object_dict,
+                                                        command=command,
+                                                        genome=genome,
+                                                        input_database_path=input_database_path)
 
     blast_merged_results: dict = seq_merger(object_dict=blast_results)
 
