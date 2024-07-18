@@ -1,4 +1,5 @@
 from ratelimit import limits, sleep_and_retry
+import cloudpickle
 import pickle
 import random
 import string
@@ -23,10 +24,10 @@ def pickler(data, output_directory_path, output_file_name: str) -> None:
     if not os.path.exists(os.path.join(output_directory_path)):
         os.makedirs(os.path.join(output_directory_path), exist_ok=True)
     with open(os.path.join(output_directory_path, output_file_name), 'wb') as f:
-        pickle.dump(data, f)
+        cloudpickle.dump(data, f)
 
 
-def unpickler(input_directory_path, input_file_name: str) -> dict:
+def unpickler(input_directory_path, input_file_name: str):
     """
     Unpickles the data from the specified path.
 
@@ -41,21 +42,16 @@ def unpickler(input_directory_path, input_file_name: str) -> dict:
             
         Raises
         ------
-            :raises FileNotFoundError: If the file does not exist.
-            :raises pickle.UnpicklingError: If the file is not a valid pickle file or is corrupted.
-            :raises Exception: If an error occurs while unpickling the file.
+            :raises Exception: If the unpickling process fails.
 
     """
     try:
         file_path = os.path.join(input_directory_path, input_file_name)
         with open(file_path, 'rb') as f:
-            return pickle.load(f)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"The file {file_path} does not exist.") from e
-    except pickle.UnpicklingError:
-        raise pickle.UnpicklingError(f"The file {file_path} is not a valid pickle file or is corrupted.")
-    except Exception as e:
-        raise Exception(f"An error occurred while unpickling the file {file_path}: {e}")
+            return cloudpickle.load(f)
+    except Exception:
+        logging.error(f'Failed to unpickle {file_path}')
+        raise
 
 
 def directory_content_eraser(directory_path) -> None:
