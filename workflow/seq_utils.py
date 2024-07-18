@@ -25,14 +25,14 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         Parameters
         ----------
             :param instance: The Object instance containing information about the query.
-            :param command: The command to run tblastn.
+            :param command: The command to run BLAST.
             :param input_database_path: The path to the database.
             :param subject: The particular genome against whose database it's being BLASTed
             :param _outfmt: The output format for the BLAST results. Default is 5.
 
         Returns
         -------
-            :returns: The output of the tblastn search, captured from std_out.
+            :returns: The output of the BLAST search, captured from std_out.
 
         Raises
         ------
@@ -129,22 +129,22 @@ def _blaster_parser(result, instance: object, subject: str)-> dict:
 
 def _blast_task(instance: object, command: str, subject: str, input_database_path) -> dict:
     """
-    Run BLAST command for the Entrez-retrieved probe sequences against the species database. This function is used as a task
+    Run BLAST command for the Entrez-retrieved sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
 
         Parameters
         ----------
             :param instance: The Object instance containing information about the query.
             :param command: The type of BLAST to run
-            :param subject: The species to run tblastn against. Scientific name joined by '_'
+            :param subject: The species to run BLAST against. Scientific name joined by '_'
 
         Returns
         -------
-            :returns: A dictionary containing the tblastn results parsed by [blaster_parser] function
+            :returns: A dictionary containing the BLAST results parsed by [blaster_parser] function
 
         Raises
         ------
-            :raises Exception: If the tblastn process fails
+            :raises Exception: If the BLAST process fails
 
     """
     try:
@@ -182,7 +182,7 @@ def blast_threadpool_executor(object_dict: dict,
     full_parsed_results = {}
 
     tasks = []
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
 
         subjects = genome or [None]
 
@@ -531,11 +531,13 @@ def blast_retriever(object_dict: dict,
             :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
     """
     if multi_threading:
+        logging.debug('Multithread: Active')
         blast_results: dict = blast_threadpool_executor(object_dict=object_dict,
                                                         command=command,
                                                         genome=genome,
                                                         input_database_path=input_database_path)
     else:
+        logging.debug('Multithread: Inactive')
         blast_results: dict = blast_monothread_executor(object_dict=object_dict,
                                                         command=command,
                                                         genome=genome,
@@ -544,10 +546,12 @@ def blast_retriever(object_dict: dict,
     blast_merged_results: dict = seq_merger(object_dict=blast_results)
 
     if multi_threading:
+        logging.debug('Multithread: Active')
         blast_merged2gb_results: dict = gb_threadpool_executor(object_dict=blast_merged_results,
                                                                online_database=online_database,
                                                                display_warning=display_warning)
     else:
+        logging.debug('Multithread: Inactive')
         blast_merged2gb_results: dict = gb_monothread_executor(object_dict=blast_merged_results,
                                                                online_database=online_database,
                                                                display_warning=display_warning)

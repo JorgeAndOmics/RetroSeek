@@ -46,7 +46,7 @@ def df_initializer(attributes: list, input_dataframe: pd.DataFrame, input_dictio
 
 if __name__ == '__main__':
 
-    files = 'probe_dict'
+    files = 'virus_blastn_results'
 
     colored_logging(log_file_name='obj2dict.txt')
 

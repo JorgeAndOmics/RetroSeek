@@ -42,7 +42,7 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_DB = os.path.join('/mnt/', 'v', 'databases', 'local')
+ROOT_DB = os.path.join('/mnt/', 'c', 'Users', 'Administrator', 'Documents', 'Databases', 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'virus')
 
@@ -57,6 +57,7 @@ TMP_DIR = os.path.join('..', 'data', 'tmp')
 MAX_RETRIEVAL_ATTEMPTS: int = 9
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
+MAX_THREADPOOL_WORKERS: int = 7  # In laptop, 7 is the maximum number of workers that can be used
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
