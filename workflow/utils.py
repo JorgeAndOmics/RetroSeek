@@ -49,9 +49,43 @@ def unpickler(input_directory_path, input_file_name: str):
         file_path = os.path.join(input_directory_path, input_file_name)
         with open(file_path, 'rb') as f:
             return cloudpickle.load(f)
-    except Exception:
+    except Exception as e:
         logging.error(f'Failed to unpickle {file_path}')
-        raise
+        raise Exception(f'Failed to unpickle {file_path}') from e
+
+
+def directory_generator(parent_directory_path,
+                        new_directory_name):
+    """
+    Generates a directory if it does not exist.
+
+        Parameters
+        ----------
+            :param parent_directory_path: The directory in which to generate the new subdirectory.
+            :param new_directory_name: The name of the new subdirectory.
+
+        Returns
+        -------
+            :returns: The path to the generated directory
+
+    """
+    new_path = os.path.join(parent_directory_path, new_directory_name)
+    if not os.path.exists(new_path):
+        os.makedirs(new_path, exist_ok=True)
+    return new_path
+
+
+def directory_file_retriever(input_directory_path) -> list:
+    """
+    Retrieve all files in a directory.
+
+    Args:
+        :param input_directory_path: Path to the directory containing the files.
+
+    Returns:
+        :returns: List of files in the directory.
+    """
+    return [f for f in os.listdir(input_directory_path) if os.path.isfile(os.path.join(input_directory_path, f))]
 
 
 def directory_content_eraser(directory_path) -> None:
@@ -73,6 +107,23 @@ def directory_content_eraser(directory_path) -> None:
         except Exception as e:
             logging.warning(f'Failed to delete {file_path}: {e}')
 
+def get_last_directory(input_directory_path):
+    """
+    Returns the name of the last directory in the input path.
+        
+        Parameters
+        ----------
+            :param input_directory_path: The path to the directory.
+            
+    """
+    # Ensure the path ends with a separator to handle the case where the path is a directory
+    if not input_directory_path.endswith(os.path.sep):
+        path = os.path.join(input_directory_path, '')
+
+    # Get the directory name of the path (remove the trailing separator)
+    parent_path = os.path.dirname(input_directory_path.rstrip(os.path.sep))
+
+    return os.path.basename(parent_path)
 
 def incomplete_dict_cleaner(object_dict: dict) -> dict:
     """

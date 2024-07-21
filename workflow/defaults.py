@@ -43,8 +43,10 @@ FIELD_STYLES: dict = {
 
 # Databases
 ROOT_DB = os.path.join('/mnt/', 'c', 'Users', 'Administrator', 'Documents', 'Databases', 'local')
-SPECIES_DB = os.path.join(ROOT_DB, 'species')
-VIRUS_DB = os.path.join(ROOT_DB, 'virus')
+SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
+VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
+A_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'a_point_rec')
+B_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'b_point_rec')
 
 # Directories
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')

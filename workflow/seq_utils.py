@@ -38,12 +38,13 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         ------
             :raise Exception: If an error occurs while running BLAST.
     """
+    input_path = os.path.join(input_database_path, subject, subject) if subject else input_database_path
     try:
         # Construct the BLAST command
         blast_command = [
             command,
             '-db',
-            os.path.join(input_database_path, subject, subject),
+            input_path,
             '-query',
             instance.get_fasta('tempfile'),  # BLAST+ doesn't take in SeqRecord objects, but files
             '-evalue',
@@ -203,7 +204,7 @@ def blast_threadpool_executor(object_dict: dict,
                 full_parsed_results |= result
 
     if not full_parsed_results:
-        logging.critical('BLAST results are empty. Exiting.')
+        logging.warning('BLAST results are empty.')
         return
 
     return full_parsed_results

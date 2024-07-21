@@ -4,6 +4,7 @@ from io import StringIO
 import subprocess
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import db_utils
 
 import defaults
 from utils import pickler, unpickler
@@ -19,8 +20,9 @@ from Bio.Seq import Seq
 import logging, coloredlogs
 
 
-test = unpickler(os.path.join('..', 'data', 'pickles'), 'tblastn_results.pkl')
+probe_test = unpickler(input_directory_path=defaults.PICKLE_DIR,
+                       input_file_name='probe_dict.pkl')
 
-probes = {value.probe for value in test.values()}
-print(probes)
-    
+db_utils.objdict2fasta(object_dict=probe_test,
+                       output_directory_path=defaults.PICKLE_DIR,
+                       output_filename='probe_test.fasta')
