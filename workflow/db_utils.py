@@ -69,7 +69,7 @@ def blast_db_generator(input_file_path,
                        db_name: str,
                        db_type: str) -> None:
     """
-    Generates the BLAST databases from the FASTA files in the specified directory.
+    Generates the BLAST databases from the FASTA files from the specified file.
 
         Parameters
         ----------
@@ -90,7 +90,8 @@ def blast_db_generator(input_file_path,
 
 def directory_db_generator(file_list: list,
                            input_db,
-                           db_type: str) -> list:
+                           db_type: str,
+                           tax2sc_dict: dict) -> list:
     """
     Generates the BLAST databases from the FASTA files in the specified directory.
 
@@ -98,7 +99,7 @@ def directory_db_generator(file_list: list,
         ----------
             :param file_list: The list of files in the input directory (tax-id named).
             :param output_list: The (defaults) variable containing the genomes for analysis
-            :param input_db: The directory path for the BLAST database (species, virus...).
+            :param input_db: The path to the directory where the tax-id named FASTA files are stored.
             :param db_type: The type of database to generate (nucl, prot).
 
         Returns
@@ -109,7 +110,7 @@ def directory_db_generator(file_list: list,
     genomes = []
     for file in file_list:  # The original FASTA file paths, with the taxid as the name
         if not os.path.isdir(file):
-            file_sn = get_species_name_from_file(file.split('.')[0])
+            file_sn = tax2sc_dict[(file.split('.')[0])]
             directory = utils.directory_generator(input_db, file_sn)
             blast_db_generator(input_file_path=os.path.join(input_db, file),
                                output_directory_path=directory,
@@ -168,3 +169,30 @@ def objdict2fasta(object_dict: dict,
         for key, obj in object_dict.items():
             SeqIO.write(obj.get_fasta('seqrecord'), concatenated_fasta, 'fasta')
             logging.info(f'Extracted FASTA from {key} and appended to {output_file_name}.')
+
+def ltr_index_generator(input_file_path,
+                        genome_index) -> None:
+    """
+    TODO: Finish implementation.
+    """
+    suffixerator_command = ['gt', 'suffixerator',
+                            '-db', input_file_path,
+                            '-indexname', os.path.join(input_file_path, genome_index),
+                            '-tis', '-suf', '-lcp', '-des', '-ssp', '-sds', '-dna']
+
+    subprocess.run(suffixerator_command)
+    logging.info(f'Generated LTRHarvest Index for {genome_index}.')
+
+def ltr_harvester(input_dir_path,
+                  output_file_path) -> None:
+    """
+    TODO: Finish implementation.
+    """
+    for dir in os.listdir(input_dir_path):
+        sc_name = utils.get_last_directory(dir)  # BLAST databases have already been created
+        ltrharvest_command = ['gt', 'ltrharvest',
+                              '-index', os.path.join(input_dir_path, sc_name, sc_name),
+                              '-out', output_file_path]
+
+        subprocess.run(ltrharvest_command)
+        logging.info(f'Generated LTRHarvest output for {output_file_path}.')
