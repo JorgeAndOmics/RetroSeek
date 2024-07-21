@@ -1,5 +1,6 @@
 # TODO: Database generation and sorting
 from collections import defaultdict
+import os
 
 import seq_utils
 import utils
@@ -23,8 +24,8 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
         Parameters
         ------------
-            :param object_dict_a: The dictionary containing the Virus object pairs.
-            :param object_dict_b: The dictionary containing the Probes object pairs.
+            :param object_dict_a: The dictionary containing the A (posterior) object pairs.
+            :param object_dict_b: The dictionary containing the B (prior) object pairs.
             :param command_a: The BLAST command to run from A to B (e.g. "blastx").
             :param command_b: The BLAST command to run from B to A (e.g. "tblastn").
             :param input_database_a: The path to the dictionary a (e.g. Virus) database.
@@ -36,13 +37,34 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
     # Let's assume databases are already created. [blast_threadpool_executor] already generates
     # fasta files for the input.
-    def run_blast_looper(object_dict, command, input_database_path) -> dict[list]:
+    def run_blast_looper(object_dict: dict,
+                         command: str,
+                         input_database_path) -> dict[list]:
+        """
+        Run BLAST for a dictionary of objects and return the results in a dictionary.
+
+            Parameters
+            ----------
+                :param object_dict: The dictionary containing the object pairs.
+                :param command: The BLAST command to run (e.g. "blastx").
+                :param input_database_path: The path to the input database.
+
+            Returns
+            -------
+                :returns: A dictionary containing the BLAST results for each object.
+
+        """
         results = defaultdict(list)
         for key, obj in object_dict.items():
             query: dict = {key: obj}
-            results[key].append(seq_utils.blast_threadpool_executor(object_dict=query,
-                                                                    command=command,
-                                                                    input_database_path=input_database_path).values())
+            blast_threadpool_result = seq_utils.blast_threadpool_executor(object_dict=query,
+                                                                          command=command,
+                                                                          input_database_path=input_database_path)
+            if blast_threadpool_result:
+                results[key].append(blast_threadpool_result.values())
+            else:
+                logging.warning(f'No hits found for {key}.')
+
         return results
 
     # TODO: EXPERIMENTAL: Filters a range of returns based on a minimum threshold for bitscore, identity, and E-value.
@@ -52,6 +74,18 @@ def reciprocal_blast_experimental(object_dict_a: dict,
                       value.HSP.expect <= e_value] for key, values in blast_results.items()}
 
     def get_max_blast_hit(blast_results) -> dict:
+        """
+        Get the top hit for each object in the BLAST results.
+
+            Parameters
+            ----------
+                :param blast_results: The dictionary containing the BLAST results.
+
+            Returns
+            -------
+                :returns: A dictionary containing the top hit for each object.
+
+        """
         # Ordered first based on HSP bitscore
         selected_hits: dict = {key: max(value, key=lambda x: x.HSP.bits) for key, value in blast_results.items()}
         if len(selected_hits.values()) > 1:
@@ -68,7 +102,19 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 
         return selected_hits
 
-    def hit_desc(instance) -> str:
+    def hit_description(instance) -> str:
+        """
+        Get the hit description from the instance from the hit_def attribute.
+
+            Parameters
+            ----------
+                :param instance: The instance to get the hit description from.
+
+            Returns
+            -------
+                :returns: The hit description.
+
+        """
         if isinstance(instance, Object):
             return instance.alignment.hit_def
 
@@ -79,23 +125,36 @@ def reciprocal_blast_experimental(object_dict_a: dict,
             for i, j in route_b_max.items():  # i: Probe Object w/f; j: Virus Object List
                 for y_obj in y:
                     for j_obj in j:
-                        if hit_desc(x) == hit_desc(j_obj) and hit_desc(y) == hit_desc(y_obj):
+                        if hit_description(x) == hit_description(j_obj) and hit_description(y) == hit_description(y_obj):
                             logging.info(
                                 f'Walking graph: {x.identifier} | {j_obj.identifier} and '
-                                f'{hit_desc(y)} | {hit_desc(y_obj)}: Match found')
+                                f'{hit_description(y)} | {hit_description(y_obj)}: Match found')
                             reciprocal_hits.append({x: y})
 
                         else:
                             logging.debug(
                                 f'Walking graph: {x.identifier} | {j_obj.identifier} and '
-                                f'{hit_desc(y)} | {hit_desc(y_obj)}')
+                                f'{hit_description(y)} | {hit_description(y_obj)}')
 
     # Can't compare instances through identifiers, due to them being randomly generated at BLAST parsing.
     def reciprocal_hit_finder(route_a_max: dict, route_b_max: dict) -> list[dict]:
+        """
+        Find reciprocal hits between two dictionaries of max BLAST hits.
+
+            Parameters
+            ----------
+                :param route_a_max: The dictionary containing the max hits for route A.
+                :param route_b_max: The dictionary containing the max hits for route B.
+
+            Returns
+            -------
+                :returns: A list of dictionaries containing the reciprocal hits as key value dictionaries.
+
+        """
         reciprocal_hits = []
         for x, y in route_a_max.items():  # x: Virus Object w/f; y: Probe Object
             for i, j in route_b_max.items():  # i: Probe Object w/f; j: Virus Object
-                if hit_desc(x) == hit_desc(j) and hit_desc(y) == hit_desc(i):  # Now it compares alignment.hit_def
+                if hit_description(x) == hit_description(j) and hit_description(y) == hit_description(i):  # Now it compares alignment.hit_def
                     # attributes directly (identical to FASTA headers). HSP selection is made at max() metric selection.
                     reciprocal_hits.append({x: y})
         return reciprocal_hits
@@ -104,13 +163,13 @@ def reciprocal_blast_experimental(object_dict_a: dict,
     # Dictionary: Key=Virus object, Value=List of Probe BLAST objects
     route_a: dict = run_blast_looper(object_dict=object_dict_a,
                                      command=command_a,
-                                     input_database_path=input_database_a)
+                                     input_database_path=input_database_b)
 
     # Run BLAST from B to A
     # Dictionary: Key=Probe object, Value=List of Virus BLAST objects
     route_b: dict = run_blast_looper(object_dict=object_dict_b,
                                      command=command_b,
-                                     input_database_path=input_database_b)
+                                     input_database_path=input_database_a)
 
     # Get max BLAST hits
     # Dictionary: Key=Virus object, Value=Max Probe BLAST object
@@ -128,15 +187,19 @@ def reciprocal_blast_experimental(object_dict_a: dict,
 if __name__ == '__main__':
     colored_logging(log_file_name='rec_blaster.txt')
 
-    virus_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name='virus_dict.pkl')
+    a_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
+                                   input_file_name='tblastn_results.pkl')
 
-    probe_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name='probe_dict.pkl')
+    b_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
+                                   input_file_name='probe_dict.pkl')
 
-    reciprocal_hits: list[dict] = reciprocal_blast_experimental(object_dict_a=virus_dict,
-                                                                object_dict_b=probe_dict,
+    reciprocal_hits: list[dict] = reciprocal_blast_experimental(object_dict_a=a_dict,
+                                                                object_dict_b=b_dict,
                                                                 command_a='blastx',
                                                                 command_b='tblastn',
-                                                                input_database_a='placeholder',
-                                                                input_database_b='placeholder')
+                                                                input_database_a=os.path.join(defaults.A_END_REC_DB, 'a', 'a'),
+                                                                input_database_b=os.path.join(defaults.B_END_REC_DB, 'b', 'b'))
+
+    utils.pickler(data=reciprocal_hits,
+                  output_directory_path=defaults.PICKLE_DIR,
+                  output_file_name='reciprocal_hits.pkl')

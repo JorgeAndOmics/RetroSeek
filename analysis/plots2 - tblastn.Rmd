@@ -15,7 +15,6 @@ library(ggridges)
 data <- read.csv('../data/tables/output/tblastn_results.csv')
 ```
 
-
 ```{r}
 head(data)
 ```
