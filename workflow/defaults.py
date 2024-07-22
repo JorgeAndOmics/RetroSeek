@@ -1,8 +1,6 @@
+import pickle
 import os
 
-# Genomes
-SPECIES: list = ['Rhinolophus_ferrumequinum']
-VIRUS: list = ['NCBI_virus']
 
 # BLAST
 EXPANSION_SIZE: int = 0
@@ -76,3 +74,11 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Accession',
                              'Identifier',
                              'Strand']
+
+# Genomes
+if os.path.exists(os.path.join(PICKLE_DIR, 'species_virus_defaults')):
+    with open(os.path.join(PICKLE_DIR, 'species_virus_defaults'), 'rb') as f:
+        SPECIES, VIRUS, SPECIES_DICT, VIRUS_DICT = pickle.load(f)
+
+    FULL_DICT = {**SPECIES_DICT, **VIRUS_DICT}
+    REVERSE_FULL_DICT = {v: k for k, v in FULL_DICT.items()}
