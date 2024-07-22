@@ -77,7 +77,7 @@ def directory_generator(parent_directory_path,
 
 def directory_file_retriever(input_directory_path) -> list:
     """
-    Retrieve all files in a directory.
+    Retrieve all files in a directory (not directories).
 
     Args:
         :param input_directory_path: Path to the directory containing the files.
@@ -144,7 +144,7 @@ def incomplete_dict_cleaner(object_dict: dict) -> dict:
 
 
 @sleep_and_retry
-@limits(calls=defaults.MAX_EXECUTION_ATTEMPTS_PER_SECOND, period=defaults.MIN_EXECUTION_INTERVAL)
+@limits(calls=10, period=1)
 def execution_limiter(func, *args, **kwargs):
     """
     Limits the number of executions of a function per second.

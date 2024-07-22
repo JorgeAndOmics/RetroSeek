@@ -1,700 +1,630 @@
-2024-07-15 17:35:58,992 - Running tblastn for CAA11581.1: POL probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,473 - Multithread: Active
+2024-07-22 16:26:29,479 - Running tblastn for ATN28189.1: POL probe against None
+Family: Betaretrovirus
+Virus: Simian retrovirus 2
+Abbreviation: SRV
+Probe: POL
+Accession: ATN28189.1
+
+2024-07-22 16:26:29,481 - Running tblastn for CAA48535.1: POL probe against None
+Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
+Probe: POL
+Accession: CAA48535.1
+
+2024-07-22 16:26:29,483 - Running tblastn for WXB24237.1: M_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: M_protein
+Accession: WXB24237.1
+
+2024-07-22 16:26:29,484 - Running tblastn for AAR36966.2: N_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: N_protein
+Accession: AAR36966.2
+
+2024-07-22 16:26:29,487 - Running tblastn for UPO09296.1: L_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: L_protein
+Accession: UPO09296.1
+
+2024-07-22 16:26:29,488 - Running tblastn for AAR36968.2: P_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: P_protein
+Accession: AAR36968.2
+
+2024-07-22 16:26:29,489 - Running tblastn for NP_042023.1: G_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: G_protein
+Accession: NP_042023.1
+
+2024-07-22 16:26:29,517 - BLAST output is empty for M_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,518 - BLAST output is empty for L_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,518 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,518 - BLAST output is empty for G_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,519 - Could not parse sequences for M_protein, borna disease virus against None
+2024-07-22 16:26:29,519 - BLAST output is empty for N_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,519 - Could not parse sequences for L_protein, borna disease virus against None
+2024-07-22 16:26:29,519 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,519 - Could not parse sequences for POL, Rous sarcoma virus against None
+2024-07-22 16:26:29,519 - BLAST output is empty for P_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,519 - Could not parse sequences for G_protein, borna disease virus against None
+2024-07-22 16:26:29,520 - Could not parse sequences for N_protein, borna disease virus against None
+2024-07-22 16:26:29,521 - Could not parse sequences for POL, Simian retrovirus 2 against None
+2024-07-22 16:26:29,522 - Could not parse sequences for P_protein, borna disease virus against None
+2024-07-22 16:26:29,523 - Running tblastn for CAA11581.1: POL probe against None
 Family: Spumaretrovirus
 Virus: Feline foamy virus
 Abbreviation: FFV
 Probe: POL
 Accession: CAA11581.1
 
-2024-07-15 17:35:58,996 - Running tblastn for ATN28190.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,525 - Running tblastn for BAA00544.1: POL probe against None
+Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Probe: POL
+Accession: BAA00544.1
+
+2024-07-22 16:26:29,527 - Running tblastn for KAI5929250.1: POL probe against None
+Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Probe: POL
+Accession: KAI5929250.1
+
+2024-07-22 16:26:29,530 - Running tblastn for ATN28190.1: ENV probe against None
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
 Probe: ENV
 Accession: ATN28190.1
 
-2024-07-15 17:35:58,999 - Running tblastn for CAA40318.1: POL probe against Rhinolophus_ferrumequinum
-Family: Lentivirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
-Probe: POL
-Accession: CAA40318.1
-
-2024-07-15 17:35:59,000 - Running tblastn for CAA48536.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,535 - Running tblastn for CAA48536.1: ENV probe against None
 Family: Alpharetrovirus
 Virus: Rous sarcoma virus
 Abbreviation: RSV
 Probe: ENV
 Accession: CAA48536.1
 
-2024-07-15 17:35:59,004 - Running tblastn for AFR79239.1: POL probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,535 - Running tblastn for AFR79239.1: POL probe against None
 Family: Spumaretrovirus
 Virus: Bovine foamy virus
 Abbreviation: BFV
 Probe: POL
 Accession: AFR79239.1
 
-2024-07-15 17:35:59,005 - Running tblastn for AJG42162.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Alpharetrovirus
-Virus: Avian leukosis virus
-Abbreviation: ALV
-Probe: ENV
-Accession: AJG42162.1
+2024-07-22 16:26:29,540 - Running tblastn for AAL38193.1: POL probe against None
+Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Probe: POL
+Accession: AAL38193.1
 
-2024-07-15 17:35:59,007 - Running tblastn for NP_041188.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Betaretrovirus
-Virus: Jaagsiekte sheep retrovirus
-Abbreviation: JSRV
-Probe: ENV
-Accession: NP_041188.1
+2024-07-22 16:26:29,555 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:35:59,013 - Running tblastn for AJR27937.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,556 - Could not parse sequences for POL, Bovine Leukemia virus against None
+2024-07-22 16:26:29,556 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,557 - Could not parse sequences for POL, Feline foamy virus against None
+2024-07-22 16:26:29,561 - Running tblastn for CAA40318.1: POL probe against None
+Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Probe: POL
+Accession: CAA40318.1
+
+2024-07-22 16:26:29,564 - Running tblastn for AJR27937.1: ENV probe against None
 Family: Gammaretrovirus
 Virus: Desmodus rotundus endogenous retrovirus
 Abbreviation: DrERV
 Probe: ENV
 Accession: AJR27937.1
 
-2024-07-15 17:35:59,014 - Running tblastn for ALB75304.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Deltaretrovirus
-Virus: Bovine Leukemia virus
-Abbreviation: BLV
-Probe: ENV
-Accession: ALB75304.1
+2024-07-22 16:26:29,565 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:35:59,015 - Running tblastn for YP_009513212.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,565 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,566 - Could not parse sequences for POL, Manis javanica Endogenous retrovirus group K against None
+2024-07-22 16:26:29,568 - Could not parse sequences for ENV, Simian retrovirus 2 against None
+2024-07-22 16:26:29,568 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,570 - Could not parse sequences for ENV, Rous sarcoma virus against None
+2024-07-22 16:26:29,576 - Running tblastn for YP_009513212.1: ENV probe against None
 Family: Deltaretrovirus
 Virus: Koala retrovirus
 Abbreviation: KoRV
 Probe: ENV
 Accession: YP_009513212.1
 
-2024-07-15 17:35:59,017 - Running tblastn for AAD30049.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Epsilonretrovirus
-Virus: Walleye epidermal hyperplasia virus 1
-Abbreviation: WEHV
-Probe: ENV
-Accession: AAD30049.1
+2024-07-22 16:26:29,577 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:35:59,020 - Running tblastn for AAD34843.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,578 - Running tblastn for AAD34842.1: POL probe against None
 Family: Epsilonretrovirus
 Virus: Human T lymphotropic virus 2
 Abbreviation: HTLV
-Probe: ENV
-Accession: AAD34843.1
+Probe: POL
+Accession: AAD34842.1
 
-2024-07-15 17:35:59,029 - Running tblastn for AAB59940.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Lentivirus
-Virus: Feline immunodeficiency virus
-Abbreviation: FIV
-Probe: ENV
-Accession: AAB59940.1
-
-2024-07-15 17:35:59,030 - Running tblastn for AAB68771.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Spumaretrovirus
-Virus: Bovine foamy virus
-Abbreviation: BFV
-Probe: ENV
-Accession: AAB68771.1
-
-2024-07-15 17:35:59,030 - Running tblastn for CAA70076.1: ENV probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,578 - Could not parse sequences for POL, Porcine endogenous retrovirus against None
+2024-07-22 16:26:29,580 - Running tblastn for CAA70076.1: ENV probe against None
 Family: Spumaretrovirus
 Virus: Feline foamy virus
 Abbreviation: FFV
 Probe: ENV
 Accession: CAA70076.1
 
-2024-07-15 17:35:59,030 - Running tblastn for ATN28187.1: GAG probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,587 - Running tblastn for AAB59940.1: ENV probe against None
+Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Probe: ENV
+Accession: AAB59940.1
+
+2024-07-22 16:26:29,593 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,595 - Could not parse sequences for POL, Bovine foamy virus against None
+2024-07-22 16:26:29,599 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,599 - Running tblastn for AAD30048.1: POL probe against None
+Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Probe: POL
+Accession: AAD30048.1
+
+2024-07-22 16:26:29,600 - Could not parse sequences for ENV, Desmodus rotundus endogenous retrovirus against None
+2024-07-22 16:26:29,600 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,602 - Could not parse sequences for POL, Feline immunodeficiency virus against None
+2024-07-22 16:26:29,608 - Running tblastn for AAB68771.1: ENV probe against None
+Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Probe: ENV
+Accession: AAB68771.1
+
+2024-07-22 16:26:29,611 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,611 - Could not parse sequences for ENV, Koala retrovirus against None
+2024-07-22 16:26:29,612 - Running tblastn for ATN28187.1: GAG probe against None
 Family: Betaretrovirus
 Virus: Simian retrovirus 2
 Abbreviation: SRV
 Probe: GAG
 Accession: ATN28187.1
 
-2024-07-15 17:35:59,032 - Running tblastn for AAC82596.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Lentivirus
-Virus: Human immunodeficiency virus 1
-Abbreviation: HIV-1
-Probe: ENV
-Accession: AAC82596.1
+2024-07-22 16:26:29,612 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:35:59,037 - Running tblastn for AAA89180.1: GAG probe against Rhinolophus_ferrumequinum
-Family: Betaretrovirus
-Virus: Jaagsiekte sheep retrovirus
-Abbreviation: JSRV
+2024-07-22 16:26:29,614 - Could not parse sequences for POL, Human T lymphotropic virus 2 against None
+2024-07-22 16:26:29,616 - Running tblastn for CAA48534.1: GAG probe against None
+Family: Alpharetrovirus
+Virus: Rous sarcoma virus
+Abbreviation: RSV
 Probe: GAG
-Accession: AAA89180.1
+Accession: CAA48534.1
 
-2024-07-15 17:35:59,049 - Running tblastn for KAI5946619.1: ENV probe against Rhinolophus_ferrumequinum
-Family: Orthoretrovirus
-Virus: Manis javanica Endogenous retrovirus group K
-Abbreviation: MjERVk
-Probe: ENV
-Accession: KAI5946619.1
+2024-07-22 16:26:29,619 - Running tblastn for AJG42160.1: GAG probe against None
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: GAG
+Accession: AJG42160.1
 
-2024-07-15 17:35:59,087 - Running tblastn for AJR27933.1: GAG probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,621 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,622 - Could not parse sequences for ENV, Feline foamy virus against None
+2024-07-22 16:26:29,625 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,628 - Could not parse sequences for ENV, Feline immunodeficiency virus against None
+2024-07-22 16:26:29,635 - Running tblastn for AJR27933.1: GAG probe against None
 Family: Gammaretrovirus
 Virus: Desmodus rotundus endogenous retrovirus
 Abbreviation: DrERV
 Probe: GAG
 Accession: AJR27933.1
 
-2024-07-15 17:36:50,768 - Running tblastn for ADG27335.1: GAG probe against Rhinolophus_ferrumequinum
-Family: Gammaretrovirus
-Virus: Porcine endogenous retrovirus
-Abbreviation: PoERV
-Probe: GAG
-Accession: ADG27335.1
-
-2024-07-15 17:36:56,597 - Added CM014234.1-PBUFUU to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
+2024-07-22 16:26:29,638 - Running tblastn for KAI5946619.1: ENV probe against None
+Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
 Probe: ENV
-Accession: CM014234.1
-Species: Rhinolophus ferrumequinum
-Identifier: PBUFUU
-HSP Start: 81752903
-HSP End: 81753910
-HSP Length: 341
-HSP Strand: -
+Accession: KAI5946619.1
 
+2024-07-22 16:26:29,645 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:36:56,599 - Added CM014248.1-7UAI5G to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014248.1
-Species: Rhinolophus ferrumequinum
-Identifier: 7UAI5G
-HSP Start: 38864675
-HSP End: 38865682
-HSP Length: 341
-HSP Strand: -
+2024-07-22 16:26:29,645 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
+2024-07-22 16:26:29,646 - Could not parse sequences for ENV, Bovine foamy virus against None
+2024-07-22 16:26:29,646 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-2024-07-15 17:36:56,600 - Added CM014248.1-FSZO6A to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014248.1
-Species: Rhinolophus ferrumequinum
-Identifier: FSZO6A
-HSP Start: 35173552
-HSP End: 35174199
-HSP Length: 221
-HSP Strand: +
+2024-07-22 16:26:29,646 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
 
-
-2024-07-15 17:36:56,602 - Added CM014226.1-BR2X6I to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: BR2X6I
-HSP Start: 43134170
-HSP End: 43135177
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,608 - Added CM014226.1-VXSFDY to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: VXSFDY
-HSP Start: 45399744
-HSP End: 45400751
-HSP Length: 339
-HSP Strand: +
-
-
-2024-07-15 17:36:56,609 - Added CM014226.1-URVHF3 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: URVHF3
-HSP Start: 45089512
-HSP End: 45090519
-HSP Length: 339
-HSP Strand: +
-
-
-2024-07-15 17:36:56,610 - Added CM014226.1-6TTU94 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 6TTU94
-HSP Start: 38955096
-HSP End: 38956103
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,610 - Added CM014226.1-90EL34 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 90EL34
-HSP Start: 36112360
-HSP End: 36113367
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,611 - Added CM014226.1-LXMOGJ to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: LXMOGJ
-HSP Start: 27368991
-HSP End: 27369998
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,612 - Added CM014226.1-22UPFF to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 22UPFF
-HSP Start: 35822627
-HSP End: 35823523
-HSP Length: 301
-HSP Strand: -
-
-
-2024-07-15 17:36:56,618 - Added CM014226.1-J0LT08 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: J0LT08
-HSP Start: 32903929
-HSP End: 32904936
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,631 - Added CM014226.1-PP1ZS1 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: PP1ZS1
-HSP Start: 31036887
-HSP End: 31037894
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,631 - Added CM014226.1-MLUFNR to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: MLUFNR
-HSP Start: 22470082
-HSP End: 22471089
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,632 - Added CM014226.1-6S2YU7 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 6S2YU7
-HSP Start: 72717948
-HSP End: 72718955
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,633 - Added CM014226.1-7I05RH to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 7I05RH
-HSP Start: 35862847
-HSP End: 35863854
-HSP Length: 340
-HSP Strand: +
-
-
-2024-07-15 17:36:56,633 - Added CM014226.1-0KYCNR to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 0KYCNR
-HSP Start: 44950299
-HSP End: 44951306
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,633 - Added CM014226.1-2DDKKY to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 2DDKKY
-HSP Start: 78232016
-HSP End: 78232696
-HSP Length: 228
-HSP Strand: +
-
-
-2024-07-15 17:36:56,634 - Added CM014226.1-Q2N9EI to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: Q2N9EI
-HSP Start: 39257343
-HSP End: 39257978
-HSP Length: 213
-HSP Strand: -
-
-
-2024-07-15 17:36:56,634 - Added CM014226.1-2V9GJQ to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 2V9GJQ
-HSP Start: 49770592
-HSP End: 49771194
-HSP Length: 206
-HSP Strand: +
-
-
-2024-07-15 17:36:56,637 - Added CM014226.1-647PDL to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: 647PDL
-HSP Start: 42666658
-HSP End: 42667278
-HSP Length: 208
-HSP Strand: -
-
-
-2024-07-15 17:36:56,638 - Added CM014226.1-JJ6K30 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014226.1
-Species: Rhinolophus ferrumequinum
-Identifier: JJ6K30
-HSP Start: 70767194
-HSP End: 70768027
-HSP Length: 296
-HSP Strand: +
-
-
-2024-07-15 17:36:56,641 - Added CM014229.1-AWFES0 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014229.1
-Species: Rhinolophus ferrumequinum
-Identifier: AWFES0
-HSP Start: 84880592
-HSP End: 84881599
-HSP Length: 340
-HSP Strand: +
-
-
-2024-07-15 17:36:56,642 - Added CM014229.1-2DA5AU to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014229.1
-Species: Rhinolophus ferrumequinum
-Identifier: 2DA5AU
-HSP Start: 2750576
-HSP End: 2751583
-HSP Length: 340
-HSP Strand: +
-
-
-2024-07-15 17:36:56,642 - Added CM014237.1-XNU1DY to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014237.1
-Species: Rhinolophus ferrumequinum
-Identifier: XNU1DY
-HSP Start: 15159226
-HSP End: 15160233
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,643 - Added CM014237.1-WHXTBW to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014237.1
-Species: Rhinolophus ferrumequinum
-Identifier: WHXTBW
-HSP Start: 1308788
-HSP End: 1309453
-HSP Length: 223
-HSP Strand: +
-
-
-2024-07-15 17:36:56,643 - Added CM014245.1-6CNCSR to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014245.1
-Species: Rhinolophus ferrumequinum
-Identifier: 6CNCSR
-HSP Start: 46680308
-HSP End: 46681315
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,644 - Added CM014245.1-3LUIEH to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014245.1
-Species: Rhinolophus ferrumequinum
-Identifier: 3LUIEH
-HSP Start: 40606974
-HSP End: 40607978
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,644 - Added CM014233.1-7KC3RC to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014233.1
-Species: Rhinolophus ferrumequinum
-Identifier: 7KC3RC
-HSP Start: 31962909
-HSP End: 31963916
-HSP Length: 341
-HSP Strand: +
-
-
-2024-07-15 17:36:56,645 - Added CM014233.1-F7O3JR to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014233.1
-Species: Rhinolophus ferrumequinum
-Identifier: F7O3JR
-HSP Start: 94160492
-HSP End: 94161202
-HSP Length: 238
-HSP Strand: +
-
-
-2024-07-15 17:36:56,645 - Added CM014239.1-3E3OP4 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014239.1
-Species: Rhinolophus ferrumequinum
-Identifier: 3E3OP4
-HSP Start: 30109800
-HSP End: 30110807
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,646 - Added CM014239.1-HITIME to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014239.1
-Species: Rhinolophus ferrumequinum
-Identifier: HITIME
-HSP Start: 28547848
-HSP End: 28548804
-HSP Length: 324
-HSP Strand: +
-
-
-2024-07-15 17:36:56,647 - Added CM014228.1-7VQS70 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014228.1
-Species: Rhinolophus ferrumequinum
-Identifier: 7VQS70
-HSP Start: 50224723
-HSP End: 50225730
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,647 - Added CM014247.1-LHPD4G to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014247.1
-Species: Rhinolophus ferrumequinum
-Identifier: LHPD4G
-HSP Start: 7529943
-HSP End: 7530839
-HSP Length: 301
-HSP Strand: +
-
-
-2024-07-15 17:36:56,647 - Added CM014230.1-IVEVWV to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014230.1
-Species: Rhinolophus ferrumequinum
-Identifier: IVEVWV
-HSP Start: 42338576
-HSP End: 42339583
-HSP Length: 340
-HSP Strand: +
-
-
-2024-07-15 17:36:56,648 - Added CM014230.1-W7VPPY to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014230.1
-Species: Rhinolophus ferrumequinum
-Identifier: W7VPPY
-HSP Start: 25420273
-HSP End: 25421283
-HSP Length: 342
-HSP Strand: +
-
-
-2024-07-15 17:36:56,651 - Added CM014232.1-TOUBM1 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014232.1
-Species: Rhinolophus ferrumequinum
-Identifier: TOUBM1
-HSP Start: 65757982
-HSP End: 65758989
-HSP Length: 341
-HSP Strand: -
-
-
-2024-07-15 17:36:56,651 - Added CM014243.1-4BEW01 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014243.1
-Species: Rhinolophus ferrumequinum
-Identifier: 4BEW01
-HSP Start: 8257513
-HSP End: 8258154
-HSP Length: 219
-HSP Strand: +
-
-
-2024-07-15 17:36:56,652 - Added CM014243.1-CEG0Z0 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014243.1
-Species: Rhinolophus ferrumequinum
-Identifier: CEG0Z0
-HSP Start: 54855196
-HSP End: 54856029
-HSP Length: 283
-HSP Strand: +
-
-
-2024-07-15 17:36:56,652 - Added CM014244.1-PUKXH6 to Alignment Dictionary:
-Family: Gammaretrovirus
-Virus: Desmodus rotundus endogenous retrovirus
-Abbreviation: DrERV
-Probe: ENV
-Accession: CM014244.1
-Species: Rhinolophus ferrumequinum
-Identifier: PUKXH6
-HSP Start: 29286455
-HSP End: 29287132
-HSP Length: 243
-HSP Strand: -
-
-
-2024-07-15 17:36:56,659 - Running tblastn for AAF15097.1: GAG probe against Rhinolophus_ferrumequinum
+2024-07-22 16:26:29,646 - Could not parse sequences for POL, Walleye epidermal hyperplasia virus 1 against None
+2024-07-22 16:26:29,647 - Could not parse sequences for GAG, Simian retrovirus 2 against None
+2024-07-22 16:26:29,648 - Could not parse sequences for GAG, Rous sarcoma virus against None
+2024-07-22 16:26:29,650 - Running tblastn for AAF15097.1: GAG probe against None
 Family: Deltaretrovirus
 Virus: Koala retrovirus
 Abbreviation: KoRV
 Probe: GAG
 Accession: AAF15097.1
 
+2024-07-22 16:26:29,652 - Running tblastn for ADG27335.1: GAG probe against None
+Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Probe: GAG
+Accession: ADG27335.1
+
+2024-07-22 16:26:29,654 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,654 - Running tblastn for AAB59884.1: GAG probe against None
+Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Probe: GAG
+Accession: AAB59884.1
+
+2024-07-22 16:26:29,655 - Could not parse sequences for GAG, Avian leukosis virus against None
+2024-07-22 16:26:29,656 - Running tblastn for AAD30047.1: GAG probe against None
+Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Probe: GAG
+Accession: AAD30047.1
+
+2024-07-22 16:26:29,661 - Running tblastn for AAC82593.1: GAG probe against None
+Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Probe: GAG
+Accession: AAC82593.1
+
+2024-07-22 16:26:29,670 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,670 - Could not parse sequences for ENV, Manis javanica Endogenous retrovirus group K against None
+2024-07-22 16:26:29,670 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,671 - Could not parse sequences for GAG, Desmodus rotundus endogenous retrovirus against None
+2024-07-22 16:26:29,678 - Running tblastn for AAB59936.1: GAG probe against None
+Family: Lentivirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Probe: GAG
+Accession: AAB59936.1
+
+2024-07-22 16:26:29,681 - Running tblastn for AAB68769.1: GAG probe against None
+Family: Spumaretrovirus
+Virus: Bovine foamy virus
+Abbreviation: BFV
+Probe: GAG
+Accession: AAB68769.1
+
+2024-07-22 16:26:29,685 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,685 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,686 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,686 - Could not parse sequences for GAG, Koala retrovirus against None
+2024-07-22 16:26:29,686 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,686 - Could not parse sequences for GAG, Walleye epidermal hyperplasia virus 1 against None
+2024-07-22 16:26:29,687 - Could not parse sequences for GAG, Human T lymphotropic virus 2 against None
+2024-07-22 16:26:29,688 - Could not parse sequences for GAG, Porcine endogenous retrovirus against None
+2024-07-22 16:26:29,690 - Running tblastn for CAA70074.1: GAG probe against None
+Family: Spumaretrovirus
+Virus: Feline foamy virus
+Abbreviation: FFV
+Probe: GAG
+Accession: CAA70074.1
+
+2024-07-22 16:26:29,692 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,693 - Could not parse sequences for GAG, Human immunodeficiency virus 1 against None
+2024-07-22 16:26:29,693 - Running tblastn for AAB25461.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Visna maedi
+Abbreviation: VMW
+Probe: VIF
+Accession: AAB25461.1
+
+2024-07-22 16:26:29,694 - Running tblastn for KAI5943785.1: GAG probe against None
+Family: Orthoretrovirus
+Virus: Manis javanica Endogenous retrovirus group K
+Abbreviation: MjERVk
+Probe: GAG
+Accession: KAI5943785.1
+
+2024-07-22 16:26:29,697 - Running tblastn for AAP97009.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Simian immunodeficiency virus
+Abbreviation: SIV
+Probe: VIF
+Accession: AAP97009.1
+
+2024-07-22 16:26:29,697 - Running tblastn for ALU34105.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Small ruminant lentivirus
+Abbreviation: SRLV
+Probe: VIF
+Accession: ALU34105.1
+
+2024-07-22 16:26:29,717 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,718 - Could not parse sequences for GAG, Bovine foamy virus against None
+2024-07-22 16:26:29,720 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,721 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,721 - Could not parse sequences for GAG, Feline foamy virus against None
+2024-07-22 16:26:29,722 - Could not parse sequences for GAG, Manis javanica Endogenous retrovirus group K against None
+2024-07-22 16:26:29,722 - Running tblastn for QIG38012.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Puma lentivirus
+Abbreviation: PLV
+Probe: VIF
+Accession: QIG38012.1
+
+2024-07-22 16:26:29,724 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,726 - Could not parse sequences for VIF, Visna maedi against None
+2024-07-22 16:26:29,726 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,726 - Running tblastn for WPT10369.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Feline immunodeficiency virus
+Abbreviation: FIV
+Probe: VIF
+Accession: WPT10369.1
+
+2024-07-22 16:26:29,727 - Could not parse sequences for VIF, Simian immunodeficiency virus against None
+2024-07-22 16:26:29,729 - Running tblastn for NP_041188.1: ENV probe against None
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: ENV
+Accession: NP_041188.1
+
+2024-07-22 16:26:29,732 - Running tblastn for AAD34843.1: ENV probe against None
+Family: Epsilonretrovirus
+Virus: Human T lymphotropic virus 2
+Abbreviation: HTLV
+Probe: ENV
+Accession: AAD34843.1
+
+2024-07-22 16:26:29,732 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,732 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,734 - Could not parse sequences for VIF, Small ruminant lentivirus against None
+2024-07-22 16:26:29,737 - Could not parse sequences for GAG, Feline immunodeficiency virus against None
+2024-07-22 16:26:29,738 - Running tblastn for WWZ81731.1: X_protein probe against None
+Family: Bornavirus
+Virus: borna disease virus
+Abbreviation: BDV
+Probe: X_protein
+Accession: WWZ81731.1
+
+2024-07-22 16:26:29,747 - Running tblastn for AAC82596.1: ENV probe against None
+Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Probe: ENV
+Accession: AAC82596.1
+
+2024-07-22 16:26:29,750 - Running tblastn for NP_789740.1: POL probe against None
+Family: Lentivirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Probe: POL
+Accession: NP_789740.1
+
+2024-07-22 16:26:29,765 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,765 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,766 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,766 - Could not parse sequences for VIF, Feline immunodeficiency virus against None
+2024-07-22 16:26:29,766 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,766 - Could not parse sequences for VIF, Puma lentivirus against None
+2024-07-22 16:26:29,766 - BLAST output is empty for X_protein against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,767 - Could not parse sequences for ENV, Jaagsiekte sheep retrovirus against None
+2024-07-22 16:26:29,767 - Could not parse sequences for ENV, Human T lymphotropic virus 2 against None
+2024-07-22 16:26:29,768 - Could not parse sequences for X_protein, borna disease virus against None
+2024-07-22 16:26:29,772 - Running tblastn for AJG42162.1: ENV probe against None
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: ENV
+Accession: AJG42162.1
+
+2024-07-22 16:26:29,773 - Running tblastn for ALB75304.1: ENV probe against None
+Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Probe: ENV
+Accession: ALB75304.1
+
+2024-07-22 16:26:29,776 - Running tblastn for YP_009513211.1: POL probe against None
+Family: Deltaretrovirus
+Virus: Koala retrovirus
+Abbreviation: KoRV
+Probe: POL
+Accession: YP_009513211.1
+
+2024-07-22 16:26:29,777 - Running tblastn for AAD30049.1: ENV probe against None
+Family: Epsilonretrovirus
+Virus: Walleye epidermal hyperplasia virus 1
+Abbreviation: WEHV
+Probe: ENV
+Accession: AAD30049.1
+
+2024-07-22 16:26:29,780 - Running tblastn for CAA76583.1: ENV probe against None
+Family: Gammaretrovirus
+Virus: Porcine endogenous retrovirus
+Abbreviation: PoERV
+Probe: ENV
+Accession: CAA76583.1
+
+2024-07-22 16:26:29,781 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,781 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,782 - Could not parse sequences for POL, Human immunodeficiency virus 1 against None
+2024-07-22 16:26:29,782 - Could not parse sequences for ENV, Human immunodeficiency virus 1 against None
+2024-07-22 16:26:29,787 - Running tblastn for AJG42161.1: POL probe against None
+Family: Alpharetrovirus
+Virus: Avian leukosis virus
+Abbreviation: ALV
+Probe: POL
+Accession: AJG42161.1
+
+2024-07-22 16:26:29,789 - Running tblastn for AAF20197.1: VIF probe against None
+Family: Orthoretrovirus
+Virus: Human immunodeficiency virus 1
+Abbreviation: HIV-1
+Probe: VIF
+Accession: AAF20197.1
+
+2024-07-22 16:26:29,803 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,804 - Could not parse sequences for ENV, Avian leukosis virus against None
+2024-07-22 16:26:29,806 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,807 - Could not parse sequences for ENV, Bovine Leukemia virus against None
+2024-07-22 16:26:29,807 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,808 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,808 - Running tblastn for AAC82585.1: GAG probe against None
+Family: Deltaretrovirus
+Virus: Bovine Leukemia virus
+Abbreviation: BLV
+Probe: GAG
+Accession: AAC82585.1
+
+2024-07-22 16:26:29,809 - Could not parse sequences for POL, Koala retrovirus against None
+2024-07-22 16:26:29,809 - Could not parse sequences for ENV, Walleye epidermal hyperplasia virus 1 against None
+2024-07-22 16:26:29,813 - Running tblastn for AAA89180.1: GAG probe against None
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: GAG
+Accession: AAA89180.1
+
+2024-07-22 16:26:29,813 - BLAST output is empty for ENV against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,814 - Could not parse sequences for ENV, Porcine endogenous retrovirus against None
+2024-07-22 16:26:29,815 - Running tblastn for AAD45226.1: POL probe against None
+Family: Betaretrovirus
+Virus: Jaagsiekte sheep retrovirus
+Abbreviation: JSRV
+Probe: POL
+Accession: AAD45226.1
+
+2024-07-22 16:26:29,817 - Running tblastn for AJR27940.1: POL probe against None
+Family: Gammaretrovirus
+Virus: Desmodus rotundus endogenous retrovirus
+Abbreviation: DrERV
+Probe: POL
+Accession: AJR27940.1
+
+2024-07-22 16:26:29,822 - BLAST output is empty for VIF against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,822 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,823 - Could not parse sequences for VIF, Human immunodeficiency virus 1 against None
+2024-07-22 16:26:29,823 - Could not parse sequences for POL, Avian leukosis virus against None
+2024-07-22 16:26:29,839 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,839 - BLAST output is empty for GAG against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,840 - Could not parse sequences for GAG, Jaagsiekte sheep retrovirus against None
+2024-07-22 16:26:29,840 - Could not parse sequences for GAG, Bovine Leukemia virus against None
+2024-07-22 16:26:29,843 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,844 - Could not parse sequences for POL, Jaagsiekte sheep retrovirus against None
+2024-07-22 16:26:29,849 - BLAST output is empty for POL against None:
+BLAST Database error: No alias or index file found for nucleotide database [/mnt/c/Users/Administrator/Documents/Databases/local/blast_dbs/species] in search path [/mnt/c/Users/Administrator/Documents/Repositories/enERVate_v2/workflow::]
+
+2024-07-22 16:26:29,849 - Could not parse sequences for POL, Desmodus rotundus endogenous retrovirus against None
+2024-07-22 16:26:29,850 - BLAST results are empty.
+2024-07-22 16:26:29,851 - Grouping sequences by species, accession, strand, and virus

@@ -7,6 +7,8 @@ import utils
 
 import logging
 
+
+
 def get_species_name_from_file(taxid_file: str,
                                _entrez_email: str = defaults.ENTREZ_EMAIL,
                                _entrez_api_token: str = defaults.NCBI_API_TOKEN) -> str:
@@ -45,7 +47,6 @@ def get_species_name_from_file(taxid_file: str,
     except ValueError:
         logging.warning(f'Invalid taxid {taxid_file_query}. Generating folder with the same name.')
         return taxid_file_query
-
 
 
 def taxlist2name(taxid_list: list) -> list:
@@ -88,6 +89,7 @@ def blast_db_generator(input_file_path,
     subprocess.run(makeblastdb_command)
     logging.info(f'Generated BLAST database for {db_name}.')
 
+
 def directory_db_generator(file_list: list,
                            input_db,
                            db_type: str,
@@ -98,9 +100,9 @@ def directory_db_generator(file_list: list,
         Parameters
         ----------
             :param file_list: The list of files in the input directory (tax-id named).
-            :param output_list: The (defaults) variable containing the genomes for analysis
             :param input_db: The path to the directory where the tax-id named FASTA files are stored.
             :param db_type: The type of database to generate (nucl, prot).
+            :param tax2sc_dict: The dictionary with the taxid: name pairs.
 
         Returns
         -------
@@ -120,6 +122,7 @@ def directory_db_generator(file_list: list,
             genomes.extend(file_sn)
 
     return genomes
+
 
 def existing_db_list_cleaner(file_list: list, directory_to_check: str) -> list:
     """
@@ -147,7 +150,7 @@ def existing_db_list_cleaner(file_list: list, directory_to_check: str) -> list:
             if db_exists:
                 logging.info(f'Database {dir} already exists. Cleaning file list.')
                 if dir in file_list:
-                    file_list.remove(dir)
+                    file_list.remove(defaults.REVERSE_FULL_DICT[dir])
     return file_list
 
 
@@ -170,29 +173,82 @@ def objdict2fasta(object_dict: dict,
             SeqIO.write(obj.get_fasta('seqrecord'), concatenated_fasta, 'fasta')
             logging.info(f'Extracted FASTA from {key} and appended to {output_file_name}.')
 
-def ltr_index_generator(input_file_path,
-                        genome_index) -> None:
-    """
-    TODO: Finish implementation.
-    """
-    suffixerator_command = ['gt', 'suffixerator',
-                            '-db', input_file_path,
-                            '-indexname', os.path.join(input_file_path, genome_index),
-                            '-tis', '-suf', '-lcp', '-des', '-ssp', '-sds', '-dna']
 
-    subprocess.run(suffixerator_command)
-    logging.info(f'Generated LTRHarvest Index for {genome_index}.')
+def ltr_index_generator(input_directory_path,
+                        file_list: list,
+                        tax2sc_dict: dict) -> None:
+    """
+    Generates the Suffixerator index for the LTRHarvest analysis.
 
-def ltr_harvester(input_dir_path,
+        Parameters
+        ----------
+            :param input_directory_path: The path to the directory containing the FASTA files.
+            :param file_list: The list of files in the input directory (tax-id named).
+            :param tax2sc_dict: The dictionary with the taxid: name pairs
+    """
+    for file in file_list:
+        sc_name = tax2sc_dict[file.split('.')[0]]
+        suffixerator_command = ['gt', 'suffixerator',
+                                '-db', os.path.join(input_directory_path, file),
+                                '-indexname', os.path.join(input_directory_path, sc_name, sc_name),
+                                '-tis', '-suf', '-lcp', '-des', '-ssp', '-sds', '-dna', '-v']
+
+        subprocess.run(suffixerator_command)
+        logging.info(f'Generated LTRHarvest Index for {sc_name}.')
+
+
+def ltr_harvester(input_directory_path,
+                  file_list: list,
+                  tax2sc_dict: dict,
                   output_file_path) -> None:
+
+
     """
-    TODO: Finish implementation.
+    Performs the LTRHarvest analysis on the specified directory.
+
+        Parameters
+        ----------
+            :param input_directory_path: The path to the directory containing the FASTA files.
+            :param file_list: The list of files in the input directory (tax-id named).
+            :param tax2sc_dict: The dictionary with the taxid: name pairs.
+            :param output_file_path: The path to the output file
     """
-    for dir in os.listdir(input_dir_path):
-        sc_name = utils.get_last_directory(dir)  # BLAST databases have already been created
+    for file in file_list:
+        sc_name = tax2sc_dict[file.split('.')[0]]
         ltrharvest_command = ['gt', 'ltrharvest',
-                              '-index', os.path.join(input_dir_path, sc_name, sc_name),
-                              '-out', output_file_path]
+                              '-index', os.path.join(input_directory_path, sc_name, sc_name),
+                              '-out', output_file_path,
+                              '-v']
 
         subprocess.run(ltrharvest_command)
         logging.info(f'Generated LTRHarvest output for {output_file_path}.')
+
+
+def existing_ltr_list_cleaner(file_list: list, directory_to_check: str) -> list:
+    """
+    Cleans the file list if the directory with the database already exists, identified by the presence of
+    the LTR index files.
+
+        Parameters
+        ----------
+            :param file_list: The list of files (tax-id named) in the input directory.
+            :param directory_to_check: The directory to check for the database (species, virus...).
+
+        Returns
+        -------
+            :returns: The cleaned list of files.
+
+    """
+    ltr_extensions = {'.esq', '.des', '.ssp', '.sds', 'sti1'}
+    for dir in os.listdir(directory_to_check):
+        full_dir_path = os.path.join(directory_to_check, dir)
+        if os.path.isdir(full_dir_path):
+            db_exists = any(
+                any(file.endswith(ext) for ext in ltr_extensions)
+                for file in os.listdir(full_dir_path)
+            )
+            if db_exists:
+                logging.info(f'Database {dir} already exists. Cleaning file list.')
+                if dir in file_list:
+                    file_list.remove(dir)
+    return file_list
