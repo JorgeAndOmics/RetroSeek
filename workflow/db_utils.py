@@ -124,6 +124,9 @@ def directory_db_generator(file_list: list,
     return genomes
 
 
+import os
+import logging
+
 def existing_db_list_cleaner(file_list: list, directory_to_check: str) -> list:
     """
     Cleans the file list if the directory with the database already exists, identified by the presence of
@@ -140,18 +143,33 @@ def existing_db_list_cleaner(file_list: list, directory_to_check: str) -> list:
 
     """
     blast_extensions = {'.nhr', '.nin', '.nsq'}
-    for dir in os.listdir(directory_to_check):
-        full_dir_path = os.path.join(directory_to_check, dir)
-        if os.path.isdir(full_dir_path):
-            db_exists = any(
-                any(file.endswith(ext) for ext in blast_extensions)
-                for file in os.listdir(full_dir_path)
+
+    # Get directories that contain BLAST database files
+    # TODO: TWO ANYs?
+    existing_dirs = [
+        dir for dir in os.listdir(directory_to_check)
+        if os.path.isdir(os.path.join(directory_to_check, dir)) and
+           any(
+               any(file.endswith(ext) for ext in blast_extensions)
+               for file in os.listdir(os.path.join(directory_to_check, dir))
+           )
+    ]
+
+    # Log and create a set of tax_ids to remove
+    tax_ids_to_remove = set()
+    for dir in existing_dirs:
+        logging.info(f'Database {dir} already exists. Cleaning file list.')
+        if tax_id := defaults.REVERSE_FULL_DICT.get(dir, None):
+            tax_ids_to_remove.add(tax_id)
+            tax_ids_to_remove.update(
+                file for file in file_list if file.startswith(tax_id)
             )
-            if db_exists:
-                logging.info(f'Database {dir} already exists. Cleaning file list.')
-                if dir in file_list:
-                    file_list.remove(defaults.REVERSE_FULL_DICT[dir])
+
+    # Filter the file list
+    file_list = list(filter(lambda file: file not in tax_ids_to_remove, file_list))
+
     return file_list
+
 
 
 def objdict2fasta(object_dict: dict,
@@ -249,6 +267,6 @@ def existing_ltr_list_cleaner(file_list: list, directory_to_check: str) -> list:
             )
             if db_exists:
                 logging.info(f'Database {dir} already exists. Cleaning file list.')
-                if dir in file_list:
-                    file_list.remove(dir)
+                if defaults.REVERSE_FULL_DICT[dir] in file_list:
+                    file_list.remove(defaults.REVERSE_FULL_DICT.get(dir, None))
     return file_list

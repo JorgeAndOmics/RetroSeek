@@ -80,5 +80,8 @@ if os.path.exists(os.path.join(PICKLE_DIR, 'species_virus_defaults')):
     with open(os.path.join(PICKLE_DIR, 'species_virus_defaults'), 'rb') as f:
         SPECIES, VIRUS, SPECIES_DICT, VIRUS_DICT = pickle.load(f)
 
+        if not VIRUS:
+            VIRUS = ['NCBI_virus']
+
     FULL_DICT = {**SPECIES_DICT, **VIRUS_DICT}
     REVERSE_FULL_DICT = {v: k for k, v in FULL_DICT.items()}
