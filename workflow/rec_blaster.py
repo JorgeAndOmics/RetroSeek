@@ -203,3 +203,5 @@ if __name__ == '__main__':
     utils.pickler(data=reciprocal_hits,
                   output_directory_path=defaults.PICKLE_DIR,
                   output_file_name='reciprocal_hits.pkl')
+
+    logging.info(f'Successfully performed reciprocal BLAST on {len(reciprocal_hits)} sequences.')

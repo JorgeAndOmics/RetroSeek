@@ -49,8 +49,10 @@ if __name__ == '__main__':
         pickle.dump((list(set(species_dict.values())), list(set(virus_dict.values())), species_dict, virus_dict), f)
 
     # Clean the file lists if directory with database already exists
-    species_files: list = db_utils.existing_db_list_cleaner(species_files, defaults.SPECIES_DB)
-    virus_files: list = db_utils.existing_db_list_cleaner(virus_files, defaults.VIRUS_DB)
+    species_files: list = db_utils.existing_db_list_cleaner(file_list=species_files,
+                                                            directory_to_check=defaults.SPECIES_DB)
+    virus_files: list = db_utils.existing_db_list_cleaner(file_list=virus_files,
+                                                          directory_to_check=defaults.VIRUS_DB)
 
     print(species_files)
     # Generate the databases
