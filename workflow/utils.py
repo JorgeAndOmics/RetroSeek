@@ -9,6 +9,7 @@ import defaults
 
 import logging
 
+import Bio
 
 def pickler(data, output_directory_path, output_file_name: str) -> None:
     """
