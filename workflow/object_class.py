@@ -23,6 +23,7 @@ class Object:
             probe: The probe used to identify genomic regions in ERVs
             accession: The accession number of the current contained sequence
             identifier: A random, 6-character string to uniquely identify the object
+            strand: The strand of the HSP object
             alignment: Alignment object from BLAST
             HSP: High-scoring pair object from Alignment
             genbank: The Genbank record of the sequence
