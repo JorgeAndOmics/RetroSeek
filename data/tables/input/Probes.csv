@@ -1,0 +1,58 @@
+﻿Family,Abbreviation,Name,Probe,Accession
+Bornavirus,BDV,borna disease virus,N_protein,AAR36966.2
+Bornavirus,BDV,borna disease virus,P_protein,AAR36968.2
+Bornavirus,BDV,borna disease virus,G_protein,NP_042023.1
+Bornavirus,BDV,borna disease virus,L_protein,UPO09296.1
+Bornavirus,BDV,borna disease virus,X_protein,WWZ81731.1
+Bornavirus,BDV,borna disease virus,M_protein,WXB24237.1
+Alpharetrovirus,ALV,Avian leukosis virus,POL,AJG42161.1
+Alpharetrovirus,RSV,Rous sarcoma virus,POL,CAA48535.1
+Betaretrovirus,SRV,Simian retrovirus 2,POL,ATN28189.1
+Betaretrovirus,JSRV,Jaagsiekte sheep retrovirus,POL,AAD45226.1
+Gammaretrovirus,DrERV,Desmodus rotundus endogenous retrovirus,POL,AJR27940.1
+Gammaretrovirus,PoERV,Porcine endogenous retrovirus,POL,AAL38193.1
+Deltaretrovirus,KoRV,Koala retrovirus,POL,YP_009513211.1
+Deltaretrovirus,BLV,Bovine Leukemia virus,POL,BAA00544.1
+Epsilonretrovirus,HTLV,Human T lymphotropic virus 2,POL,AAD34842.1
+Epsilonretrovirus,WEHV,Walleye epidermal hyperplasia virus 1,POL,AAD30048.1
+Lentivirus,HIV-1,Human immunodeficiency virus 1,POL,NP_789740.1
+Lentivirus,FIV,Feline immunodeficiency virus,POL,CAA40318.1
+Spumaretrovirus,BFV,Bovine foamy virus,POL,AFR79239.1
+Spumaretrovirus,FFV,Feline foamy virus,POL,CAA11581.1
+Orthoretrovirus,MjERVk,Manis javanica Endogenous retrovirus group K,POL,KAI5929250.1
+Alpharetrovirus,ALV,Avian leukosis virus,ENV,AJG42162.1
+Alpharetrovirus,RSV,Rous sarcoma virus,ENV,CAA48536.1
+Betaretrovirus,SRV,Simian retrovirus 2,ENV,ATN28190.1
+Betaretrovirus,JSRV,Jaagsiekte sheep retrovirus,ENV,NP_041188.1
+Gammaretrovirus,DrERV,Desmodus rotundus endogenous retrovirus,ENV,AJR27937.1
+Gammaretrovirus,PoERV,Porcine endogenous retrovirus,ENV,CAA76583.1
+Deltaretrovirus,KoRV,Koala retrovirus,ENV,YP_009513212.1
+Deltaretrovirus,BLV,Bovine Leukemia virus,ENV,ALB75304.1
+Epsilonretrovirus,HTLV,Human T lymphotropic virus 2,ENV,AAD34843.1
+Epsilonretrovirus,WEHV,Walleye epidermal hyperplasia virus 1,ENV,AAD30049.1
+Lentivirus,HIV-1,Human immunodeficiency virus 1,ENV,AAC82596.1
+Lentivirus,FIV,Feline immunodeficiency virus,ENV,AAB59940.1
+Spumaretrovirus,BFV,Bovine foamy virus,ENV,AAB68771.1
+Spumaretrovirus,FFV,Feline foamy virus,ENV,CAA70076.1
+Orthoretrovirus,MjERVk,Manis javanica Endogenous retrovirus group K,ENV,KAI5946619.1
+Alpharetrovirus,ALV,Avian leukosis virus,GAG,AJG42160.1
+Alpharetrovirus,RSV,Rous sarcoma virus,GAG,CAA48534.1
+Betaretrovirus,SRV,Simian retrovirus 2,GAG,ATN28187.1
+Betaretrovirus,JSRV,Jaagsiekte sheep retrovirus,GAG,AAA89180.1
+Gammaretrovirus,DrERV,Desmodus rotundus endogenous retrovirus,GAG,AJR27933.1
+Gammaretrovirus,PoERV,Porcine endogenous retrovirus,GAG,ADG27335.1
+Deltaretrovirus,KoRV,Koala retrovirus,GAG,AAF15097.1
+Deltaretrovirus,BLV,Bovine Leukemia virus,GAG,AAC82585.1
+Epsilonretrovirus,HTLV,Human T lymphotropic virus 2,GAG,AAB59884.1
+Epsilonretrovirus,WEHV,Walleye epidermal hyperplasia virus 1,GAG,AAD30047.1
+Lentivirus,HIV-1,Human immunodeficiency virus 1,GAG,AAC82593.1
+Lentivirus,FIV,Feline immunodeficiency virus,GAG,AAB59936.1
+Spumaretrovirus,BFV,Bovine foamy virus,GAG,AAB68769.1
+Spumaretrovirus,FFV,Feline foamy virus,GAG,CAA70074.1
+Orthoretrovirus,MjERVk,Manis javanica Endogenous retrovirus group K,GAG,KAI5943785.1
+Orthoretrovirus,VMW,Visna maedi,VIF,AAB25461.1
+Orthoretrovirus,HIV-1,Human immunodeficiency virus 1,VIF,AAF20197.1
+Orthoretrovirus,SIV,Simian immunodeficiency virus,VIF,AAP97009.1
+Orthoretrovirus,SRLV,Small ruminant lentivirus,VIF,ALU34105.1
+Orthoretrovirus,PLV,Puma lentivirus,VIF,QIG38012.1
+Orthoretrovirus,FIV,Feline immunodeficiency virus,VIF,WPT10369.1
