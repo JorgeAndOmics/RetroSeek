@@ -1,4 +1,3 @@
-import pickle
 import os
 
 
@@ -8,7 +7,7 @@ E_VALUE: float = 0.09
 ACCESSION_ID_REGEX: str = r'[A-Z]{2,}_?\d*\.\d{1,2}'
 PROBE_MIN_LENGTH: dict = {
     'GAG': 200,
-    'POL': 200,
+    'POL': 400,
     'ENV': 200,
     'VIF': 200,
     'N_protein': 200,
@@ -45,6 +44,7 @@ SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
 A_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'a_point_rec')
 B_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'b_point_rec')
+LTR_DB = os.path.join(ROOT_DB, 'ltr_dbs')
 
 # Directories
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
@@ -52,6 +52,8 @@ TABLE_OUTPUT_DIR = os.path.join('..', 'data', 'tables', 'output')
 LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
+RESULTS_DIR = os.path.join('..', 'results')
+LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'LTRharvest')
 
 # Execution and requests
 MAX_RETRIEVAL_ATTEMPTS: int = 9
@@ -76,12 +78,19 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-if os.path.exists(os.path.join(PICKLE_DIR, 'species_virus_defaults')):
-    with open(os.path.join(PICKLE_DIR, 'species_virus_defaults'), 'rb') as f:
-        SPECIES, VIRUS, SPECIES_DICT, VIRUS_DICT = pickle.load(f)
+SPECIES: list = ['Rhinolophus_ferrumequinum',
+                 'Rousettus_aegyptiacus',
+                 'Phyllostomus_discolor',
+                 'Myotis_myotis',
+                 'Pipistrellus_kuhlii',
+                 'Molossus_molossus',
+                 'Homo_sapiens',
+                 'Mus_musculus',
+                 'Canis_lupus_familiaris',
+                 'Felis_catus',
+                 'Bos_taurus',
+                 'Loxodonta_africana',
+                 'Trichechus_manatus']
 
-        if not VIRUS:
-            VIRUS = ['NCBI_virus']
+VIRUS: list = ['NCBI_Virus']
 
-    FULL_DICT = {**SPECIES_DICT, **VIRUS_DICT}
-    REVERSE_FULL_DICT = {v: k for k, v in FULL_DICT.items()}
