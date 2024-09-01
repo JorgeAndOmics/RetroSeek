@@ -37,33 +37,21 @@ if __name__ == '__main__':
     logging.debug('Retrieving files from directory')
     species_files: list = utils.directory_file_retriever(defaults.SPECIES_DB)
     virus_files: list = utils.directory_file_retriever(defaults.VIRUS_DB)
-
-    # Generate a dictionary with the taxid: name pairs
-    species_dict: dict = {file.split('.')[0]: db_utils.get_species_name_from_file(file) for file in species_files}
-    virus_dict: dict = {file.split('.')[0]: db_utils.get_species_name_from_file(file) for file in virus_files}
-
-
-    # Populate the species and virus lists in defaults
-    # THE FILES (NOT DIRECTORIES) MUST BE THERE. OTHERWISE, THE LISTS WILL BE EMPTY. IF DBS ARE CRETA
-    with open(os.path.join(defaults.PICKLE_DIR, 'species_virus_defaults'), 'wb')  as f:
-        pickle.dump((list(set(species_dict.values())), list(set(virus_dict.values())), species_dict, virus_dict), f)
-
-    # Clean the file lists if directory with database already exists
-    species_files: list = db_utils.existing_db_list_cleaner(file_list=species_files,
-                                                            directory_to_check=defaults.SPECIES_DB)
-    virus_files: list = db_utils.existing_db_list_cleaner(file_list=virus_files,
-                                                          directory_to_check=defaults.VIRUS_DB)
-
     print(species_files)
+
+    #TODO: REIMPLEMENT EXISTING DATABASE VERIFICATION AND SKIP
+
     # Generate the databases
     logging.debug('Generating BLAST databases')
     db_utils.directory_db_generator(file_list=species_files,
                                     input_db=defaults.SPECIES_DB,
                                     db_type='nucl',
-                                    tax2sc_dict=species_dict)
+                                    tax_id_input=True,
+                                    output_directory_path=defaults.SPECIES_DB)
 
     db_utils.directory_db_generator(file_list=virus_files,
                                     input_db=defaults.VIRUS_DB,
                                     db_type='nucl',
-                                    tax2sc_dict=virus_dict)
+                                    tax_id_input=True,
+                                    output_directory_path=defaults.VIRUS_DB)
 

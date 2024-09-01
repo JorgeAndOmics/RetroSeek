@@ -8,6 +8,7 @@ import db_utils
 import pprint
 import cloudpickle
 import pickle
+import seq_utils
 
 import defaults
 from utils import pickler, unpickler
@@ -25,42 +26,25 @@ import logging, coloredlogs
 
 import sys
 
-# Your query sequence in FASTA format
-query_sequence = ("GAATTGGAGAAGGCACATATTGTGAGGCCAACACACAGTCCCTTTAACTCCCCAGTATGGCCTGTCAAGAAGCCAGATGGGACCTGGT"
-                  "GAATGACTGTGGACTATAGGGAGTTAAATAAGGTGACACCACCCTTGCACGCTGCAGTGCCTTCAATACATGATTTAATGGATCATCTGAC"
-                  "TGTCCGCCTGGGGACATATCACTATGTAGTGGACTTGGCCAATGCTTTTTTCTCCATTGACATTGCACCCGAGTATCAAGAGCAGTTTGCTTTTA"
-                  "CTTGGGATGGGCGGCAATGGACTTTTCAAGTCCTTCCGCAAGGATACTTGCACAGCCCCACTATCTGCCATGGGCTCGTGGCCCAGGATTTGGCACAG"
-                  "TGGGATCGCCCATCCTCTGTGGCCTTGTTTCATTATGTTGATGATATTCTATTAACATCTGATTCTCTTTCTGATTTAGAGCAAGCAGCTCCCTCTC"
-                  "TTCTCTGCCACCTGAAGTCACGTGGCTGGGCAGTGAATGAGGAAAAGGTCCAAGGCCCTGGCTTATCCGTCAAGCTTTTGGGTGTTGTGTGGTCGGGT"
-                  "AAGACAAAGGTTATACCTGAGGCAATTATTGATAAGATACAAGCCTTTCCCCGGCCGACCAAGGTCTCCCAACTGCAGACATATTTGGGTCTGCTAG"
-                  "GATATTGGCGGGCGTTTGTGCCCCATTTAGCACAAATGGCAAGGCCCTTGTACAATATGATAAAA")
+dict = unpickler(defaults.PICKLE_DIR, 'tblastn_results.pkl')
 
-# Perform RPS-BLAST using qblast with appropriate parameters
-result_handle = NCBIWWW.qblast(
-    program="blastx",
-    database="cdd",
-    sequence=query_sequence,
-    entrez_query="(\"Reverse Position Specific BLAST\")",
-    expect=0.01,
-    hitlist_size=50
-)
+full_dict = {}
+species_dict = {}
 
-# Save the results to an XML file
-with open("rpsblast_results.xml", "w") as out_handle:
-    out_handle.write(result_handle.read())
-    blast_records = NCBIXML.parse(out_handle)
+for key, value in dict.items():
+    species_dict[value.species] = {key: value}
+
+species_list = list(set(species_dict.keys()))
+
+for key, value in species_dict():  # key is species name, value is dictionary of objects with that species
+    species_dict = seq_utils.blast_retriever(object_dict=value,  # value is the dictionary of objects with that species
+                                             command='blastn',
+                                             genome=[value.species],
+                                             online_database='nucleotide',
+                                             input_database_path=defaults.LTR_DB,  # LTR_DB is the directory where the LTRHarvest output is stored
+                                             multi_threading=True)
 
 
-    for blast_record in blast_records:
-        for alignment in blast_record.alignments:
-            if not alignment:
-                print("No hits found")
-                continue
-            for hsp in alignment.hsps:
-                print("****Alignment****")
-                print(f"sequence: {alignment.title}")
-                print(f"length: {alignment.length}")
-                print(f"e value: {hsp.expect}")
-                print(hsp.query[0:75] + "...")
-                print(hsp.match[0:75] + "...")
-                print(hsp.sbjct[0:75] + "...")
+full_dict |= species_dict
+
+pickler(full_dict, defaults.PICKLE_DIR, 'ltrharvest_blast_against.pkl')
