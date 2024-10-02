@@ -3,3 +3,4 @@ data/tmp/*
 # But do not ignore the directory itself
 !data/tmp
 
+/logs/*

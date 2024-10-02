@@ -24,15 +24,15 @@ if __name__ == '__main__':
     #TODO: REIMPLEMENT EXISTING DATABASE VERIFICATION AND SKIP
 
     # Generate the indexes with Suffixerator
-    # logging.debug('Generating Suffixerator indexes')
-    # db_utils.ltr_index_generator(input_directory_path=defaults.SPECIES_DB,
-    #                              file_list=species_files)
-    #
-    # # Generate the LTRHarvest output
+    logging.debug('Generating Suffixerator indexes')
+    #db_utils.ltr_index_generator(input_directory_path=defaults.SPECIES_DB,
+                                 #file_list=species_files)
+
+    # Generate the LTRHarvest output
     logging.debug('Generating LTRHarvest output')
-    db_utils.ltr_harvester(index_directory_path=defaults.SPECIES_DB,
-                           file_list=species_files,
-                           output_directory_path=defaults.LTRHARVEST_DIR)
+    #db_utils.ltr_harvester(index_directory_path=defaults.SPECIES_DB,
+                           #file_list=species_files,
+                           #output_directory_path=defaults.LTRHARVEST_DIR)
 
     # Generate database with LTRHarvest output
     logging.debug('Generating LTRHarvest database')
@@ -41,5 +41,3 @@ if __name__ == '__main__':
                                     db_type='nucl',
                                     tax_id_input=False,
                                     output_directory_path=defaults.LTR_DB)
-
-

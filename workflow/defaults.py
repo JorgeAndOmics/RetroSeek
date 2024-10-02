@@ -1,5 +1,12 @@
 import os
 
+# GENOME DOWNLOAD
+ASSEMBLY_PRIORITY = {  # Define an ordering for assembly levels from highest to lowest
+    "Complete Genome": 1,
+    "Chromosome": 2,
+    "Scaffold": 3,
+    "Contig": 4
+}
 
 # BLAST
 EXPANSION_SIZE: int = 0
@@ -39,7 +46,7 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_DB = os.path.join('/mnt/', 'c', 'Users', 'Administrator', 'Documents', 'Databases', 'local')
+ROOT_DB = os.path.join('/mnt/', 'v', 'databases', 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
 A_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'a_point_rec')
@@ -59,7 +66,7 @@ LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'LTRharvest')
 MAX_RETRIEVAL_ATTEMPTS: int = 9
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
-MAX_THREADPOOL_WORKERS: int = 7  # In laptop, 7 is the maximum number of workers that can be used
+MAX_THREADPOOL_WORKERS: int = None  # In laptop, 7 is the maximum number of workers that can be used
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
@@ -78,19 +85,32 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-SPECIES: list = ['Rhinolophus_ferrumequinum',
-                 'Rousettus_aegyptiacus',
-                 'Phyllostomus_discolor',
-                 'Myotis_myotis',
-                 'Pipistrellus_kuhlii',
+SPECIES: list = ['Desmodus_rotundus',
+                 'Miniopterus_schreibersii',
+                 'Tadarida_brasiliensis',
+                 'Antrozous_pallidus',
                  'Molossus_molossus',
-                 'Homo_sapiens',
-                 'Mus_musculus',
-                 'Canis_lupus_familiaris',
-                 'Felis_catus',
-                 'Bos_taurus',
-                 'Loxodonta_africana',
-                 'Trichechus_manatus']
+                 'Artibeus_lituratus',
+                 'Eptesicus_fuscus',
+                 'Myotis_myotis',
+                 'Eptesicus_nilssonii',
+                 'Pipistrellus_kuhlii',
+                 'Rhinolophus_ferrumequinum',
+                 'Saccopteryx_bilineata',
+                 'Vespertilio_murinus',
+                 'Plecotus_auritus',
+                 'Rhinolophus_hipposideros',
+                 'Phyllostomus_discolor',
+                 'Myotis_daubentonii',
+                 'Myotis_mystacinus',
+                 'Corynorhinus_townsendii',
+                 'Hipposideros_larvatus',
+                 'Rhynchonycteris_naso',
+                 'Saccopteryx_leptura',
+                 'Molossus_alvarezi',
+                 'Glossophaga_mutica',
+                 'Molossus_nigricans'
+                  ]
 
 VIRUS: list = ['NCBI_Virus']
 

@@ -3,7 +3,11 @@ import cloudpickle
 import pickle
 import random
 import string
+import dill
 import os
+
+from functools import wraps
+from tqdm import tqdm
 
 import defaults
 
@@ -25,7 +29,7 @@ def pickler(data, output_directory_path, output_file_name: str) -> None:
     if not os.path.exists(os.path.join(output_directory_path)):
         os.makedirs(os.path.join(output_directory_path), exist_ok=True)
     with open(os.path.join(output_directory_path, output_file_name), 'wb') as f:
-        cloudpickle.dump(data, f)
+        dill.dump(data, f)
 
 
 def unpickler(input_directory_path, input_file_name: str):
@@ -49,7 +53,7 @@ def unpickler(input_directory_path, input_file_name: str):
     try:
         file_path = os.path.join(input_directory_path, input_file_name)
         with open(file_path, 'rb') as f:
-            return cloudpickle.load(f)
+            return dill.load(f)
     except Exception as e:
         logging.error(f'Failed to unpickle {file_path}')
         raise Exception(f'Failed to unpickle {file_path}') from e
@@ -172,3 +176,246 @@ def random_string_generator(length: int) -> str:
 
     """
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

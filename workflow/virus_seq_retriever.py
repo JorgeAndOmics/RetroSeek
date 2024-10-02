@@ -9,7 +9,7 @@ if __name__ == '__main__':
     colored_logging(log_file_name='virus_seq_retriever.txt')
 
     blastn_results: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                           input_file_name='tblastn_results.pkl')
+                                           input_file_name='full_vs_ltr.pkl')
 
     clean_blastn2gb_results: dict = seq_utils.blast_retriever(object_dict=blastn_results,
                                                               command='blastn',

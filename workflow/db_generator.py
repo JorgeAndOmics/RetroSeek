@@ -37,9 +37,6 @@ if __name__ == '__main__':
     logging.debug('Retrieving files from directory')
     species_files: list = utils.directory_file_retriever(defaults.SPECIES_DB)
     virus_files: list = utils.directory_file_retriever(defaults.VIRUS_DB)
-    print(species_files)
-
-    #TODO: REIMPLEMENT EXISTING DATABASE VERIFICATION AND SKIP
 
     # Generate the databases
     logging.debug('Generating BLAST databases')

@@ -25,26 +25,11 @@ from Bio.Blast import Record
 import logging, coloredlogs
 
 import sys
+import utils
+from Bio import Entrez
 
-dict = unpickler(defaults.PICKLE_DIR, 'tblastn_results.pkl')
+from Bio.Blast import NCBIWWW, NCBIXML
 
-full_dict = {}
-species_dict = {}
+test_dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR, input_file_name='full_genome_blast.pkl')
 
-for key, value in dict.items():
-    species_dict[value.species] = {key: value}
-
-species_list = list(set(species_dict.keys()))
-
-for key, value in species_dict():  # key is species name, value is dictionary of objects with that species
-    species_dict = seq_utils.blast_retriever(object_dict=value,  # value is the dictionary of objects with that species
-                                             command='blastn',
-                                             genome=[value.species],
-                                             online_database='nucleotide',
-                                             input_database_path=defaults.LTR_DB,  # LTR_DB is the directory where the LTRHarvest output is stored
-                                             multi_threading=True)
-
-
-full_dict |= species_dict
-
-pickler(full_dict, defaults.PICKLE_DIR, 'ltrharvest_blast_against.pkl')
+print(len(test_dict.keys()))
