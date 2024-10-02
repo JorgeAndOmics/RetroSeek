@@ -1,5 +1,6 @@
 from Bio import Entrez, SeqIO
 import subprocess
+import glob
 import os
 
 import defaults
@@ -7,15 +8,13 @@ import utils
 
 import logging
 
-
-
 def get_species_name_from_file(taxid_file: str,
                                _entrez_email: str = defaults.ENTREZ_EMAIL,
                                _entrez_api_token: str = defaults.NCBI_API_TOKEN) -> str:
     """
     Given a taxid number, return the scientific name of the species in the format Genus_species. Used
     in [taxlist2name]. If the file name is not a valid taxid, return the same file name.
-    If the queried taxid is not found, return None.
+    If the queried taxid is not found, return the tax-id.
 
         Parameters
         ----------
@@ -39,7 +38,7 @@ def get_species_name_from_file(taxid_file: str,
 
         if not records:
             logging.warning(f'Taxid {taxid_file} not found.')
-            return None
+            return str(taxid_file_query)
 
         scientific_name = records[0]['ScientificName']
         return scientific_name.replace(" ", "_")
@@ -94,9 +93,13 @@ def directory_db_generator(file_list: list,
                            input_db,
                            db_type: str,
                            tax_id_input: bool,
-                           output_directory_path) -> list:
+                           output_directory_path,
+                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
+                           display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                           force_rerun: bool = False) -> list:
     """
-    Generates the BLAST databases from the FASTA files in the specified directory.
+    Generates the BLAST databases from the FASTA files in the specified directory. It also checks if the directory
+    containing each database already exists to avoid re-generating them.
 
         Parameters
         ----------
@@ -105,35 +108,64 @@ def directory_db_generator(file_list: list,
             :param db_type: The type of database to generate (nucl, prot).
             :param tax_id_input: Boolean flag to indicate if the input file name is tax-id or string (Use with LTRh).
             :param output_directory_path: The output directory path for the BLAST databases.
+            :param max_attempts: Number of retry attempts for the species name retrieval.
+            :param display_warning: Boolean flag to enable or disable logging of HTTP request warnings.
+            :param force_rerun: Boolean flag to force re-running of all files, even if the database already exists.
 
         Returns
         -------
-            :return:
+            :return: List of generated genomes.
 
     """
     genomes = []
-    for file in file_list:  # The original FASTA file paths, with the taxid as the name
-        if not os.path.isdir(file):
-            sc_name = get_species_name_from_file(file.split('.')[0])
-            directory = utils.directory_generator(output_directory_path, sc_name)
-            if tax_id_input:
-                blast_db_generator(input_file_path=os.path.join(input_db, file),
-                                   output_directory_path=directory,
-                                   db_name=sc_name,
-                                   db_type=db_type)
-            else:
-                blast_db_generator(input_file_path=os.path.join(input_db, f'{sc_name}.fasta'),
-                                   output_directory_path=directory,
-                                   db_name=sc_name,
-                                   db_type=db_type)
+    directory_list = [f for f in os.listdir(output_directory_path) if os.path.isdir(os.path.join(output_directory_path, f))]
 
-            genomes.extend(sc_name)
+    # Check that within the directory_list folders, there is a file with the .ndb extension
+    valid_directories = []
+    for directory in directory_list:
+        if ndb_files := glob.glob(os.path.join(output_directory_path, directory, '*.ndb')):
+            if not force_rerun:
+                logging.info(f'{directory} already contains a .ndb file. Skipping.')
+            valid_directories.append(directory)
+
+    for file in file_list:
+        sc_name = None
+        for attempt in range(max_attempts):
+            try:
+                sc_name = get_species_name_from_file(file.split('.')[0])
+                break  # Break the loop if successful
+            except Exception as e:
+                if display_warning:
+                    logging.warning(f"Attempt {attempt + 1} to retrieve species name for {file} failed: {e}")
+                if attempt == max_attempts - 1:
+                    logging.warning(f"Failed to retrieve species name for {file} after {max_attempts} retries.")
+                    raise RuntimeError(
+                        f"Failed to retrieve species name for {file} after {max_attempts} retries."
+                    ) from e
+
+        # Skip if the species directory exists and has the .ndb file, unless force_rerun is True
+        if sc_name in valid_directories and not force_rerun:
+            logging.info(f'{sc_name.replace("_", " ")} database already exists. Skipping.')
+            continue
+
+        # Generate the directory for the database
+        directory = utils.directory_generator(output_directory_path, sc_name)
+
+        if tax_id_input:
+            blast_db_generator(input_file_path=os.path.join(input_db, file),
+                               output_directory_path=directory,
+                               db_name=sc_name,
+                               db_type=db_type)
+        else:
+            blast_db_generator(input_file_path=os.path.join(input_db, f'{sc_name}.fasta'),
+                               output_directory_path=directory,
+                               db_name=sc_name,
+                               db_type=db_type)
+
+        genomes.append(sc_name)
 
     return genomes
 
-
-import os
-import logging
 
 
 def objdict2fasta(object_dict: dict,
@@ -156,8 +188,11 @@ def objdict2fasta(object_dict: dict,
             logging.info(f'Extracted FASTA from {key} and appended to {output_file_name}.')
 
 
-def ltr_index_generator(input_directory_path,
-                        file_list: list) -> None:
+def ltr_index_generator(input_directory_path: str,
+                        file_list: list,
+                        max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
+                        display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                        force_rerun: bool = False) -> None:
     """
     Generates the Suffixerator index for the LTRHarvest analysis.
 
@@ -165,40 +200,101 @@ def ltr_index_generator(input_directory_path,
         ----------
             :param input_directory_path: The path to the directory containing the FASTA files.
             :param file_list: The list of files in the input directory (tax-id named).
+            :param max_attempts: Number of retry attempts for the species name retrieval.
+            :param display_warning: Boolean flag to enable or disable logging of HTTP request warnings.
+            :param force_rerun: Boolean flag to force re-running of all files, even if an index already exists.
     """
+    directory_list = [f for f in os.listdir(input_directory_path) if os.path.isdir(os.path.join(input_directory_path, f))]
+
+    # Check that within the directory_list folders, there is a file with the .esq extension
+    valid_directories = []
+    for directory in directory_list:
+        if esq_files := glob.glob(os.path.join(input_directory_path, directory, '*.esq')):
+            # if not force_rerun:
+            #     logging.info(f'{directory} already contains a .esq file.')
+            valid_directories.append(directory)
+
+    # TODO: TRANSFER RETRY LOGIC TO [get_species_name_from_file]
     for file in file_list:
-        sc_name = get_species_name_from_file(file.split('.')[0])
-        suffixerator_command = ['gt', 'suffixerator',
-                                '-db', os.path.join(input_directory_path, file),
-                                '-indexname', os.path.join(input_directory_path, sc_name, sc_name),
-                                '-tis', '-suf', '-lcp', '-des', '-ssp', '-sds', '-dna', '-v']
+        sc_name = None
+        for attempt in range(max_attempts):
+            try:
+                sc_name = get_species_name_from_file(file.split('.')[0])
+                break  # Break the loop if successful
+            except Exception as e:
+                if display_warning:
+                    logging.warning(f"Attempt {attempt + 1} to retrieve species name for {file} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise RuntimeError(
+                        f"Failed to retrieve species name for {file} after {max_attempts} retries."
+                    ) from e
 
-        subprocess.run(suffixerator_command)
-        logging.info(f'Generated LTRHarvest Index for {sc_name}.')
+        # Skip if the species directory exists and has the .esq file, unless force_rerun is True
+        if sc_name in valid_directories and not force_rerun:
+           logging.info(f'{sc_name.replace("_", " ")} index already exists. Skipping.')
+           continue
+
+        # Generate the Suffixerator index
+        if sc_name in defaults.SPECIES:
+            suffixerator_command = ['gt', 'suffixerator',
+                                    '-db', os.path.join(input_directory_path, file),
+                                    '-indexname', os.path.join(input_directory_path, sc_name, sc_name),
+                                    '-tis', '-suf', '-lcp', '-des', '-ssp', '-sds', '-dna', '-v']
+
+            subprocess.run(suffixerator_command)
+            logging.info(f'Generated LTRHarvest Index for {sc_name}.')
 
 
-def ltr_harvester(index_directory_path,
+
+def ltr_harvester(index_directory_path: str,
                   file_list: list,
-                  output_directory_path) -> None:
-
-
+                  output_directory_path: str,
+                  max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
+                  display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
+                  force_rerun: bool = False) -> None:
     """
     Performs the LTRHarvest analysis on the specified directory.
 
         Parameters
         ----------
-            :param index_directory_path: The path to the directory containing the FASTA files.
+            :param index_directory_path: The path to the directory containing the index files.
             :param file_list: The list of files in the input directory (tax-id named).
             :param output_directory_path: The path to the output directory for the LTRHarvest results.
+            :param max_attempts: Number of retry attempts for the species name retrieval.
+            :param display_warning: Boolean flag to enable or disable logging of HTTP request warnings.
+            :param force_rerun: Boolean flag to force re-running of all files, even if output files already exist.
     """
-    for file in file_list:
-        sc_name = get_species_name_from_file(file.split('.')[0])
-        ltrharvest_command = ['gt', 'ltrharvest',
-                              '-index', os.path.join(index_directory_path, sc_name, sc_name),
-                              '-out', os.path.join(output_directory_path, f'{sc_name}.fasta'),
-                              '-v']
+    # Build a list of existing output fasta files
+    existing_fasta_files = glob.glob(os.path.join(output_directory_path, '*.fasta'))
+    existing_species = [os.path.splitext(os.path.basename(f))[0] for f in existing_fasta_files]
 
-        subprocess.run(ltrharvest_command)
-        logging.info(f'Generated LTRHarvest output for {output_directory_path}.')
+    for file in file_list:
+        sc_name = None
+        for attempt in range(max_attempts):
+            try:
+                sc_name = get_species_name_from_file(file.split('.')[0])
+                break  # Break the loop if successful
+            except Exception as e:
+                if display_warning:
+                    logging.warning(f"Attempt {attempt + 1} to retrieve species name for {file} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise RuntimeError(
+                        f"Failed to retrieve species name for {file} after {max_attempts} retries."
+                    ) from e
+
+        # Skip if the output fasta file exists and not force_rerun
+        if sc_name in existing_species and not force_rerun:
+            logging.info(f'LTRHarvest output for {sc_name.replace("_", " ")} already exists. Skipping.')
+            continue
+
+        # Generate the LTRHarvest output
+        if sc_name in defaults.SPECIES:
+            ltrharvest_command = ['gt', 'ltrharvest',
+                                  '-index', os.path.join(index_directory_path, sc_name, sc_name),
+                                  '-out', os.path.join(output_directory_path, f'{sc_name}.fasta'),
+                                  '-v']
+
+            subprocess.run(ltrharvest_command)
+            logging.info(f'Generated LTRHarvest output for {sc_name}.')
 
 

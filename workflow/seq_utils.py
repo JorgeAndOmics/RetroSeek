@@ -18,6 +18,25 @@ import utils
 import defaults
 
 
+def species_divider(object_dict: dict) -> dict:
+    """
+    Divides the full_genome_dict into different subdictionaries based on the species contained in the objects
+
+        Parameters
+        ----------
+            :param object_dict: The dictionary containing the objects to be divided
+
+        Returns
+        -------
+            :return: A dictionary containing the objects divided by species
+    """
+    species_dict: dict = defaultdict(dict)
+    for key, value in object_dict.items():
+        species_dict[value.species][key] = value
+
+    return species_dict
+
+
 def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
     """
     Runs a BLAST search for a given object against a given database
@@ -39,6 +58,7 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
             :raise Exception: If an error occurs while running BLAST.
     """
     input_path = os.path.join(input_database_path, subject, subject) if subject else input_database_path
+    subject = subject or input_database_path
     try:
         # Construct the BLAST command
         blast_command = [
@@ -54,8 +74,8 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         ]
 
         # Run the command
-        logging.debug(f'Running {command} for {instance.accession}: {instance.probe} probe against {subject}'
-                      f'\n{instance.display_info()}')
+        logging.debug(f"Running {command} for {instance.accession}: {instance.probe} probe against '{subject}'"
+                      f"\n{instance.display_info()}")
         result = subprocess.run(blast_command, capture_output=True, text=True)
 
         # Output captured in result.stdout
@@ -70,7 +90,7 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
         return None
 
 
-def _blaster_parser(result, instance: object, subject: str)-> dict:
+def _blaster_parser(result, instance: object, subject: str) -> dict:
     """
         Parameters
         ----------
@@ -87,7 +107,7 @@ def _blaster_parser(result, instance: object, subject: str)-> dict:
     ------
         :raise Exception: If an error occurs while parsing the BLAST output.
 
-    CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
+    CAUTION!: This function is specifically designed to parse the output of the [_blaster] function.
     """
     alignment_dict: dict = {}
     result = StringIO(result)
@@ -157,9 +177,9 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
         logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {subject}')
         return None
     except Exception as e:
-        logging.error(f'Error running BLAST for {instance.probe}, {instance.virus} against {subject.replace("_", " ")}: {e}')
+        logging.error(
+            f'Error running BLAST for {instance.probe}, {instance.virus} against {subject.replace("_", " ")}: {e}')
         return None
-
 
 def blast_threadpool_executor(object_dict: dict,
                               command: str,
@@ -175,7 +195,6 @@ def blast_threadpool_executor(object_dict: dict,
             :param input_database_path: The path to the input database (species, virus...)
             :param genome: Optional: A list of genomes to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
 
-
         Returns
         -------
             :returns: A dictionary containing the parsed BLAST results
@@ -188,7 +207,7 @@ def blast_threadpool_executor(object_dict: dict,
         subjects = genome or [None]
 
         for subject in subjects:
-            tasks.extend(
+            futures = [
                 executor.submit(
                     _blast_task,
                     instance=value,
@@ -197,17 +216,19 @@ def blast_threadpool_executor(object_dict: dict,
                     input_database_path=input_database_path
                 )
                 for key, value in object_dict.items()
-            )
+            ]
 
-        for future in as_completed(tasks):
-            if result := future.result():
-                full_parsed_results |= result
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    full_parsed_results.update(result)
 
     if not full_parsed_results:
         logging.warning('BLAST results are empty.')
         return
 
     return full_parsed_results
+
 
 def blast_monothread_executor(object_dict: dict,
                               command: str,
@@ -247,7 +268,6 @@ def blast_monothread_executor(object_dict: dict,
         return
 
     return full_parsed_results
-
 
 
 def gb_fetcher(instance: object,
@@ -317,7 +337,6 @@ def gb_fetcher(instance: object,
             return instance
 
 
-# noinspection PyTypeChecker
 def gb_threadpool_executor(object_dict: dict,
                            online_database: str,
                            display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
@@ -345,8 +364,8 @@ def gb_threadpool_executor(object_dict: dict,
     full_retrieved_results: dict = {}
 
     tasks = []
-    with ThreadPoolExecutor() as executor:
-        tasks.extend(
+    with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
+        futures = [
             executor.submit(
                 utils.execution_limiter,
                 func=gb_fetcher,
@@ -354,16 +373,17 @@ def gb_threadpool_executor(object_dict: dict,
                 online_database=online_database,
                 expand_by=expand_by,
                 max_attempts=max_attempts,
-                display_warning=display_warning)
-
+                display_warning=display_warning
+            )
             for key, value in object_dict.items()
-        )
-        for future in as_completed(tasks):
-            if result := future.result():
-                full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-                logging.info(f'Added {full_retrieved_results[f"{result.accession}-{result.identifier}"].accession}-'
-                             f'{full_retrieved_results[f"{result.accession}-{result.identifier}"].identifier} to GenBank Dictionary'
-                             f'\n{full_retrieved_results[f"{result.accession}-{result.identifier}"].display_info()}\n')
+        ]
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                key = f'{result.accession}-{result.identifier}'
+                full_retrieved_results[key] = result
+                logging.info(f'Added {key} to GenBank Dictionary'
+                             f'\n{result.display_info()}\n')
 
     if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
@@ -372,7 +392,6 @@ def gb_threadpool_executor(object_dict: dict,
     return full_retrieved_results
 
 
-# TODO: Correct gb_monothread_executor function
 def gb_monothread_executor(object_dict: dict,
                            online_database: str,
                            display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
@@ -408,15 +427,15 @@ def gb_monothread_executor(object_dict: dict,
             display_warning=display_warning,
         )
         if result:
-            full_retrieved_results[f'{result.accession}-{result.identifier}'] = result
-            logging.info(f'Added {result.accession}-{result.identifier} to GenBank Dictionary\n{result.display_info()}')
+            key = f'{result.accession}-{result.identifier}'
+            full_retrieved_results[key] = result
+            logging.info(f'Added {key} to GenBank Dictionary\n{result.display_info()}')
 
     if len(full_retrieved_results) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
         return
 
     return full_retrieved_results
-
 
 
 def seq_merger(object_dict: dict):
@@ -511,6 +530,7 @@ def blast_retriever(object_dict: dict,
                     genome: list,
                     online_database: str,
                     input_database_path,
+                    expand_by: int = defaults.EXPANSION_SIZE,
                     display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
                     multi_threading: bool = True) -> dict:
     """
@@ -524,6 +544,7 @@ def blast_retriever(object_dict: dict,
             :param genome: The species to search for. Retrieved from defaults.
             :param online_database: The online database to retrieve the sequences from.
             :param input_database_path: The path to the local database (species, virus...).
+            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
             :param display_warning: Toggle display of request warning messages. Default from defaults.
             :param multi_threading: Use of multi-threading. Default is True. Execution limiter parameters from defaults.
 
@@ -550,11 +571,13 @@ def blast_retriever(object_dict: dict,
         logging.debug('Multithread: Active')
         blast_merged2gb_results: dict = gb_threadpool_executor(object_dict=blast_merged_results,
                                                                online_database=online_database,
-                                                               display_warning=display_warning)
+                                                               display_warning=display_warning,
+                                                               expand_by=expand_by)
     else:
         logging.debug('Multithread: Inactive')
         blast_merged2gb_results: dict = gb_monothread_executor(object_dict=blast_merged_results,
                                                                online_database=online_database,
-                                                               display_warning=display_warning)
+                                                               display_warning=display_warning,
+                                                               expand_by=expand_by)
 
     return utils.incomplete_dict_cleaner(object_dict=blast_merged2gb_results)

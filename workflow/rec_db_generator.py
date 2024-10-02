@@ -25,9 +25,9 @@ if __name__ == '__main__':
 
     # Unpickle the dictionaries
     a_end_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name='tblastn_results.pkl')
+                                       input_file_name='full_genome_blast.pkl')
     b_end_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name='probe_dict.pkl')
+                                       input_file_name='ltr_fasta_blast.pkl')
 
     # Generate the fasta files for the new databases
     db_utils.objdict2fasta(object_dict=a_end_dict,
@@ -44,8 +44,12 @@ if __name__ == '__main__':
     # Generate the databases
     db_utils.directory_db_generator(file_list=a_end_files,  # A -> Nucleotides
                                     input_db=defaults.A_END_REC_DB,
-                                    db_type='nucl')
+                                    db_type='nucl',
+                                    tax_id_input=False,
+                                    output_directory_path=defaults.A_END_REC_DB)
 
-    db_utils.directory_db_generator(file_list=b_end_files,  # B -> Proteins
+    db_utils.directory_db_generator(file_list=b_end_files,  # B -> Nucleotides
                                     input_db=defaults.B_END_REC_DB,
-                                    db_type='prot')
+                                    db_type='nucl',
+                                    tax_id_input=False,
+                                    output_directory_path=defaults.B_END_REC_DB)

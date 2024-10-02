@@ -6,7 +6,7 @@ from colored_logging import colored_logging
 import logging
 
 if __name__ == '__main__':
-    colored_logging(log_file_name='species_seq_retriever.txt')
+    colored_logging(log_file_name='full_genome_blaster.txt')
 
     probe_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
                                        input_file_name='probe_dict.pkl')
@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     utils.pickler(data=clean_tblastn2gb_results,
                   output_directory_path=defaults.PICKLE_DIR,
-                  output_file_name='tblastn_results.pkl')
+                  output_file_name='full_genome_blast.pkl')
 
     utils.directory_content_eraser(directory_path=defaults.TMP_DIR)
 
