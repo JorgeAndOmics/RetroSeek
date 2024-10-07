@@ -55,7 +55,7 @@ LTR_DB = os.path.join(ROOT_DB, 'ltr_dbs')
 
 # Directories
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
-TABLE_OUTPUT_DIR = os.path.join('..', 'data', 'tables', 'output')
+TABLE_OUTPUT_DIR = os.path.join('..', 'results', 'tables')
 LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
@@ -72,6 +72,7 @@ NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
 # Displays
 DISPLAY_REQUESTS_WARNING: bool = False
+DISPLAY_OPERATION_INFO: bool = False
 
 # CSV
 CSV_DELIMITER: str = ','

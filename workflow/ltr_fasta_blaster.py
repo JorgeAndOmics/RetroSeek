@@ -16,6 +16,7 @@ if __name__ == '__main__':
                                                                genome=defaults.SPECIES,
                                                                online_database='nucleotide',
                                                                input_database_path=defaults.LTR_DB,
+                                                               genbank_retrieval=True,
                                                                multi_threading=True)
 
     utils.pickler(data=clean_tblastn2gb_results,
