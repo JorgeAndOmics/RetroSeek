@@ -63,6 +63,8 @@ def extract_attributes_from_object(obj):
         data['hsp_bits'] = hsp.bits
         data['hsp_score'] = hsp.score
         data['hsp_evalue'] = hsp.expect
+        data['hsp_query'] = hsp.query
+        data['hsp_sbjct'] = hsp.sbjct
         data['hsp_query_start'] = hsp.query_start
         data['hsp_query_end'] = hsp.query_end
         data['hsp_sbjct_start'] = hsp.sbjct_start
@@ -70,18 +72,22 @@ def extract_attributes_from_object(obj):
         data['hsp_identity'] = hsp.identities
         data['hsp_align_length'] = hsp.align_length
         data['hsp_gaps'] = hsp.gaps
+        data['hsp_positives'] = hsp.positives
         data['hsp_strand'] = hsp.strand
         data['hsp_frame'] = hsp.frame
     else:
         data['hsp_bits'] = None
         data['hsp_score'] = None
         data['hsp_evalue'] = None
+        data['hsp_query'] = None
+        data['hsp_sbjct'] = None
         data['hsp_query_start'] = None
         data['hsp_query_end'] = None
         data['hsp_sbjct_start'] = None
         data['hsp_sbjct_end'] = None
         data['hsp_identity'] = None
         data['hsp_align_length'] = None
+        data['hsp_positives'] = None
         data['hsp_gaps'] = None
         data['hsp_strand'] = None
         data['hsp_frame'] = None
@@ -91,7 +97,7 @@ def extract_attributes_from_object(obj):
 
 if __name__ == '__main__':
 
-    files = 'test_full_vs_ltr'
+    files = 'ltr_fasta_blast'
 
     colored_logging(log_file_name='obj2dict.txt')
 
