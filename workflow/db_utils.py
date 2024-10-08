@@ -292,7 +292,7 @@ def ltr_harvester(index_directory_path: str,
             ltrharvest_command = ['gt', 'ltrharvest',
                                   '-index', os.path.join(index_directory_path, sc_name, sc_name),
                                   '-out', os.path.join(output_directory_path, f'{sc_name}.fasta'),
-                                  '-v']
+                                  '-gff3', os.path.join(output_directory_path, f'{sc_name}.gff')]
 
             subprocess.run(ltrharvest_command)
             logging.info(f'Generated LTRHarvest output for {sc_name}.')
