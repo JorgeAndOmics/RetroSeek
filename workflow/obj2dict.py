@@ -8,6 +8,7 @@ from colored_logging import colored_logging
 
 from multiprocessing import Pool, Queue, cpu_count
 from tqdm import tqdm
+import argparse
 
 
 def extract_attributes_from_object(obj):
@@ -96,15 +97,20 @@ def extract_attributes_from_object(obj):
 
 
 if __name__ == '__main__':
-
-    files = 'ltr_fasta_blast'
-
     colored_logging(log_file_name='obj2dict.txt')
 
-    logging.info('Starting obj2dict script.')
+    # Add argument parser
+    parser = argparse.ArgumentParser(description='Converts objects to DataFrame.')
+    parser.add_argument('--file', type=str, default=None, help='Name of the pickle file in PKL_DIR to load.')
+    args = parser.parse_args()
+
+    if args.file:
+        files = args.file
+    else:
+        logging.error('No file name provided. Exiting script.')
 
     objct_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name=f'{files}.pkl')
+                                       input_file_name=f'{files}')
 
     logging.info(f'Loaded {len(objct_dict)} objects from pickle file.')
 
@@ -112,7 +118,7 @@ if __name__ == '__main__':
     objects = list(objct_dict.values())
 
     # Use multiprocessing Pool
-    num_workers = 1
+    num_workers = 7
     logging.info(f'Using {num_workers} parallel workers for processing.')
 
     def init_pool(tqdm_instance):
