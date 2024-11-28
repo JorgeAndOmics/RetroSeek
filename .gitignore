@@ -4,3 +4,5 @@ data/tmp/*
 !data/tmp
 
 /logs/*
+/workflow/.snakemake/metadata/
+/workflow/.snakemake/log/
