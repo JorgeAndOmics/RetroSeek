@@ -111,7 +111,7 @@ SPECIES: list = ['Desmodus_rotundus',
                  'Molossus_alvarezi',
                  'Glossophaga_mutica',
                  'Molossus_nigricans'
-                  ]
+                 ]
 
 VIRUS: list = ['NCBI_Virus']
 

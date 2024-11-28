@@ -214,7 +214,7 @@ def blast_threadpool_executor(object_dict: dict,
         subjects = genome or [None]
 
         # Use tqdm to track species (outer loop progress)
-        with tqdm(total=len(subjects), desc=f'Performing {command}:') as species_bar:
+        with tqdm(total=len(subjects), desc=f'Performing {command}') as species_bar:
 
             for subject in subjects:
                 # Submit the tasks to ThreadPoolExecutor
