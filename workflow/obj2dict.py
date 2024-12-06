@@ -110,7 +110,7 @@ if __name__ == '__main__':
         logging.error('No file name provided. Exiting script.')
 
     objct_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name=f'{files}')
+                                       input_file_name=f'{file}')
 
     logging.info(f'Loaded {len(objct_dict)} objects from pickle file.')
 
