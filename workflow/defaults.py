@@ -60,7 +60,7 @@ LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
 RESULTS_DIR = os.path.join('..', 'results')
-LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'LTRharvest')
+LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 
 # Execution and requests
 MAX_RETRIEVAL_ATTEMPTS: int = 9
