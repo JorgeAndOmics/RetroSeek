@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any
 from io import StringIO
+import pandas as pd
 import tempfile
 import logging
 
@@ -8,6 +9,17 @@ import defaults
 
 from Bio import SeqIO
 
+@dataclass
+class TabularData:
+    """
+    A subclass to store tabular BLAST data.
+    It will store the raw tabular data (as a string)
+    and provide a method to parse it into a pandas DataFrame.
+    """
+    raw_data: str
+
+    def to_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(StringIO(self.raw_data), sep='\t', header=None)
 
 @dataclass
 class Object:
@@ -65,6 +77,7 @@ class Object:
     fasta: Optional[Any] = field(default=None, init=False, repr=False)
     gff: Optional[Any] = field(default=None, init=False, repr=False)
     strand: Optional[Any] = field(default=None, init=False, repr=False)
+    tabular_data: Optional[TabularData] = field(default=None, init=False, repr=False)
 
     def __repr__(self):
         return (f'{self.family},'
@@ -75,7 +88,7 @@ class Object:
                 f'{self.accession},'
                 f'{self.identifier}')
 
-    def __hash__(self):  # Needs a hash in order to be used as a dictionary key
+    def __hash__(self):
         return hash(self.identifier)
 
     def __eq__(self, other):

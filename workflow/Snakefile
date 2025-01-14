@@ -4,7 +4,7 @@ import os
 FA_FILES = glob_wildcards(os.path.join(defaults.SPECIES_DB, '{genome}.fa'))
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
-BLAST_OUTPUT_EXT = ['pkl', 'csv', 'parquet']
+BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
 rule main:
     input:
@@ -162,10 +162,11 @@ rule probe_extractor:
     threads:
         workflow.cores
     shell:
-        'python probe_extractor.py && python object2dict.py --file probe_dict.pkl'
+        'python probe_extractor.py && python obj2dict.py --file probe_dict.pkl'
 
 rule full_genome_blaster:
     input:
+        pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
         table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.{ext}'), ext = BLAST_OUTPUT_EXT),
 
 rule full_genome_blaster_setup:
@@ -176,8 +177,10 @@ rule full_genome_blaster_setup:
         pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
+    threads:
+        16
     shell:
-        'python full_genome_blaster.py && python object2dict.py --file full_genome_blast.pkl'
+        'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
 
 rule full_vs_ltr:
     input:
@@ -188,11 +191,11 @@ rule full_vs_ltr_setup:
         input_pkl = rules.full_genome_blaster_setup.output.pkl,
         ltr_blast_db = expand(os.path.join(defaults.LTR_DB,'{genome}','{genome}.{ext}'),genome=FA_FILES.genome,ext=BLAST_DB_EXT)
     output:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
+        pkl = os.path.join(defaults.PICKLE_DIR, 'full_vs_ltr.pkl'),
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.parquet')
     shell:
-        'python full_vs_ltr.py && python object2dict.py --file full_vs_ltr.pkl'
+        'python full_vs_ltr.py && python obj2dict.py --file full_vs_ltr.pkl'
 
 rule ltr_fasta_blaster:
     input:
@@ -207,7 +210,7 @@ rule ltr_fasta_blaster_setup:
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.parquet')
     shell:
-        'python full_vs_ltr.py && python object2dict.py --file full_fasta_blast.pkl'
+        'python full_vs_ltr.py && python obj2dict.py --file full_fasta_blast.pkl'
 
 rule virus_blaster:
     input:
@@ -222,5 +225,5 @@ rule virus_blaster_setup:
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'virus_blastn_results.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'virus_blastn_results.parquet')
     shell:
-        'python virus_blaster.py && python object2dict.py --file virus_blastn_results.pkl'
+        'python virus_blaster.py && python obj2dict.py --file virus_blastn_results.pkl'
 

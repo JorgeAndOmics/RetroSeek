@@ -13,7 +13,8 @@ import argparse
 
 def extract_attributes_from_object(obj):
     """
-    Extracts attributes from the Object instance and returns a dictionary.
+    Extracts attributes from the Object instance.
+    If tabular_data is available, use it to override fields that can be derived from tabular results.
     """
     data = {}
     # Extract attributes from the Object itself
@@ -43,7 +44,7 @@ def extract_attributes_from_object(obj):
         data['genbank_annotations'] = None
         data['genbank_seq'] = None
 
-    # Extract attributes from alignment
+    # Extract attributes from alignment (from XML)
     if obj.alignment:
         aln = obj.alignment
         data['alignment_title'] = aln.title
@@ -58,7 +59,7 @@ def extract_attributes_from_object(obj):
         data['alignment_hit_id'] = None
         data['alignment_hit_def'] = None
 
-    # Extract attributes from HSP
+    # Extract attributes from HSP (from XML)
     if obj.HSP:
         hsp = obj.HSP
         data['hsp_bits'] = hsp.bits
@@ -93,6 +94,64 @@ def extract_attributes_from_object(obj):
         data['hsp_strand'] = None
         data['hsp_frame'] = None
 
+    # If tabular data is available, override applicable fields
+    # if hasattr(obj, 'tabular_data') and obj.tabular_data:
+    #     df_tab = obj.tabular_data.to_dataframe()
+    #     if not df_tab.empty:
+    #         # Take the first row of tabular data
+    #         row = df_tab.iloc[0]
+    #
+    #         # Standard tabular fields:
+    #         # 0: qseqid
+    #         # 1: sseqid
+    #         # 2: pident
+    #         # 3: length
+    #         # 4: mismatch
+    #         # 5: gapopen
+    #         # 6: qstart
+    #         # 7: qend
+    #         # 8: sstart
+    #         # 9: send
+    #         # 10: evalue
+    #         # 11: bitscore
+    #
+    #         # Map tabular fields to HSP-related fields:
+    #         data['hsp_evalue'] = row[10]  # evalue
+    #         data['hsp_bits'] = row[11]  # bitscore
+    #         data['hsp_query_start'] = row[6]  # qstart
+    #         data['hsp_query_end'] = row[7]  # qend
+    #         data['hsp_sbjct_start'] = row[8]  # sstart
+    #         data['hsp_sbjct_end'] = row[9]  # send
+    #         data['hsp_align_length'] = row[3]  # length
+    #
+    #         # For identity, we can approximate it from pident * align_length / 100 if desired:
+    #         # This will give the count of identical matches:
+    #         pident = row[2]
+    #         align_len = row[3]
+    #         identity_count = int(round((pident / 100.0) * align_len))
+    #         data['hsp_identity'] = identity_count
+    #
+    #         # mismatch and gapopen are also available:
+    #         data['hsp_gaps'] = row[5]  # gapopen (Tabular gapopen ~ number of gap openings)
+            # mismatch is directly available:
+            # hsp does not have a direct mismatch attribute in XML fields, but let's store it:
+            # We can store mismatch count, but XML-based HSP objects call mismatches 'identities' differently.
+            # If we want to override:
+            # data['hsp_mismatch'] = row[4] # Additional field if desired, not originally in hsp fields.
+
+            # The tabular format doesn't provide hsp_strand, hsp_frame, hsp_positives directly,
+            # so leave them as None or original if the XML data had them:
+            # If we strictly replace, we leave them as is if XML wasn't available.
+            # hsp_positives also isn't in default tabular output. We leave as None or XML-derived.
+
+            # hsp_positives, hsp_strand, hsp_frame remain unchanged if originally None.
+            # If we must override them to None because we rely solely on tabular:
+            # data['hsp_positives'] = None
+            # data['hsp_strand'] = None
+            # data['hsp_frame'] = None
+
+            # Similarly, alignment fields like title, hit_id, etc., are not in default tabular output.
+            # We leave them as is if they came from XML, or None if XML wasn't available.
     return data
 
 
@@ -106,11 +165,13 @@ if __name__ == '__main__':
 
     if args.file:
         files = args.file
+        filename = files.split(".")[0]
     else:
         logging.error('No file name provided. Exiting script.')
 
+
     objct_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name=f'{file}')
+                                       input_file_name=f'{files}')
 
     logging.info(f'Loaded {len(objct_dict)} objects from pickle file.')
 
@@ -142,8 +203,8 @@ if __name__ == '__main__':
 
     logging.info(f'Generated DataFrame with {len(df)} rows.')
 
-    output_csv_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{files}.csv')
-    output_parquet_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{files}.parquet')
+    output_csv_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.csv')
+    output_parquet_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.parquet')
 
     df.to_csv(output_csv_path, index=False)
     logging.info(f'Saved DataFrame as CSV to {output_csv_path}')

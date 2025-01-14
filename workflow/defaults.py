@@ -63,7 +63,7 @@ RESULTS_DIR = os.path.join('..', 'results')
 LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 
 # Execution and requests
-MAX_RETRIEVAL_ATTEMPTS: int = 9
+MAX_RETRIEVAL_ATTEMPTS: int = 3
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
 MAX_THREADPOOL_WORKERS: int = None  # In laptop, 7 is the maximum number of workers that can be used
@@ -86,31 +86,31 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-SPECIES: list = ['Desmodus_rotundus',
-                 'Miniopterus_schreibersii',
-                 'Tadarida_brasiliensis',
-                 'Antrozous_pallidus',
-                 'Molossus_molossus',
-                 'Artibeus_lituratus',
-                 'Eptesicus_fuscus',
-                 'Myotis_myotis',
-                 'Eptesicus_nilssonii',
-                 'Pipistrellus_kuhlii',
-                 'Rhinolophus_ferrumequinum',
-                 'Saccopteryx_bilineata',
+SPECIES: list = [# 'Desmodus_rotundus',
+                 # 'Miniopterus_schreibersii',
+                 # 'Tadarida_brasiliensis',
+                 # 'Antrozous_pallidus',
+                 # 'Molossus_molossus',
+                 # 'Artibeus_lituratus',
+                 # 'Eptesicus_fuscus',
+                 # 'Myotis_myotis',
+                 # 'Eptesicus_nilssonii',
+                 # 'Pipistrellus_kuhlii',
+                 # 'Rhinolophus_ferrumequinum',
+                 # 'Saccopteryx_bilineata',
                  'Vespertilio_murinus',
                  'Plecotus_auritus',
                  'Rhinolophus_hipposideros',
                  'Phyllostomus_discolor',
                  'Myotis_daubentonii',
-                 'Myotis_mystacinus',
-                 'Corynorhinus_townsendii',
-                 'Hipposideros_larvatus',
-                 'Rhynchonycteris_naso',
-                 'Saccopteryx_leptura',
-                 'Molossus_alvarezi',
-                 'Glossophaga_mutica',
-                 'Molossus_nigricans'
+                 # 'Myotis_mystacinus',
+                 # 'Corynorhinus_townsendii',
+                 # 'Hipposideros_larvatus',
+                 # 'Rhynchonycteris_naso',
+                 # 'Saccopteryx_leptura',
+                 # 'Molossus_alvarezi',
+                 # 'Glossophaga_mutica',
+                 # 'Molossus_nigricans'
                  ]
 
 VIRUS: list = ['NCBI_Virus']
