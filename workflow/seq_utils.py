@@ -12,7 +12,7 @@ import time
 import sys
 import os
 
-from object_class import Object
+from object_class import Object, TabularData
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
@@ -40,7 +40,7 @@ def species_divider(object_dict: dict) -> dict:
     return species_dict
 
 
-def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '5'):
+def _blaster(instance, command: str, input_database_path, subject: str, _outfmt: str = '11'):
     """
     Runs a BLAST search for a given object against a given database
 
@@ -63,30 +63,20 @@ def _blaster(instance, command: str, input_database_path, subject: str, _outfmt:
     input_path = os.path.join(input_database_path, subject, subject) if subject else input_database_path
     subject = subject or input_database_path
     try:
-        # Construct the BLAST command
         blast_command = [
             command,
-            '-db',
-            input_path,
-            '-query',
-            instance.get_fasta('tempfile'),  # BLAST+ doesn't take in SeqRecord objects, but files
-            '-evalue',
-            str(defaults.E_VALUE),
-            '-outfmt',
-            _outfmt,
+            '-db', input_path,
+            '-query', instance.get_fasta('tempfile'),
+            '-evalue', str(defaults.E_VALUE),
+            '-outfmt', _outfmt
         ]
 
-        # Run the command
-        # logging.debug(f"Running {command} for {instance.accession}: {instance.probe} probe against '{subject}'"
-        #               f"\n{instance.display_info()}")
         result = subprocess.run(blast_command, capture_output=True, text=True)
-
-        # Output captured in result.stdout
         blast_output = result.stdout
         if blast_output.strip():
             return blast_output
 
-        logging.error(f'BLAST output is empty for {instance.probe} against {subject}:\n{result.stderr}')
+        logging.error(f'BLAST (outfmt=11) output is empty for {instance.probe} against {subject}:\n{result.stderr}')
         return None
     except Exception as e:
         logging.error(f'An error occurred while running {command}: {str(e)}')
@@ -113,15 +103,46 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
     CAUTION!: This function is specifically designed to parse the output of the [_blaster] function.
     """
     alignment_dict: dict = {}
-    result = StringIO(result)
     try:
-        for record in NCBIXML.parse(result):
+        # Write ASN.1 to a temp file
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.asn') as tmp_asn:
+            tmp_asn.write(result)
+            tmp_asn_path = tmp_asn.name
+
+        # Convert ASN.1 to XML
+        xml_command = [
+            'blast_formatter',
+            '-archive', tmp_asn_path,
+            '-outfmt', '5'
+        ]
+        xml_result = subprocess.run(xml_command, capture_output=True, text=True)
+        if xml_result.returncode != 0:
+            logging.error(f'Error converting ASN to XML: {xml_result.stderr}')
+            return None
+
+        xml_string = xml_result.stdout
+        xml_handle = StringIO(xml_string)
+
+        # Convert ASN.1 to tabular
+        tab_command = [
+            'blast_formatter',
+            '-archive', tmp_asn_path,
+            '-outfmt', '6'
+        ]
+        tab_result = subprocess.run(tab_command, capture_output=True, text=True)
+        if tab_result.returncode != 0:
+            logging.error(f'Error converting ASN to tabular: {tab_result.stderr}')
+            return None
+
+        tab_string = tab_result.stdout
+
+        # Now parse the XML as before
+        for record in NCBIXML.parse(xml_handle):
             for alignment in record.alignments:
                 if not record.alignments:
                     logging.warning('No alignments found.')
                     continue
                 for hsp in alignment.hsps:
-
                     accession_id = alignment.hit_def.split(' ')[0]
                     random_string = utils.random_string_generator(6)
 
@@ -130,22 +151,21 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
                         species=instance.species or subject,
-                        # In order to use the function for virus, species comes already from the input object
-                        probe=str(instance.probe),
+                        probe=str(instance.probe).strip(),
                         accession=accession_id,
-                        identifier=random_string)  # If identifier is inherited from the instance, multiple HSPs will share the same identifier
+                        identifier=random_string
+                    )
 
-                    new_instance.set_alignment(alignment),
-                    new_instance.set_HSP(hsp),
+                    new_instance.set_alignment(alignment)
+                    new_instance.set_HSP(hsp)
 
                     if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
+                        # Store tabular data in the object
+                        new_instance.tabular_data = TabularData(raw_data=tab_string)
                         alignment_dict[f'{accession_id}-{random_string}'] = new_instance
-                        # logging.info(f'Added {accession_id}-{random_string} to Alignment Dictionary:'
-                        #              f'\n{new_instance.display_info()}\n')
-
 
     except Exception as e:
-        logging.error(f'Error parsing BLAST output: {e}')
+        # logging.error(f'Error parsing BLAST output: {e}')
         return None
 
     return alignment_dict
@@ -304,9 +324,9 @@ def blast_monothread_executor(object_dict: dict,
 def gb_fetcher(instance: object,
                online_database: str,
                _attempt: int = 1,
-               max_attempts: int = 3,
+               max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
                expand_by: int = 0,
-               display_warning: bool = True,
+               display_warning: bool = False,
                _entrez_email: str = defaults.ENTREZ_EMAIL,
                _entrez_api_token: str = defaults.NCBI_API_TOKEN):
     """
@@ -364,7 +384,8 @@ def gb_fetcher(instance: object,
                 logging.warning(f'While fetching the genbank record: {str(e)}. Retrying... (attempt {_attempt + 1})')
             return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
         else:
-            logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
+            if display_warning:
+                logging.error(f'Failed to fetch the GenBank record after {max_attempts} attempts.')
             return instance
 
 

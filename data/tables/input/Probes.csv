@@ -56,3 +56,69 @@ Orthoretrovirus,SIV,Simian immunodeficiency virus,VIF,AAP97009.1
 Orthoretrovirus,SRLV,Small ruminant lentivirus,VIF,ALU34105.1
 Orthoretrovirus,PLV,Puma lentivirus,VIF,QIG38012.1
 Orthoretrovirus,FIV,Feline immunodeficiency virus,VIF,WPT10369.1
+Retrovirus,HERV-K,HERV-K,REV,AAD10329.1
+Lentivirus,VMV,VMV,REV,AAB25464.1
+Lentivirus,HIV,HIV,TAT,NP_057853.1
+Lentivirus,HIV,HIV,NEF,NP_057857.2
+Lentivirus,HIV,HIV,VIF,NP_057851.1
+Lentivirus,HIV,HIV,VPR,NP_057852.2
+Lentivirus,HIV,HIV,VPU,NP_057855.1
+Lentivirus,SIV,SIV,TAT,NP_758891.1
+Lentivirus,SIV,SIV,NEF,NP_054373.1
+Lentivirus,SIV,SIV,VIF,NP_054370.1
+Lentivirus,SIV,SIV,VPR,NP_758890.1
+Deltaretrovirus,HTLV-2,HTLV-2,TAX,NP_041005.1
+Deltaretrovirus,HTLV-2,HTLV-2,REX,NP_041004.1
+Lentivirus,FIV,FIV,VIF,ABO69514.1
+Lentivirus,FIV,FIV,REV,AAB22932.1
+Deltaretrovirus,BLV,BLV,TAX,BFM31758.1
+Deltaretrovirus,BLV,BLV,REX,AAF97919.1
+Lentivirus,VMV,VMV,TAT,NP_040842.1
+Lentivirus,VMV,VMV,VIF,NP_040841.1
+Betaretrovirus,MMTV,MMTV,SAG,AAF31476.1
+Lentivirus,EIAV,EIAV,TAT,QSX72032.1
+Lentivirus,EIAV,EIAV,REV,QSX72037.1
+Lentivirus,HIV-2,HIV-3,VPX,NP_056840.1
+Lentivirus,BIV,BIV,TAT,AAA42775.1
+Lentivirus,BIV,BIV,REV,AAA42774.1
+Lentivirus,BIV,BIV,VIF,AAA42768.1
+ERV,HERV-K,HERV-K,REC,Q69383.1
+ERV,HERV-K,HERV-K,NP9,P61582.1
+Betaretrovirus,MMTV,MMTV,REM,ABB02515.1
+Lentivirus,SIV,SIV,VPX,NP_054371.1
+Lentivirus,CAEV,CAEV,TAT,AAG48631.1
+Lentivirus,CAEV,CAEV,REV,AAG48633.1
+Lentivirus,EIAV,EIAV,S2,UWI48065.1
+Spumaretrovirus,SFV,SFV,TAS,YP_010790459.1
+Spumaretrovirus,SFV,SFV,BET,NP_056806.1
+Deltaretrovirus,BLV,BLV,G4,BFM31448.1
+Deltaretrovirus,HTLV-1,HTLV-1,HBZ,BAX35088.1
+Deltaretrovirus,HTLV-1,HTLV-1,P12,AAZ22381.1
+Deltaretrovirus,HTLV-1,HTLV-1,P30,QXU57409.1
+Deltaretrovirus,HTLV-1,HTLV-1,P13,QXU57412.1
+Lentivirus,HIV-2,HIV-2,TAT,NP_056842.1
+Lentivirus,HIV-2,HIV-2,NEF,NP_056845.1
+Lentivirus,HIV-2,HIV-2,VIF,NP_056839.1
+Lentivirus,HIV-2,HIV-2,VPR,NP_056841.1
+Deltaretrovirus,HTLV-4,HTLV-4,TAX,YP_002455788.1
+Deltaretrovirus,HTLV-4,HTLV-4,REX,YP_002455787.1
+Deltaretrovirus,Human T-cell leukemia virus type I,Human T-cell leukemia virus type I,P40,NP_057864
+Deltaretrovirus,Human T-cell leukemia virus type I,Human T-cell leukemia virus type I,P27,NP_057863.1
+Betaretrovirus,MMTV,MMTV,Pr48,NP_056884.1
+Lentivirus,CAEV,CAEV,Protein S,NP_040941.1
+Lentivirus,CAEV,CAEV,Protein Q,NP_040940.1
+Spumaretrovirus,SFV,SFV,TAF,NP_056805.1
+Spumaretrovirus,SFV,SFV,BEL2,YP_009508585.1
+Gammaretrovirus,FLV,FLV,P15E,NP_955582.1
+Betaretrovirus,MMTV,MMTV,Pr160,NP_056880.1
+Betaretrovirus,MMTV,MMTV,Pr77,NP_056882.1
+Betaretrovirus,MMTV,MMTV,gPr73,NP_056883.1
+Lentivirus,EIAV,EIAV,POL,NP_056902.1
+Lentivirus,EIAV,EIAV,GAG,NP_056901.1
+Other,EIAV,EIAV,ENV,YP_010360050.1
+Lentivirus,CAEV,CAEV,POL,NP_040939.1
+Lentivirus,CAEV,CAEV,GAG,NP_040938.1
+Lentivirus,CAEV,CAEV,ENV,NP_040942.1
+Deltaretrovirus,HTLV-4,HTLV-4,POL,YP_002455786.1
+Deltaretrovirus,HTLV-4,HTLV-4,GAG,YP_002455784.1
+Deltaretrovirus,HTLV-4,HTLV-4,ENV,YP_002455789.1
