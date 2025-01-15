@@ -109,14 +109,16 @@ rule ltr_index_generator_setup:
 
 rule ltr_harvester:
     input:
-        ltr_fa = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff']),
+        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff']),
+        ltr_sorted_gff = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'), genome=defaults.SPECIES, ext=['gff'])
 
 rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator.output
     output:
         ltr_fasta = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.fa'),
-        ltr_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff')
+        ltr_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff'),
+        ltr_sorted_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff')
     params:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
@@ -125,9 +127,13 @@ rule ltr_harvester_setup:
     shell:
         '''
         gt ltrharvest \
+        -seqids \
         -index {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -out {params.output_directory_path}/{wildcards.genome}.fa \
-        -gff3 {params.output_directory_path}/{wildcards.genome}.gff
+        -gff3 {params.output_directory_path}/{wildcards.genome}.gff && \
+        gt gff3 \
+        -sort \
+        {params.output_directory_path}/{wildcards.genome}.gff > {params.output_directory_path}/{wildcards.genome}_sorted.gff
         '''
 
 rule ltr_blast_db:
