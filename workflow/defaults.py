@@ -46,7 +46,8 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_DB = os.path.join('/mnt/', 'v', 'databases', 'local')
+ROOT = os.path.join('/mnt/', 'v', 'databases')
+ROOT_DB = os.path.join(ROOT, 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
 A_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'a_point_rec')
@@ -62,7 +63,7 @@ TMP_DIR = os.path.join('..', 'data', 'tmp')
 RESULTS_DIR = os.path.join('..', 'results')
 LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
-HMM_PROFILE_DIR = os.path.join(ROOT_DB, '..', 'accessory', 'hmm_profiles')
+HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
 
 # Execution and requests
 MAX_RETRIEVAL_ATTEMPTS: int = 3

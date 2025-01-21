@@ -159,7 +159,7 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
                     new_instance.set_alignment(alignment)
                     new_instance.set_HSP(hsp)
 
-                    if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH[new_instance.probe]:
+                    if new_instance.HSP.align_length >= defaults.PROBE_MIN_LENGTH.get(new_instance.probe, 0):
                         # Store tabular data in the object
                         new_instance.tabular_data = TabularData(raw_data=tab_string)
                         alignment_dict[f'{accession_id}-{random_string}'] = new_instance
