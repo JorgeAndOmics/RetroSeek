@@ -6,24 +6,6 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
-rule main:
-    input:
-        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=BLAST_DB_EXT),
-        ltr_index = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=LTR_INDEX_EXT),
-        ltr_fasta = expand(os.path.join(defaults.LTR_DB, '{genome}.fa'), genome=defaults.SPECIES),
-        ltr_gff = expand(os.path.join(defaults.LTR_DB, '{genome}.gff'), genome=defaults.SPECIES),
-        probe_table = os.path.join(defaults.TABLE_INPUT_DIR, 'Probe_info.csv'),
-        probe_pkl = os.path.join(defaults.PICKLE_DIR, 'probe_dict.pkl'),
-        full_genome_blast_pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
-        full_genome_blast_csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
-        full_genome_blast_parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet'),
-        full_vs_ltr_pkl = os.path.join(defaults.PICKLE_DIR, 'full_vs_ltr.pkl'),
-        full_vs_ltr_csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.csv'),
-        full_vs_ltr_parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.parquet'),
-        full_fasta_blast_pkl = os.path.join(defaults.PICKLE_DIR, 'full_fasta_blast.pkl'),
-        full_fasta_blast_csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.csv'),
-        full_fasta_blast_parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.parquet'),
-
 
 rule fa_converter:
     params:
