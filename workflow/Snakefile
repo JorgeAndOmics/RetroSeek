@@ -43,13 +43,13 @@ rule blast_db_generator_setup:
     input:
         fa = os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     output:
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ndb'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nhr'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nin'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.not'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nsq'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ntf'),
-        os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto'),
+        ndb_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ndb'),
+        nhr_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nhr'),
+        nin_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nin'),
+        not_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.not'),
+        nsq_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nsq'),
+        ntf_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ntf'),
+        nto_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto'),
     params:
         db_dir=defaults.SPECIES_DB
     threads:
@@ -83,17 +83,18 @@ rule ltr_index_generator:
 
 rule ltr_index_generator_setup:
     input:
-        fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
+        fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa'),
+        blast_db=rules.blast_db_generator_setup.output
     output:
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
+        des_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
+        esq_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
+        lcp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
+        llv_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
+        md5_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
+        prj_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
+        sds_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
+        ssp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
+        suf_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
         suffix_params='-tis -suf -lcp -des -ssp -sds -dna -v'
@@ -114,7 +115,7 @@ rule ltr_harvester:
 
 rule ltr_harvester_setup:
     input:
-        rules.ltr_index_generator.output
+        rules.ltr_index_generator_setup.output
     output:
         ltr_fasta = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.fa'),
         ltr_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff'),
@@ -122,11 +123,9 @@ rule ltr_harvester_setup:
     params:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
-    threads:
-        workflow.cores
     shell:
         '''
-        gt ltrharvest \
+        gt -j {workflow.cores} ltrharvest \
         -seqids \
         -index {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -out {params.output_directory_path}/{wildcards.genome}.fa \
@@ -134,6 +133,31 @@ rule ltr_harvester_setup:
         gt gff3 \
         -sort \
         {params.output_directory_path}/{wildcards.genome}.gff > {params.output_directory_path}/{wildcards.genome}_sorted.gff
+        '''
+
+rule ltr_digester:
+    input:
+        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['gff']),
+
+rule ltr_digester_setup:
+    input:
+        rules.ltr_harvester_setup.output.ltr_sorted_gff
+    output:
+        ltr_gff = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff'),
+    params:
+        ltr_harvest_path=defaults.LTRHARVEST_DIR,
+        hmm_profile_path=defaults.HMM_PROFILE_DIR,
+        index_directory_path=defaults.SPECIES_DB,
+        output_directory_path=defaults.LTRDIGEST_DIR
+    shell:
+        '''
+        gt -j {workflow.cores} ltrdigest \
+        -v -matchdescstart \
+        -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
+        -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
+        {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff && \
+        {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
+        -o {params.output_directory_path}/{wildcards.genome}.gff
         '''
 
 rule ltr_blast_db:
