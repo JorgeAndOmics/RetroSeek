@@ -80,8 +80,6 @@ rule ltr_index_generator_setup:
     params:
         db_dir=defaults.SPECIES_DB,
         suffix_params='-tis -suf -lcp -des -ssp -sds -dna -v'
-    threads:
-        workflow.cores
     shell:
         """
         gt -j {workflow.cores} \
