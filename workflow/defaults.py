@@ -61,6 +61,8 @@ PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
 RESULTS_DIR = os.path.join('..', 'results')
 LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
+LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
+HMM_PROFILE_DIR = os.path.join(ROOT_DB, '..', 'accessory', 'hmm_profiles')
 
 # Execution and requests
 MAX_RETRIEVAL_ATTEMPTS: int = 3
