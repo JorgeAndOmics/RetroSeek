@@ -84,7 +84,8 @@ rule ltr_index_generator_setup:
         workflow.cores
     shell:
         """
-        gt suffixerator \
+        gt -j {workflow.cores} \
+        suffixerator \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
         {params.suffix_params}
