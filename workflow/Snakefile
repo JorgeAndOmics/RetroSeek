@@ -155,7 +155,7 @@ rule ltr_digester_setup:
         -v -matchdescstart \
         -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
-        {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff && \
+        {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -o {params.output_directory_path}/{wildcards.genome}.gff
         '''
