@@ -15,8 +15,10 @@ if __name__ == '__main__':
                                                                command='tblastn',
                                                                genome=defaults.SPECIES,
                                                                online_database='nucleotide',
+                                                               genbank_retrieval=False,
                                                                input_database_path=defaults.SPECIES_DB,
-                                                               multi_threading=True)
+                                                               multi_threading=True,
+                                                               display_full_info=True)
 
     utils.pickler(data=clean_tblastn2gb_results,
                   output_directory_path=defaults.PICKLE_DIR,
