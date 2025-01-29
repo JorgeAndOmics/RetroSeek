@@ -61,32 +61,37 @@ rule virus_blast_db_generator_setup:
 
 rule ltr_index_generator:
     input:
-        idx = expand(os.path.join(defaults.SPECIES_DB, '{genome}/{genome}.{ext}'), genome=defaults.SPECIES, ext=LTR_INDEX_EXT)
+        idx = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=LTR_INDEX_EXT)
 
 rule ltr_index_generator_setup:
     input:
-        fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa'),
-        blast_db=rules.blast_db_generator_setup.output
+        fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     output:
-        des_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
-        esq_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
-        lcp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
-        llv_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
-        md5_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
-        prj_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
-        sds_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
-        ssp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
-        suf_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
+        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
-        suffix_params='-tis -suf -lcp -des -ssp -sds -dna -v'
+        main_suffix_params='-tis -suf -des -ssp -sds -dna -v',
+        lcp_suffix_params='-lcp -v'
+    threads:
+        workflow.cores
     shell:
         """
-        gt -j {workflow.cores} \
-        suffixerator \
+        gt -j {workflow.cores} suffixerator \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
-        {params.suffix_params}
+        {params.main_suffix_params} && \
+        gt suffixerator \
+        -db {input.fa} \
+        -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
+        {params.lcp_suffix_params}
         """
 
 rule ltr_harvester:
@@ -138,7 +143,7 @@ rule ltr_digester_setup:
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
         {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
-        -o {params.output_directory_path}/{wildcards.genome}.gff
+        > {params.output_directory_path}/{wildcards.genome}.gff      
         '''
 
 rule ltr_blast_db:
@@ -188,10 +193,22 @@ rule full_genome_blaster_setup:
         pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
-    threads:
-        16
     shell:
         'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
+
+rule species_segmenter:
+    input:
+        species=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}.parquet'), genome=defaults.SPECIES),
+
+rule species_segmenter_setup:
+    input:
+        input_parquet = rules.full_genome_blaster_setup.output.parquet,
+    output:
+        output_parquet = expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}.parquet'), genome=defaults.SPECIES),
+    params:
+        output_dir = defaults.SEGMENTED_SPECIES_DIR
+    shell:
+        'Rscript species_segmenter.R {input.input_parquet} {params.output_dir}'
 
 rule full_vs_ltr:
     input:
@@ -210,7 +227,7 @@ rule full_vs_ltr_setup:
 
 rule ltr_fasta_blaster:
     input:
-        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.{ext}'), ext = BLAST_OUTPUT_EXT),
+        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.{ext}'),ext=BLAST_OUTPUT_EXT),
 
 rule ltr_fasta_blaster_setup:
     input:
