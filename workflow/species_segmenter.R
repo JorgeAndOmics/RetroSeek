@@ -53,7 +53,7 @@ for (species_name in species_names) {
   print(paste("Processing hits for ", species_name))
   # Save all probes
   if (!is.null(all_probes[[species_name]])) {
-    output_file_all <- file.path(output_dir, paste0(species_name, ".parquet"))
+    output_file_all <- file.path(output_dir, paste0(species_name, "_full", ".parquet"))
     arrow::write_parquet(all_probes[[species_name]], output_file_all)
   }
   

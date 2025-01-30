@@ -10,6 +10,7 @@ import random
 import string
 import time
 import sys
+import re
 import os
 
 from object_class import Object, TabularData
@@ -103,6 +104,7 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
     CAUTION!: This function is specifically designed to parse the output of the [_blaster] function.
     """
     alignment_dict: dict = {}
+    regex_pattern = re.compile(defaults.ACCESSION_ID_REGEX)
     try:
         # Write ASN.1 to a temp file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.asn') as tmp_asn:
@@ -143,7 +145,8 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
                     logging.warning('No alignments found.')
                     continue
                 for hsp in alignment.hsps:
-                    accession_id = alignment.hit_def.split(' ')[0]
+                    accession_id_search = regex_pattern.search(alignment.title)
+                    accession_id = accession_id_search[0]
                     random_string = utils.random_string_generator(6)
 
                     new_instance = Object(
@@ -220,7 +223,7 @@ def blast_threadpool_executor(object_dict: dict,
             :param input_database_path: The path to the input database (species, virus...)
             :param genome: Optional: A list of genomes to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
             :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
-            
+
         Returns
         -------
             :returns: A dictionary containing the parsed BLAST results
@@ -284,7 +287,7 @@ def blast_monothread_executor(object_dict: dict,
             :param input_database_path: The path to the input database (species, virus...)
             :param genome: Optional: A list of genomes to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
             :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
-            
+
         Returns
         -------
             :returns: A dictionary containing the parsed BLAST results
@@ -300,10 +303,10 @@ def blast_monothread_executor(object_dict: dict,
             with tqdm(total=len(object_dict), desc=f'Processing {subject.replace("_", " ")}') as object_bar:
                 for key, value in object_dict.items():
                     if result := _blast_task(
-                        instance=value,
-                        command=command,
-                        subject=subject,
-                        input_database_path=input_database_path,
+                            instance=value,
+                            command=command,
+                            subject=subject,
+                            input_database_path=input_database_path,
                     ):
                         full_parsed_results |= result
                         if display_full_info:
@@ -441,7 +444,7 @@ def gb_threadpool_executor(object_dict: dict,
                     if display_full_info:
                         logging.info(f'Added {key_identifier} to GenBank Dictionary\n{result.display_info()}')
                 futures_bar.update(1)
-                
+
     if len(full_retrieved_results.items()) == 0:
         logging.critical('No fetched GenBank results. Exiting.')
         return
@@ -480,11 +483,11 @@ def gb_monothread_executor(object_dict: dict,
     with tqdm(total=len(object_dict), desc='Fetching GenBank sequences') as object_bar:
         for key, value in object_dict.items():
             if result := gb_fetcher(
-                instance=value,
-                online_database=online_database,
-                expand_by=expand_by,
-                max_attempts=max_attempts,
-                display_warning=display_warning,
+                    instance=value,
+                    online_database=online_database,
+                    expand_by=expand_by,
+                    max_attempts=max_attempts,
+                    display_warning=display_warning,
             ):
                 key_identifier = f'{value.accession}-{value.identifier}'
                 full_retrieved_results[key_identifier] = result
@@ -637,20 +640,22 @@ def blast_retriever(object_dict: dict,
     if genbank_retrieval:
         if multi_threading:
             logging.debug('Multithread: Active')
-            blast_2gb_results: dict = gb_threadpool_executor(object_dict=blast_results,
-                                                             online_database=online_database,
-                                                             display_warning=display_warning,
-                                                             expand_by=expand_by,
-                                                             display_full_info=display_full_info)
+            return gb_threadpool_executor(
+                object_dict=blast_results,
+                online_database=online_database,
+                display_warning=display_warning,
+                expand_by=expand_by,
+                display_full_info=display_full_info,
+            )
         else:
             logging.debug('Multithread: Inactive')
-            blast_2gb_results: dict = gb_monothread_executor(object_dict=blast_results,
-                                                             online_database=online_database,
-                                                             display_warning=display_warning,
-                                                             expand_by=expand_by,
-                                                             display_full_info=display_full_info)
-
-        return utils.incomplete_dict_cleaner(object_dict=blast_2gb_results)
+            return gb_monothread_executor(
+                object_dict=blast_results,
+                online_database=online_database,
+                display_warning=display_warning,
+                expand_by=expand_by,
+                display_full_info=display_full_info,
+            )
 
     else:
-        return utils.incomplete_dict_cleaner(object_dict=blast_results)
+        return blast_results

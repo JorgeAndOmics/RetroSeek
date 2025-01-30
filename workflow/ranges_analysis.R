@@ -1,70 +1,49 @@
 
 # Dependencies
-library(arrow)
-library(tidyverse)
-library(esquisse)
-library(ggsci)
-library(ggalluvial)
-library(ggdist)
 
-library(plyranges)
-library(GenomicRanges)
-library(rtracklayer)
-library(AnnotationHub)
-library(Biostrings)
-library(igvR)
+
+options(warn = -1)  # Suppress warnings
+suppressMessages({  # Suppress messages
+  library(arrow)
+  library(tidyverse)
+  library(docopt)
+  library(GenomicRanges)
+  library(plyranges)
+  library(rtracklayer)
+})
+
+
+# Define the command-line interface (CLI) description
+doc <- "
+Usage:
+  script.R --enERVate=<file> --LTRharvest=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
+
+Options:
+  --enERVate=<file>              Path to the enERVate Parquet input file
+  --LTRharvest=<file>            Path to the LTRharvest GFF input file
+  --candidate_ranges=<file>      Path to the Candidate Ranges output file
+  --validated_ranges=<file>      Path to the Validated Ranges output file
+  --overlap_matrix=<file>        Path to the Overlap Matrix output file
+  --overlap_percent_matrix=<file> Path to the Overlap Percent Matrix output file
+"
+
+# Parse command-line arguments
+args <- docopt(doc)
+
+
+# Message
+print(paste0('Processing ', basename(args$enERVate), '...'))
 
 
 # enERVate input file
-data <- arrow::read_parquet(
-  file.path(
-    'C:',
-    'Users',
-    'Lympha',
-    'Documents',
-    'Repositories',
-    'enERVate',
-    'results',
-    'tables',
-    'segmented_species',
-    'Hipposideros_larvatus_main.parquet'
-  )
-)
+data <- arrow::read_parquet(args$enERVate)
 
 
 # LTRharvest input file
-ltr_data <- rtracklayer::import(file.path(
-  'C:',
-  'Users',
-  'Lympha',
-  'Documents',
-  'Repositories',
-  'enERVate',
-  'results',
-  'ltrharvest',
-  'Hipposideros_larvatus_sorted.gff'), format = "gff3")
+ltr_data <- rtracklayer::import(args$LTRharvest, format = "gff3")
 
 
 ## ENERVATE DATA
-
-# Columns for Bioproject and Biosample
-data <- data %>%
-  mutate(bioproject = map_chr(genbank_dbxrefs, ~str_extract(.[1], "(?<=BioProject:)\\w+")),
-         biosample = map_chr(genbank_dbxrefs, ~str_extract(.[2], "(?<=BioSample:)\\w+")))
-
-head(data$biosample)
-
-
-# Calculating distributions
-mean_bit <- mean(data$hsp_bits)
-q1_bit <- quantile(data$hsp_bits, 0.25)
-median_bit <- quantile(data$hsp_bits, 0.5)
-q3_bit <- quantile(data$hsp_bits, 0.75)
-
-q1_bit
-median_bit
-q3_bit
-
 
 # Generate GRanges Object
 gr <- GRanges(seqnames = data$accession, 
@@ -79,8 +58,6 @@ mcols(gr)$bitscore <- data$hsp_bits
 mcols(gr)$identity <- (data$hsp_identity / data$hsp_align_length) * 100
 mcols(gr)$species <- data$species
 mcols(gr)$probe <- data$probe
-
-gr
 
 
 # Filter ranges by bitscore
@@ -118,8 +95,6 @@ named_reduced_gr <- reduced_gr %>%
   mutate(ID = paste0(probe, "_", seq_along(probe))) %>%
   ungroup()
 
-
-rtracklayer::export(named_reduced_gr, "Hipposideros_larvatus_main.gff3", format = "gff3")
 
 ## LTRHARVEST DATA
 
@@ -164,4 +139,12 @@ percent_overlap_df[2, 2] <- paste0(round(percent_LoutsideE, 2), '%')
 # Validate hits via LTRharvest
 valid_hits <- named_reduced_gr[queryHits(ov.E2L)]
 
-rtracklayer::export(valid_hits, "Hipposideros_larvatus_main_valid_hits.gff3", format = "gff3")
+
+# Export hits to GFF3
+rtracklayer::export(named_reduced_gr, args$candidate_ranges, format = "gff3")
+rtracklayer::export(valid_hits, args$validated_ranges, format = "gff3")
+
+
+# Export matrices to CSV
+write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
+write.csv(percent_overlap_df, args$overlap_percent_matrix, row.names = TRUE)
