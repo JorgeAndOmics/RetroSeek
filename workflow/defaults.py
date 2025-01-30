@@ -103,9 +103,9 @@ SPECIES: list = [
                    'Molossus_molossus',
                    'Artibeus_lituratus',
                    'Eptesicus_fuscus',
-                     'Myotis_myotis',   #faulty
+                    'Myotis_myotis',
                      'Eptesicus_nilssonii',
-                     'Pipistrellus_kuhlii',   #faulty
+                     'Pipistrellus_kuhlii',
                      'Rhinolophus_ferrumequinum',
                      'Saccopteryx_bilineata',
                      'Vespertilio_murinus',
@@ -120,7 +120,7 @@ SPECIES: list = [
                      'Saccopteryx_leptura',
                      'Molossus_alvarezi',
                      'Glossophaga_mutica',
-                     'Molossus_nigricans'   #faulty
+                     'Molossus_nigricans'
                  ]
 
 VIRUS: list = ['NCBI_Virus']
