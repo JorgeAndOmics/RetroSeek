@@ -75,8 +75,8 @@ reducing.gr <- function (gr) {
     group_by(probe) %>%
     reduce_ranges_directed(
       species = species[1],
-      virus = unique(virus),
-      family = unique(family),
+      virus = paste(unique(virus), collapse = "; "),
+      family = paste(unique(family), collapse = "; "),
       mean_bitscore = mean(bitscore),
       mean_identity = mean(identity),
       type = "proviral_sequence") %>%

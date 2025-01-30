@@ -18,7 +18,7 @@ if __name__ == '__main__':
                                                                genbank_retrieval=False,
                                                                input_database_path=defaults.SPECIES_DB,
                                                                multi_threading=True,
-                                                               display_full_info=True)
+                                                               display_full_info=False)
 
     utils.pickler(data=clean_tblastn2gb_results,
                   output_directory_path=defaults.PICKLE_DIR,
