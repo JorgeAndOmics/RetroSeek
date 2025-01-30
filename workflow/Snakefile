@@ -227,6 +227,7 @@ rule ranges_analysis_setup:
         species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
         ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3'), genome=defaults.SPECIES)
     output:
+        original_tracks=expand(os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
         candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
         validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
         overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
@@ -236,6 +237,7 @@ rule ranges_analysis_setup:
         Rscript ranges_analysis.R \
         --enERVate={input.species_segmented} \
         --LTRharvest={input.ltr_sorted_gff3} \
+        --original_ranges={output.original_tracks} \
         --candidate_ranges={output.candidate_tracks} \
         --validated_ranges={output.validated_tracks} \
         --overlap_matrix={output.overlap_matrix} \
