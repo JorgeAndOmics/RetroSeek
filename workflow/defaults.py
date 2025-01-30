@@ -11,7 +11,7 @@ ASSEMBLY_PRIORITY = {  # Define an ordering for assembly levels from highest to 
 # BLAST
 EXPANSION_SIZE: int = 0
 E_VALUE: float = 0.09
-ACCESSION_ID_REGEX: str = r'[A-Z]{2,}_?\d*\.\d{1,2}'
+ACCESSION_ID_REGEX: str = r'[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}'
 PROBE_MIN_LENGTH: dict = {
     'GAG': 200,
     'POL': 400,
@@ -57,12 +57,17 @@ LTR_DB = os.path.join(ROOT_DB, 'ltr_dbs')
 # Directories
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
 TABLE_OUTPUT_DIR = os.path.join('..', 'results', 'tables')
+TABLE_OVERLAP_MATRIX_DIR = os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix')
 LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
 RESULTS_DIR = os.path.join('..', 'results')
+TRACK_DIR = os.path.join(RESULTS_DIR, 'tracks')
+TRACK_CANDIDATES_DIR = os.path.join(TRACK_DIR, 'candidates')
+TRACK_VALIDATED_DIR = os.path.join(TRACK_DIR, 'validated')
 LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
+SEGMENTED_SPECIES_DIR = os.path.join(RESULTS_DIR, 'tables', 'segmented_species')
 HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
 
 # Execution and requests
@@ -89,31 +94,32 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-SPECIES: list = ['Desmodus_rotundus',
-                 'Miniopterus_schreibersii',
-                 'Tadarida_brasiliensis',
-                 'Antrozous_pallidus',
-                 'Molossus_molossus',
-                 'Artibeus_lituratus',
-                 'Eptesicus_fuscus',
-                 'Myotis_myotis',
-                 'Eptesicus_nilssonii',
-                 'Pipistrellus_kuhlii',
-                 'Rhinolophus_ferrumequinum',
-                 'Saccopteryx_bilineata',
-                 'Vespertilio_murinus',
-                 'Plecotus_auritus',
-                 'Rhinolophus_hipposideros',
-                 'Phyllostomus_discolor',
-                 'Myotis_daubentonii',
-                 'Myotis_mystacinus',
-                 'Corynorhinus_townsendii',
-                 'Hipposideros_larvatus',
-                 'Rhynchonycteris_naso',
-                 'Saccopteryx_leptura',
-                 'Molossus_alvarezi',
-                 'Glossophaga_mutica',
-                 'Molossus_nigricans'
+SPECIES: list = [
+                   'Desmodus_rotundus',
+                   'Miniopterus_schreibersii',
+                   'Tadarida_brasiliensis',
+                   'Antrozous_pallidus',
+                   'Molossus_molossus',
+                   'Artibeus_lituratus',
+                   'Eptesicus_fuscus',
+                     'Myotis_myotis',   #faulty
+                     'Eptesicus_nilssonii',
+                     'Pipistrellus_kuhlii',   #faulty
+                     'Rhinolophus_ferrumequinum',
+                     'Saccopteryx_bilineata',
+                     'Vespertilio_murinus',
+                     'Plecotus_auritus',
+                     'Rhinolophus_hipposideros',
+                     'Phyllostomus_discolor',
+                     'Myotis_daubentonii',
+                     'Myotis_mystacinus',
+                     'Corynorhinus_townsendii',
+                     'Hipposideros_larvatus',
+                     'Rhynchonycteris_naso',
+                     'Saccopteryx_leptura',
+                     'Molossus_alvarezi',
+                     'Glossophaga_mutica',
+                     'Molossus_nigricans'   #faulty
                  ]
 
 VIRUS: list = ['NCBI_Virus']

@@ -96,16 +96,16 @@ rule ltr_index_generator_setup:
 
 rule ltr_harvester:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff']),
-        ltr_sorted_gff = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'), genome=defaults.SPECIES, ext=['gff'])
+        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff3']),
+        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'), genome=defaults.SPECIES, ext=['gff3'])
 
 rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator_setup.output
     output:
         ltr_fasta = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.fa'),
-        ltr_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff'),
-        ltr_sorted_gff = os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff')
+        ltr_gff3 = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff3'),
+        ltr_sorted_gff3 = os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3')
     params:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
@@ -115,21 +115,21 @@ rule ltr_harvester_setup:
         -seqids \
         -index {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -out {params.output_directory_path}/{wildcards.genome}.fa \
-        -gff3 {params.output_directory_path}/{wildcards.genome}.gff && \
+        -gff3 {params.output_directory_path}/{wildcards.genome}.gff3 && \
         gt gff3 \
         -sort \
-        {params.output_directory_path}/{wildcards.genome}.gff > {params.output_directory_path}/{wildcards.genome}_sorted.gff
+        {params.output_directory_path}/{wildcards.genome}.gff3 > {params.output_directory_path}/{wildcards.genome}_sorted.gff3
         '''
 
 rule ltr_digester:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['gff']),
+        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['gff3']),
 
 rule ltr_digester_setup:
     input:
-        rules.ltr_harvester_setup.output.ltr_sorted_gff
+        rules.ltr_harvester_setup.output.ltr_sorted_gff3
     output:
-        ltr_gff = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff'),
+        ltr_gff3 = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
     params:
         ltr_harvest_path=defaults.LTRHARVEST_DIR,
         hmm_profile_path=defaults.HMM_PROFILE_DIR,
@@ -141,9 +141,9 @@ rule ltr_digester_setup:
         -v -matchdescstart \
         -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
-        {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff \
+        {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff3 \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
-        > {params.output_directory_path}/{wildcards.genome}.gff      
+        > {params.output_directory_path}/{wildcards.genome}.gff3      
         '''
 
 rule ltr_blast_db:
@@ -198,17 +198,49 @@ rule full_genome_blaster_setup:
 
 rule species_segmenter:
     input:
-        species=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}.parquet'), genome=defaults.SPECIES),
+        species=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
 
 rule species_segmenter_setup:
     input:
         input_parquet = rules.full_genome_blaster_setup.output.parquet,
     output:
-        output_parquet = expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}.parquet'), genome=defaults.SPECIES),
+        output_parquet = expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
     params:
         output_dir = defaults.SEGMENTED_SPECIES_DIR
     shell:
         'Rscript species_segmenter.R {input.input_parquet} {params.output_dir}'
+
+rule ranges_analysis:
+    input:
+        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=[
+            'full', 'main', 'accessory']),
+        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=[
+            'full', 'main', 'accessory']),
+        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
+            'full', 'main', 'accessory']),
+        overlap_percent_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
+            'full', 'main', 'accessory']),
+
+
+rule ranges_analysis_setup:
+    input:
+        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3'), genome=defaults.SPECIES)
+    output:
+        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        overlap_percent_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+    shell:
+        '''
+        Rscript ranges_analysis.R \
+        --enERVate={input.species_segmented} \
+        --LTRharvest={input.ltr_sorted_gff3} \
+        --candidate_ranges={output.candidate_tracks} \
+        --validated_ranges={output.validated_tracks} \
+        --overlap_matrix={output.overlap_matrix} \
+        --overlap_percent_matrix={output.overlap_percent_matrix}
+        '''
 
 rule full_vs_ltr:
     input:
