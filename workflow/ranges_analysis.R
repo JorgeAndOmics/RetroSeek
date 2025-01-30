@@ -16,11 +16,12 @@ suppressMessages({  # Suppress messages
 # Define the command-line interface (CLI) description
 doc <- "
 Usage:
-  script.R --enERVate=<file> --LTRharvest=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
+  script.R --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
 
 Options:
   --enERVate=<file>              Path to the enERVate Parquet input file
   --LTRharvest=<file>            Path to the LTRharvest GFF input file
+  --original_ranges=<file>       Path to the Original Ranges output file
   --candidate_ranges=<file>      Path to the Candidate Ranges output file
   --validated_ranges=<file>      Path to the Validated Ranges output file
   --overlap_matrix=<file>        Path to the Overlap Matrix output file
@@ -141,6 +142,7 @@ valid_hits <- named_reduced_gr[queryHits(ov.E2L)]
 
 
 # Export hits to GFF3
+rtracklayer::export(gr, args$original_ranges, format = "gff3")
 rtracklayer::export(named_reduced_gr, args$candidate_ranges, format = "gff3")
 rtracklayer::export(valid_hits, args$validated_ranges, format = "gff3")
 
