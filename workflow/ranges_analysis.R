@@ -1,7 +1,5 @@
 
 # Dependencies
-
-
 options(warn = -1)  # Suppress warnings
 suppressMessages({  # Suppress messages
   library(arrow)
@@ -16,9 +14,10 @@ suppressMessages({  # Suppress messages
 # Define the command-line interface (CLI) description
 doc <- "
 Usage:
-  script.R --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
+  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
 
 Options:
+  --FASTA=<file>                 Path to the genome FASTA input file
   --enERVate=<file>              Path to the enERVate Parquet input file
   --LTRharvest=<file>            Path to the LTRharvest GFF input file
   --original_ranges=<file>       Path to the Original Ranges output file
@@ -34,6 +33,11 @@ args <- docopt(doc)
 
 # Message
 print(paste0('Processing ', basename(args$enERVate), '...'))
+
+
+# Original FASTA file
+fa_file <- Biostrings::readDNAStringSet(args$FASTA)
+chrom_lengths <- setNames(width(fa_file), names(fa_file))
 
 
 # enERVate input file
@@ -62,11 +66,15 @@ mcols(gr)$probe <- data$probe
 
 
 # Filter ranges by bitscore
-bitscore_threshold <- 200
-identity_threshold <- 40
+bitscore_threshold <- 100
+identity_threshold <- 30
 gr <- gr %>%
          filter(bitscore > bitscore_threshold,
                 identity > identity_threshold)
+
+seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = gr$species[1])
+
+seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
 
 
 # Reduce overlapping ranges for the single species. Collapsing #1
@@ -74,7 +82,7 @@ reducing.gr <- function (gr) {
   gr %>%
     group_by(probe) %>%
     reduce_ranges_directed(
-      species = species[1],
+      species = paste(unique(species), collapse = "; "),
       virus = paste(unique(virus), collapse = "; "),
       family = paste(unique(family), collapse = "; "),
       mean_bitscore = mean(bitscore),
@@ -85,8 +93,7 @@ reducing.gr <- function (gr) {
 
 reduced_gr <- reducing.gr(gr)
 
-
-# Improving readibility of the reduced ranges
+# Improving readability of the reduced ranges
 reduced_gr$virus <- as.list(reduced_gr$virus)
 reduced_gr$family <- as.list(reduced_gr$family)
 
@@ -101,7 +108,8 @@ named_reduced_gr <- reduced_gr %>%
 
 # Filter only LTR_retrotransposon full regions
 ltr_data <- ltr_data %>%
-  filter(type == "LTR_retrotransposon")
+  filter(type == "LTR_retrotransposon") %>%
+  arrange(.by_group = start)
 
 
 # Find overlaps between enERVate and LTRharvest
@@ -139,6 +147,7 @@ percent_overlap_df[2, 2] <- paste0(round(percent_LoutsideE, 2), '%')
 
 # Validate hits via LTRharvest
 valid_hits <- named_reduced_gr[queryHits(ov.E2L)]
+mcols(valid_hits)$located_in <- ltr_data[subjectHits(ov.E2L)]$ID
 
 
 # Export hits to GFF3
