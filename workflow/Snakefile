@@ -226,24 +226,34 @@ rule ranges_analysis:
 
 rule ranges_analysis_setup:
     input:
+        original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
         species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
         ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3'), genome=defaults.SPECIES)
     output:
-        original_tracks=expand(os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
-        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
-        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
-        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
-        overlap_percent_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv'),genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),
+        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
+        validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),
+        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),
+        overlap_percent_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv')
+    params:
+        species_db=defaults.SPECIES_DB,
+        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
+        ltr_harvest_dir=defaults.LTRHARVEST_DIR,
+        original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
+        candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
+        validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
+        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR
     shell:
         '''
         Rscript ranges_analysis.R \
-        --enERVate={input.species_segmented} \
-        --LTRharvest={input.ltr_sorted_gff3} \
-        --original_ranges={output.original_tracks} \
-        --candidate_ranges={output.candidate_tracks} \
-        --validated_ranges={output.validated_tracks} \
-        --overlap_matrix={output.overlap_matrix} \
-        --overlap_percent_matrix={output.overlap_percent_matrix}
+        --FASTA={params.species_db}/{wildcards.genome}.fa \
+        --enERVate={params.segmented_species_dir}/{wildcards.genome}_{wildcards.suffix}.parquet \
+        --LTRharvest={params.ltr_harvest_dir}/{wildcards.genome}_sorted.gff3 \
+        --original_ranges={params.original_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
+        --candidate_ranges={params.candidate_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
+        --validated_ranges={params.validated_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
+        --overlap_matrix={params.overlap_matrix_dir}/{wildcards.genome}_{wildcards.suffix}.csv \
+        --overlap_percent_matrix={params.overlap_matrix_dir}/{wildcards.genome}_percent_{wildcards.suffix}.csv
         '''
 
 rule full_vs_ltr:
