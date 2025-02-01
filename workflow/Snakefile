@@ -85,7 +85,7 @@ rule ltr_index_generator_setup:
     shell:
         """
         gt -j {workflow.cores} suffixerator \
-        -showprogress \
+        -v -showprogress \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
         {params.main_suffix_params} && \
@@ -145,6 +145,7 @@ rule ltr_digester_setup:
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
         {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff3 \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
+        -o {params.index_directory_path}/{wildcards.genome} \
         > {params.output_directory_path}/{wildcards.genome}.gff3      
         '''
 
@@ -234,7 +235,6 @@ rule ranges_analysis_setup:
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
         validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),
-        overlap_percent_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv')
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
@@ -252,8 +252,7 @@ rule ranges_analysis_setup:
         --original_ranges={params.original_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
         --candidate_ranges={params.candidate_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
         --validated_ranges={params.validated_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
-        --overlap_matrix={params.overlap_matrix_dir}/{wildcards.genome}_{wildcards.suffix}.csv \
-        --overlap_percent_matrix={params.overlap_matrix_dir}/{wildcards.genome}_percent_{wildcards.suffix}.csv
+        --overlap_matrix={params.overlap_matrix_dir}/{wildcards.genome}_{wildcards.suffix}.csv
         '''
 
 rule full_vs_ltr:
