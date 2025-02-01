@@ -14,7 +14,7 @@ suppressMessages({  # Suppress messages
 # Define the command-line interface (CLI) description
 doc <- "
 Usage:
-  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file> --overlap_percent_matrix=<file>
+  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file>
 
 Options:
   --FASTA=<file>                 Path to the genome FASTA input file
@@ -24,7 +24,6 @@ Options:
   --candidate_ranges=<file>      Path to the Candidate Ranges output file
   --validated_ranges=<file>      Path to the Validated Ranges output file
   --overlap_matrix=<file>        Path to the Overlap Matrix output file
-  --overlap_percent_matrix=<file> Path to the Overlap Percent Matrix output file
 "
 
 # Parse command-line arguments
@@ -108,8 +107,7 @@ named_reduced_gr <- reduced_gr %>%
 
 # Filter only LTR_retrotransposon full regions
 ltr_data <- ltr_data %>%
-  filter(type == "LTR_retrotransposon") %>%
-  arrange(.by_group = start)
+  filter(type == "LTR_retrotransposon")
 
 
 # Find overlaps between enERVate and LTRharvest
@@ -121,28 +119,105 @@ LonE <- ltr_data[unique(queryHits(ov.L2E))]
 EoutsideL <- named_reduced_gr[-unique(queryHits(ov.E2L))]
 LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
 
-percent_EonL <- length(EonL) / length(named_reduced_gr) * 100
-percent_LonE <- length(LonE) / length(ltr_data) * 100
-percent_EoutsideL <- length(EoutsideL) / length(named_reduced_gr) * 100
-percent_LoutsideE <- length(LoutsideE) / length(ltr_data) * 100
+percent_EonL <- round(length(EonL) / length(named_reduced_gr) * 100, 2)
+percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+percent_EoutsideL <- round(length(EoutsideL) / length(named_reduced_gr) * 100, 2)
+percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
 
 
-# Calculate numbers and percentages of overlap
-overlap_df <- data.frame(matrix(NA, nrow = 2, ncol = 2))
-rownames(overlap_df) <- c('enERVate.query', 'LTRharvest.query')
-colnames(overlap_df) <- c('In', 'Out')
-overlap_df[1, 1] <- length(EonL)
-overlap_df[1, 2] <- length(EoutsideL)
-overlap_df[2, 1] <- length(LonE)
-overlap_df[2, 2] <- length(LoutsideE)
+# Calculate numbers and percentages of overlap for full enERVate
+enervate_overlap_df <- data.frame(matrix(NA, nrow = 1, ncol = 4))
+rownames(enervate_overlap_df) <- c('enERVate')
+colnames(enervate_overlap_df) <- c('In', 'Out', 'In%', 'Out%')
+enervate_overlap_df[1, 1] <- length(EonL)
+enervate_overlap_df[1, 2] <- length(EoutsideL)
+enervate_overlap_df[1, 3] <- percent_EonL
+enervate_overlap_df[1, 4] <- percent_EoutsideL
 
-percent_overlap_df <- data.frame(matrix(NA, nrow = 2, ncol = 2))
-rownames(percent_overlap_df) <- c('enERVate.query', 'LTRharvest.query')
-colnames(percent_overlap_df) <- c('In', 'Out')
-percent_overlap_df[1, 1] <- paste0(round(percent_EonL, 2), '%')
-percent_overlap_df[1, 2] <- paste0(round(percent_EoutsideL, 2), '%')
-percent_overlap_df[2, 1] <- paste0(round(percent_LonE, 2), '%')
-percent_overlap_df[2, 2] <- paste0(round(percent_LoutsideE, 2), '%')
+
+# Calculate numbers and percentages of overlap for full LTRharvest
+ltr.full_overlap_df <- data.frame(matrix(NA, nrow = 1, ncol = 4))
+rownames(ltr.full_overlap_df) <- c('LTRharvest')
+colnames(ltr.full_overlap_df) <- c('In', 'Out', 'In%', 'Out%')
+ltr.full_overlap_df[1, 1] <- length(LonE)
+ltr.full_overlap_df[1, 2] <- length(LoutsideE)
+ltr.full_overlap_df[1, 3] <- percent_LonE
+ltr.full_overlap_df[1, 4] <- percent_LoutsideE
+
+
+# Calculate numbers and percentages of overlap for probes over LTRharvest
+probe_overlap_calculator <- function(gr, ltr_data){
+  
+  overlap_df_probes <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
+  rownames(overlap_df_probes) <- c(unique(gr$probe))
+  colnames(overlap_df_probes) <- c('In', 'Out', 'In%', 'Out%')
+  
+  for(pr in unique(gr$probe)){
+    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_data)
+    ov.L2E <- findOverlaps(ltr_data, gr[gr$probe == pr])
+    
+    EonL <- gr[gr$probe == pr][unique(queryHits(ov.E2L))]
+    LonE <- ltr_data[unique(queryHits(ov.L2E))]
+    EoutsideL <- gr[gr$probe == pr][-unique(queryHits(ov.E2L))]
+    LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
+    
+    percent_EonL <- round(length(EonL) / length(gr[gr$probe == pr]) * 100, 2)
+    percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+    percent_EoutsideL <- round(length(EoutsideL) / length(gr[gr$probe == pr]) * 100, 2)
+    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
+    
+    overlap_df_probes[pr, 1] <- length(EonL)
+    overlap_df_probes[pr, 2] <- length(EoutsideL)
+    overlap_df_probes[pr, 3] <- percent_EonL
+    overlap_df_probes[pr, 4] <- percent_EoutsideL
+  }
+  
+  return(overlap_df_probes)
+  
+}
+probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_data)
+
+
+# Calculate numbers and percentages of overlap for LTRharvest over probes
+ltrharvest_overlap_calculator <- function(gr, ltr_data){
+  
+  overlap_df_ltr <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
+  rownames(overlap_df_ltr) <- c(paste0('LTR_', unique(gr$probe)))
+  colnames(overlap_df_ltr) <- c('In', 'Out', 'In%', 'Out%')
+  
+  for(pr in unique(gr$probe)){
+    overlap <- paste0('LTR_', pr)
+    
+    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_data)
+    ov.L2E <- findOverlaps(ltr_data, gr[gr$probe == pr])
+    
+    EonL <- gr[gr$probe == pr][unique(queryHits(ov.E2L))]
+    LonE <- ltr_data[unique(queryHits(ov.L2E))]
+    EoutsideL <- gr[gr$probe == pr][-unique(queryHits(ov.E2L))]
+    LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
+    
+    percent_EonL <- round(length(EonL) / length(gr[gr$probe == pr]) * 100, 2)
+    percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+    percent_EoutsideL <- round(length(EoutsideL) / length(gr[gr$probe == pr]) * 100, 2)
+    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
+    
+    overlap_df_ltr[overlap, 1] <- length(LonE)
+    overlap_df_ltr[overlap, 2] <- length(LoutsideE)
+    overlap_df_ltr[overlap, 3] <- percent_LonE
+    overlap_df_ltr[overlap, 4] <- percent_LoutsideE
+  }
+  
+  return(overlap_df_ltr)
+  
+}
+
+ltr_overlap_df <- ltrharvest_overlap_calculator(named_reduced_gr, ltr_data)
+
+# Combine all overlap dataframes
+overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
+
+
+## VALID HITS
 
 
 # Validate hits via LTRharvest
@@ -158,4 +233,3 @@ rtracklayer::export(valid_hits, args$validated_ranges, format = "gff3")
 
 # Export matrices to CSV
 write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
-write.csv(percent_overlap_df, args$overlap_percent_matrix, row.names = TRUE)
