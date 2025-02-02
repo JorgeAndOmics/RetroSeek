@@ -14,12 +14,18 @@ suppressMessages({  # Suppress messages
 # Define the command-line interface (CLI) description
 doc <- "
 Usage:
-  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> --original_ranges=<file> --candidate_ranges=<file> --validated_ranges=<file> --overlap_matrix=<file>
+  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> 
+  --bitscore_threshold=<num> --identity_threshold=<num> --ltr_resize=<num>
+  --original_ranges=<file> --candidate_ranges=<file> 
+  --validated_ranges=<file> --overlap_matrix=<file>
 
 Options:
   --FASTA=<file>                 Path to the genome FASTA input file
   --enERVate=<file>              Path to the enERVate Parquet input file
   --LTRharvest=<file>            Path to the LTRharvest GFF input file
+  --bitscore_threshold=<num>        Bitscore threshold for filtering
+  --identity_threshold=<num>        Identity threshold for filtering
+  --ltr_resize=<num>               Amount to resize LTRharvest ranges
   --original_ranges=<file>       Path to the Original Ranges output file
   --candidate_ranges=<file>      Path to the Candidate Ranges output file
   --validated_ranges=<file>      Path to the Validated Ranges output file
@@ -65,8 +71,9 @@ mcols(gr)$probe <- data$probe
 
 
 # Filter ranges by bitscore
-bitscore_threshold <- 100
-identity_threshold <- 30
+bitscore_threshold <- args$bitscore_threshold
+identity_threshold <- args$identity_threshold
+
 gr <- gr %>%
          filter(bitscore > bitscore_threshold,
                 identity > identity_threshold)
@@ -82,8 +89,8 @@ reducing.gr <- function (gr) {
     group_by(probe) %>%
     reduce_ranges_directed(
       species = paste(unique(species), collapse = "; "),
-      virus = paste(unique(virus), collapse = "; "),
-      family = paste(unique(family), collapse = "; "),
+      virus = paste(sort(unique(virus)), collapse = "; "),
+      family = paste(sort(unique(family)), collapse = "; "),
       mean_bitscore = mean(bitscore),
       mean_identity = mean(identity),
       type = "proviral_sequence") %>%
@@ -92,9 +99,9 @@ reducing.gr <- function (gr) {
 
 reduced_gr <- reducing.gr(gr)
 
-# Improving readability of the reduced ranges
-reduced_gr$virus <- as.list(reduced_gr$virus)
-reduced_gr$family <- as.list(reduced_gr$family)
+# Improving readibility of the reduced ranges
+reduced_gr$virus <- map(reduced_gr$virus, ~as.list(.x))
+reduced_gr$family <- map(reduced_gr$family, ~as.list(.x))
 
 # Naming the reduced ranges by probe findings
 named_reduced_gr <- reduced_gr %>% 
@@ -106,23 +113,29 @@ named_reduced_gr <- reduced_gr %>%
 ## LTRHARVEST DATA
 
 # Filter only LTR_retrotransposon full regions
-ltr_data <- ltr_data %>%
+ltr_retro <- ltr_data %>%
   filter(type == "LTR_retrotransposon")
+
+# Expand LTR Retrotrasposon ranges by an amount to rescue potential hits
+flank_resize <- args$ltr_resize
+
+ltr_retro <- ltr_retransp %>%
+  resize(width = width(ltr_retransp) + flank_resize, fix = "center") 
 
 
 # Find overlaps between enERVate and LTRharvest
-ov.E2L <- findOverlaps(named_reduced_gr, ltr_data)
-ov.L2E <- findOverlaps(ltr_data, named_reduced_gr)
+ov.E2L <- findOverlaps(named_reduced_gr, ltr_retro)
+ov.L2E <- findOverlaps(ltr_retro, named_reduced_gr)
 
 EonL <- named_reduced_gr[unique(queryHits(ov.E2L))]
-LonE <- ltr_data[unique(queryHits(ov.L2E))]
+LonE <- ltr_retro[unique(queryHits(ov.L2E))]
 EoutsideL <- named_reduced_gr[-unique(queryHits(ov.E2L))]
-LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
+LoutsideE <- ltr_retro[-unique(queryHits(ov.L2E))]
 
 percent_EonL <- round(length(EonL) / length(named_reduced_gr) * 100, 2)
-percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+percent_LonE <- round(length(LonE) / length(ltr_retro) * 100, 2)
 percent_EoutsideL <- round(length(EoutsideL) / length(named_reduced_gr) * 100, 2)
-percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
+percent_LoutsideE <- round(length(LoutsideE) / length(ltr_retro) * 100, 2)
 
 
 # Calculate numbers and percentages of overlap for full enERVate
@@ -146,25 +159,25 @@ ltr.full_overlap_df[1, 4] <- percent_LoutsideE
 
 
 # Calculate numbers and percentages of overlap for probes over LTRharvest
-probe_overlap_calculator <- function(gr, ltr_data){
+probe_overlap_calculator <- function(gr, ltr_retro){
   
   overlap_df_probes <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
   rownames(overlap_df_probes) <- c(unique(gr$probe))
   colnames(overlap_df_probes) <- c('In', 'Out', 'In%', 'Out%')
   
   for(pr in unique(gr$probe)){
-    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_data)
-    ov.L2E <- findOverlaps(ltr_data, gr[gr$probe == pr])
+    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_retro)
+    ov.L2E <- findOverlaps(ltr_retro, gr[gr$probe == pr])
     
     EonL <- gr[gr$probe == pr][unique(queryHits(ov.E2L))]
-    LonE <- ltr_data[unique(queryHits(ov.L2E))]
+    LonE <- ltr_retro[unique(queryHits(ov.L2E))]
     EoutsideL <- gr[gr$probe == pr][-unique(queryHits(ov.E2L))]
-    LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
+    LoutsideE <- ltr_retro[-unique(queryHits(ov.L2E))]
     
     percent_EonL <- round(length(EonL) / length(gr[gr$probe == pr]) * 100, 2)
-    percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+    percent_LonE <- round(length(LonE) / length(ltr_retro) * 100, 2)
     percent_EoutsideL <- round(length(EoutsideL) / length(gr[gr$probe == pr]) * 100, 2)
-    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
+    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_retro) * 100, 2)
     
     overlap_df_probes[pr, 1] <- length(EonL)
     overlap_df_probes[pr, 2] <- length(EoutsideL)
@@ -175,11 +188,11 @@ probe_overlap_calculator <- function(gr, ltr_data){
   return(overlap_df_probes)
   
 }
-probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_data)
+probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_retro)
 
 
 # Calculate numbers and percentages of overlap for LTRharvest over probes
-ltrharvest_overlap_calculator <- function(gr, ltr_data){
+ltrharvest_overlap_calculator <- function(gr, ltr_retro){
   
   overlap_df_ltr <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
   rownames(overlap_df_ltr) <- c(paste0('LTR_', unique(gr$probe)))
@@ -188,18 +201,18 @@ ltrharvest_overlap_calculator <- function(gr, ltr_data){
   for(pr in unique(gr$probe)){
     overlap <- paste0('LTR_', pr)
     
-    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_data)
-    ov.L2E <- findOverlaps(ltr_data, gr[gr$probe == pr])
+    ov.E2L <- findOverlaps(gr[gr$probe == pr], ltr_retro)
+    ov.L2E <- findOverlaps(ltr_retro, gr[gr$probe == pr])
     
     EonL <- gr[gr$probe == pr][unique(queryHits(ov.E2L))]
-    LonE <- ltr_data[unique(queryHits(ov.L2E))]
+    LonE <- ltr_retro[unique(queryHits(ov.L2E))]
     EoutsideL <- gr[gr$probe == pr][-unique(queryHits(ov.E2L))]
-    LoutsideE <- ltr_data[-unique(queryHits(ov.L2E))]
+    LoutsideE <- ltr_retro[-unique(queryHits(ov.L2E))]
     
     percent_EonL <- round(length(EonL) / length(gr[gr$probe == pr]) * 100, 2)
-    percent_LonE <- round(length(LonE) / length(ltr_data) * 100, 2)
+    percent_LonE <- round(length(LonE) / length(ltr_retro) * 100, 2)
     percent_EoutsideL <- round(length(EoutsideL) / length(gr[gr$probe == pr]) * 100, 2)
-    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_data) * 100, 2)
+    percent_LoutsideE <- round(length(LoutsideE) / length(ltr_retro) * 100, 2)
     
     overlap_df_ltr[overlap, 1] <- length(LonE)
     overlap_df_ltr[overlap, 2] <- length(LoutsideE)
@@ -211,7 +224,7 @@ ltrharvest_overlap_calculator <- function(gr, ltr_data){
   
 }
 
-ltr_overlap_df <- ltrharvest_overlap_calculator(named_reduced_gr, ltr_data)
+ltr_overlap_df <- ltrharvest_overlap_calculator(named_reduced_gr, ltr_retro)
 
 # Combine all overlap dataframes
 overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
@@ -222,7 +235,7 @@ overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, 
 
 # Validate hits via LTRharvest
 valid_hits <- named_reduced_gr[queryHits(ov.E2L)]
-mcols(valid_hits)$located_in <- ltr_data[subjectHits(ov.E2L)]$ID
+mcols(valid_hits)$located_in <- ltr_retro[subjectHits(ov.E2L)]$ID
 
 
 # Export hits to GFF3

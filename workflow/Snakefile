@@ -138,8 +138,9 @@ rule ltr_digester_setup:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=defaults.LTRDIGEST_DIR
     shell:
+        # TODO: Should I keep the -o argument?
         '''
-        gt -j {workflow.cores} ltrdigest \
+        gt ltrdigest \ 
         -v -matchdescstart \
         -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
@@ -221,8 +222,6 @@ rule ranges_analysis:
             'full', 'main', 'accessory']),
         overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
             'full', 'main', 'accessory']),
-        overlap_percent_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_percent_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
-            'full', 'main', 'accessory']),
 
 
 rule ranges_analysis_setup:
@@ -242,13 +241,19 @@ rule ranges_analysis_setup:
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
         validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
-        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR
+        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
+        bitscore_threshold=config.get('bitscore_threshold',100),
+        identity_threshold=config.get('identity_threshold',30),
+        ltr_resize=config.get('ltr_resize',0)
     shell:
         '''
         Rscript ranges_analysis.R \
         --FASTA={params.species_db}/{wildcards.genome}.fa \
         --enERVate={params.segmented_species_dir}/{wildcards.genome}_{wildcards.suffix}.parquet \
         --LTRharvest={params.ltr_harvest_dir}/{wildcards.genome}_sorted.gff3 \
+        --bitscore_threshold={params.bitscore_threshold} \
+        --identity_threshold={params.identity_threshold} \
+        --ltr_resize={params.ltr_resize} \
         --original_ranges={params.original_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
         --candidate_ranges={params.candidate_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
         --validated_ranges={params.validated_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
