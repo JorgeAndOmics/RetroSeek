@@ -138,15 +138,15 @@ rule ltr_digester_setup:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=defaults.LTRDIGEST_DIR
     shell:
-        # TODO: Should I keep the -o argument?
         '''
-        gt ltrdigest \ 
+        echo "Running ltrdigest for {wildcards.genome}" && \
+        TMPDIR=$(mktemp -d /tmp/ltrdigest_{wildcards.genome}_XXXXXX) && \
+        gt ltrdigest \
         -v -matchdescstart \
         -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
         {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff3 \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
-        -o {params.index_directory_path}/{wildcards.genome} \
         > {params.output_directory_path}/{wildcards.genome}.gff3      
         '''
 
