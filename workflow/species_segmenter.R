@@ -48,6 +48,11 @@ names(all_probes) <- species_names
 names(species_groups_main) <- species_names
 names(species_groups_accessory) <- species_names
 
+# Create Parquet files for main and accessory probes
+print("Processing hits for main and accessory probes")
+arrow::write_parquet(main_probes,  file.path(output_dir, "all_main.parquet"))
+arrow::write_parquet(accessory_probes, file.path(output_dir, "all_accessory.parquet"))
+
 # Create Parquet files for all categories
 for (species_name in species_names) {
   print(paste("Processing hits for ", species_name))
