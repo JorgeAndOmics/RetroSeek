@@ -7,6 +7,23 @@ LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
 
+rule genome_downloader:
+    input:
+        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES_FILE)
+
+rule genome_downloader_setup:
+    input:
+        species_list=os.path.join(defaults.SPECIES_DIR, 'species.txt')
+    output:
+        species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
+    params:
+        SPECIES_DB=defaults.SPECIES_DB
+    shell:
+        '''
+        bash genome_downloader.sh "{wildcards.genome}" {params.SPECIES_DB}
+        '''
+
+
 rule fa_converter:
     params:
         SPECIES_DB=defaults.SPECIES_DB

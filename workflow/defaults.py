@@ -58,6 +58,7 @@ LTR_DB = os.path.join(ROOT_DB, 'ltr_dbs')
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
 TABLE_OUTPUT_DIR = os.path.join('..', 'results', 'tables')
 TABLE_OVERLAP_MATRIX_DIR = os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix')
+SPECIES_DIR = os.path.join('..', 'data', 'species')
 LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
@@ -72,10 +73,11 @@ SEGMENTED_SPECIES_DIR = os.path.join(RESULTS_DIR, 'tables', 'segmented_species')
 HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
 
 # Execution and requests
+USE_SPECIES_LIST: bool = False
 MAX_RETRIEVAL_ATTEMPTS: int = 3
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
-MAX_THREADPOOL_WORKERS: int = None  # In laptop, 7 is the maximum number of workers that can be used
+MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum number of workers that can be used
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
@@ -95,33 +97,39 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-SPECIES: list = [
-                   'Desmodus_rotundus',
-                   'Miniopterus_schreibersii',
-                   'Tadarida_brasiliensis',
-                   'Antrozous_pallidus',
-                   'Molossus_molossus',
-                   'Artibeus_lituratus',
-                   'Eptesicus_fuscus',
-                    'Myotis_myotis',
-                     'Eptesicus_nilssonii',
-                     'Pipistrellus_kuhlii',
-                     'Rhinolophus_ferrumequinum',
-                     'Saccopteryx_bilineata',
-                     'Vespertilio_murinus',
-                     'Plecotus_auritus',
-                     'Rhinolophus_hipposideros',
-                     'Phyllostomus_discolor',
-                     'Myotis_daubentonii',
-                     'Myotis_mystacinus',
-                     'Corynorhinus_townsendii',
-                     'Hipposideros_larvatus',
-                     'Rhynchonycteris_naso',
-                     'Saccopteryx_leptura',
-                     'Molossus_alvarezi',
-                     'Glossophaga_mutica',
-                     'Molossus_nigricans'
-                 ]
+SPECIES_FILE: list = [line.strip() for line in open(os.path.join(SPECIES_DIR, 'species.txt'))]
+
+if not USE_SPECIES_LIST:
+    SPECIES: list = [f for f in os.listdir(SPECIES_DB) if f.endswith(".fa")]
+else:
+    SPECIES: list = SPECIES_FILE
 
 VIRUS: list = ['NCBI_Virus']
 
+# [
+#         'Desmodus_rotundus',
+#         'Miniopterus_schreibersii',
+#         'Tadarida_brasiliensis',
+#         'Antrozous_pallidus',
+#         'Molossus_molossus',
+#         'Artibeus_lituratus',
+#         'Eptesicus_fuscus',
+#         'Myotis_myotis',
+#         'Eptesicus_nilssonii',
+#         'Pipistrellus_kuhlii',
+#         'Rhinolophus_ferrumequinum',
+#         'Saccopteryx_bilineata',
+#         'Vespertilio_murinus',
+#         'Plecotus_auritus',
+#         'Rhinolophus_hipposideros',
+#         'Phyllostomus_discolor',
+#         'Myotis_daubentonii',
+#         'Myotis_mystacinus',
+#         'Corynorhinus_townsendii',
+#         'Hipposideros_larvatus',
+#         'Rhynchonycteris_naso',
+#         'Saccopteryx_leptura',
+#         'Molossus_alvarezi',
+#         'Glossophaga_mutica',
+#         'Molossus_nigricans'
+#     ]
