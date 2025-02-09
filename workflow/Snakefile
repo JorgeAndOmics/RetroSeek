@@ -12,10 +12,11 @@ rule fa_converter:
         SPECIES_DB=defaults.SPECIES_DB
     shell:
         """
-        for file in *.fasta *.fna; do
+        for file in *.fasta *.fna *.fas; do
         mv "$file" "${{file%.*}}.fa"
         done
         """
+
 
 rule blast_db_generator:
     input:
@@ -41,23 +42,6 @@ rule blast_db_generator_setup:
         makeblastdb -in {input.fa} -dbtype nucl -parse_seqids -out {params.db_dir}/{wildcards.genome}/{wildcards.genome}
         """
 
-rule virus_blast_db_generator:
-    input:
-        blast_db = expand(os.path.join(defaults.VIRUS_DB, '{db}/{db}.{ext}'), db=defaults.VIRUS, ext=BLAST_DB_EXT)
-
-rule virus_blast_db_generator_setup:
-    input:
-        fa = os.path.join(defaults.VIRUS_DB, '{db}.fa')
-    output:
-        blast_db = expand(os.path.join(defaults.VIRUS_DB, '{db}/{db}.{ext}'), db=defaults.VIRUS, ext=BLAST_DB_EXT)
-    params:
-        db_dir=defaults.VIRUS_DB
-    threads:
-        workflow.cores
-    shell:
-        """
-        makeblastdb -in {input.fa} -dbtype nucl -parse_seqids -out {params.db_dir}/{wildcards.db}/{wildcards.db}
-        """
 
 rule ltr_index_generator:
     input:
@@ -78,22 +62,15 @@ rule ltr_index_generator_setup:
         os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
-        main_suffix_params='-tis -suf -des -ssp -sds -dna',
-        lcp_suffix_params='-lcp'
-    threads:
-        workflow.cores
+        main_suffix_params='-tis -suf -des -ssp -sds -dna -lcp -lossless',
     shell:
         """
-        gt -j {workflow.cores} suffixerator \
+        TMPDIR=$(mktemp -d /tmp/suffixerator_{wildcards.genome}_XXXXXX) && \
+        gt suffixerator \
         -v -showprogress \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
-        {params.main_suffix_params} && \
-        gt suffixerator \
-        -showprogress \
-        -db {input.fa} \
-        -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
-        {params.lcp_suffix_params}
+        {params.main_suffix_params}
         """
 
 rule ltr_harvester:
@@ -113,7 +90,8 @@ rule ltr_harvester_setup:
         output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
     shell:
         '''
-        gt -j {workflow.cores} ltrharvest \
+        TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
+        gt ltrharvest \
         -seqids \
         -index {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -out {params.output_directory_path}/{wildcards.genome}.fa \
@@ -150,29 +128,6 @@ rule ltr_digester_setup:
         > {params.output_directory_path}/{wildcards.genome}.gff3      
         '''
 
-rule ltr_blast_db:
-    input:
-        ltr_fasta = expand(os.path.join(defaults.LTR_DB, '{genome}/{genome}.{ext}'), genome=defaults.SPECIES, ext=BLAST_DB_EXT)
-
-rule ltr_blast_db_setup:
-    input:
-        ltr_fasta = rules.ltr_harvester_setup.output.ltr_fasta
-    output:
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.ndb'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.nhr'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.nin'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.not'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.nsq'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.ntf'),
-        os.path.join(defaults.LTR_DB,'{genome}','{genome}.nto'),
-    params:
-        db_dir = defaults.LTR_DB,
-
-    shell:
-        """
-        makeblastdb -in {input.ltr_fasta} -dbtype nucl -out {params.db_dir}/{wildcards.genome}/{wildcards.genome}
-        """
-
 
 rule probe_extractor:
     input:
@@ -183,6 +138,7 @@ rule probe_extractor:
         workflow.cores
     shell:
         'python probe_extractor.py && python obj2dict.py --file probe_dict.pkl'
+
 
 rule full_genome_blaster:
     input:
@@ -200,6 +156,7 @@ rule full_genome_blaster_setup:
     shell:
         'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
 
+
 rule species_segmenter:
     input:
         species=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
@@ -214,6 +171,7 @@ rule species_segmenter_setup:
     shell:
         'Rscript species_segmenter.R {input.input_parquet} {params.output_dir}'
 
+
 rule ranges_analysis:
     input:
         candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=[
@@ -222,7 +180,6 @@ rule ranges_analysis:
             'full', 'main', 'accessory']),
         overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
             'full', 'main', 'accessory']),
-
 
 rule ranges_analysis_setup:
     input:
@@ -259,49 +216,3 @@ rule ranges_analysis_setup:
         --validated_ranges={params.validated_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
         --overlap_matrix={params.overlap_matrix_dir}/{wildcards.genome}_{wildcards.suffix}.csv
         '''
-
-rule full_vs_ltr:
-    input:
-        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.{ext}'), ext = BLAST_OUTPUT_EXT),
-
-rule full_vs_ltr_setup:
-    input:
-        input_pkl = rules.full_genome_blaster_setup.output.pkl,
-        ltr_blast_db = expand(os.path.join(defaults.LTR_DB,'{genome}','{genome}.{ext}'),genome=FA_FILES.genome,ext=BLAST_DB_EXT)
-    output:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'full_vs_ltr.pkl'),
-        csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.csv'),
-        parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_vs_ltr.parquet')
-    shell:
-        'python full_vs_ltr.py && python obj2dict.py --file full_vs_ltr.pkl'
-
-rule ltr_fasta_blaster:
-    input:
-        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.{ext}'),ext=BLAST_OUTPUT_EXT),
-
-rule ltr_fasta_blaster_setup:
-    input:
-        input_pkl = rules.probe_extractor.output.probe_pkl,
-        ltr_blast_db= expand(os.path.join(defaults.LTR_DB,'{genome}','{genome}.{ext}'),genome=FA_FILES.genome,ext=BLAST_DB_EXT)
-    output:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'full_fasta_blast.pkl'),
-        csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.csv'),
-        parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_fasta_blast.parquet')
-    shell:
-        'python full_vs_ltr.py && python obj2dict.py --file full_fasta_blast.pkl'
-
-rule virus_blaster:
-    input:
-        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'virus_blastn_results.{ext}'), ext = BLAST_OUTPUT_EXT),
-
-rule virus_blaster_setup:
-    input:
-        input_pkl = rules.full_vs_ltr_setup.output.pkl,
-        blast_db = expand(os.path.join(defaults.VIRUS_DB, '{db}/{db}.{ext}'), db=defaults.VIRUS, ext=BLAST_DB_EXT)
-    output:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'virus_blastn_results.pkl'),
-        csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'virus_blastn_results.csv'),
-        parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'virus_blastn_results.parquet')
-    shell:
-        'python virus_blaster.py && python obj2dict.py --file virus_blastn_results.pkl'
-
