@@ -79,7 +79,7 @@ rule ltr_index_generator_setup:
         os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
-        main_suffix_params='-tis -suf -des -ssp -sds -dna -lcp -lossless',
+        suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
     shell:
         """
         TMPDIR=$(mktemp -d /tmp/suffixerator_{wildcards.genome}_XXXXXX) && \
@@ -87,7 +87,7 @@ rule ltr_index_generator_setup:
         -v -showprogress \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
-        {params.main_suffix_params}
+        {params.suffix_params}
         """
 
 rule ltr_harvester:
