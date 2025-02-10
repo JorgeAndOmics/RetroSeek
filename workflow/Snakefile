@@ -9,7 +9,7 @@ BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
 rule genome_downloader:
     input:
-        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES_FILE)
+        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
 
 rule genome_downloader_setup:
     input:
@@ -17,10 +17,13 @@ rule genome_downloader_setup:
     output:
         species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     params:
-        SPECIES_DB=defaults.SPECIES_DB
+        SPECIES_DB=defaults.SPECIES_DB,
+        DOWNLOAD_LOG=os.path.join(defaults.SPECIES_DIR, 'download.txt'),
+        API_KEY=defaults.NCBI_API_TOKEN
     shell:
         '''
-        bash genome_downloader.sh "{wildcards.genome}" {params.SPECIES_DB}
+        export NCBI_API_KEY={params.API_KEY} && \
+        bash genome_downloader.sh "{wildcards.genome}" {params.SPECIES_DB} {params.DOWNLOAD_LOG}
         '''
 
 
@@ -29,7 +32,7 @@ rule fa_converter:
         SPECIES_DB=defaults.SPECIES_DB
     shell:
         """
-        for file in *.fasta *.fna *.fas; do
+        for file in *FASTA *.fasta *.fna *.fas; do
         mv "$file" "${{file%.*}}.fa"
         done
         """
@@ -52,8 +55,6 @@ rule blast_db_generator_setup:
         nto_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto'),
     params:
         db_dir=defaults.SPECIES_DB
-    threads:
-        workflow.cores
     shell:
         """
         makeblastdb -in {input.fa} -dbtype nucl -parse_seqids -out {params.db_dir}/{wildcards.genome}/{wildcards.genome}
@@ -68,15 +69,15 @@ rule ltr_index_generator_setup:
     input:
         fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     output:
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
-        os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
+        des_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
+        esq_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
+        lcp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
+        llv_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
+        md5_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
+        prj_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
+        sds_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
+        ssp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
+        suf_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
         suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
