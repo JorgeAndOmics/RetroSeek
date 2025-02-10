@@ -7,10 +7,7 @@ if [ -z "$1" ] || [ -z "$2" ]; then
 fi
 
 QUERY="$1"       # Accession Code, Taxon ID, or Scientific Name
-OUTDIR="$2"      # Output directory
-
-# Create the output directory if it doesn't exist
-mkdir -p "$OUTDIR"
+OUTDIR="$(realpath -m "$2")"  # Normalize and clean output directory
 
 echo "Fetching genome for: $QUERY"
 
@@ -59,8 +56,9 @@ fi
 # Convert spaces in the level to underscores for a filename-safe string
 LEVEL_SAFE="${BEST_LEVEL// /_}"
 
-# Download the best available genome into the output directory
-ZIPFILE="$OUTDIR/genome_${LEVEL_SAFE}_${QUERY_SAFE}.zip"
+# Normalize all filenames using `realpath -m`
+ZIPFILE="$(realpath -m "$OUTDIR/genome_${LEVEL_SAFE}_${QUERY_SAFE}.zip")"
+FASTA_FILE="$(realpath -m "$OUTDIR/${QUERY_SAFE}.fa")"
 
 echo "Downloading accession: $BEST_ASSEMBLY"
 datasets download genome accession "$BEST_ASSEMBLY" \
@@ -72,10 +70,10 @@ UNCOMPRESSED_SIZE=$(unzip -Z -1 "$ZIPFILE" ncbi_dataset/data/*/*.fna | xargs -I{
 
 # Extract the FASTA file with an accurate progress bar
 echo "Extracting FASTA file for $QUERY..."
-unzip -p "$ZIPFILE" ncbi_dataset/data/*/*.fna | pv -s "$UNCOMPRESSED_SIZE" > "$OUTDIR/$QUERY_SAFE.fa"
+unzip -p "$ZIPFILE" ncbi_dataset/data/*/*.fna | pv -s "$UNCOMPRESSED_SIZE" > "$FASTA_FILE"
 
 # Remove the ZIP file with a progress bar
 echo "Removing ZIP file: $ZIPFILE"
-echo "$ZIPFILE" | pv -l -s 1 | xargs -d '\n' rm -v
+echo "$ZIPFILE" | pv -l -s 1 | xargs -d '\n' rm
 
-echo "Download complete: $OUTDIR/${QUERY_SAFE}.fa (Assembly: $BEST_ASSEMBLY, Level: $BEST_LEVEL)"
+echo "Download complete: $FASTA_FILE (Assembly: $BEST_ASSEMBLY, Level: $BEST_LEVEL)"
