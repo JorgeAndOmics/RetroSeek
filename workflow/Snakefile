@@ -46,7 +46,7 @@ rule blast_db_generator_setup:
     input:
         fa = os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     output:
-        ndb_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ndb'),
+        ndb_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ndb'),
         nhr_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nhr'),
         nin_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nin'),
         not_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.not'),
@@ -135,7 +135,7 @@ rule ltr_digester_setup:
         output_directory_path=defaults.LTRDIGEST_DIR
     shell:
         '''
-        echo "Running ltrdigest for {wildcards.genome}" && \
+        echo "Running LTRDigest for {wildcards.genome}" && \
         TMPDIR=$(mktemp -d /tmp/ltrdigest_{wildcards.genome}_XXXXXX) && \
         gt ltrdigest \
         -v -matchdescstart \
@@ -143,7 +143,8 @@ rule ltr_digester_setup:
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
         {params.ltr_harvest_path}/{wildcards.genome}_sorted.gff3 \
         {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
-        > {params.output_directory_path}/{wildcards.genome}.gff3      
+        > {params.output_directory_path}/{wildcards.genome}.gff3 && \
+        echo "Completed running LTRDigest for {wildcards.genome}"      
         '''
 
 

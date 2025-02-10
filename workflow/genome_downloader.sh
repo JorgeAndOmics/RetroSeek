@@ -83,7 +83,9 @@ FASTA_FILE="$(realpath -m "$OUTDIR/${QUERY_SAFE}.fa")"
 echo "Downloading accession: $BEST_ASSEMBLY"
 datasets download genome accession "$BEST_ASSEMBLY" $API_KEY_FLAG \
 --include genome \
---filename "$ZIPFILE"
+--assembly-version latest \
+--exclude-atypical \
+--filename "$ZIPFILE" \
 
 # Get the actual uncompressed size of the FASTA file (sum sizes of extracted files)
 UNCOMPRESSED_SIZE=$(unzip -Z -1 "$ZIPFILE" ncbi_dataset/data/*/*.fna | xargs -I{} unzip -p "$ZIPFILE" {} | wc -c)
