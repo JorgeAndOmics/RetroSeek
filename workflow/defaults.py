@@ -97,12 +97,12 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Strand']
 
 # Genomes
-SPECIES_FILE: list = [line.strip() for line in open(os.path.join(SPECIES_DIR, 'species.txt'))]
+SPECIES_FILE = os.path.join(SPECIES_DIR, 'species.txt')
 
 if not USE_SPECIES_LIST:
-    SPECIES: list = [f for f in os.listdir(SPECIES_DB) if f.endswith(".fa")]
+    SPECIES: list = [f.split('fa')[0] for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
 else:
-    SPECIES: list = SPECIES_FILE
+    SPECIES: list = [line.strip() for line in open(SPECIES_FILE, 'r')]
 
 VIRUS: list = ['NCBI_Virus']
 
