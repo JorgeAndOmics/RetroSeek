@@ -6,6 +6,7 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
+
 rule directory_generator:
     output:
         species_dir=defaults.SPECIES_DIR,
@@ -13,6 +14,10 @@ rule directory_generator:
         ltrharvest_dir=defaults.LTRHARVEST_DIR,
         ltrdigest_dir=defaults.LTRDIGEST_DIR,
         plot_dir=defaults.PLOT_DIR,
+        log_dir=defaults.LOG_DIR,
+        tmp_dir=defaults.TMP_DIR,
+        results_dir=defaults.RESULTS_DIR,
+        track_dir=defaults.TRACK_DIR,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
         track_original_dir=defaults.TRACK_ORIGINAL_DIR,
         track_candidates_dir=defaults.TRACK_CANDIDATES_DIR,
@@ -25,6 +30,7 @@ rule directory_generator:
     priority: 100
     shell:
         'mkdir -p {output}'
+
 
 rule genome_downloader_setup:
     output:

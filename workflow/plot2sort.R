@@ -83,8 +83,6 @@ density_bitscore_plot <- function(data, q1_bit, median_bit, q3_bit) {
     labs(
       x = "HSP Bitscore",
       y = "Density",
-      title = "Distribution of bitscore values",
-      subtitle = "Weighted by identity score"
     ) +
     geom_vline(
       xintercept = c(q1_bit, median_bit, q3_bit),
@@ -151,7 +149,6 @@ bar_species_virus_plot <- function(data) {
     scale_alpha_continuous(range = c(0.4, 1)) +
     theme_void() +
     labs(fill = "Virus",
-         title = "Identified viral integrations in the analysed bat species",
          x = NULL,
          y = "Count"
     ) +
@@ -215,7 +212,6 @@ raincloud_bitscore_plot <- function(data) {
     labs(
       x = "HSP Bitscore",
       y = "Probe",
-      title = "Distribution of Bitscore Values Across Probes"
     ) +
     theme(
       plot.title = element_text(size = 15L, face = "bold", hjust = 0),
@@ -294,7 +290,6 @@ sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_thres
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours) +
 
-    labs(title = paste("Distribution of probe sequences by virus family, top ", 100-(filter_threshold*100), "%" ), x = NULL, y = NULL) +
     theme(
       plot.title = element_text(
         size = 15L,
@@ -367,7 +362,6 @@ sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_thresh
     theme_void() +
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours) +
-    labs(title = paste("Distribution of probe sequences by virus family, top ", 100-(filter_threshold*100), "%" ), x = NULL, y = NULL) +
     theme(
       plot.title = element_text(
         size = 15L,
@@ -440,7 +434,6 @@ sankey_species_family_plot <- function(data, filter_threshold = plot_filter_thre
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours) +
     
-    labs(title = paste("Distribution of species by virus family, top ", 100-(filter_threshold*100), "%" ), x = NULL, y = NULL) +
     theme(
       plot.title = element_text(
         size = 15L,
@@ -488,7 +481,6 @@ balloon_virus_species_plot <- function(data) {
     labs(
       x = "Virus",
       y = "Species",
-      title = "Relative abundance of probes per virus within bat species"
     ) +
     scale_alpha_continuous(range = c(0.4, 1)) +
     theme(
@@ -628,7 +620,7 @@ ggsave(
   filename = file.path(output.dir, "accessory_balloon.png"),
   plot = accessory.full.balloon.virus_species.plot,
   width = 15,
-  height = 12,
+  height = 15,
   dpi = 300
 )
 
