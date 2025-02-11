@@ -50,6 +50,23 @@ rule genome_downloader:
         species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
 
 
+rule pfam_hmm_downloader:
+    output:
+        md5=os.path.join(defaults.ACCESSORY_DB, 'md5sum.txt'),
+        hmm=os.path.join(defaults.ACCESSORY_DB, 'Pfam-A.hmm'),
+    params:
+        accessory_dir=defaults.ACCESSORY_DB,
+        url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz',
+        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums'
+    shell:
+        """
+        wget -O {output.hmm}.gz {params.url} && \
+        wget -O {output.md5} {params.md5_url} && \
+        grep "Pfam-A.hmm.gz" md5sum.txt | md5sum -c - && \
+        gunzip -d -f {params.accessory_dir}/Pfam-A.hmm.gz > {output.hmm}
+        """
+
+
 rule fa_converter:
     params:
         SPECIES_DB=defaults.SPECIES_DB
