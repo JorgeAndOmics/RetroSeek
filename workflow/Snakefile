@@ -1,14 +1,14 @@
-import defaults
 import os
+import defaults
 
-FA_FILES = glob_wildcards(os.path.join(defaults.SPECIES_DB, '{genome}.fa'))
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
-
 rule directory_generator:
     output:
+        root_dir=defaults.ROOT,
+        root_db_dir=defaults.ROOT_DB,
         species_dir=defaults.SPECIES_DIR,
         species_db=defaults.SPECIES_DB,
         ltrharvest_dir=defaults.LTRHARVEST_DIR,
@@ -187,7 +187,7 @@ rule probe_extractor:
 rule full_genome_blaster_setup:
     input:
         input_pkl = rules.probe_extractor.output.probe_pkl,
-        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=FA_FILES.genome, ext=BLAST_DB_EXT)
+        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=BLAST_DB_EXT)
     output:
         pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),

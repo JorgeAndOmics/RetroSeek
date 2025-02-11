@@ -1,13 +1,5 @@
 import os
 
-# GENOME DOWNLOAD
-ASSEMBLY_PRIORITY = {  # Define an ordering for assembly levels from highest to lowest
-    "Complete Genome": 1,
-    "Chromosome": 2,
-    "Scaffold": 3,
-    "Contig": 4
-}
-
 # BLAST
 EXPANSION_SIZE: int = 0
 E_VALUE: float = 0.09
@@ -51,10 +43,7 @@ with open(ROOT_CONFIG_FILE, 'r') as f:
     ROOT = f.readline().strip()
 ROOT_DB = os.path.join(ROOT, 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
-VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
-A_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'a_point_rec')
-B_END_REC_DB = os.path.join(ROOT_DB, 'rec_dbs', 'b_point_rec')
-LTR_DB = os.path.join(ROOT_DB, 'ltr_dbs')
+
 
 # Directories
 TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
@@ -74,6 +63,29 @@ LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
 SEGMENTED_SPECIES_DIR = os.path.join(RESULTS_DIR, 'tables', 'segmented_species')
 HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
+
+
+# DIRECTORY GENERATION
+os.makedirs(ROOT, exist_ok=True)
+os.makedirs(ROOT_DB, exist_ok=True)
+os.makedirs(SPECIES_DIR, exist_ok=True)
+os.makedirs(SPECIES_DB, exist_ok=True)
+os.makedirs(LTRHARVEST_DIR, exist_ok=True)
+os.makedirs(LTRDIGEST_DIR, exist_ok=True)
+os.makedirs(PLOT_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(TMP_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
+os.makedirs(TRACK_DIR, exist_ok=True)
+os.makedirs(SEGMENTED_SPECIES_DIR, exist_ok=True)
+os.makedirs(TRACK_ORIGINAL_DIR, exist_ok=True)
+os.makedirs(TRACK_CANDIDATES_DIR, exist_ok=True)
+os.makedirs(TRACK_VALIDATED_DIR, exist_ok=True)
+os.makedirs(TABLE_INPUT_DIR, exist_ok=True)
+os.makedirs(TABLE_OUTPUT_DIR, exist_ok=True)
+os.makedirs(TABLE_OVERLAP_MATRIX_DIR, exist_ok=True)
+os.makedirs(PICKLE_DIR, exist_ok=True)
+os.makedirs(HMM_PROFILE_DIR, exist_ok=True)
 
 # Execution and requests
 USE_SPECIES_LIST: bool = False
