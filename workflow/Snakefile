@@ -192,6 +192,8 @@ rule full_genome_blaster_setup:
         pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
         csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
         parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
+    threads:
+        workflow.cores
     shell:
         'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
 
