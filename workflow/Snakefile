@@ -6,14 +6,7 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
-
-rule genome_downloader:
-    input:
-        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
-
 rule genome_downloader_setup:
-    input:
-        species_list=os.path.join(defaults.SPECIES_DIR, 'species.txt')
     output:
         species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     params:
@@ -26,6 +19,10 @@ rule genome_downloader_setup:
         bash genome_downloader.sh "{wildcards.genome}" {params.SPECIES_DB} {params.DOWNLOAD_LOG}
         '''
 
+rule genome_downloader:
+    input:
+        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
+
 
 rule fa_converter:
     params:
@@ -37,10 +34,6 @@ rule fa_converter:
         done
         """
 
-
-rule blast_db_generator:
-    input:
-        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}/{genome}.{ext}'), genome=defaults.SPECIES, ext=BLAST_DB_EXT)
 
 rule blast_db_generator_setup:
     input:
@@ -60,10 +53,10 @@ rule blast_db_generator_setup:
         makeblastdb -in {input.fa} -dbtype nucl -parse_seqids -out {params.db_dir}/{wildcards.genome}/{wildcards.genome}
         """
 
-
-rule ltr_index_generator:
+rule blast_db_generator:
     input:
-        idx = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=LTR_INDEX_EXT)
+        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}/{genome}.{ext}'), genome=defaults.SPECIES, ext=BLAST_DB_EXT)
+
 
 rule ltr_index_generator_setup:
     input:
@@ -91,10 +84,10 @@ rule ltr_index_generator_setup:
         {params.suffix_params}
         """
 
-rule ltr_harvester:
+rule ltr_index_generator:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff3']),
-        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'), genome=defaults.SPECIES, ext=['gff3'])
+        idx = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'), genome=defaults.SPECIES, ext=LTR_INDEX_EXT)
+
 
 rule ltr_harvester_setup:
     input:
@@ -119,9 +112,11 @@ rule ltr_harvester_setup:
         {params.output_directory_path}/{wildcards.genome}.gff3 > {params.output_directory_path}/{wildcards.genome}_sorted.gff3
         '''
 
-rule ltr_digester:
+rule ltr_harvester:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['gff3']),
+        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['fa', 'gff3']),
+        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'), genome=defaults.SPECIES, ext=['gff3'])
+
 
 rule ltr_digester_setup:
     input:
@@ -147,6 +142,10 @@ rule ltr_digester_setup:
         echo "Completed running LTRDigest for {wildcards.genome}"      
         '''
 
+rule ltr_digester:
+    input:
+        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'), genome=defaults.SPECIES, ext=['gff3']),
+
 
 rule probe_extractor:
     input:
@@ -159,11 +158,6 @@ rule probe_extractor:
         'python probe_extractor.py && python obj2dict.py --file probe_dict.pkl'
 
 
-rule full_genome_blaster:
-    input:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
-        table = expand(os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.{ext}'), ext = BLAST_OUTPUT_EXT),
-
 rule full_genome_blaster_setup:
     input:
         input_pkl = rules.probe_extractor.output.probe_pkl,
@@ -175,20 +169,51 @@ rule full_genome_blaster_setup:
     shell:
         'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
 
-
-rule species_segmenter:
+rule full_genome_blaster:
     input:
-        species=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        rules.full_genome_blaster_setup.output
+
 
 rule species_segmenter_setup:
     input:
         input_parquet = rules.full_genome_blaster_setup.output.parquet,
     output:
-        output_parquet = expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        all_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_{suffix}.parquet'), suffix=['main', 'accessory']),
+        species_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
     params:
         output_dir = defaults.SEGMENTED_SPECIES_DIR
     shell:
         'Rscript species_segmenter.R {input.input_parquet} {params.output_dir}'
+
+rule species_segmenter:
+    input:
+        rules.species_segmenter_setup.output
+
+
+rule plot_generator_setup:
+    input:
+        all_main_parquet=os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_main.parquet'),
+        all_accessory_parquet=os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_accessory.parquet'),
+    output:
+        density_plots=expand(os.path.join(defaults.PLOT_DIR,'{density_probe}_density.png'),density_probe=['main','accessory']),
+        raincloud_plots=expand(os.path.join(defaults.PLOT_DIR,'{raincloud_probe}_raincloud.png'),raincloud_probe=['main','accessory']),
+        bar_plots=expand(os.path.join(defaults.PLOT_DIR,'{bar_probe}_bar.png'),bar_probe=['full', 'main','accessory']),
+        sankey_plots=expand(os.path.join(defaults.PLOT_DIR,'{sankey_probe}_sankey_{plot_type}.png'),sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
+        balloon_plots=expand(os.path.join(defaults.PLOT_DIR,'{balloon_probe}_balloon.png'),balloon_probe=['main','accessory'])
+    params:
+        plot_dir=defaults.PLOT_DIR
+    shell:
+        '''
+        Rscript plot2sort.R \
+        {input.all_main_parquet} \
+        {input.all_accessory_parquet} \
+        {params.plot_dir} \
+        0.005
+        '''
+
+rule plot_generator:
+    input:
+        plots=rules.plot_generator_setup.output
 
 
 rule ranges_analysis:
