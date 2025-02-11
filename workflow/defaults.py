@@ -46,7 +46,7 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_CONFIG_FILE = os.path.join('..', 'config', 'root_folder.txt')
+ROOT_CONFIG_FILE = os.path.join('..', 'data', 'config', 'root_folder.txt')
 with open(ROOT_CONFIG_FILE, 'r') as f:
     ROOT = f.readline().strip()
 ROOT_DB = os.path.join(ROOT, 'local')
