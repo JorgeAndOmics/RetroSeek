@@ -6,6 +6,26 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
+rule directory_generator:
+    output:
+        species_dir=defaults.SPECIES_DIR,
+        species_db=defaults.SPECIES_DB,
+        ltrharvest_dir=defaults.LTRHARVEST_DIR,
+        ltrdigest_dir=defaults.LTRDIGEST_DIR,
+        plot_dir=defaults.PLOT_DIR,
+        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
+        track_original_dir=defaults.TRACK_ORIGINAL_DIR,
+        track_candidates_dir=defaults.TRACK_CANDIDATES_DIR,
+        track_validated_dir=defaults.TRACK_VALIDATED_DIR,
+        table_input_dir=defaults.TABLE_INPUT_DIR,
+        table_output_dir=defaults.TABLE_OUTPUT_DIR,
+        table_overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
+        pickle_dir=defaults.PICKLE_DIR,
+        hmm_profile_dir=defaults.HMM_PROFILE_DIR
+    priority: 100
+    shell:
+        'mkdir -p {output}'
+
 rule genome_downloader_setup:
     output:
         species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
