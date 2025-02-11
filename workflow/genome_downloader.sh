@@ -102,4 +102,4 @@ echo "✅ Download complete: $FASTA_FILE (Assembly: $BEST_ASSEMBLY, Level: $BEST
 
 # Append download info to the log file
 echo -e "$QUERY\t$BEST_ASSEMBLY\t$BEST_LEVEL" >> "$LOGFILE"
-echo "📌 Download logged: $LOGFILE"
+echo "✅ Download logged: $LOGFILE"

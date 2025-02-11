@@ -46,7 +46,9 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT = os.path.join('/mnt/', 'v', 'databases')
+ROOT_CONFIG_FILE = os.path.join('..', 'config', 'root_folder.txt')
+with open(ROOT_CONFIG_FILE, 'r') as f:
+    ROOT = f.readline().strip()
 ROOT_DB = os.path.join(ROOT, 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
 VIRUS_DB = os.path.join(ROOT_DB, 'blast_dbs', 'virus')
@@ -63,6 +65,7 @@ LOG_DIR = os.path.join('..', 'logs')
 PICKLE_DIR = os.path.join('..', 'data', 'pickles')
 TMP_DIR = os.path.join('..', 'data', 'tmp')
 RESULTS_DIR = os.path.join('..', 'results')
+PLOT_DIR = os.path.join(RESULTS_DIR, 'plots')
 TRACK_DIR = os.path.join(RESULTS_DIR, 'tracks')
 TRACK_ORIGINAL_DIR = os.path.join(TRACK_DIR, 'original')
 TRACK_CANDIDATES_DIR = os.path.join(TRACK_DIR, 'candidates')
@@ -100,7 +103,7 @@ CSV_ATTRIBUTES: list[str] = ['Family',
 SPECIES_FILE = os.path.join(SPECIES_DIR, 'species.txt')
 
 if not USE_SPECIES_LIST:
-    SPECIES: list = [f.split('fa')[0] for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
+    SPECIES: list = [(f.split('.fa')[0]).strip() for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
 else:
     SPECIES: list = [line.strip() for line in open(SPECIES_FILE, 'r')]
 
