@@ -43,6 +43,7 @@ with open(ROOT_CONFIG_FILE, 'r') as f:
     ROOT = f.readline().strip()
 ROOT_DB = os.path.join(ROOT, 'local')
 SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
+ACCESSORY_DB = os.path.join(ROOT, 'accessory')
 
 
 # Directories
@@ -65,11 +66,12 @@ SEGMENTED_SPECIES_DIR = os.path.join(RESULTS_DIR, 'tables', 'segmented_species')
 HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
 
 
-# DIRECTORY GENERATION
+# Directory generation
 os.makedirs(ROOT, exist_ok=True)
 os.makedirs(ROOT_DB, exist_ok=True)
 os.makedirs(SPECIES_DIR, exist_ok=True)
 os.makedirs(SPECIES_DB, exist_ok=True)
+os.makedirs(ACCESSORY_DB, exist_ok=True)
 os.makedirs(LTRHARVEST_DIR, exist_ok=True)
 os.makedirs(LTRDIGEST_DIR, exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
@@ -87,6 +89,7 @@ os.makedirs(TABLE_OVERLAP_MATRIX_DIR, exist_ok=True)
 os.makedirs(PICKLE_DIR, exist_ok=True)
 os.makedirs(HMM_PROFILE_DIR, exist_ok=True)
 
+
 # Execution and requests
 USE_SPECIES_LIST: bool = False
 MAX_RETRIEVAL_ATTEMPTS: int = 3
@@ -96,9 +99,11 @@ MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum number of w
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
+
 # Displays
 DISPLAY_REQUESTS_WARNING: bool = False
 DISPLAY_OPERATION_INFO: bool = False
+
 
 # CSV
 CSV_DELIMITER: str = ','
@@ -110,6 +115,7 @@ CSV_ATTRIBUTES: list[str] = ['Family',
                              'Accession',
                              'Identifier',
                              'Strand']
+
 
 # Genomes
 SPECIES_FILE = os.path.join(SPECIES_DIR, 'species.txt')
