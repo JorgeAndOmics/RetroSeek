@@ -6,7 +6,7 @@ import defaults
 import utils
 from colored_logging import colored_logging
 
-from multiprocessing import Pool, Queue, cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
 
@@ -94,71 +94,12 @@ def extract_attributes_from_object(obj):
         data['hsp_strand'] = None
         data['hsp_frame'] = None
 
-    # If tabular data is available, override applicable fields
-    # if hasattr(obj, 'tabular_data') and obj.tabular_data:
-    #     df_tab = obj.tabular_data.to_dataframe()
-    #     if not df_tab.empty:
-    #         # Take the first row of tabular data
-    #         row = df_tab.iloc[0]
-    #
-    #         # Standard tabular fields:
-    #         # 0: qseqid
-    #         # 1: sseqid
-    #         # 2: pident
-    #         # 3: length
-    #         # 4: mismatch
-    #         # 5: gapopen
-    #         # 6: qstart
-    #         # 7: qend
-    #         # 8: sstart
-    #         # 9: send
-    #         # 10: evalue
-    #         # 11: bitscore
-    #
-    #         # Map tabular fields to HSP-related fields:
-    #         data['hsp_evalue'] = row[10]  # evalue
-    #         data['hsp_bits'] = row[11]  # bitscore
-    #         data['hsp_query_start'] = row[6]  # qstart
-    #         data['hsp_query_end'] = row[7]  # qend
-    #         data['hsp_sbjct_start'] = row[8]  # sstart
-    #         data['hsp_sbjct_end'] = row[9]  # send
-    #         data['hsp_align_length'] = row[3]  # length
-    #
-    #         # For identity, we can approximate it from pident * align_length / 100 if desired:
-    #         # This will give the count of identical matches:
-    #         pident = row[2]
-    #         align_len = row[3]
-    #         identity_count = int(round((pident / 100.0) * align_len))
-    #         data['hsp_identity'] = identity_count
-    #
-    #         # mismatch and gapopen are also available:
-    #         data['hsp_gaps'] = row[5]  # gapopen (Tabular gapopen ~ number of gap openings)
-            # mismatch is directly available:
-            # hsp does not have a direct mismatch attribute in XML fields, but let's store it:
-            # We can store mismatch count, but XML-based HSP objects call mismatches 'identities' differently.
-            # If we want to override:
-            # data['hsp_mismatch'] = row[4] # Additional field if desired, not originally in hsp fields.
-
-            # The tabular format doesn't provide hsp_strand, hsp_frame, hsp_positives directly,
-            # so leave them as None or original if the XML data had them:
-            # If we strictly replace, we leave them as is if XML wasn't available.
-            # hsp_positives also isn't in default tabular output. We leave as None or XML-derived.
-
-            # hsp_positives, hsp_strand, hsp_frame remain unchanged if originally None.
-            # If we must override them to None because we rely solely on tabular:
-            # data['hsp_positives'] = None
-            # data['hsp_strand'] = None
-            # data['hsp_frame'] = None
-
-            # Similarly, alignment fields like title, hit_id, etc., are not in default tabular output.
-            # We leave them as is if they came from XML, or None if XML wasn't available.
     return data
 
 
 if __name__ == '__main__':
     colored_logging(log_file_name='obj2dict.txt')
 
-    # Add argument parser
     parser = argparse.ArgumentParser(description='Converts objects to DataFrame.')
     parser.add_argument('--file', type=str, default=None, help='Name of the pickle file in PKL_DIR to load.')
     args = parser.parse_args()
@@ -168,40 +109,29 @@ if __name__ == '__main__':
         filename = files.split(".")[0]
     else:
         logging.error('No file name provided. Exiting script.')
+        exit(1)
 
-
-    objct_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
-                                       input_file_name=f'{files}')
+    objct_dict: dict = utils.unpickler(
+        input_directory_path=defaults.PICKLE_DIR,
+        input_file_name=f'{files}'
+    )
 
     logging.info(f'Loaded {len(objct_dict)} objects from pickle file.')
 
-    # Prepare to process objects in parallel
     objects = list(objct_dict.values())
 
-    # Use multiprocessing Pool
-    num_workers = 7
-    logging.info(f'Using {num_workers} parallel workers for processing.')
+    # Number of parallel workers
+    max_workers_num = defaults.MAX_THREADPOOL_WORKERS
 
-    def init_pool(tqdm_instance):
-        global pbar
-        pbar = tqdm_instance
-
-    # TODO: TRANSFORM TQDM CONTEXT INTO WRAPPER FUNCTION/DECORATOR
+    results = []
     with tqdm(total=len(objects), desc='Processing objects') as pbar:
-        with Pool(processes=num_workers, initializer=init_pool, initargs=(pbar,)) as pool:
-            results = []
-            for res in pool.imap_unordered(extract_attributes_from_object, objects):
-                results.append(res)
+        with ProcessPoolExecutor(max_workers=max_workers_num) as executor:
+            futures = [executor.submit(extract_attributes_from_object, obj) for obj in objects]
+            for future in as_completed(futures):
+                results.append(future.result())
                 pbar.update()
-            pool.close()
-            pool.join()
 
-    logging.info('Finished processing all objects.')
-
-    # Create DataFrame
     df = pd.DataFrame(results)
-
-    logging.info(f'Generated DataFrame with {len(df)} rows.')
 
     output_csv_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.csv')
     output_parquet_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.parquet')
@@ -211,5 +141,3 @@ if __name__ == '__main__':
 
     df.to_parquet(output_parquet_path, index=False)
     logging.info(f'Saved DataFrame as Parquet to {output_parquet_path}')
-
-    logging.info('Script completed successfully.')
