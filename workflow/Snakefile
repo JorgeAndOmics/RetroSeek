@@ -192,7 +192,7 @@ rule ltr_digester:
 
 rule probe_extractor:
     input:
-        probe_table=os.path.join(defaults.TABLE_INPUT_DIR, 'Probe_info.csv')
+        probe_table=os.path.join(defaults.TABLE_INPUT_DIR, 'probes.csv')
     output:
         probe_pkl=os.path.join(defaults.PICKLE_DIR, 'probe_dict.pkl')
     threads:
@@ -246,14 +246,15 @@ rule plot_generator_setup:
         sankey_plots=expand(os.path.join(defaults.PLOT_DIR,'{sankey_probe}_sankey_{plot_type}.png'),sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
         balloon_plots=expand(os.path.join(defaults.PLOT_DIR,'{balloon_probe}_balloon.png'),balloon_probe=['main','accessory'])
     params:
-        plot_dir=defaults.PLOT_DIR
+        plot_dir=defaults.PLOT_DIR,
+        filter_threshold=config.get('filter_threshold',0.005)
     shell:
         '''
         Rscript plot2sort.R \
         {input.all_main_parquet} \
         {input.all_accessory_parquet} \
         {params.plot_dir} \
-        0.005
+        {params.filter_threshold}
         '''
 
 rule plot_generator:
@@ -274,7 +275,7 @@ rule ranges_analysis_setup:
     input:
         original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
         species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
-        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3'), genome=defaults.SPECIES)
+        ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
     output:
         original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
@@ -283,20 +284,20 @@ rule ranges_analysis_setup:
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
-        ltr_harvest_dir=defaults.LTRHARVEST_DIR,
+        ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
         validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
         overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        bitscore_threshold=config.get('bitscore_threshold',100),
-        identity_threshold=config.get('identity_threshold',30),
+        bitscore_threshold=config.get('bitscore_threshold',0),
+        identity_threshold=config.get('identity_threshold',0),
         ltr_resize=config.get('ltr_resize',0)
     shell:
         '''
         Rscript ranges_analysis.R \
         --FASTA={params.species_db}/{wildcards.genome}.fa \
         --enERVate={params.segmented_species_dir}/{wildcards.genome}_{wildcards.suffix}.parquet \
-        --LTRharvest={params.ltr_harvest_dir}/{wildcards.genome}_sorted.gff3 \
+        --LTRdigest={params.ltr_digest_dir}/{wildcards.genome}_sorted.gff3 \
         --bitscore_threshold={params.bitscore_threshold} \
         --identity_threshold={params.identity_threshold} \
         --ltr_resize={params.ltr_resize} \

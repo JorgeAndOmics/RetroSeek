@@ -14,21 +14,21 @@ suppressMessages({  # Suppress messages
 # Define the command-line interface (CLI) description
 doc <- "
 Usage:
-  script.R --FASTA=<file> --enERVate=<file> --LTRharvest=<file> 
+  script.R --FASTA=<file> --enERVate=<file> --LTRdigest=<file> 
   --bitscore_threshold=<num> --identity_threshold=<num> --ltr_resize=<num>
   --original_ranges=<file> --candidate_ranges=<file> 
-  --validated_ranges=<file> --overlap_matrix=<file>
+  --valid_ranges=<file> --overlap_matrix=<file>
 
 Options:
   --FASTA=<file>                 Path to the genome FASTA input file
   --enERVate=<file>              Path to the enERVate Parquet input file
-  --LTRharvest=<file>            Path to the LTRharvest GFF input file
+  --LTRdigest=<file>            Path to the LTRdigest GFF input file
   --bitscore_threshold=<num>        Bitscore threshold for filtering
   --identity_threshold=<num>        Identity threshold for filtering
-  --ltr_resize=<num>               Amount to resize LTRharvest ranges
+  --ltr_resize=<num>               Amount to resize LTRdigest ranges
   --original_ranges=<file>       Path to the Original Ranges output file
   --candidate_ranges=<file>      Path to the Candidate Ranges output file
-  --validated_ranges=<file>      Path to the Validated Ranges output file
+  --valid_ranges=<file>      Path to the Validated Ranges output file
   --overlap_matrix=<file>        Path to the Overlap Matrix output file
 "
 
@@ -49,8 +49,8 @@ chrom_lengths <- setNames(width(fa_file), names(fa_file))
 data <- arrow::read_parquet(args$enERVate)
 
 
-# LTRharvest input file
-ltr_data <- rtracklayer::import(args$LTRharvest, format = "gff3")
+# LTRdigest input file
+ltr_data <- rtracklayer::import(args$LTRdigest, format = "gff3")
 
 
 ## ENERVATE DATA
@@ -110,7 +110,7 @@ named_reduced_gr <- reduced_gr %>%
   ungroup()
 
 
-## LTRHARVEST DATA
+## LTRDIGEST DATA
 
 # Filter only LTR_retrotransposon full regions
 ltr_retro <- ltr_data %>%
@@ -119,11 +119,26 @@ ltr_retro <- ltr_data %>%
 # Expand LTR Retrotrasposon ranges by an amount to rescue potential hits
 flank_resize <- args$ltr_resize
 
-ltr_retro <- ltr_retransp %>%
-  resize(width = width(ltr_retransp) + flank_resize, fix = "center") 
+ltr_retro <- ltr_retro %>%
+  resize(width = width(ltr_retransp) + flank_resize, fix = "center")
 
 
-# Find overlaps between enERVate and LTRharvest
+# Filter protein domains
+ltr_domain <- ltr_data %>%
+  filter(!is.na(name)) %>%
+  select(-source, -phase, -ID, -ltr_similarity, -seq_number, -reading_frame)
+
+ltr_domain <- ltr_domain %>%
+  mutate(probe = case_when(
+    grepl("ase|RVT_1|RVT_2|RVT_thumb|rve|IN_DBD_C", name) ~ "POL",
+    grepl("Gag|gag|GAG|zf|PTAP|YPXL", name) ~ "GAG",
+    grepl("coat|FP|HR1|HR2", name) ~ "ENV",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(probe))  # Keep if `name` has NAs that need filtering
+
+
+# Find overlaps between enERVate and LTRdigest
 ov.E2L <- findOverlaps(named_reduced_gr, ltr_retro)
 ov.L2E <- findOverlaps(ltr_retro, named_reduced_gr)
 
@@ -148,9 +163,9 @@ enervate_overlap_df[1, 3] <- percent_EonL
 enervate_overlap_df[1, 4] <- percent_EoutsideL
 
 
-# Calculate numbers and percentages of overlap for full LTRharvest
+# Calculate numbers and percentages of overlap for full LTRdigest
 ltr.full_overlap_df <- data.frame(matrix(NA, nrow = 1, ncol = 4))
-rownames(ltr.full_overlap_df) <- c('LTRharvest')
+rownames(ltr.full_overlap_df) <- c('LTRdigest')
 colnames(ltr.full_overlap_df) <- c('In', 'Out', 'In%', 'Out%')
 ltr.full_overlap_df[1, 1] <- length(LonE)
 ltr.full_overlap_df[1, 2] <- length(LoutsideE)
@@ -158,7 +173,7 @@ ltr.full_overlap_df[1, 3] <- percent_LonE
 ltr.full_overlap_df[1, 4] <- percent_LoutsideE
 
 
-# Calculate numbers and percentages of overlap for probes over LTRharvest
+# Calculate numbers and percentages of overlap for probes over LTRdigest
 probe_overlap_calculator <- function(gr, ltr_retro){
   
   overlap_df_probes <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
@@ -191,8 +206,8 @@ probe_overlap_calculator <- function(gr, ltr_retro){
 probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_retro)
 
 
-# Calculate numbers and percentages of overlap for LTRharvest over probes
-ltrharvest_overlap_calculator <- function(gr, ltr_retro){
+# Calculate numbers and percentages of overlap for LTRdigest over probes
+ltrdigest_overlap_calculator <- function(gr, ltr_retro){
   
   overlap_df_ltr <- data.frame(matrix(NA, nrow = length(unique(gr$probe)), ncol = 4))
   rownames(overlap_df_ltr) <- c(paste0('LTR_', unique(gr$probe)))
@@ -224,7 +239,7 @@ ltrharvest_overlap_calculator <- function(gr, ltr_retro){
   
 }
 
-ltr_overlap_df <- ltrharvest_overlap_calculator(named_reduced_gr, ltr_retro)
+ltr_overlap_df <- ltrdigest_overlap_calculator(named_reduced_gr, ltr_retro)
 
 # Combine all overlap dataframes
 overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
@@ -232,16 +247,22 @@ overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, 
 
 ## VALID HITS
 
+# Validate hits via LTR Retrotrasposons
+ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
 
-# Validate hits via LTRharvest
-valid_hits <- named_reduced_gr[queryHits(ov.E2L)]
-mcols(valid_hits)$located_in <- ltr_retro[subjectHits(ov.E2L)]$ID
+# Find overlaps between enERVate and LTR domains
+domain_valid_hits <- ltr_valid_hits %>%
+  join_overlap_inner(ltr_domain) %>%
+  filter(probe.x == probe.y) %>%
+  select(-probe.y) %>%
+  mutate(probe = probe.x) %>%
+  select(-probe.x)
 
 
 # Export hits to GFF3
 rtracklayer::export(gr, args$original_ranges, format = "gff3")
-rtracklayer::export(named_reduced_gr, args$candidate_ranges, format = "gff3")
-rtracklayer::export(valid_hits, args$validated_ranges, format = "gff3")
+rtracklayer::export(ltr_valid_hits, args$candidate_ranges, format = "gff3")
+rtracklayer::export(domain_valid_hits, args$valid_ranges, format = "gff3")
 
 
 # Export matrices to CSV
