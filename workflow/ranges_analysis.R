@@ -274,9 +274,10 @@ if (is_main) {
     join_overlap_inner_directed(
       ltr_domain,
       suffix = c(".merged", ".ltr_domain")) %>%
-    
     # 4) Again, keep only rows with matching probe
     filter(probe.merged == probe.ltr_domain) %>%
+    
+    mutate(Parent = as.character(Parent)) %>%
     
     group_by(probe.ltr_valid) %>%
     
@@ -286,14 +287,17 @@ if (is_main) {
       species       = paste(unique(species.gr), collapse = "; "),
       virus         = paste(sort(unique(virus.gr)), collapse = "; "),
       family        = paste(sort(unique(family.gr)), collapse = "; "),
-      type.x        = "proviral_sequence",
-      type.y        = "protein_match",
+      origin        = "proviral_sequence",
+      type          = "protein_match",
       name          = paste(sort(unique(name)), collapse = "; "),
       ID            = paste(sort(unique(ID)), collapse = "; "),
+      Parent        = paste(unique(Parent), collapse = "; "),
       mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
       mean_identity = paste(unique(mean_identity), collapse = "; ")
     ) %>%
-    select(-probe.ltr_valid)
+    select(-probe.ltr_valid) %>%
+    
+    arrange(.by_group = start)
 }
 
 # Export hits to GFF3

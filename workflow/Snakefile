@@ -327,8 +327,6 @@ rule ranges_analysis_accessory_setup:
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
         ltr_resize=config.get('ltr_resize',0)
-    threads:
-        workflow.cores / 2
     shell:
         '''
         Rscript ranges_analysis.R \
