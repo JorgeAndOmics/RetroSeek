@@ -96,6 +96,7 @@ MAX_RETRIEVAL_ATTEMPTS: int = 3
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
 MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum number of workers that can be used
+GENBANK_RETRIEVAL: bool = True
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
