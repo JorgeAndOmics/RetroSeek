@@ -264,23 +264,21 @@ rule plot_generator:
 
 rule ranges_analysis:
     input:
-        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=[
-            'full', 'main', 'accessory']),
-        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=[
-            'full', 'main', 'accessory']),
-        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=[
-            'full', 'main', 'accessory']),
+        original_tracks=expand(os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
+        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
+        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),genome=defaults.SPECIES),
+        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
 
-rule ranges_analysis_setup:
+rule ranges_analysis_main_setup:
     input:
         original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
-        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'), genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_main.parquet'), genome=defaults.SPECIES),
         ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
     output:
-        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),
-        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
-        validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_{suffix}.gff3'),
-        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),
+        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_main.gff3'),
+        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_main.gff3'),
+        validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),
+        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_main.csv'),
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
@@ -295,14 +293,49 @@ rule ranges_analysis_setup:
     shell:
         '''
         Rscript ranges_analysis.R \
-        --FASTA={params.species_db}/{wildcards.genome}.fa \
-        --enERVate={params.segmented_species_dir}/{wildcards.genome}_{wildcards.suffix}.parquet \
-        --LTRdigest={params.ltr_digest_dir}/{wildcards.genome}_sorted.gff3 \
-        --bitscore_threshold={params.bitscore_threshold} \
-        --identity_threshold={params.identity_threshold} \
-        --ltr_resize={params.ltr_resize} \
-        --original_ranges={params.original_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
-        --candidate_ranges={params.candidate_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
-        --validated_ranges={params.validated_tracks_dir}/{wildcards.genome}_{wildcards.suffix}.gff3 \
-        --overlap_matrix={params.overlap_matrix_dir}/{wildcards.genome}_{wildcards.suffix}.csv
+        {params.species_db}/{wildcards.genome}.fa \
+        {params.segmented_species_dir}/{wildcards.genome}_main.parquet \
+        {params.ltr_digest_dir}/{wildcards.genome}.gff3 \
+        {params.ltr_resize} \
+        {params.bitscore_threshold} \
+        {params.identity_threshold} \
+        {params.original_tracks_dir}/{wildcards.genome}_main.gff3 \
+        {params.candidate_tracks_dir}/{wildcards.genome}_main.gff3 \
+        {params.validated_tracks_dir}/{wildcards.genome}_main.gff3 \
+        {params.overlap_matrix_dir}/{wildcards.genome}_main.csv
+        '''
+
+rule ranges_analysis_accessory_setup:
+    input:
+        original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
+        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_accessory.parquet'), genome=defaults.SPECIES, suffix=['accessory', 'accessory']),
+        ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
+    output:
+        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_accessory.gff3'),
+        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_accessory.gff3'),
+        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_accessory.csv'),
+    params:
+        species_db=defaults.SPECIES_DB,
+        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
+        ltr_digest_dir=defaults.LTRDIGEST_DIR,
+        original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
+        candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
+        validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
+        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
+        bitscore_threshold=config.get('bitscore_threshold',0),
+        identity_threshold=config.get('identity_threshold',0),
+        ltr_resize=config.get('ltr_resize',0)
+    shell:
+        '''
+        Rscript ranges_analysis.R \
+        {params.species_db}/{wildcards.genome}.fa \
+        {params.segmented_species_dir}/{wildcards.genome}_accessory.parquet \
+        {params.ltr_digest_dir}/{wildcards.genome}.gff3 \
+        {params.ltr_resize} \
+        {params.bitscore_threshold} \
+        {params.identity_threshold} \
+        {params.original_tracks_dir}/{wildcards.genome}_accessory.gff3 \
+        {params.candidate_tracks_dir}/{wildcards.genome}_accessory.gff3 \
+        {params.validated_tracks_dir}/{wildcards.genome}_accessory.gff3 \
+        {params.overlap_matrix_dir}/{wildcards.genome}_accessory.csv
         '''
