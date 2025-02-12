@@ -290,6 +290,8 @@ rule ranges_analysis_main_setup:
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
         ltr_resize=config.get('ltr_resize',0)
+    threads:
+        workflow.cores/2
     shell:
         '''
         Rscript ranges_analysis.R \
@@ -308,7 +310,7 @@ rule ranges_analysis_main_setup:
 rule ranges_analysis_accessory_setup:
     input:
         original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
-        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_accessory.parquet'), genome=defaults.SPECIES, suffix=['accessory', 'accessory']),
+        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_accessory.parquet'), genome=defaults.SPECIES),
         ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
     output:
         original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_accessory.gff3'),
@@ -325,6 +327,8 @@ rule ranges_analysis_accessory_setup:
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
         ltr_resize=config.get('ltr_resize',0)
+    threads:
+        workflow.cores / 2
     shell:
         '''
         Rscript ranges_analysis.R \

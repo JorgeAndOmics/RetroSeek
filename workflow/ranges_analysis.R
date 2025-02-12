@@ -259,12 +259,41 @@ ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
 
 # Find overlaps between enERVate and LTR domains in main files
 if (is_main) {
-  domain_valid_hits <- ltr_valid_hits %>%
-    join_overlap_inner(ltr_domain) %>%
-    filter(probe.x == probe.y) %>%
-    select(-probe.y) %>%
-    mutate(probe = probe.x) %>%
-    select(-probe.x)
+  domain_valid_hits <- gr %>%
+    
+    # 1) Overlap join with ltr_valid_hits on same strand
+    join_overlap_inner_directed(
+      ltr_valid_hits,
+      suffix = c(".gr", ".ltr_valid")) %>%
+    
+    # 2) Only keep rows whose probe matches after the merge
+    filter(probe.gr == probe.ltr_valid) %>%
+    mutate(probe = probe.gr) %>%
+    
+    # 3) Overlap join the result with ltr_domain on same strand
+    join_overlap_inner_directed(
+      ltr_domain,
+      suffix = c(".merged", ".ltr_domain")) %>%
+    
+    # 4) Again, keep only rows with matching probe
+    filter(probe.merged == probe.ltr_domain) %>%
+    
+    group_by(probe.ltr_valid) %>%
+    
+    # 5) Finally, reduce
+    reduce_ranges_directed(
+      probe         = paste(unique(probe.ltr_valid), collapse = "; "),
+      species       = paste(unique(species.gr), collapse = "; "),
+      virus         = paste(sort(unique(virus.gr)), collapse = "; "),
+      family        = paste(sort(unique(family.gr)), collapse = "; "),
+      type.x        = "proviral_sequence",
+      type.y        = "protein_match",
+      name          = paste(sort(unique(name)), collapse = "; "),
+      ID            = paste(sort(unique(ID)), collapse = "; "),
+      mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
+      mean_identity = paste(unique(mean_identity), collapse = "; ")
+    ) %>%
+    select(-probe.ltr_valid)
 }
 
 # Export hits to GFF3
