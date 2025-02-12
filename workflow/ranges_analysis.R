@@ -10,51 +10,59 @@ suppressMessages({  # Suppress messages
   library(rtracklayer)
 })
 
-
-# Define the command-line interface (CLI) description
-doc <- "
-Usage:
-  script.R --FASTA=<file> --enERVate=<file> --LTRdigest=<file> 
-  --bitscore_threshold=<num> --identity_threshold=<num> --ltr_resize=<num>
-  --original_ranges=<file> --candidate_ranges=<file> 
-  --valid_ranges=<file> --overlap_matrix=<file>
-
-Options:
-  --FASTA=<file>                 Path to the genome FASTA input file
-  --enERVate=<file>              Path to the enERVate Parquet input file
-  --LTRdigest=<file>            Path to the LTRdigest GFF input file
-  --bitscore_threshold=<num>        Bitscore threshold for filtering
-  --identity_threshold=<num>        Identity threshold for filtering
-  --ltr_resize=<num>               Amount to resize LTRdigest ranges
-  --original_ranges=<file>       Path to the Original Ranges output file
-  --candidate_ranges=<file>      Path to the Candidate Ranges output file
-  --valid_ranges=<file>      Path to the Validated Ranges output file
-  --overlap_matrix=<file>        Path to the Overlap Matrix output file
-"
-
 # Parse command-line arguments
-args <- docopt(doc)
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) != 10) {
+  stop("Please provide exactly ten arguments as follows:
+  Options:
+  fasta=<file>               Path to the genome FASTA input file
+  enervate=<file>            Path to the enERVate Parquet input file
+  ltrdigest=<file>           Path to the LTRdigest GFF input file
+  bitscore_threshold=<val>   Bitscore threshold for filtering
+  identity_threshold=<val>   Identity threshold for filtering
+  ltr-resize=<val>           Amount to resize LTRdigest ranges
+  original_ranges=<file>     Path to the Original Ranges output file
+  candidate_ranges=<file>    Path to the Candidate Ranges output file
+  valid_ranges=<file>        Path to the Validated Ranges output file
+  overlap_matrix=<file>      Path to the Overlap Matrix output file")
+}
+
+args.fasta <- args[1]
+args.enervate <- args[2]
+args.ltrdigest <- args[3]
+args.bitscore_threshold <- as.numeric(args[4])
+args.identity_threshold <- as.numeric(args[5])
+args.ltr_resize <- as.numeric(args[6])
+args.original_ranges <- args[7]
+args.candidate_ranges <- args[8]
+args.valid_ranges <- args[9]
+args.overlap_matrix <- args[10]
+
 
 
 # Message
-print(paste0('Processing ', basename(args$enERVate), '...'))
+print(paste0('Processing ranges for ', basename(args.enervate), '...'))
 
+
+# Define if it's a main file
+is_main <- grepl("_main", args.enervate) & !grepl("_accessory", args.enervate)
 
 # Original FASTA file
-fa_file <- Biostrings::readDNAStringSet(args$FASTA)
+fa_file <- Biostrings::readDNAStringSet(args.fasta)
 chrom_lengths <- setNames(width(fa_file), names(fa_file))
 
+# Clean up chrom_lengths
+names(chrom_lengths) <- stringr::str_extract(names(chrom_lengths), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
 
 # enERVate input file
-data <- arrow::read_parquet(args$enERVate)
+data <- arrow::read_parquet(args.enervate)
 
 
 # LTRdigest input file
-ltr_data <- rtracklayer::import(args$LTRdigest, format = "gff3")
+ltr_data <- rtracklayer::import(args.ltrdigest, format = "gff3")
 
 
 ## ENERVATE DATA
-
 # Generate GRanges Object
 gr <- GRanges(seqnames = data$accession, 
               ranges = IRanges(
@@ -69,10 +77,9 @@ mcols(gr)$identity <- (data$hsp_identity / data$hsp_align_length) * 100
 mcols(gr)$species <- data$species
 mcols(gr)$probe <- data$probe
 
-
 # Filter ranges by bitscore
-bitscore_threshold <- args$bitscore_threshold
-identity_threshold <- args$identity_threshold
+bitscore_threshold <- as.numeric(args.bitscore_threshold)
+identity_threshold <- as.numeric(args.identity_threshold)
 
 gr <- gr %>%
          filter(bitscore > bitscore_threshold,
@@ -117,10 +124,10 @@ ltr_retro <- ltr_data %>%
   filter(type == "LTR_retrotransposon")
 
 # Expand LTR Retrotrasposon ranges by an amount to rescue potential hits
-flank_resize <- args$ltr_resize
+flank_resize <- as.numeric(args.ltr_resize)
 
 ltr_retro <- ltr_retro %>%
-  resize(width = width(ltr_retransp) + flank_resize, fix = "center")
+  resize(width = width(ltr_retro) + flank_resize, fix = "center")
 
 
 # Filter protein domains
@@ -250,20 +257,22 @@ overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, 
 # Validate hits via LTR Retrotrasposons
 ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
 
-# Find overlaps between enERVate and LTR domains
-domain_valid_hits <- ltr_valid_hits %>%
-  join_overlap_inner(ltr_domain) %>%
-  filter(probe.x == probe.y) %>%
-  select(-probe.y) %>%
-  mutate(probe = probe.x) %>%
-  select(-probe.x)
-
+# Find overlaps between enERVate and LTR domains in main files
+if (is_main) {
+  domain_valid_hits <- ltr_valid_hits %>%
+    join_overlap_inner(ltr_domain) %>%
+    filter(probe.x == probe.y) %>%
+    select(-probe.y) %>%
+    mutate(probe = probe.x) %>%
+    select(-probe.x)
+}
 
 # Export hits to GFF3
-rtracklayer::export(gr, args$original_ranges, format = "gff3")
-rtracklayer::export(ltr_valid_hits, args$candidate_ranges, format = "gff3")
-rtracklayer::export(domain_valid_hits, args$valid_ranges, format = "gff3")
-
+rtracklayer::export(gr, args.original_ranges, format = "gff3")
+rtracklayer::export(ltr_valid_hits, args.candidate_ranges, format = "gff3")
+if (is_main) {
+rtracklayer::export(domain_valid_hits, args.valid_ranges, format = "gff3")
+}
 
 # Export matrices to CSV
-write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
+write.csv(overlap_df, args.overlap_matrix, row.names = TRUE)
