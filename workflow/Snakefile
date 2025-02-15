@@ -1,4 +1,5 @@
 import os
+import math
 import defaults
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
@@ -120,7 +121,7 @@ rule ltr_index_generator_setup:
     shell:
         """
         TMPDIR=$(mktemp -d /tmp/suffixerator_{wildcards.genome}_XXXXXX) && \
-        gt suffixerator \
+        gt -j {threads} suffixerator \
         -v -showprogress \
         -db {input.fa} \
         -indexname {params.db_dir}/{wildcards.genome}/{wildcards.genome} \
@@ -142,10 +143,12 @@ rule ltr_harvester_setup:
     params:
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
+    threads:
+        16
     shell:
         '''
         TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
-        gt ltrharvest \
+        gt -j {threads} ltrharvest \
         -seqids \
         -index {params.index_directory_path}/{wildcards.genome}/{wildcards.genome} \
         -out {params.output_directory_path}/{wildcards.genome}.fa \
@@ -171,11 +174,13 @@ rule ltr_digester_setup:
         hmm_profile_path=defaults.HMM_PROFILE_DIR,
         index_directory_path=defaults.SPECIES_DB,
         output_directory_path=defaults.LTRDIGEST_DIR
+    threads:
+        16
     shell:
         '''
         echo "Running LTRDigest for {wildcards.genome}" && \
         TMPDIR=$(mktemp -d /tmp/ltrdigest_{wildcards.genome}_XXXXXX) && \
-        gt ltrdigest \
+        gt -j {threads} ltrdigest \
         -v -matchdescstart \
         -seqfile {params.index_directory_path}/{wildcards.genome}.fa \
         -hmms {params.hmm_profile_path}/Pfam-A.hmm -- \
@@ -237,8 +242,7 @@ rule species_segmenter:
 
 rule plot_generator_setup:
     input:
-        all_main_parquet=os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_main.parquet'),
-        all_accessory_parquet=os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_accessory.parquet'),
+        plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),genome=defaults.SPECIES, suffix=['main','accessory']),
     output:
         density_plots=expand(os.path.join(defaults.PLOT_DIR,'{density_probe}_density.png'),density_probe=['main','accessory']),
         raincloud_plots=expand(os.path.join(defaults.PLOT_DIR,'{raincloud_probe}_raincloud.png'),raincloud_probe=['main','accessory']),
@@ -246,13 +250,15 @@ rule plot_generator_setup:
         sankey_plots=expand(os.path.join(defaults.PLOT_DIR,'{sankey_probe}_sankey_{plot_type}.png'),sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
         balloon_plots=expand(os.path.join(defaults.PLOT_DIR,'{balloon_probe}_balloon.png'),balloon_probe=['main','accessory'])
     params:
+        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
         plot_dir=defaults.PLOT_DIR,
         filter_threshold=config.get('filter_threshold',0.005)
+    threads:
+        workflow.cores
     shell:
         '''
         Rscript plot2sort.R \
-        {input.all_main_parquet} \
-        {input.all_accessory_parquet} \
+        {params.plot_dataframes_dir} \
         {params.plot_dir} \
         {params.filter_threshold}
         '''
@@ -268,6 +274,7 @@ rule ranges_analysis:
         candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
         validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),genome=defaults.SPECIES),
         overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
+        plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),genome=defaults.SPECIES,suffix=['main', 'accessory']),
 
 rule ranges_analysis_main_setup:
     input:
@@ -279,9 +286,12 @@ rule ranges_analysis_main_setup:
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_main.gff3'),
         validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_main.csv'),
+        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_main.parquet'),
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
+        probes_dir=defaults.TABLE_INPUT_DIR,
+        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
@@ -290,21 +300,21 @@ rule ranges_analysis_main_setup:
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
         ltr_resize=config.get('ltr_resize',0)
-    threads:
-        workflow.cores/2
     shell:
         '''
         Rscript ranges_analysis.R \
         {params.species_db}/{wildcards.genome}.fa \
         {params.segmented_species_dir}/{wildcards.genome}_main.parquet \
         {params.ltr_digest_dir}/{wildcards.genome}.gff3 \
+        {params.probes_dir}/probes.csv \
         {params.ltr_resize} \
         {params.bitscore_threshold} \
         {params.identity_threshold} \
         {params.original_tracks_dir}/{wildcards.genome}_main.gff3 \
         {params.candidate_tracks_dir}/{wildcards.genome}_main.gff3 \
         {params.validated_tracks_dir}/{wildcards.genome}_main.gff3 \
-        {params.overlap_matrix_dir}/{wildcards.genome}_main.csv
+        {params.overlap_matrix_dir}/{wildcards.genome}_main.csv \
+        {params.plot_dataframes_dir}/{wildcards.genome}_main.parquet
         '''
 
 rule ranges_analysis_accessory_setup:
@@ -316,9 +326,12 @@ rule ranges_analysis_accessory_setup:
         original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_accessory.gff3'),
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_accessory.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_accessory.csv'),
+        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_accessory.parquet'),
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
+        probes_dir=defaults.TABLE_INPUT_DIR,
+        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
@@ -333,11 +346,13 @@ rule ranges_analysis_accessory_setup:
         {params.species_db}/{wildcards.genome}.fa \
         {params.segmented_species_dir}/{wildcards.genome}_accessory.parquet \
         {params.ltr_digest_dir}/{wildcards.genome}.gff3 \
+        {params.probes_dir}/probes.csv \
         {params.ltr_resize} \
         {params.bitscore_threshold} \
         {params.identity_threshold} \
         {params.original_tracks_dir}/{wildcards.genome}_accessory.gff3 \
         {params.candidate_tracks_dir}/{wildcards.genome}_accessory.gff3 \
         {params.validated_tracks_dir}/{wildcards.genome}_accessory.gff3 \
-        {params.overlap_matrix_dir}/{wildcards.genome}_accessory.csv
+        {params.overlap_matrix_dir}/{wildcards.genome}_accessory.csv \
+        {params.plot_dataframes_dir}/{wildcards.genome}_accessory.parquet
         '''

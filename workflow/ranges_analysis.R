@@ -12,31 +12,35 @@ suppressMessages({  # Suppress messages
 
 # Parse command-line arguments
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) != 10) {
+if (length(args) != 12) {
   stop("Please provide exactly ten arguments as follows:
   Options:
   fasta=<file>               Path to the genome FASTA input file
   enervate=<file>            Path to the enERVate Parquet input file
   ltrdigest=<file>           Path to the LTRdigest GFF input file
+  probes=<file>              Path to the probes input file
   bitscore_threshold=<val>   Bitscore threshold for filtering
   identity_threshold=<val>   Identity threshold for filtering
   ltr-resize=<val>           Amount to resize LTRdigest ranges
   original_ranges=<file>     Path to the Original Ranges output file
   candidate_ranges=<file>    Path to the Candidate Ranges output file
   valid_ranges=<file>        Path to the Validated Ranges output file
-  overlap_matrix=<file>      Path to the Overlap Matrix output file")
+  overlap_matrix=<file>      Path to the Overlap Matrix output file
+  plot_dataframe=<file>      Path to the Plot DataFrame output file")
 }
 
 args.fasta <- args[1]
 args.enervate <- args[2]
 args.ltrdigest <- args[3]
-args.bitscore_threshold <- as.numeric(args[4])
-args.identity_threshold <- as.numeric(args[5])
-args.ltr_resize <- as.numeric(args[6])
-args.original_ranges <- args[7]
-args.candidate_ranges <- args[8]
-args.valid_ranges <- args[9]
-args.overlap_matrix <- args[10]
+args.probes <- args[4]
+args.bitscore_threshold <- as.numeric(args[5])
+args.identity_threshold <- as.numeric(args[6])
+args.ltr_resize <- as.numeric(args[7])
+args.original_ranges <- args[8]
+args.candidate_ranges <- args[9]
+args.valid_ranges <- args[10]
+args.overlap_matrix <- args[11]
+args.plot_dataframe <- args[12]
 
 
 
@@ -96,8 +100,8 @@ reducing.gr <- function (gr) {
     group_by(probe) %>%
     reduce_ranges_directed(
       species = paste(unique(species), collapse = "; "),
-      virus = paste(sort(unique(virus)), collapse = "; "),
-      family = paste(sort(unique(family)), collapse = "; "),
+      virus = as.character(paste(sort(unique(virus)), collapse = "; ")),
+      family = as.character(paste(sort(unique(family)), collapse = "; ")),
       mean_bitscore = mean(bitscore),
       mean_identity = mean(identity),
       type = "proviral_sequence") %>%
@@ -105,10 +109,6 @@ reducing.gr <- function (gr) {
 }
 
 reduced_gr <- reducing.gr(gr)
-
-# Improving readibility of the reduced ranges
-reduced_gr$virus <- map(reduced_gr$virus, ~as.list(.x))
-reduced_gr$family <- map(reduced_gr$family, ~as.list(.x))
 
 # Naming the reduced ranges by probe findings
 named_reduced_gr <- reduced_gr %>% 
@@ -252,6 +252,22 @@ ltr_overlap_df <- ltrdigest_overlap_calculator(named_reduced_gr, ltr_retro)
 overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
 
 
+## PLOT DATAFRAME
+
+probe_df <- read.csv2(args.probes, header = TRUE, sep = ",")
+
+probe_df_sum <- probe_df %>%
+  distinct(Name, Family, Abbreviation)
+
+
+df_plot <- as.data.frame(reduced_gr) %>%
+  separate_rows(virus, sep = "; ") 
+
+df_plot <- df_plot %>%
+  mutate(family = probe_df_sum$Family[match(virus, probe_df_sum$Name)],
+         abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)])
+
+
 ## VALID HITS
 
 # Validate hits via LTR Retrotrasposons
@@ -306,6 +322,9 @@ rtracklayer::export(ltr_valid_hits, args.candidate_ranges, format = "gff3")
 if (is_main) {
 rtracklayer::export(domain_valid_hits, args.valid_ranges, format = "gff3")
 }
+
+# Export dataframes to parquet
+arrow::write_parquet(df_plot, args.plot_dataframe)
 
 # Export matrices to CSV
 write.csv(overlap_df, args.overlap_matrix, row.names = TRUE)
