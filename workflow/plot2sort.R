@@ -143,9 +143,9 @@ bar_species_virus_plot <- function(data) {
       fill = virus,
       alpha = count
     ) +
-    geom_col() +
+    geom_col(color = "grey", linewidth = 0.1) +
     scale_fill_manual(values = manual_colours) +
-    scale_alpha_continuous(range = c(0.4, 1)) +
+    scale_alpha_continuous(range = c(0.5, 1)) +
     theme_void() +
     labs(fill = "Viral Sequence",
          x = NULL,
@@ -290,7 +290,8 @@ sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_thres
       direction = "y",
       stat = "stratum"
     ) +
-    scale_size_continuous(range = c(2, 6)) +
+    scale_size_continuous(range = c(2, 5)) +
+    scale_alpha_continuous(range = c(0.4, 1)) +
     theme_void() +
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours)
@@ -354,6 +355,7 @@ sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_thresh
       stat = "stratum"
     ) +
     scale_size_continuous(range = c(2, 5)) +
+    scale_alpha_continuous(range = c(0.4, 1)) +
     theme_void() +
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours)
@@ -417,6 +419,7 @@ sankey_species_family_plot <- function(data, filter_threshold = plot_filter_thre
       stat = "stratum"
     ) +
     scale_size_continuous(range = c(2, 5)) +
+    scale_alpha_continuous(range = c(0.4, 1)) +
     theme_void() +
     theme(legend.position = "none") +
     scale_fill_manual(values = manual_colours)
