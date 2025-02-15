@@ -47,14 +47,15 @@ ACCESSORY_DB = os.path.join(ROOT, 'accessory')
 
 
 # Directories
-TABLE_INPUT_DIR = os.path.join('..', 'data', 'tables', 'input')
-TABLE_OUTPUT_DIR = os.path.join('..', 'results', 'tables')
-TABLE_OVERLAP_MATRIX_DIR = os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix')
-SPECIES_DIR = os.path.join('..', 'data', 'species')
-LOG_DIR = os.path.join('..', 'logs')
-PICKLE_DIR = os.path.join('..', 'data', 'pickles')
-TMP_DIR = os.path.join('..', 'data', 'tmp')
+
+DATA_DIR = os.path.join('..', 'data')
 RESULTS_DIR = os.path.join('..', 'results')
+LOG_DIR = os.path.join('..', 'logs')
+SPECIES_DIR = os.path.join(DATA_DIR, 'species')
+TABLE_INPUT_DIR = os.path.join(DATA_DIR, 'tables')
+PICKLE_DIR = os.path.join(DATA_DIR, 'pickles')
+TMP_DIR = os.path.join(DATA_DIR, 'tmp')
+TABLE_OUTPUT_DIR = os.path.join(RESULTS_DIR, 'tables')
 PLOT_DIR = os.path.join(RESULTS_DIR, 'plots')
 TRACK_DIR = os.path.join(RESULTS_DIR, 'tracks')
 TRACK_ORIGINAL_DIR = os.path.join(TRACK_DIR, 'original')
@@ -62,7 +63,9 @@ TRACK_CANDIDATES_DIR = os.path.join(TRACK_DIR, 'candidates')
 TRACK_VALIDATED_DIR = os.path.join(TRACK_DIR, 'validated')
 LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
 LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
-SEGMENTED_SPECIES_DIR = os.path.join(RESULTS_DIR, 'tables', 'segmented_species')
+TABLE_OVERLAP_MATRIX_DIR = os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix')
+SEGMENTED_SPECIES_DIR = os.path.join(TABLE_OUTPUT_DIR, 'segmented_species')
+PLOT_DATAFRAMES_DIR = os.path.join(TABLE_OUTPUT_DIR, 'plot_dataframes')
 HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
 
 
@@ -75,6 +78,7 @@ os.makedirs(ACCESSORY_DB, exist_ok=True)
 os.makedirs(LTRHARVEST_DIR, exist_ok=True)
 os.makedirs(LTRDIGEST_DIR, exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(TMP_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -87,6 +91,7 @@ os.makedirs(TABLE_INPUT_DIR, exist_ok=True)
 os.makedirs(TABLE_OUTPUT_DIR, exist_ok=True)
 os.makedirs(TABLE_OVERLAP_MATRIX_DIR, exist_ok=True)
 os.makedirs(PICKLE_DIR, exist_ok=True)
+os.makedirs(PLOT_DATAFRAMES_DIR, exist_ok=True)
 os.makedirs(HMM_PROFILE_DIR, exist_ok=True)
 
 
@@ -96,7 +101,7 @@ MAX_RETRIEVAL_ATTEMPTS: int = 3
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
 MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum number of workers that can be used
-GENBANK_RETRIEVAL: bool = True
+GENBANK_RETRIEVAL: bool = False
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
 
