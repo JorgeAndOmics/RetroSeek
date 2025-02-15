@@ -68,7 +68,9 @@ accessory.counted_probe <- all.accessory %>%
   summarise(count = dplyr::n(), .groups = "keep") %>%
   ungroup()
 
+#########################################
 # Density plots
+#########################################
 density_bitscore_plot <- function(data, q1_bit, median_bit, q3_bit) {
   manual_colours = futurama_unlimited_palette(3, length(unique(data$probe)))
   
@@ -106,8 +108,7 @@ density_bitscore_plot <- function(data, q1_bit, median_bit, q3_bit) {
     scale_x_continuous(breaks = seq(0, max(data$mean_bitscore, na.rm = TRUE), by = 100)) +
     theme_minimal() +
     theme(
-      plot.title = element_text(size = 22L, face = "bold"),
-      plot.subtitle = element_text(size = 15L, face = "bold"),
+      text = element_text(face = "bold"),
       axis.title.y = element_text(
         size = 15L,
         face = "bold",
@@ -122,15 +123,16 @@ density_bitscore_plot <- function(data, q1_bit, median_bit, q3_bit) {
       ),
       axis.text.x = element_text(size = 12L, face = "bold"),
       axis.text.y = element_text(size = 12L, face = "bold"),
-      legend.text = element_text(size = 11L),
-      legend.title = element_text(size = 17L)
+      margin = margin(t = 10, l = 10, b = 10, r = 10)
     )
 }
 
 all.main.density.plot <- density_bitscore_plot(all.main, q1_bit.main, median_bit.main, q3_bit.main)
 all.accessory.density.plot <- density_bitscore_plot(all.accessory, q1_bit.accessory, median_bit.accessory, q3_bit.accessory)
 
+#########################################
 # Bar plots
+#########################################
 bar_species_virus_plot <- function(data) {
   manual_colours <- futurama_unlimited_palette(3, length(unique(data$virus)))
   
@@ -145,14 +147,14 @@ bar_species_virus_plot <- function(data) {
     scale_fill_manual(values = manual_colours) +
     scale_alpha_continuous(range = c(0.4, 1)) +
     theme_void() +
-    labs(fill = "Virus",
+    labs(fill = "Viral Sequence",
          x = NULL,
          y = "Count") +
     theme(
-      plot.title = element_text(size = 17L, face = "bold", vjust = 3),
+      text = element_text(face = "bold"),
       axis.title.x = element_text(size = 12, face = "bold"),
       axis.title.y = element_text(size = 12, face = "bold", angle = 90, vjust = 3, margin = margin(l = 10)),
-      axis.text.x = element_text(size = 11, face = "bold", angle = 45, vjust = 1, hjust = 1, margin = margin(t = -5)),
+      axis.text.x = element_text(size = 11, face = "bold.italic", angle = 45, vjust = 1, hjust = 1, margin = margin(t = -5)),
       axis.text.y = element_text(size = 11, face = "bold"),
       strip.text = element_text(size = 12, face = "bold"),
       legend.title = element_text(size = 13, face = "bold"),
@@ -166,7 +168,9 @@ all.full.bar.plot <- bar_species_virus_plot(all.counted_probe)
 all.main.bar.plot <- bar_species_virus_plot(main.counted_probe)
 all.accessory.bar.plot <- bar_species_virus_plot(accessory.counted_probe)
 
+#########################################
 # Raincloud plots
+#########################################
 raincloud_bitscore_plot <- function(data) {
   required_cols <- c("probe", "mean_bitscore")
   missing_cols <- setdiff(required_cols, names(data))
@@ -205,7 +209,8 @@ raincloud_bitscore_plot <- function(data) {
       y = "Probe"
     ) +
     theme(
-      plot.title = element_text(size = 15L, face = "bold", hjust = 0),
+      text = element_text(face = "bold"),
+      plot.margin = margin(t = 10, l = 30, b = 10, r = 30),
       axis.title.x = element_text(size = 12, face = "bold"),
       axis.title.y = element_text(size = 12, face = "bold"),
       axis.text.x = element_text(size = 11, face = "bold"),
@@ -221,40 +226,64 @@ raincloud_bitscore_plot <- function(data) {
 main.full.raincloud.bitscore_probe.plot <- raincloud_bitscore_plot(all.main)
 accessory.full.raincloud.bitscore_probe.plot <- raincloud_bitscore_plot(all.accessory)
 
+
+##################################################
 # Sankey plots
+##################################################
 sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
-  total_count <- sum(data$count)
+  grand_total <- sum(data$count)
   
-  probe_counts <- data %>%
-    group_by(probe) %>%
-    summarise(total_probe_count = sum(count)) %>%
-    filter(total_probe_count >= filter_threshold * total_count)
-  
-  data <- data %>%
-    inner_join(probe_counts, by = "probe")
-  
-  species_counts <- data %>%
+  species_sums <- data %>%
     group_by(species) %>%
-    summarise(total_species_count = sum(count)) %>%
-    filter(total_species_count >= filter_threshold * total_count)
+    summarise(species_count = sum(count)) %>%
+    arrange(desc(species_count))
   
-  data <- data %>%
-    inner_join(species_counts, by = "species")
+  probe_sums <- data %>%
+    group_by(probe) %>%
+    summarise(probe_count = sum(count)) %>%
+    arrange(desc(probe_count))
   
+  # 3) Apply threshold-based filtering using those totals.
+  data_filtered <- data %>%
+    inner_join(
+      probe_sums %>% 
+        filter(probe_count >= filter_threshold * grand_total) %>% 
+        select(probe),
+      by = "probe"
+    ) %>%
+    inner_join(
+      species_sums %>% 
+        filter(species_count >= filter_threshold * grand_total) %>% 
+        select(species),
+      by = "species"
+    )
+  
+  # 4) Convert species and probe to factors ordered by descending total count
+  data_filtered <- data_filtered %>%
+    mutate(
+      species = factor(species, levels = species_sums$species),
+      probe   = factor(probe,   levels = probe_sums$probe)
+    )
+  
+  # Check required columns
   required_cols <- c("species", "probe", "count")
-  missing_cols <- setdiff(required_cols, names(data))
+  missing_cols <- setdiff(required_cols, names(data_filtered))
   if (length(missing_cols) > 0) {
     stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
   }
   
-  num_colours <- max(length(unique(data$species)), length(unique(data$probe)))
-  manual_colours <- futurama_unlimited_palette(3, num_colours)
+  # Create palette + Sankey
+  num_colours <- max(length(unique(data_filtered$species)), length(unique(data_filtered$probe)))
+  manual_colours <- futurama_unlimited_palette(12, num_colours)
   
-  plot <- ggplot(data, aes(axis1 = species, axis2 = probe, y = count)) +
+  ggplot(data_filtered, aes(axis1 = species, axis2 = probe, y = count)) +
     geom_alluvium(aes(fill = species, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
-      aes(size = after_stat(count), label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))),
+      aes(
+        size = after_stat(count),
+        label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))
+      ),
       nudge_x = -0.15,
       fontface = "bold",
       hjust = 0,
@@ -264,55 +293,60 @@ sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_thres
     scale_size_continuous(range = c(2, 6)) +
     theme_void() +
     theme(legend.position = "none") +
-    scale_fill_manual(values = manual_colours) +
-    theme(
-      plot.title = element_text(
-        size = 15L,
-        face = "bold",
-        vjust = 0,
-        hjust = 0.1
-      )
-    )
-  
-  return(plot)
+    scale_fill_manual(values = manual_colours)
 }
 
-main.full.sankey.species_probe.plot <- sankey_species_probe_plot(main.counted_probe)
-accessory.full.sankey.species_probe.plot <- sankey_species_probe_plot(accessory.counted_probe)
-
 sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
-  total_count <- sum(data$count)
+  grand_total <- sum(data$count)
   
-  probe_counts <- data %>%
+  family_sums <- data %>%
+    group_by(family) %>%
+    summarise(family_count = sum(count)) %>%
+    arrange(desc(family_count))
+  
+  probe_sums <- data %>%
     group_by(probe) %>%
-    summarise(total_probe_count = sum(count)) %>%
-    filter(total_probe_count >= filter_threshold * total_count)
+    summarise(probe_count = sum(count)) %>%
+    arrange(desc(probe_count))
   
-  data <- data %>%
-    inner_join(probe_counts, by = "probe")
+  data_filtered <- data %>%
+    inner_join(
+      probe_sums %>% 
+        filter(probe_count >= filter_threshold * grand_total) %>% 
+        select(probe),
+      by = "probe"
+    ) %>%
+    inner_join(
+      family_sums %>% 
+        filter(family_count >= filter_threshold * grand_total) %>% 
+        select(family),
+      by = "family"
+    )
   
-  species_counts <- data %>%
-    group_by(species) %>%
-    summarise(total_species_count = sum(count)) %>%
-    filter(total_species_count >= filter_threshold * total_count)
-  
-  data <- data %>%
-    inner_join(species_counts, by = "species")
+  # Factor re-level
+  data_filtered <- data_filtered %>%
+    mutate(
+      family = factor(family, levels = family_sums$family),
+      probe  = factor(probe,  levels = probe_sums$probe)
+    )
   
   required_cols <- c("family", "probe", "count")
-  missing_cols <- setdiff(required_cols, names(data))
+  missing_cols <- setdiff(required_cols, names(data_filtered))
   if (length(missing_cols) > 0) {
     stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
   }
   
-  num_colours <- max(length(unique(data$family)), length(unique(data$probe)))
-  manual_colours <- futurama_unlimited_palette(5, num_colours)
+  num_colours <- max(length(unique(data_filtered$family)), length(unique(data_filtered$probe)))
+  manual_colours <- futurama_unlimited_palette(12, num_colours)
   
-  plot <- ggplot(data, aes(axis1 = family, axis2 = probe, y = count)) +
+  ggplot(data_filtered, aes(axis1 = family, axis2 = probe, y = count)) +
     geom_alluvium(aes(fill = family, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
-      aes(size = after_stat(count), label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))),
+      aes(
+        size = after_stat(count),
+        label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))
+      ),
       nudge_x = -0.15,
       fontface = "bold",
       hjust = 0,
@@ -322,55 +356,60 @@ sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_thresh
     scale_size_continuous(range = c(2, 5)) +
     theme_void() +
     theme(legend.position = "none") +
-    scale_fill_manual(values = manual_colours) +
-    theme(
-      plot.title = element_text(
-        size = 15L,
-        face = "bold",
-        vjust = 0,
-        hjust = 0.1
-      )
-    )
-  
-  return(plot)
+    scale_fill_manual(values = manual_colours)
 }
 
-main.full.sankey.family_probe.plot <- sankey_family_probe_plot(main.counted_probe)
-accessory.full.sankey.family_probe.plot <- sankey_family_probe_plot(accessory.counted_probe)
-
 sankey_species_family_plot <- function(data, filter_threshold = plot_filter_threshold) {
-  total_count <- sum(data$count)
+  grand_total <- sum(data$count)
   
-  family_counts <- data %>%
+  family_sums <- data %>%
     group_by(family) %>%
-    summarise(total_family_count = sum(count)) %>%
-    filter(total_family_count >= filter_threshold * total_count)
+    summarise(family_count = sum(count)) %>%
+    arrange(desc(family_count))
   
-  data <- data %>%
-    inner_join(family_counts, by = "family")
-  
-  species_counts <- data %>%
+  species_sums <- data %>%
     group_by(species) %>%
-    summarise(total_species_count = sum(count)) %>%
-    filter(total_species_count >= filter_threshold * total_count)
+    summarise(species_count = sum(count)) %>%
+    arrange(desc(species_count))
   
-  data <- data %>%
-    inner_join(species_counts, by = "species")
+  data_filtered <- data %>%
+    inner_join(
+      family_sums %>% 
+        filter(family_count >= filter_threshold * grand_total) %>% 
+        select(family),
+      by = "family"
+    ) %>%
+    inner_join(
+      species_sums %>% 
+        filter(species_count >= filter_threshold * grand_total) %>% 
+        select(species),
+      by = "species"
+    )
+  
+  # Factor re-level
+  data_filtered <- data_filtered %>%
+    mutate(
+      species = factor(species, levels = species_sums$species),
+      family  = factor(family,  levels = family_sums$family)
+    )
   
   required_cols <- c("species", "family", "count")
-  missing_cols <- setdiff(required_cols, names(data))
+  missing_cols <- setdiff(required_cols, names(data_filtered))
   if (length(missing_cols) > 0) {
     stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
   }
   
-  num_colours <- max(length(unique(data$species)), length(unique(data$family)))
-  manual_colours <- futurama_unlimited_palette(3, num_colours)
+  num_colours <- max(length(unique(data_filtered$species)), length(unique(data_filtered$family)))
+  manual_colours <- futurama_unlimited_palette(12, num_colours)
   
-  plot <- ggplot(data, aes(axis1 = species, axis2 = family, y = count)) +
+  ggplot(data_filtered, aes(axis1 = species, axis2 = family, y = count)) +
     geom_alluvium(aes(fill = species, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
-      aes(size = after_stat(count), label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))),
+      aes(
+        size = after_stat(count),
+        label = sprintf("%s [%d]", after_stat(stratum), after_stat(count))
+      ),
       nudge_x = -0.15,
       fontface = "bold",
       hjust = 0,
@@ -380,23 +419,12 @@ sankey_species_family_plot <- function(data, filter_threshold = plot_filter_thre
     scale_size_continuous(range = c(2, 5)) +
     theme_void() +
     theme(legend.position = "none") +
-    scale_fill_manual(values = manual_colours) +
-    theme(
-      plot.title = element_text(
-        size = 15L,
-        face = "bold",
-        vjust = 0,
-        hjust = 0.05
-      )
-    )
-  
-  return(plot)
+    scale_fill_manual(values = manual_colours)
 }
 
-main.full.sankey.species_family.plot <- sankey_species_family_plot(main.counted_probe)
-accessory.full.sankey.species_family.plot <- sankey_species_family_plot(accessory.counted_probe)
-
+#########################################
 # Balloon plot
+#########################################
 balloon_virus_species_plot <- function(data) {
   required_cols <- c("abbreviation", "species", "probe", "count")
   missing_cols <- setdiff(required_cols, names(data))
@@ -412,7 +440,7 @@ balloon_virus_species_plot <- function(data) {
       color = probe,
       fill = probe,
       alpha = count,
-      size = count ** 3
+      size = count ^ 3
     ), shape = 15) +
     scale_color_manual(values = manual_colours) +
     scale_fill_manual(values = manual_colours) +
@@ -424,14 +452,12 @@ balloon_virus_species_plot <- function(data) {
     ) +
     scale_alpha_continuous(range = c(0.4, 1)) +
     theme(
-      plot.title = element_text(size = 15L, face = "bold", hjust = -0.15),
+      text = element_text(face = "bold"),
       axis.title.x = element_text(size = 12, face = "bold"),
       axis.title.y = element_text(size = 9, face = "bold"),
       axis.text.x = element_text(size = 9, face = "bold", angle = 45, hjust = 1),
-      axis.text.y = element_text(size = 9, face = "bold"),
+      axis.text.y = element_text(size = 9, face = "bold.italic"),
       strip.text = element_text(size = 12, face = "bold"),
-      legend.title = element_text(size = 12, face = "bold"),
-      legend.text = element_text(size = 10)
     ) +
     guides(size = "none")
   
@@ -441,7 +467,19 @@ balloon_virus_species_plot <- function(data) {
 main.full.balloon.virus_species.plot <- balloon_virus_species_plot(main.counted_probe)
 accessory.full.balloon.virus_species.plot <- balloon_virus_species_plot(accessory.counted_probe)
 
-# Save all plots
+#########################################
+# Generate & save the Sankey plots
+#########################################
+main.full.sankey.species_probe.plot  <- sankey_species_probe_plot(main.counted_probe)
+accessory.full.sankey.species_probe.plot <- sankey_species_probe_plot(accessory.counted_probe)
+
+main.full.sankey.family_probe.plot <- sankey_family_probe_plot(main.counted_probe)
+accessory.full.sankey.family_probe.plot <- sankey_family_probe_plot(accessory.counted_probe)
+
+main.full.sankey.species_family.plot <- sankey_species_family_plot(main.counted_probe)
+accessory.full.sankey.species_family.plot <- sankey_species_family_plot(accessory.counted_probe)
+
+# Finally, save all plots
 ggsave(
   filename = file.path(output.dir, "main_density.png"),
   plot = all.main.density.plot,
@@ -449,7 +487,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_density.png"),
   plot = all.accessory.density.plot,
@@ -457,7 +494,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_raincloud.png"),
   plot = main.full.raincloud.bitscore_probe.plot,
@@ -465,7 +501,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_raincloud.png"),
   plot = accessory.full.raincloud.bitscore_probe.plot,
@@ -473,7 +508,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "full_bar.png"),
   plot = all.full.bar.plot,
@@ -481,7 +515,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_bar.png"),
   plot = all.main.bar.plot,
@@ -489,7 +522,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_bar.png"),
   plot = all.accessory.bar.plot,
@@ -497,7 +529,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_sankey_a.png"),
   plot = main.full.sankey.species_probe.plot,
@@ -505,7 +536,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_sankey_a.png"),
   plot = accessory.full.sankey.species_probe.plot,
@@ -513,7 +543,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_sankey_b.png"),
   plot = main.full.sankey.family_probe.plot,
@@ -521,7 +550,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_sankey_b.png"),
   plot = accessory.full.sankey.family_probe.plot,
@@ -529,7 +557,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_sankey_c.png"),
   plot = main.full.sankey.species_family.plot,
@@ -537,7 +564,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_sankey_c.png"),
   plot = accessory.full.sankey.species_family.plot,
@@ -545,7 +571,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "main_balloon.png"),
   plot = main.full.balloon.virus_species.plot,
@@ -553,7 +578,6 @@ ggsave(
   height = 12,
   dpi = 300
 )
-
 ggsave(
   filename = file.path(output.dir, "accessory_balloon.png"),
   plot = accessory.full.balloon.virus_species.plot,
