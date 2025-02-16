@@ -6,7 +6,6 @@ library(rtracklayer)
 library(Biostrings)
 library(GenomicRanges)
 library(plyranges)
-library(ggrepel)
 library(ggsci)}
 )
 
@@ -16,13 +15,15 @@ if (length(args) != 4) {
   stop("Please provide exactly three arguments: fasta file, gff custom file, and gff LTRDigest file and output file")
 }
 
-fasta_file = args[1]
-gff_custom_file = args[2]
-gff_ltrdigest_file = args[3]
-output_file = args[4]
+args.fasta_file = args[1]
+args.gff_custom_file = args[2]
+args.gff_ltrdigest_file = args[3]
+args.output_file = args[4]
+
+print(paste0("Processing circle plots for ", basename(args.gff_custom_file), "..."))
 
 # Fasta file reading
-genome     <- readDNAStringSet(fasta_file)
+genome     <- readDNAStringSet(args.fasta_file)
 
 chr_names   <- names(genome)
 chr_lengths <- width(genome)
@@ -38,10 +39,11 @@ seqinfo(chromosomes) <- my_seqinfo
 
 # LTRDigest imports
 suppressMessages({
-  gff_custom      <- rtracklayer::import(gff_custom_file)
-  }) 
+  gff_custom      <- rtracklayer::import(args.gff_custom_file)
+  gff_ltrdigest <- rtracklayer::import(args.gff_ltrdigest_file)
+}) 
 
-gff_ltrdigest <- rtracklayer::import(gff_ltrdigest_file)
+# Subset hits
 gff_ltrdigest <- subsetByOverlaps(gff_ltrdigest, gff_custom)
 
 
@@ -107,17 +109,9 @@ p <- ggplot() +
     size = 2
   ) + 
   
-  # inner ring with chromosome names
-  layout_circle(chromosomes, geom = "text", aes(label = seqnames, size = width(chromosomes)), radius = 6.5) +
-  theme_void() +
-  theme(aspect.ratio = 1,
-        text = element_text(face = "bold"),
-        legend.position = "None") +
-  
-  
-  # LTRdigest  info
-  layout_circle(gff_ltrdigest, geom = "point", aes(y = type_num, shape = type, color = strand),
-                fill = "white", radius = 3, trackWidth = 5) +
+ # LTRdigest  info
+  layout_circle(gff_ltrdigest, geom = "point", aes(y = type_num, shape = type, color = strand, fill = strand),
+         radius = 3, trackWidth = 5) +
   
   # --- Scales ---
   # Combine colour and fill into one discrete scale
