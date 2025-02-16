@@ -1,25 +1,27 @@
-# If needed, install packages:
-# BiocManager::install(c("ggbio", "rtracklayer", "Biostrings"))
+options(warn = -1)
 
+suppressMessages({
 library(ggbio)
 library(rtracklayer)
 library(Biostrings)
 library(GenomicRanges)
 library(plyranges)
 library(ggrepel)
-library(ggsci)
+library(ggsci)}
+)
 
-# ------------------------------------------------
-# 1) Read genome and create a GRanges "ideogram"
-# ------------------------------------------------
-
-futurama_unlimited_palette <- function(input_colour_number = 12, output_colour_number) {
-  planet_express <- pal_futurama("planetexpress")(input_colour_number)
-  output_colour <- colorRampPalette(planet_express)(output_colour_number)
-  return (output_colour)
+# Parse command-line arguments
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) != 4) {
+  stop("Please provide exactly three arguments: fasta file, gff custom file, and gff LTRDigest file and output file")
 }
 
-fasta_file <- "V:/databases/local/blast_dbs/species/Hipposideros_larvatus.fa"
+fasta_file = args[1]
+gff_custom_file = args[2]
+gff_ltrdigest_file = args[3]
+output_file = args[4]
+
+# Fasta file reading
 genome     <- readDNAStringSet(fasta_file)
 
 chr_names   <- names(genome)
@@ -34,15 +36,14 @@ my_seqinfo <- Seqinfo(seqnames   = chr_names,
                       seqlengths = chr_lengths)
 seqinfo(chromosomes) <- my_seqinfo
 
-# ------------------------------------------------
-# 2) Import your GFF3 annotations
-# ------------------------------------------------
-gff_custom_file <- "C:/Users/Lympha/Documents/Repositories/enERVate/results/tracks/validated/Hipposideros_larvatus_main.gff3"
-gff_custom      <- import(gff_custom_file)
+# LTRDigest imports
+suppressMessages({
+  gff_custom      <- rtracklayer::import(gff_custom_file)
+  }) 
 
-gff_ltr_digest_file <- "C:/Users/Lympha/Documents/Repositories/enERVate/results/ltrdigest/Hipposideros_larvatus.gff3"
-gff_ltrdigest <- rtracklayer::import(gff_ltr_digest_file)
-gff_ltrdigest <- subsetByOverlaps(gff_ltrdigest, gff_custom) %>% filter(type == "LTR_retrotransposon")
+gff_ltrdigest <- rtracklayer::import(gff_ltrdigest_file)
+gff_ltrdigest <- subsetByOverlaps(gff_ltrdigest, gff_custom)
+
 
 # Keep only the common seqlevels in both objects
 common_levels <- intersect(seqlevels(chromosomes), seqlevels(gff_custom))
@@ -50,18 +51,39 @@ common_levels <- intersect(common_levels, seqlevels(gff_ltrdigest))
 chromosomes   <- keepSeqlevels(chromosomes,  common_levels, pruning.mode = "coarse")
 gff_custom    <- keepSeqlevels(gff_custom,   common_levels, pruning.mode = "coarse")
 gff_ltrdigest <- keepSeqlevels(gff_ltrdigest, common_levels, pruning.mode = "coarse")
+type_mapping <- c(
+  "RR_tract"              = 1,
+  "protein_match"         = 2,
+  "long_terminal_repeat"  = 3,
+  "target_site_duplication" = 4,
+  "repeat_region"         = 5,
+  "LTR_retrotransposon"   = 6  # largest => outer ring
+)
+
+
+# Clean data formats
+gff_custom <- gff_custom %>%
+  mutate(mean_bitscore = as.numeric(mean_bitscore),
+         mean_identity = as.numeric(mean_identity))
+
+gff_ltrdigest <- gff_ltrdigest %>%
+  mutate(
+    ltr_similarity = as.numeric(ltr_similarity),
+    type_num = type_mapping[as.character(type)]
+  )
+
 
 # Assign matching seqinfo
 seqinfo(gff_custom) <- seqinfo(chromosomes)
 seqinfo(gff_ltrdigest) <- seqinfo(chromosomes)
 
-# ------------------------------------------------
-# 3) Plot everything in one concentric circle
-# ------------------------------------------------
+
+
+# Plot
 p <- ggplot() +
   # (A) Chromosome ring
   layout_circle(chromosomes, geom = "ideo", fill = "white", color = "grey", alpha = 0.5, radius = 9) +
-
+  
   
   # (B) Main feature ring with dynamic color by probe
   layout_circle(
@@ -74,14 +96,14 @@ p <- ggplot() +
     ),
     radius = 9
   ) +
-
+  
   
   # (C) A separate ring for probe and identity
   layout_circle(
     subset(gff_custom, as.numeric(mean_bitscore) > 200),
-    aes(color = probe, alpha = as.numeric(mean_identity)),
+    aes(y = mean_bitscore, color = probe, alpha = mean_identity),
     geom = "point",
-    radius = 12,     # outward ring
+    radius = 14,     # outward ring
     size = 2
   ) + 
   
@@ -93,24 +115,42 @@ p <- ggplot() +
         legend.position = "None") +
   
   
-  # (B) LTRDigest feature ring with dynamic color by probe
-  layout_circle(
-    gff_ltrdigest,
-    geom = "rect",
-    aes(
-      color  = factor(strand),
-      fill = factor(strand),              
-      alpha = as.numeric(ltr_similarity),
-    ),
-    radius = 3
-  ) +
+  # LTRdigest  info
+  layout_circle(gff_ltrdigest, geom = "point", aes(y = type_num, shape = type, color = strand),
+                fill = "white", radius = 3, trackWidth = 5) +
+  
   # --- Scales ---
   # Combine colour and fill into one discrete scale
+  
   scale_colour_futurama(aesthetics = c("colour", "fill"),
-                        guide = guide_legend(title = "Probe")) +
+                        guide = guide_legend(title = "Feature", order = 1)) + 
+  
+  
   # Remove legends for alpha and size
-  scale_alpha(range = c(0.4, 1), guide = "none") +
+  scale_alpha(range = c(0.3, 1), guide = "none") +
+  
   scale_size_continuous(range = c(1, 3), guide = "none") +
+  
+  scale_shape_manual(
+    name   = "Sequence",
+    values = c(
+      "LTR_retrotransposon"  = 22,
+      "protein_match"        = 20,
+      "target_site_duplication" = 23,
+      "long_terminal_repeat" = 24,
+      "repeat_region"        = 25,
+      "RR_tract"             = 3
+    ),
+    breaks = c(
+      "repeat_region",
+      "RR_tract",
+      "target_site_duplication",
+      "long_terminal_repeat",
+      "protein_match",
+      "LTR_retrotransposon"
+    ),
+    guide = guide_legend(order = 2)
+  ) +
   
   theme_void() +
   theme(aspect.ratio = 1,
@@ -119,4 +159,6 @@ p <- ggplot() +
 
 p
 
-ggplot2::ggsave(filename="C:/Users/Lympha/Documents/Repositories/enERVate/results/plots/hipposideros_larvatus_main.png", plot = p, width = 20, height = 20, dpi = 300)
+
+# Save plot
+ggplot2::ggsave(filename=args.output_file, plot = p, width = 20, height = 20, dpi = 300)
