@@ -213,6 +213,7 @@ new_scale_color() +
   # Remove background and set properties
   theme_void() +
   theme(aspect.ratio = 1,
+        text = element_text(face = "bold"),
         legend.position = "right"
   )
 
