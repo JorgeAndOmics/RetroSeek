@@ -402,12 +402,15 @@ rule circle_plot_generator_setup:
         hits= os.path.join(defaults.TRACK_VALIDATED_DIR, '{genome}_main.gff3'),
         ltrdigest=os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
     output:
-        circle_plot=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png')
+        circle_plot_png=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),
+        circle_plot_pdf=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.pdf')
+
     params:
         species_db=defaults.SPECIES_DB,
         ltrdigest_dir=defaults.LTRDIGEST_DIR,
         validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
-        circle_plot_dir=defaults.CIRCLE_PLOT_DIR
+        circle_plot_dir=defaults.CIRCLE_PLOT_DIR,
+        bitscore_threshold=config.get('circle_plot_bitscore_threshold',0),
     threads:
         workflow.cores
     shell:
@@ -416,7 +419,8 @@ rule circle_plot_generator_setup:
         {params.species_db:q}/{wildcards.genome:q}.fa \
         {params.validated_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
-        {params.circle_plot_dir:q}/{wildcards.genome:q}.png
+        {params.bitscore_threshold:q} \
+        {params.circle_plot_dir:q}/{wildcards.genome:q}
         '''
 
 rule circle_plot_generator:
