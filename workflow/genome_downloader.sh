@@ -29,7 +29,7 @@ if [[ "$QUERY" =~ ^GC[AF]_[0-9]+(\.[0-9]+)?$ ]]; then
     BEST_ASSEMBLY="$QUERY"
     BEST_LEVEL="Direct_Accession"
     QUERY_SAFE="$QUERY"
-    # Replace "." with "_" in filenames
+    # Replace "." with "_" in filenames if needed
     # QUERY_SAFE="${QUERY//./_}"
 else
     ################################################################################
@@ -41,19 +41,23 @@ else
     BEST_LEVEL=""
 
     for LEVEL in "Complete" "Chromosome" "Scaffold" "Contig"; do
-        
-        # Capture datasets command output and check for errors
-        DATASETS_OUTPUT=$(datasets summary genome taxon "$QUERY" $API_KEY_FLAG 2>&1)
-        
+
+        # Capture datasets command output, including warnings
+        DATASETS_OUTPUT="$(datasets summary genome taxon "$QUERY" $API_KEY_FLAG 2>&1)"
+
+        # Remove the “New version...” first line if present
+        FILTERED_OUTPUT="$(echo "$DATASETS_OUTPUT" | sed '/^New version of client (/d')"
+
         # Check if output contains an error message about an ambiguous name
-        if echo "$DATASETS_OUTPUT" | grep -q "The taxonomy name"; then
+        if echo "$FILTERED_OUTPUT" | grep -q "The taxonomy name"; then
             echo "⚠ Warning: Ambiguous or invalid name '$QUERY'."
-            echo "$DATASETS_OUTPUT"
+            echo "$FILTERED_OUTPUT"
             exit 1
         fi
 
-        # Extract candidate genome accession if no errors
-        CANDIDATE=$(echo "$DATASETS_OUTPUT" | jq -r "[.reports[] | select(.assembly_info.assembly_level==\"$LEVEL\")][0].accession")
+        # Extract candidate genome accession using the filtered JSON
+        CANDIDATE="$(echo "$FILTERED_OUTPUT" \
+                     | jq -r "[.reports[] | select(.assembly_info.assembly_level==\"$LEVEL\")][0].accession")"
 
         if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "null" ]; then
             BEST_ASSEMBLY="$CANDIDATE"
@@ -85,14 +89,17 @@ datasets download genome accession "$BEST_ASSEMBLY" $API_KEY_FLAG \
 --include genome \
 --assembly-version latest \
 --exclude-atypical \
---filename "$ZIPFILE" \
+--filename "$ZIPFILE"
 
 # Get the actual uncompressed size of the FASTA file (sum sizes of extracted files)
-UNCOMPRESSED_SIZE=$(unzip -Z -1 "$ZIPFILE" ncbi_dataset/data/*/*.fna | xargs -I{} unzip -p "$ZIPFILE" {} | wc -c)
+UNCOMPRESSED_SIZE=$(unzip -Z -1 "$ZIPFILE" ncbi_dataset/data/*/*.fna \
+    | xargs -I{} unzip -p "$ZIPFILE" {} \
+    | wc -c)
 
 # Extract the FASTA file with an accurate progress bar
 echo "Extracting FASTA file for $QUERY..."
-unzip -p "$ZIPFILE" ncbi_dataset/data/*/*.fna | pv -s "$UNCOMPRESSED_SIZE" > "$FASTA_FILE"
+unzip -p "$ZIPFILE" ncbi_dataset/data/*/*.fna \
+    | pv -s "$UNCOMPRESSED_SIZE" > "$FASTA_FILE"
 
 # Remove the ZIP file with a progress bar
 echo "Removing ZIP file: $ZIPFILE"
