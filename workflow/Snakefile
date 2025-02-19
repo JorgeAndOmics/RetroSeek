@@ -50,6 +50,11 @@ rule genome_downloader_setup:
 rule genome_downloader:
     input:
         species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
+    priority: 100
+    shell:
+        """
+        echo "Genome download completed for selected species"
+        """
 
 
 rule pfam_hmm_downloader:
@@ -69,19 +74,6 @@ rule pfam_hmm_downloader:
         """
 
 
-rule fa_converter:
-    output:
-        fa=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
-    params:
-        SPECIES_DB=defaults.SPECIES_DB
-    shell:
-        """
-        for file in *FASTA *.fasta *.fna *.fas; do
-            mv "$file" "${{file%.*}}.fa"
-        done
-        """
-
-
 rule blast_db_generator_setup:
     input:
         fa = os.path.join(defaults.SPECIES_DB, '{genome}.fa')
@@ -97,6 +89,13 @@ rule blast_db_generator_setup:
         db_dir=defaults.SPECIES_DB
     shell:
         """
+        for ext in FASTA fasta fna fas; do
+            for file in *."$ext"; do
+                if [ -f "$file" ]; then
+                    mv "$file" "${{file%.*}}.fa"
+                fi
+            done
+        done && \
         makeblastdb -in {input.fa:q} -dbtype nucl -parse_seqids \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """
