@@ -40,6 +40,8 @@ rule genome_downloader_setup:
         SPECIES_DB=defaults.SPECIES_DB,
         DOWNLOAD_LOG=os.path.join(defaults.SPECIES_DIR, 'download.txt'),
         API_KEY=defaults.NCBI_API_TOKEN
+    threads:
+        workflow.cores / 3
     shell:
         '''
         export NCBI_API_KEY={params.API_KEY:q} && \
@@ -126,9 +128,8 @@ rule ltr_index_generator_setup:
         suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
     shell:
         """
-        TMPDIR=$(mktemp -d /tmp/suffixerator_{wildcards.genome}_XXXXXX) && \
+        TMPDIR=$(mktemp -d "/tmp/suffixerator_{wildcards.genome}_XXXXXX)" && \
         gt -j {threads} suffixerator \
-        -v -showprogress \
         -db {input.fa:q} \
         -indexname {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q} \
         {params.suffix_params}
@@ -177,7 +178,8 @@ rule ltr_harvester:
 
 rule ltr_digester_setup:
     input:
-        rules.ltr_harvester_setup.output.ltr_sorted_gff3
+        ltrharvest_output=rules.ltr_harvester_setup.output.ltr_sorted_gff3,
+        pfam_database=rules.pfam_hmm_downloader.output
     output:
         ltr_gff3 = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
     params:
