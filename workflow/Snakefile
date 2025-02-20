@@ -126,13 +126,16 @@ rule ltr_index_generator_setup:
     params:
         db_dir=defaults.SPECIES_DB,
         suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
+    threads:
+        workflow.cores
     shell:
         """
-        TMPDIR=$(mktemp -d "/tmp/suffixerator_{wildcards.genome}_XXXXXX)" && \
-        gt -j {threads} suffixerator \
+        echo "Generating suffix array for {wildcards.genome:q}" && \
+        gt suffixerator \
         -db {input.fa:q} \
         -indexname {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q} \
-        {params.suffix_params}
+        {params.suffix_params} \
+        -parts 2
         """
 
 
