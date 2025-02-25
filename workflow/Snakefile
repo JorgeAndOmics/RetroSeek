@@ -278,6 +278,7 @@ rule ranges_analysis_main_setup:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
         probes_dir=defaults.TABLE_INPUT_DIR,
+        workflow_dir=defaults.WORKFLOW_DIR,
         plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
@@ -294,6 +295,7 @@ rule ranges_analysis_main_setup:
         {params.segmented_species_dir:q}/{wildcards.genome:q}_main.parquet \
         {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         {params.probes_dir:q}/probes.csv \
+        {params.workflow_dir:q} \
         {params.ltr_resize:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \
@@ -321,6 +323,7 @@ rule ranges_analysis_accessory_setup:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
         probes_dir=defaults.TABLE_INPUT_DIR,
+        workflow_dir=defaults.WORKFLOW_DIR,
         plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
@@ -337,6 +340,7 @@ rule ranges_analysis_accessory_setup:
         {params.segmented_species_dir:q}/{wildcards.genome:q}_accessory.parquet \
         {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         {params.probes_dir:q}/probes.csv \
+        {params.workflow_dir:q} \
         {params.ltr_resize:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \

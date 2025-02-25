@@ -14,15 +14,16 @@ PROBE_MIN_LENGTH: dict = {
     'G_protein': 200,
     'L_protein': 200,
     'X_protein': 200,
-    'M_protein': 200
+    'M_protein': 200,
+    'Pr160': 200
 }
 
 # Logging
 LEVEL_STYLES: dict = {
-    'debug': {'color': 'white'},     # Standard debug level
-    'info': {'color': 'cyan', 'bold': 'yes'},     # Standard info level
-    'warning': {'color': 'yellow'},  # Standard warning level
-    'error': {'color': 'red', 'bold': 'yes'},      # Standard error level
+    'debug': {'color': 'white'},                    # Standard debug level
+    'info': {'color': 'cyan', 'bold': 'yes'},       # Standard info level
+    'warning': {'color': 'yellow'},                 # Standard warning level
+    'error': {'color': 'red', 'bold': 'yes'},       # Standard error level
     'critical': {'color': 'black', 'bold': 'yes', 'background': 'red'},  # Standard critical level
 }
 
@@ -38,37 +39,36 @@ FIELD_STYLES: dict = {
 }
 
 # Databases
-ROOT_CONFIG_FILE = os.path.join('..', 'data', 'config', 'root_folder.txt')
+ROOT_CONFIG_FILE = os.path.abspath(os.path.join('..', 'data', 'config', 'root_folder.txt'))
 with open(ROOT_CONFIG_FILE, 'r') as f:
-    ROOT = f.readline().strip()
-ROOT_DB = os.path.join(ROOT, 'local')
-SPECIES_DB = os.path.join(ROOT_DB, 'blast_dbs', 'species')
-ACCESSORY_DB = os.path.join(ROOT, 'accessory')
+    ROOT = os.path.abspath(f.readline().strip())
 
+ROOT_DB = os.path.abspath(os.path.join(ROOT, 'local'))
+SPECIES_DB = os.path.abspath(os.path.join(ROOT_DB, 'blast_dbs', 'species'))
+ACCESSORY_DB = os.path.abspath(os.path.join(ROOT, 'accessory'))
 
 # Directories
-
-DATA_DIR = os.path.join('..', 'data')
-RESULTS_DIR = os.path.join('..', 'results')
-LOG_DIR = os.path.join('..', 'logs')
-SPECIES_DIR = os.path.join(DATA_DIR, 'species')
-TABLE_INPUT_DIR = os.path.join(DATA_DIR, 'tables')
-PICKLE_DIR = os.path.join(DATA_DIR, 'pickles')
-TMP_DIR = os.path.join(DATA_DIR, 'tmp')
-TABLE_OUTPUT_DIR = os.path.join(RESULTS_DIR, 'tables')
-PLOT_DIR = os.path.join(RESULTS_DIR, 'plots')
-CIRCLE_PLOT_DIR = os.path.join(PLOT_DIR, 'circle_plots')
-TRACK_DIR = os.path.join(RESULTS_DIR, 'tracks')
-TRACK_ORIGINAL_DIR = os.path.join(TRACK_DIR, 'original')
-TRACK_CANDIDATES_DIR = os.path.join(TRACK_DIR, 'candidates')
-TRACK_VALIDATED_DIR = os.path.join(TRACK_DIR, 'validated')
-LTRHARVEST_DIR = os.path.join(RESULTS_DIR, 'ltrharvest')
-LTRDIGEST_DIR = os.path.join(RESULTS_DIR, 'ltrdigest')
-TABLE_OVERLAP_MATRIX_DIR = os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix')
-SEGMENTED_SPECIES_DIR = os.path.join(TABLE_OUTPUT_DIR, 'segmented_species')
-PLOT_DATAFRAMES_DIR = os.path.join(TABLE_OUTPUT_DIR, 'plot_dataframes')
-HMM_PROFILE_DIR = os.path.join(ROOT, 'accessory', 'hmm_profiles')
-
+DATA_DIR = os.path.abspath(os.path.join('..', 'data'))
+RESULTS_DIR = os.path.abspath(os.path.join('..', 'results'))
+LOG_DIR = os.path.abspath(os.path.join('..', 'logs'))
+WORKFLOW_DIR = os.path.abspath(os.path.join('..', 'workflow'))
+SPECIES_DIR = os.path.abspath(os.path.join(DATA_DIR, 'species'))
+TABLE_INPUT_DIR = os.path.abspath(os.path.join(DATA_DIR, 'tables'))
+PICKLE_DIR = os.path.abspath(os.path.join(DATA_DIR, 'pickles'))
+TMP_DIR = os.path.abspath(os.path.join(DATA_DIR, 'tmp'))
+TABLE_OUTPUT_DIR = os.path.abspath(os.path.join(RESULTS_DIR, 'tables'))
+PLOT_DIR = os.path.abspath(os.path.join(RESULTS_DIR, 'plots'))
+CIRCLE_PLOT_DIR = os.path.abspath(os.path.join(PLOT_DIR, 'circle_plots'))
+TRACK_DIR = os.path.abspath(os.path.join(RESULTS_DIR, 'tracks'))
+TRACK_ORIGINAL_DIR = os.path.abspath(os.path.join(TRACK_DIR, 'original'))
+TRACK_CANDIDATES_DIR = os.path.abspath(os.path.join(TRACK_DIR, 'candidates'))
+TRACK_VALIDATED_DIR = os.path.abspath(os.path.join(TRACK_DIR, 'validated'))
+LTRHARVEST_DIR = os.path.abspath(os.path.join(RESULTS_DIR, 'ltrharvest'))
+LTRDIGEST_DIR = os.path.abspath(os.path.join(RESULTS_DIR, 'ltrdigest'))
+TABLE_OVERLAP_MATRIX_DIR = os.path.abspath(os.path.join(TABLE_OUTPUT_DIR, 'overlap_matrix'))
+SEGMENTED_SPECIES_DIR = os.path.abspath(os.path.join(TABLE_OUTPUT_DIR, 'segmented_species'))
+PLOT_DATAFRAMES_DIR = os.path.abspath(os.path.join(TABLE_OUTPUT_DIR, 'plot_dataframes'))
+HMM_PROFILE_DIR = os.path.abspath(os.path.join(ROOT, 'accessory', 'hmm_profiles'))
 
 # Directory generation
 os.makedirs(ROOT, exist_ok=True)
@@ -82,6 +82,7 @@ os.makedirs(PLOT_DIR, exist_ok=True)
 os.makedirs(CIRCLE_PLOT_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(WORKFLOW_DIR, exist_ok=True)
 os.makedirs(TMP_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(TRACK_DIR, exist_ok=True)
@@ -96,37 +97,35 @@ os.makedirs(PICKLE_DIR, exist_ok=True)
 os.makedirs(PLOT_DATAFRAMES_DIR, exist_ok=True)
 os.makedirs(HMM_PROFILE_DIR, exist_ok=True)
 
-
 # Execution and requests
 USE_SPECIES_LIST: bool = False
 MAX_RETRIEVAL_ATTEMPTS: int = 3
 MAX_EXECUTION_ATTEMPTS_PER_SECOND: int = 10
 MIN_EXECUTION_INTERVAL: int = 1  # seconds
-MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum number of workers that can be used
+MAX_THREADPOOL_WORKERS: int = None  # In my laptop, 7 is the maximum
 GENBANK_RETRIEVAL: bool = False
 ENTREZ_EMAIL: str = 'jgonzlez@tcd.ie'
 NCBI_API_TOKEN: str = 'faa9e17bb461e82963f079c167ec5c7aac08'
-
 
 # Displays
 DISPLAY_REQUESTS_WARNING: bool = False
 DISPLAY_OPERATION_INFO: bool = False
 
-
 # CSV
 CSV_DELIMITER: str = ','
-CSV_ATTRIBUTES: list[str] = ['Family',
-                             'Virus',
-                             'Abbreviation',
-                             'Species',
-                             'Probe',
-                             'Accession',
-                             'Identifier',
-                             'Strand']
-
+CSV_ATTRIBUTES: list[str] = [
+    'Family',
+    'Virus',
+    'Abbreviation',
+    'Species',
+    'Probe',
+    'Accession',
+    'Identifier',
+    'Strand'
+]
 
 # Genomes
-SPECIES_FILE = os.path.join(SPECIES_DIR, 'species.txt')
+SPECIES_FILE = os.path.abspath(os.path.join(SPECIES_DIR, 'species.txt'))
 
 if not USE_SPECIES_LIST:
     SPECIES: list = [(f.split('.fa')[0]).strip() for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
@@ -134,31 +133,3 @@ else:
     SPECIES: list = [line.strip() for line in open(SPECIES_FILE, 'r')]
 
 VIRUS: list = ['NCBI_Virus']
-
-# [
-#         'Desmodus_rotundus',
-#         'Miniopterus_schreibersii',
-#         'Tadarida_brasiliensis',
-#         'Antrozous_pallidus',
-#         'Molossus_molossus',
-#         'Artibeus_lituratus',
-#         'Eptesicus_fuscus',
-#         'Myotis_myotis',
-#         'Eptesicus_nilssonii',
-#         'Pipistrellus_kuhlii',
-#         'Rhinolophus_ferrumequinum',
-#         'Saccopteryx_bilineata',
-#         'Vespertilio_murinus',
-#         'Plecotus_auritus',
-#         'Rhinolophus_hipposideros',
-#         'Phyllostomus_discolor',
-#         'Myotis_daubentonii',
-#         'Myotis_mystacinus',
-#         'Corynorhinus_townsendii',
-#         'Hipposideros_larvatus',
-#         'Rhynchonycteris_naso',
-#         'Saccopteryx_leptura',
-#         'Molossus_alvarezi',
-#         'Glossophaga_mutica',
-#         'Molossus_nigricans'
-#     ]
