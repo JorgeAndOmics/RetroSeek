@@ -287,7 +287,8 @@ rule ranges_analysis_main_setup:
         overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
-        ltr_resize=config.get('ltr_resize',0)
+        ltr_resize=config.get('ltr_resize',0),
+        merge_option=config.get('merge_option','family')
     shell:
         '''
         Rscript ranges_analysis.R \
@@ -297,6 +298,7 @@ rule ranges_analysis_main_setup:
         {params.probes_dir:q}/probes.csv \
         {params.workflow_dir:q} \
         {params.ltr_resize:q} \
+        {params.merge_option:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \
         {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
@@ -332,7 +334,8 @@ rule ranges_analysis_accessory_setup:
         overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
         bitscore_threshold=config.get('bitscore_threshold',0),
         identity_threshold=config.get('identity_threshold',0),
-        ltr_resize=config.get('ltr_resize',0)
+        ltr_resize=config.get('ltr_resize',0),
+        merge_option=config.get('merge_option','family')
     shell:
         '''
         Rscript ranges_analysis.R \
@@ -342,6 +345,7 @@ rule ranges_analysis_accessory_setup:
         {params.probes_dir:q}/probes.csv \
         {params.workflow_dir:q} \
         {params.ltr_resize:q} \
+        {params.merge_option:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \
         {params.original_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \

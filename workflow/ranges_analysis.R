@@ -33,8 +33,8 @@ suppressMessages({
 # and prints an error message showing the user the correct usage.
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) != 13) {
-  stop("Please provide exactly thirteen arguments as follows:
+if (length(args) != 14) {
+  stop("Please provide exactly fourteen arguments as follows:
   Options:
   fasta=<file>               Path to the genome FASTA input file
   enervate=<file>            Path to the enERVate Parquet input file
@@ -43,7 +43,8 @@ if (length(args) != 13) {
   defaults=<path>            Path to the defaults.py directory
   bitscore_threshold=<val>   Bitscore threshold for filtering
   identity_threshold=<val>   Identity threshold for filtering
-  ltr-resize=<val>           Amount to resize LTRdigest ranges
+  ltr_resize=<val>           Amount to resize LTRdigest ranges
+  merge_options=<val>        Options for merging ranges (species or virus)
   original_ranges=<file>     Path to the Original Ranges output file
   candidate_ranges=<file>    Path to the Candidate Ranges output file
   valid_ranges=<file>        Path to the Validated Ranges output file
@@ -60,11 +61,12 @@ args.defaults <- args[5]
 args.bitscore_threshold <- as.numeric(args[6])
 args.identity_threshold <- as.numeric(args[7])
 args.ltr_resize <- as.numeric(args[8])
-args.original_ranges <- args[9]
-args.candidate_ranges <- args[10]
-args.valid_ranges <- args[11]
-args.overlap_matrix <- args[12]
-args.plot_dataframe <- args[13]
+args.merge_options <- args[9]
+args.original_ranges <- args[10]
+args.candidate_ranges <- args[11]
+args.valid_ranges <- args[12]
+args.overlap_matrix <- args[13]
+args.plot_dataframe <- args[14]
 
 
 # This line prints a progress message showing which enERVate file is being processed.
@@ -196,21 +198,39 @@ gr_list <- split(gr, ~ probe)
 # -----------------------
 # For each subgroup (i.e., each probe), apply a function that merges overlapping
 # or adjacent ranges based on the 'min_gapwidth'. We keep selected metadata fields,
-# summarizing bitscore and identity by taking the max for each merging block.
+# summarizing bitscore and identity by taking the max for each merging block. Two 
+# ways to merge: By species or by family
 
-gr_list_reduced <- sapply(gr_list, function(sub_gr) {
-  gap_val <- unique(sub_gr$min_gapwidth)  # Each subgroup has a single gap width
-  sub_gr <- sub_gr %>% 
-    group_by(probe, virus) %>%           # Group further by probe and virus
-    reduce_ranges_directed(
-      min.gapwidth = gap_val,
-      virus    = as.character(unique(virus)),
-      species  = as.character(unique(species)),
-      family   = as.character(unique(family)),
-      bitscore = max(bitscore),
-      identity = max(identity)
-    )
-})
+if (args.merge_options == "species") {
+  gr_list_reduced <- sapply(gr_list, function(sub_gr) {
+    gap_val <- unique(sub_gr$min_gapwidth)  # Each subgroup has a single gap width
+    sub_gr <- sub_gr %>% 
+      group_by(probe, virus) %>%           # Group further by probe and virus
+      reduce_ranges_directed(
+        min.gapwidth = gap_val,
+        virus    = as.character(unique(virus)),
+        species  = as.character(unique(species)),
+        family   = as.character(unique(family)),
+        bitscore = max(bitscore),
+        identity = max(identity)
+      )
+  })
+}
+
+if (args.merge_options == "virus") {
+  gr_list_reduced <- sapply(gr_list, function(sub_gr) {
+    gap_val <- unique(sub_gr$min_gapwidth)  # Each subgroup has a single gap width
+    sub_gr <- sub_gr %>% 
+      group_by(probe, family) %>%           # Group further by probe and virus
+      reduce_ranges_directed(
+        min.gapwidth = gap_val,
+        virus    = paste(unique(virus), collapse = "; "),
+        species  = as.character(unique(species)),
+        bitscore = max(bitscore),
+        identity = max(identity)
+      )
+  })
+}
 
 # -----------------------
 # 10c. RECOMBINE RESULTS
