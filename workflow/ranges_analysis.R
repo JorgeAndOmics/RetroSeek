@@ -70,7 +70,7 @@ args.plot_dataframe <- args[14]
 
 
 # This line prints a progress message showing which enERVate file is being processed.
-print(paste0('Processing ranges for ', basename(args.enervate), '...'))
+print(paste0('Processing ranges for ', tools::file_path_sans_ext(basename(args.enervate)), '...'))
 
 
 # -------------------------------------------------
