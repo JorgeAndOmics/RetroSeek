@@ -6,32 +6,6 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
-rule directory_generator:
-    output:
-        root_dir=defaults.ROOT,
-        root_db_dir=defaults.ROOT_DB,
-        species_dir=defaults.SPECIES_DIR,
-        species_db=defaults.SPECIES_DB,
-        ltrharvest_dir=defaults.LTRHARVEST_DIR,
-        ltrdigest_dir=defaults.LTRDIGEST_DIR,
-        plot_dir=defaults.PLOT_DIR,
-        log_dir=defaults.LOG_DIR,
-        tmp_dir=defaults.TMP_DIR,
-        results_dir=defaults.RESULTS_DIR,
-        track_dir=defaults.TRACK_DIR,
-        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
-        track_original_dir=defaults.TRACK_ORIGINAL_DIR,
-        track_candidates_dir=defaults.TRACK_CANDIDATES_DIR,
-        track_validated_dir=defaults.TRACK_VALIDATED_DIR,
-        table_input_dir=defaults.TABLE_INPUT_DIR,
-        table_output_dir=defaults.TABLE_OUTPUT_DIR,
-        table_overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        pickle_dir=defaults.PICKLE_DIR,
-        hmm_profile_dir=defaults.HMM_PROFILE_DIR
-    priority: 100
-    shell:
-        'mkdir -p {output:q}'
-
 
 rule genome_downloader_setup:
     output:
@@ -438,3 +412,46 @@ rule circle_plot_generator_setup:
 rule circle_plot_generator:
     input:
         circle_plots=expand(os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),genome=defaults.SPECIES)
+
+
+# TODO: DEDUPLICATOR FUNCTION; SUFFIX PARSING
+rule hotspot_detector_setup:
+    input:
+        tracks=rules.ranges_analysis.input,
+    output:
+        hotspot_csv=os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'),
+        hotspot_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}.pdf'),
+        hotspot_track=os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3')
+    params:
+        genomes_dir=defaults.SPECIES_DB,
+        input_track_dir=defaults.TRACK_ORIGINAL_DIR,          # For now
+        window_size=config.get('window_size', 10000),
+        mask_size=config.get('mask_size', 20),
+        mask_mismatch=config.get('mask_mismatch', 2),
+        permutations=config.get('permutations', 3),
+        pvalue_threshold=config.get('pvalue_threshold', 0.05),
+        csv_dir=defaults.TABLE_HOTSPOT_DIR,
+        pdf_dir=defaults.HOTSPOT_PDF_DIR,
+        track_dir=defaults.TRACK_HOTSPOTS_DIR
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript hotspot_detector.R \
+        {params.genomes_dir:q}/{wildcards.genome}.fa \
+        {params.input_track_dir:q}/{wildcards.genome}_main.gff3 \
+        {params.window_size:q} \
+        {params.mask_size:q} \
+        {params.mask_mismatch:q} \
+        {params.permutations:q} \
+        {params.pvalue_threshold:q} \
+        {params.csv_dir:q} \
+        {params.pdf_dir:q} \
+        {params.track_dir:q}
+        '''
+
+rule hotspot_detector:
+    input:
+        hotspot_csv=expand(os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'), genome=defaults.SPECIES),
+        hotspot_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}.pdf'), genome=defaults.SPECIES),
+        hotspot_track=expand(os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
