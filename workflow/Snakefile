@@ -420,7 +420,9 @@ rule hotspot_detector_setup:
         tracks=rules.ranges_analysis.input,
     output:
         hotspot_csv=os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'),
-        hotspot_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}.pdf'),
+        hotspot_histogram_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_histogram.pdf'),
+        hotspot_density_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_density.pdf'),
+        hotspot_heatmap_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_heatmap.pdf'),
         hotspot_track=os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3')
     params:
         genomes_dir=defaults.SPECIES_DB,
@@ -453,5 +455,7 @@ rule hotspot_detector_setup:
 rule hotspot_detector:
     input:
         hotspot_csv=expand(os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'), genome=defaults.SPECIES),
-        hotspot_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}.pdf'), genome=defaults.SPECIES),
+        hotspot_histogram_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_histogram.pdf'), genome=defaults.SPECIES),
+        hotspot_density_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_density.pdf'), genome=defaults.SPECIES),
+        hotspot_heatmap_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_heatmap.pdf'), genome=defaults.SPECIES),
         hotspot_track=expand(os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
