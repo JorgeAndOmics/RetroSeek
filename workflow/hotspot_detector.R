@@ -53,7 +53,10 @@ genome_granges <- GRanges(
   ranges   = IRanges(start = 1, end = width(subject_genome))
 )
 
-seqinfo.vec <- setNames(width(subject_genome), names(subject_genome))
+# Clean names in case of chromosomes with description
+chrom.names.filtered <- stringr::str_extract(names(subject_genome), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
+
+seqinfo.vec <- setNames(width(subject_genome), chrom.names.filtered)
 
 # =============================================================================
 # 3. Create Genomic Windows (Tiles) and Mask Some Unmappable Regions
@@ -223,7 +226,7 @@ rtracklayer::export(all_hotspots, outfile, format = "gff3")
 # =============================================================================
 # A) EMPIRICAL DENSITY PLOTS (Permutation Distribution)
 # =============================================================================
-density_pdf_path <- file.path(args.pdf_output_dir, paste0(species_name, "_empirical_density.pdf"))
+density_pdf_path <- file.path(args.pdf_output_dir, paste0(species_name, "_density.pdf"))
 pdf(density_pdf_path, width = 15, height = 12)
 for (res in perm_results) {
   family_name    <- res$family
