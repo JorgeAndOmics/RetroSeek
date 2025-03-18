@@ -110,8 +110,8 @@ perm_results <- map2(
   ~{
     message("Running permutation test for family: ", .x, "\n")
     result <- permTest(
-      A = genomic_windows,
-      B = .y,
+      A = .y,
+      B = genomic_windows,
       genome = genome_granges,
       randomize.function = randomize_ervs,
       evaluate.function   = numOverlaps,
@@ -173,6 +173,7 @@ for (res in perm_results) {
       x = "Number of Overlaps",
       y = "Frequency"
     ) +
+    scale_y_continuous(breaks = seq(0, max(table(df$Overlaps)), by = 1)) +
     theme_minimal() +
     scale_fill_nejm()
   
