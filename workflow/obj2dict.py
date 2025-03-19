@@ -78,6 +78,7 @@ def extract_attributes_from_object(obj):
         data['hsp_strand'] = hsp.strand
         data['hsp_frame'] = hsp.frame
     else:
+        # yay!
         data['hsp_bits'] = None
         data['hsp_score'] = None
         data['hsp_evalue'] = None
