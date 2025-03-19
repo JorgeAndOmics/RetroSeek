@@ -173,7 +173,6 @@ for (res in perm_results) {
       x = "Number of Overlaps",
       y = "Frequency"
     ) +
-    scale_y_continuous(breaks = seq(0, max(table(df$Overlaps)), by = 1)) +
     theme_minimal() +
     scale_fill_nejm()
   

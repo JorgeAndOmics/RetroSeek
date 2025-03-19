@@ -2,28 +2,34 @@ import seq_utils
 import utils
 import defaults
 
+import argparse
+
 from colored_logging import colored_logging
 import logging
 
 if __name__ == '__main__':
     colored_logging(log_file_name='full_genome_blaster.txt')
 
+    # Add argument parser
+    parser = argparse.ArgumentParser(description='Performs tBLASTn on a genome.')
+    parser.add_argument('--genome', type=str, help='The name of the genome to perform tBLASTn on.')
+    parser.add_argument('--num_threads', type=str, default=defaults.MAX_THREADPOOL_WORKERS, help='The number of threads to use for tBLASTn.')
+    args = parser.parse_args()
+    genome = args.genome
+    num_threads = args.num_threads
+
     probe_dict: dict = utils.unpickler(input_directory_path=defaults.PICKLE_DIR,
                                        input_file_name='probe_dict.pkl')
 
-    clean_tblastn2gb_results: dict = seq_utils.blast_retriever(object_dict=probe_dict,
+    tblastn_results: dict = seq_utils.blast_retriever(object_dict=probe_dict,
                                                                command='tblastn',
-                                                               genome=defaults.SPECIES,
-                                                               online_database='nucleotide',
-                                                               genbank_retrieval=False,
+                                                               genome=args.genome,
                                                                input_database_path=defaults.SPECIES_DB,
-                                                               multi_threading=True,
+                                                               num_threads=num_threads,
                                                                display_full_info=False)
 
-    utils.pickler(data=clean_tblastn2gb_results,
-                  output_directory_path=defaults.PICKLE_DIR,
-                  output_file_name='full_genome_blast.pkl')
+    utils.pickler(data=tblastn_results,
+                  output_directory_path=defaults.TBLASTN_PICKLE_DIR,
+                  output_file_name=f'{genome}.pkl')
 
-    utils.directory_content_eraser(directory_path=defaults.TMP_DIR)
-
-    logging.info(f'Successfully performed tBLASTn and retrieval on {len(clean_tblastn2gb_results)} sequences.')
+    # logging.info(f'Successfully performed tBLASTn and retrieval on {genome}: {len(tblastn_results)} sequences retrieved.')
