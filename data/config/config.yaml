@@ -1,0 +1,65 @@
+blast:
+  e_value: 0.01
+  accession_id_regex: '[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}'
+  probe_min_length:
+    GAG: 200
+    POL: 400
+    ENV: 200
+    VIF: 200
+    N_protein: 200
+    P_protein: 200
+    G_protein: 200
+    L_protein: 200
+    X_protein: 200
+    M_protein: 200
+    Pr160: 200
+
+logging:
+  level_styles:
+    debug: { color: 'white' }
+    info: { color: 'cyan', bold: 'yes' }
+    warning: { color: 'yellow' }
+    error: { color: 'red', bold: 'yes' }
+    critical: { color: 'black', bold: 'yes', background: 'red' }
+  field_styles:
+    asctime: { color: 'green' }
+    hostname: { color: 'green' }
+    levelname: { color: 'green' }
+    name: { color: 'green' }
+    programname: { color: 'green' }
+    username: { color: 'green' }
+    process: { color: 'green' }
+    thread: { color: 'green' }
+
+execution:
+  use_species_list: false
+  max_retrieval_attempts: 9
+  max_threadpool_workers: null  # null for None
+  entrez_email: 'jgonzlez@tcd.ie'
+
+display:
+  display_requests_warning: false
+  display_operation_info: false
+
+root:
+  db_root_folder: '/mnt/v/databases'
+  workflow_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/workflow'
+  data_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/data'
+  results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/results'
+  logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/logs'
+  species_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/data/species'
+
+tables:
+  delimiter: ','
+  attributes:
+    - Family
+    - Virus
+    - Abbreviation
+    - Species
+    - Probe
+    - Accession
+    - Identifier
+    - Strand
+
+input:
+  species_file: '../species/species.txt'

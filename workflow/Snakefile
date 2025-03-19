@@ -12,13 +12,11 @@ rule genome_downloader_setup:
         species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     params:
         SPECIES_DB=defaults.SPECIES_DB,
-        DOWNLOAD_LOG=os.path.join(defaults.SPECIES_DIR, 'download.txt'),
-        API_KEY=defaults.NCBI_API_TOKEN
+        DOWNLOAD_LOG=defaults.DOWNLOAD_LOG,
     threads:
         workflow.cores / 3
     shell:
         '''
-        export NCBI_API_KEY={params.API_KEY:q} && \
         bash genome_downloader.sh {wildcards.genome:q} {params.SPECIES_DB:q} {params.DOWNLOAD_LOG:q}
         '''
 

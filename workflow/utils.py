@@ -147,21 +147,6 @@ def incomplete_dict_cleaner(object_dict: dict) -> dict:
 
     return {key: value for key, value in object_dict.items() if value.is_complete()}
 
-
-@sleep_and_retry
-@limits(calls=10, period=1)
-def execution_limiter(func, *args, **kwargs):
-    """
-    Limits the number of executions of a function per second.
-
-        Parameters
-        ----------
-            :param func: The function to limit.
-
-    """
-    return func(*args, **kwargs)
-
-
 def random_string_generator(length: int) -> str:
     """
     Generates a random string of the specified length.
