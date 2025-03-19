@@ -202,7 +202,7 @@ def blast_executor(object_dict: dict,
                               input_database_path,
                               num_threads: str,
                               display_full_info: bool,
-                              genome: str = None,
+                              genome: str,
                               ) -> dict:
     """
     Runs BLAST tasks sequentially without using ThreadPoolExecutor
@@ -284,10 +284,8 @@ def gb_fetcher(instance: object,
                online_database: str,
                _attempt: int = 1,
                max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
-               expand_by: int = 0,
                display_warning: bool = False,
-               _entrez_email: str = defaults.ENTREZ_EMAIL,
-               _entrez_api_token: str = defaults.NCBI_API_TOKEN):
+               _entrez_email: str = defaults.ENTREZ_EMAIL):
     """
     Fetch the GenBank results for a given sequence and appends it to the objects.
 
@@ -297,10 +295,8 @@ def gb_fetcher(instance: object,
             :param online_database: The database to fetch the sequence from.
             :param _attempt: The number of current attempts to fetch the sequence. Default is 1.
             :param max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
-            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
             :param display_warning: Toggle display of request warning messages. Default is True.
             :param _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
-            :param _entrez_api_token: The API token to use for the Entrez API. Default is retrieved from defaults.
 
         Returns
         -------
@@ -314,7 +310,6 @@ def gb_fetcher(instance: object,
             :raise Exception: If an error occurs while fetching the sequence.
     """
     Entrez.email = _entrez_email
-    Entrez.api_key = _entrez_api_token
 
     kwargs = {
         'db': online_database,
@@ -345,68 +340,9 @@ def gb_fetcher(instance: object,
             return instance
 
 
-def gb_threadpool_executor(object_dict: dict,
+def gb_executor(object_dict: dict,
                            online_database: str,
                            display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
-                           expand_by: int = defaults.EXPANSION_SIZE,
-                           max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
-                           display_full_info: bool = False) -> dict:
-    """
-    Fetches GenBank sequences for the objects in an object dictionary using ThreadPoolExecutor
-
-        Parameters
-        ----------
-            :param object_dict: A dictionary containing object pairs
-            :param online_database: The database to retrieve the sequences from
-            :param display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default from defaults.
-            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
-            :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
-            :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
-
-        Returns
-        -------
-            :returns: A dictionary containing the input objects + the fetched GenBank sequences
-
-        Raises
-        ------
-            :raise Exception: If an error occurs while fetching the sequences
-    """
-    full_retrieved_results: dict = {}
-
-    with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
-        futures = [
-            executor.submit(
-                utils.execution_limiter,
-                func=gb_fetcher,
-                instance=value,
-                online_database=online_database,
-                expand_by=expand_by,
-                max_attempts=max_attempts,
-                display_warning=display_warning
-            )
-            for key, value in object_dict.items()
-        ]
-
-        with tqdm(total=len(futures), desc='Fetching GenBank sequences') as futures_bar:
-            for future in as_completed(futures):
-                if result := future.result():
-                    key_identifier = f'{result.accession}-{result.identifier}'
-                    full_retrieved_results[key_identifier] = result
-                    if display_full_info:
-                        logging.info(f'Added {key_identifier} to GenBank Dictionary\n{result.display_info()}')
-                futures_bar.update(1)
-
-    if len(full_retrieved_results.items()) == 0:
-        logging.critical('No fetched GenBank results. Exiting.')
-        return
-
-    return full_retrieved_results
-
-
-def gb_monothread_executor(object_dict: dict,
-                           online_database: str,
-                           display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
-                           expand_by: int = defaults.EXPANSION_SIZE,
                            max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
                            display_full_info: bool = False) -> dict:
     """
@@ -417,7 +353,6 @@ def gb_monothread_executor(object_dict: dict,
             :param object_dict: A dictionary containing object pairs.
             :param online_database: The database to retrieve the sequences from.
             :param display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
-            :param expand_by: The number of nucleotides to expand the fetched sequence by at each side. Default is 0.
             :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
             :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
 
@@ -436,7 +371,6 @@ def gb_monothread_executor(object_dict: dict,
             if result := gb_fetcher(
                     instance=value,
                     online_database=online_database,
-                    expand_by=expand_by,
                     max_attempts=max_attempts,
                     display_warning=display_warning,
             ):
@@ -451,5 +385,3 @@ def gb_monothread_executor(object_dict: dict,
         return
 
     return full_retrieved_results
-
-

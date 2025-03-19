@@ -43,8 +43,10 @@ if __name__ == '__main__':
 
     probe_dict: dict = table_parser(input_csv_file=os.path.join(defaults.TABLE_INPUT_DIR, 'probes.csv'))
 
-    probe_extraction: dict = seq_utils.gb_threadpool_executor(object_dict=probe_dict,
-                                                              online_database='protein')
+    probe_extraction: dict = seq_utils.gb_executor(object_dict=probe_dict,
+                                                   online_database='protein',
+                                                   display_full_info=defaults.DISPLAY_OPERATION_INFO,
+                                                   display_warning=defaults.DISPLAY_REQUESTS_WARNING)
 
     utils.pickler(data=probe_extraction,
                   output_directory_path=defaults.PICKLE_DIR,
