@@ -35,8 +35,6 @@ def table_parser(input_csv_file):
         )
         for index, row in probe_table.iterrows()
     }
-
-    logging.info(f'Parsed {len(probe_dict)} probes')
     return probe_dict
 
 
@@ -51,5 +49,3 @@ if __name__ == '__main__':
     utils.pickler(data=probe_extraction,
                   output_directory_path=defaults.PICKLE_DIR,
                   output_file_name='probe_dict.pkl')
-
-    logging.info('Probe extraction and retrieval completed')
