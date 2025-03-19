@@ -124,7 +124,7 @@ if __name__ == '__main__':
             input_directory_path=defaults.PICKLE_DIR,
             input_file_name=file
         )
-        logging.info(f'Loaded {len(objct_dict)} objects from pickle file: {file}')
+        logging.info(f'{os.path.basename(file).split(".")[0]}: {len(objct_dict)} objects retrieved')
         all_objects.extend(list(objct_dict.values()))
 
     logging.info(f'Total objects loaded from all files: {len(all_objects)}')
