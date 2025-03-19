@@ -72,6 +72,9 @@ args.plot_dataframe <- args[14]
 # This line prints a progress message showing which enERVate file is being processed.
 print(paste0('Processing ranges for ', tools::file_path_sans_ext(basename(args.enervate)), '...'))
 
+# We import 'defaults.py' using 'reticulate'.
+defaults <- reticulate::import_from_path("defaults", args.defaults)
+probe_min_length <- unlist(defaults$PROBE_MIN_LENGTH)
 
 # -------------------------------------------------
 # 3. DETERMINE IF WE ARE DEALING WITH A MAIN FILE
@@ -144,13 +147,16 @@ mcols(gr)$probe <- data$probe
 # The user-specified bitscore_threshold and identity_threshold define how stringent
 # we are in filtering out low-quality or partial hits in the genomic data.
 
+# TODO: VERIFY  THAT RANGES ARE BEING FILTERED BY LENGTH THRESHOLD AS WELL
+
 bitscore_threshold <- as.numeric(args.bitscore_threshold)
 identity_threshold <- as.numeric(args.identity_threshold)
 
 # Use plyranges 'filter' to keep only those ranges with bitscore and identity
 # exceeding the specified thresholds.
 gr <- gr %>%
-  filter(bitscore > bitscore_threshold,
+         filter(width(.) > probe_min_length[as.character(probe)],
+         bitscore > bitscore_threshold,
          identity > identity_threshold)
 
 
@@ -165,14 +171,10 @@ seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = gr$species[1])
 # Match up the known chromosome lengths from the FASTA to the ranges in 'gr'.
 seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
 
-
 # -----------------------------------------------------------------------
 # 10. MERGE RANGES BASED ON PROBE-SPECIFIC DEFAULTS (GAP WIDTH)
 # -----------------------------------------------------------------------
-# We import 'defaults.py' using 'reticulate'.
 
-defaults <- reticulate::import_from_path("defaults", args.defaults)
-probe_min_length <- unlist(defaults$PROBE_MIN_LENGTH)
 
 # For each row in the GRanges object, we lookup the appropriate gap width by
 # matching the 'probe' field to 'probe_min_length' in the defaults.

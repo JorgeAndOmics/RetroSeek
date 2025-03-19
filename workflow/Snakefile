@@ -189,36 +189,58 @@ rule probe_extractor:
     input:
         probe_table=os.path.join(defaults.TABLE_INPUT_DIR, 'probes.csv')
     output:
-        probe_pkl=os.path.join(defaults.PICKLE_DIR, 'probe_dict.pkl')
+        probe_pkl=os.path.join(defaults.PICKLE_DIR, 'probe_dict.pkl'),
+        probe_csv=os.path.join(defaults.TABLE_OUTPUT_DIR, 'probe_dict.csv'),
+        probe_parquet=os.path.join(defaults.TABLE_OUTPUT_DIR, 'probe_dict.parquet')
+    params:
+        table_dir=defaults.TABLE_OUTPUT_DIR
     threads:
         workflow.cores
     shell:
-        'python probe_extractor.py && python obj2dict.py --file probe_dict.pkl'
+        '''
+        python probe_extractor.py && \
+        python obj2dict.py --files probe_dict.pkl --output_file {params.table_dir}/probe_dict
+        '''
 
 
 rule full_genome_blaster_setup:
     input:
-        input_pkl = rules.probe_extractor.output.probe_pkl,
-        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'),
-                          genome=defaults.SPECIES, ext=BLAST_DB_EXT)
+        input_pkl=rules.probe_extractor.output.probe_pkl,
+        blast_db=rules.blast_db_generator.output
     output:
-        pkl = os.path.join(defaults.PICKLE_DIR, 'full_genome_blast.pkl'),
-        csv = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
-        parquet = os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
-    threads:
-        workflow.cores
+        parquet_species=os.path.join(defaults.TBLASTN_PICKLE_DIR, '{genome}.pkl'),
+    params:
+        tblastn_pickle_dir=defaults.TBLASTN_PICKLE_DIR,
+        num_threads=1
     shell:
-        'python full_genome_blaster.py && python obj2dict.py --file full_genome_blast.pkl'
+        '''
+        python full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
+        '''
 
 
 rule full_genome_blaster:
     input:
-        rules.full_genome_blaster_setup.output
+        pkl_species=expand(os.path.join(defaults.TBLASTN_PICKLE_DIR,'{genome}.pkl'), genome=defaults.SPECIES)
 
+
+rule blast_pkl2parquet:
+    input:
+        pkl_species=expand(os.path.join(defaults.TBLASTN_PICKLE_DIR,'{genome}.pkl'), genome=defaults.SPECIES)
+    output:
+        csv_full=os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
+        parquet_full=os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
+    params:
+        tmp_dir=defaults.TMP_DIR,
+        table_output_dir=defaults.TABLE_OUTPUT_DIR
+    shell:
+        '''
+        rm -rf {params.tmp_dir:q} && \
+        python obj2dict.py --files {input.pkl_species:q} --output_file {params.table_output_dir:q}/full_genome_blast
+        '''
 
 rule species_segmenter_setup:
     input:
-        input_parquet = rules.full_genome_blaster_setup.output.parquet,
+        input_parquet = rules.full_genome_blaster.input.pkl_species,
     output:
         all_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),

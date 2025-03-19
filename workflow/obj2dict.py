@@ -6,7 +6,7 @@ import defaults
 import utils
 from colored_logging import colored_logging
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
 
@@ -101,40 +101,46 @@ if __name__ == '__main__':
     colored_logging(log_file_name='obj2dict.txt')
 
     parser = argparse.ArgumentParser(description='Converts objects to DataFrame.')
-    parser.add_argument('--file', type=str, default=None, help='Name of the pickle file in PKL_DIR to load.')
+    parser.add_argument(
+        '--files',
+        type=str,
+        nargs='+',
+        required=True,
+        help='Name(s) of the pickle file(s) in PICKLE_DIR to load.'
+    )
+    parser.add_argument(
+        '--output_file',
+        type=str,
+        required=True,
+        help='Base name for the output CSV and Parquet files (extensions .csv and .parquet will be added automatically).'
+    )
     args = parser.parse_args()
 
-    if args.file:
-        files = args.file
-        filename = files.split(".")[0]
-    else:
-        logging.error('No file name provided. Exiting script.')
-        exit(1)
+    # Load and concatenate objects from all provided pickle files
+    all_objects = []
+    for file in args.files:
+        objct_dict = utils.unpickler(
+            input_directory_path=defaults.PICKLE_DIR,
+            input_file_name=file
+        )
+        logging.info(f'Loaded {len(objct_dict)} objects from pickle file: {file}')
+        all_objects.extend(list(objct_dict.values()))
 
-    objct_dict: dict = utils.unpickler(
-        input_directory_path=defaults.PICKLE_DIR,
-        input_file_name=f'{files}'
-    )
+    logging.info(f'Total objects loaded from all files: {len(all_objects)}')
 
-    logging.info(f'Loaded {len(objct_dict)} objects from pickle file.')
-
-    objects = list(objct_dict.values())
-
-    # Number of parallel workers
-    max_workers_num = defaults.MAX_THREADPOOL_WORKERS
 
     results = []
-    with tqdm(total=len(objects), desc='Processing objects') as pbar:
-        with ProcessPoolExecutor(max_workers=max_workers_num) as executor:
-            futures = [executor.submit(extract_attributes_from_object, obj) for obj in objects]
+    with tqdm(total=len(all_objects), desc='Processing objects') as pbar:
+        with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
+            futures = [executor.submit(extract_attributes_from_object, obj) for obj in all_objects]
             for future in as_completed(futures):
                 results.append(future.result())
                 pbar.update()
 
     df = pd.DataFrame(results)
 
-    output_csv_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.csv')
-    output_parquet_path = os.path.join(defaults.TABLE_OUTPUT_DIR, f'{filename}.parquet')
+    output_csv_path = f'{args.output_file}.csv'
+    output_parquet_path = f'{args.output_file}.parquet'
 
     df.to_csv(output_csv_path, index=False)
     logging.info(f'Saved DataFrame as CSV to {output_csv_path}')

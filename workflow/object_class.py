@@ -10,18 +10,6 @@ import defaults
 from Bio import SeqIO
 
 @dataclass
-class TabularData:
-    """
-    A subclass to store tabular BLAST data.
-    It will store the raw tabular data (as a string)
-    and provide a method to parse it into a pandas DataFrame.
-    """
-    raw_data: str
-
-    def to_dataframe(self) -> pd.DataFrame:
-        return pd.read_csv(StringIO(self.raw_data), sep='\t', header=None)
-
-@dataclass
 class Object:
     """
     A class to store data from genomic objects.
@@ -77,7 +65,6 @@ class Object:
     fasta: Optional[Any] = field(default=None, init=False, repr=False)
     gff: Optional[Any] = field(default=None, init=False, repr=False)
     strand: Optional[Any] = field(default=None, init=False, repr=False)
-    tabular_data: Optional[TabularData] = field(default=None, init=False, repr=False)
 
     def __repr__(self):
         return (f'{self.family},'
@@ -389,7 +376,7 @@ class Object:
                 f'Accession: {self.accession}\n')
 
         if self.species:
-            info += f'Species: {self.species.replace("_", " ")}\n'
+            info += f'Species: {self.species}\n'
 
         if self.HSP:
             info += (f'Identifier: {self.identifier}\n'
