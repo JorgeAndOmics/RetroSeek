@@ -14,6 +14,12 @@ blast:
     M_protein: 200
     Pr160: 200
 
+parameters:
+  identity_threshold: 0
+  bitscore_threshold: 0
+  ltr_resize: 0
+  merge_option: 'virus'
+
 logging:
   level_styles:
     debug: { color: 'white' }
@@ -34,7 +40,7 @@ logging:
 execution:
   use_species_list: false
   max_retrieval_attempts: 9
-  max_threadpool_workers: null  # null for None
+  max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'
 
 display:
@@ -42,12 +48,11 @@ display:
   display_operation_info: false
 
 root:
-  db_root_folder: '/mnt/v/databases'
-  workflow_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/workflow'
-  data_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/data'
-  results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/results'
-  logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/logs'
-  species_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/enERVate/data/species'
+  db_root_folder: '/mnt/v/databases'    # Root folder for databases
+  workflow_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/workflow'
+  data_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data'
+  results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/results'
+  logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/logs'
 
 tables:
   delimiter: ','

@@ -73,7 +73,7 @@ accessory.counted_probe <- all.accessory %>%
 #########################################
 density_bitscore_plot <- function(data, q1_bit, median_bit, q3_bit) {
   manual_colours = futurama_unlimited_palette(3, length(unique(data$probe)))
-  
+
   ggplot(data, aes(
     x = mean_bitscore,
     fill = probe,
@@ -133,21 +133,25 @@ all.accessory.density.plot <- density_bitscore_plot(all.accessory, q1_bit.access
 #########################################
 # Bar plots
 #########################################
-bar_species_virus_plot <- function(data) {
-  manual_colours <- futurama_unlimited_palette(3, length(unique(data$virus)))
-  
+bar_plot <- function(data) {
+
+  data <- data %>%
+    mutate(species = str_replace_all(species, "_", " "))ick %>%
+    group_by(species, family) %>%
+    summarise(count = sum(count), .groups = 'drop')
+
   ggplot(data) +
     aes(
       x = species,
       y = count,
-      fill = virus,
+      fill = family,
       alpha = count
     ) +
-    geom_col(color = "grey", linewidth = 0.1) +
-    scale_fill_manual(values = manual_colours) +
+    geom_col(color = "black", linewidth = 0.2) +
+    scale_fill_futurama() +
     scale_alpha_continuous(range = c(0.5, 1)) +
     theme_void() +
-    labs(fill = "Viral Sequence",
+    labs(fill = "Group",
          x = NULL,
          y = "Count") +
     theme(
@@ -164,9 +168,9 @@ bar_species_virus_plot <- function(data) {
     guides(alpha = "none")
 }
 
-all.full.bar.plot <- bar_species_virus_plot(all.counted_probe)
-all.main.bar.plot <- bar_species_virus_plot(main.counted_probe)
-all.accessory.bar.plot <- bar_species_virus_plot(accessory.counted_probe)
+all.full.bar.plot <- bar_plot(all.counted_probe)
+all.main.bar.plot <- bar_plot(main.counted_probe)
+all.accessory.bar.plot <- bar_plot(accessory.counted_probe)
 
 #########################################
 # Raincloud plots
