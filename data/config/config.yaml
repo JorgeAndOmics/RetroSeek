@@ -19,6 +19,12 @@ parameters:
   bitscore_threshold: 0
   ltr_resize: 0
   merge_option: 'virus'
+  hotspot_group_split: false
+  hotspot_window_size: 10000
+  hotspot_mask_size: 20
+  hotspot_mask_mismatch: 3
+  hotspot_permutations: 1
+  hotspot_pvalue_threshold: 0.05
 
 logging:
   level_styles:

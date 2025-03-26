@@ -14,37 +14,31 @@ suppressMessages({
   library(viridis)
 })
 
-# TODO: DEDUPLICATOR FAMILY FUNCTION
-
 # =============================================================================
 # 1. Define File Paths and Species Name
 # =============================================================================
 args <- commandArgs(trailingOnly = TRUE)
 
-if (length(args) != 10) {
+if (length(args) != 6) {
   stop("Usage: Rscript hotspot_detector.R 
-       <genome.fa> <ervs.gff3> <window_size> <mask_size> <mask_mismatch> 
-       <perms> <pvalue_threshold> <csv_output_dir> <pdf_output_dir> 
+       <genome.fa> <ervs.gff3> <config.yaml> <csv_output_dir> <pdf_output_dir> 
        <hotspot_output_dir>")
 }
 
 args.genome <- file.path(args[1])
 args.gff <- file.path(args[2])
-args.window_size <- as.numeric(args[3])
-args.mask_size <- as.numeric(args[4])
-args.mask.mismatch <- as.numeric(args[5])
-args.perms <- as.numeric(args[6])
-args.pvalue_threshold <- as.numeric(args[7])
-args.csv_output_dir <- file.path(args[8])
-args.pdf_output_dir <- file.path(args[9])
-args.hotspot_output_dir <- file.path(args[10])
+args.yaml <- file.path(args[3])
+args.csv_output_dir <- file.path(args[4])
+args.pdf_output_dir <- file.path(args[5])
+args.hotspot_output_dir <- file.path(args[6])
 
 species_name <- tools::file_path_sans_ext(basename(args.genome))
+config <- yaml::read_yaml(args.yaml)
 
 # =============================================================================
 # 2. Load Genome and Create Genome Boundaries
 # =============================================================================
-print(paste0("Initializing permutation analysis for ", species_name, " ..."))
+print(paste0("Initializing permutation analysis for ", species_name, "..."))
 
 subject_genome <- readDNAStringSet(args.genome)
 
@@ -63,15 +57,15 @@ seqinfo.vec <- setNames(width(subject_genome), chrom.names.filtered)
 # =============================================================================
 print(paste0("Segmenting ", species_name, " genome in tiles and masking ..."))
 
-window_size <- args.window_size  
+window_size <- as.integer(config$parameters$hotspot_window_size) 
 genomic_windows <- tileGenome(
   seqlengths = seqinfo.vec,
   tilewidth = window_size,
   cut.last.tile.in.chrom = TRUE
 )
 
-mask_size <- args.mask_size
-mask_mismatch <- args.mask.mismatch
+mask_size <- as.integer(config$parameters$hotspot_mask_size)
+mask_mismatch <- as.integer(config$parameters$hotspot_mask_mismatch)
 mask_pattern <- DNAString(paste(rep("N", mask_size), collapse = ""))
 mask_match <- vmatchPattern(mask_pattern, subject_genome, max.mismatch = mask_mismatch)
 genome_mask <- as(mask_match, "GRanges")
@@ -98,17 +92,24 @@ if (!"family" %in% colnames(mcols(subject_genome_gff))) {
 }
 
 subject_genome_gff_clean <- as(subject_genome_gff, "GRanges")
-gff_by_family <- split(subject_genome_gff_clean, mcols(subject_genome_gff_clean)$family)
+
+if (config$parameters$hotspot_group_split) {
+  gff_list <- split(subject_genome_gff_clean, mcols(subject_genome_gff_clean)$family)
+} else {
+  gff_list <- list("Ungrouped" = subject_genome_gff_clean)
+}
 
 # =============================================================================
 # 6. Perform Permutation Tests for Each Family (for Overall Overlap)
 # =============================================================================
-n_perms = args.perms
+n_perms = config$parameters$hotspot_permutations
+
+# TODO: Add p-value threshold for RegioneR analysis
 
 perm_results <- map2(
-  names(gff_by_family), gff_by_family,
+  names(gff_list), gff_list,
   ~{
-    message("Running permutation test for family: ", .x, "\n")
+    message("Running permutation test: ", .x, "\n")
     result <- permTest(
       A = .y,
       B = genomic_windows,
@@ -186,10 +187,10 @@ dev.off()
 n_perm_hotspots <- n_perms
 hotspots_list <- list()
 
-for (fam in names(gff_by_family)) {
+for (fam in names(gff_list)) {
   cat("Performing hotspot empirical permutation analysis for family:", fam, "\n")
   
-  events <- gff_by_family[[fam]]   # Factual observations
+  events <- gff_list[[fam]]   # Factual observations
   obs_counts <- countOverlaps(genomic_windows, events)
   
   null_matrix <- matrix(NA, nrow = length(genomic_windows), ncol = n_perm_hotspots)
@@ -201,7 +202,8 @@ for (fam in names(gff_by_family)) {
   pvals <- apply(null_matrix, 1, function(x) mean(x >= obs_counts))
   pvals_adjusted <- p.adjust(pvals, method = "BH")
   
-  pvalue_threshold <- args.pvalue_threshold
+  pvalue_threshold <- config$parameters$hotspot_pvalue_threshold
+  
   hotspot_windows <- genomic_windows[pvals_adjusted < pvalue_threshold]
   
   hotspots_list[[fam]] <- list(
