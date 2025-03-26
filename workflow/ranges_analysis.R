@@ -1,13 +1,3 @@
-################################################################################
-# ============================
-# EXTENSIVELY COMMENTED SCRIPT
-# ============================
-# Below is the original script with additional comprehensive comments explaining
-# the purpose and functionality of each section and line. No changes were made
-# to the original code itself (no modifications to logic, no renaming of
-# variables, etc.). All that follows are clarifying remarks and commentary.
-################################################################################
-
 # -------------------
 # 1. DEPENDENCIES
 # -------------------
@@ -47,7 +37,7 @@ if (length(args) != 14) {
   merge_options=<val>        Options for merging ranges (species or virus)
   original_ranges=<file>     Path to the Original Ranges output file
   candidate_ranges=<file>    Path to the Candidate Ranges output file
-  valid_ranges=<file>        Path to the Validated Ranges output file
+  valid_ranges=<file>        Path to the Valid Ranges output file
   overlap_matrix=<file>      Path to the Overlap Matrix output file
   plot_dataframe=<file>      Path to the Plot DataFrame output file")
 }
@@ -203,7 +193,7 @@ gr_list <- split(gr, ~ probe)
 # summarizing bitscore and identity by taking the max for each merging block. Two 
 # ways to merge: By species or by family
 
-if (args.merge_options == "species") {
+if (args.merge_options == "virus") {
   gr_list_reduced <- sapply(gr_list, function(sub_gr) {
     gap_val <- unique(sub_gr$min_gapwidth)  # Each subgroup has a single gap width
     sub_gr <- sub_gr %>% 
@@ -219,7 +209,7 @@ if (args.merge_options == "species") {
   })
 }
 
-if (args.merge_options == "virus") {
+if (args.merge_options == "family") {
   gr_list_reduced <- sapply(gr_list, function(sub_gr) {
     gap_val <- unique(sub_gr$min_gapwidth)  # Each subgroup has a single gap width
     sub_gr <- sub_gr %>% 
@@ -481,9 +471,9 @@ df_plot <- df_plot %>%
 
 
 # -----------------------------
-# 20. IDENTIFY VALIDATED HITS
+# 20. IDENTIFY VALIDHITS
 # -----------------------------
-# "Validated hits" are those enERVate intervals that overlap with expanded LTR
+# "Valid hits" are those enERVate intervals that overlap with expanded LTR
 # retrotransposons. We label these as the safer candidate integrations.
 
 ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
@@ -493,7 +483,7 @@ ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
 # 21. OPTIONAL DOMAIN VALIDATION (IF MAIN FILE)
 # ------------------------------------------------------------------
 # We additionally check that overlaps exist between the enERVate intervals, 
-# the validated LTR intervals, and the recognized LTR domains, all on the same strand.
+# the valid LTR intervals, and the recognized LTR domains, all on the same strand.
 
 if (is_main) {
   domain_valid_hits <- gr %>%
@@ -546,7 +536,7 @@ if (is_main) {
 # 22. EXPORT RANGES TO GFF3 AND PARQUET FILES
 # -----------------------------------------------------
 # Write out the original ranges, the candidate ranges that overlap with LTR
-# retrotransposons, and the domain-validated hits.
+# retrotransposons, and the domain-valid hits.
 
 rtracklayer::export(gr, args.original_ranges, format = "gff3")
 rtracklayer::export(ltr_valid_hits, args.candidate_ranges, format = "gff3")

@@ -6,6 +6,7 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 
+configfile: defaults.CONFIG_FILE
 
 rule genome_downloader_setup:
     output:
@@ -238,7 +239,7 @@ rule blast_pkl2parquet:
 
 rule species_segmenter_setup:
     input:
-        input_parquet = rules.full_genome_blaster.input.pkl_species,
+        input_parquet = rules.blast_pkl2parquet.output.parquet_full
     output:
         all_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
@@ -254,7 +255,7 @@ rule species_segmenter:
     input:
         rules.species_segmenter_setup.output
 
-
+# TODO: CHANGE ARG PARSING TO R-ARGPARSE
 rule ranges_analysis_main_setup:
     input:
         original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
@@ -265,7 +266,7 @@ rule ranges_analysis_main_setup:
     output:
         original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_main.gff3'),
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_main.gff3'),
-        validated_tracks=os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),
+        valid_tracks=os.path.join(defaults.TRACK_VALID_DIR,'{genome}_main.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_main.csv'),
         plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_main.parquet'),
     params:
@@ -277,12 +278,14 @@ rule ranges_analysis_main_setup:
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
-        validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
+        valid_tracks_dir=defaults.TRACK_VALID_DIR,
         overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        bitscore_threshold=config.get('bitscore_threshold',0),
-        identity_threshold=config.get('identity_threshold',0),
-        ltr_resize=config.get('ltr_resize',0),
-        merge_option=config.get('merge_option','family')
+        bitscore_threshold=config['parameters'].get('bitscore_threshold', 0),
+        identity_threshold=config['parameters'].get('identity_threshold', 0),
+        ltr_resize=config['parameters'].get('ltr_resize',0),
+        merge_option=config['parameters'].get('merge_option', 'virus')
+    threads:
+        workflow.cores   # Apparently doesn't take well to multicore
     shell:
         '''
         Rscript ranges_analysis.R \
@@ -291,13 +294,13 @@ rule ranges_analysis_main_setup:
         {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         {params.probes_dir:q}/probes.csv \
         {params.workflow_dir:q} \
-        {params.ltr_resize:q} \
-        {params.merge_option:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \
+        {params.ltr_resize:q} \
+        {params.merge_option:q} \
         {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         {params.candidate_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        {params.validated_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         {params.overlap_matrix_dir:q}/{wildcards.genome:q}_main.csv \
         {params.plot_dataframes_dir:q}/{wildcards.genome:q}_main.parquet
         '''
@@ -324,12 +327,14 @@ rule ranges_analysis_accessory_setup:
         ltr_digest_dir=defaults.LTRDIGEST_DIR,
         original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
         candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
-        validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
+        valid_tracks_dir=defaults.TRACK_VALID_DIR,
         overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        bitscore_threshold=config.get('bitscore_threshold',0),
-        identity_threshold=config.get('identity_threshold',0),
-        ltr_resize=config.get('ltr_resize',0),
-        merge_option=config.get('merge_option','family')
+        bitscore_threshold=config['parameters'].get('bitscore_threshold',0),
+        identity_threshold=config['parameters'].get('identity_threshold',0),
+        ltr_resize=config['parameters'].get('ltr_resize',0),
+        merge_option=config['parameters'].get('merge_option','virus')
+    threads:
+        workflow.cores      # Apparently doesn't take well to multicore
     shell:
         '''
         Rscript ranges_analysis.R \
@@ -338,13 +343,13 @@ rule ranges_analysis_accessory_setup:
         {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         {params.probes_dir:q}/probes.csv \
         {params.workflow_dir:q} \
-        {params.ltr_resize:q} \
-        {params.merge_option:q} \
         {params.bitscore_threshold:q} \
         {params.identity_threshold:q} \
+        {params.ltr_resize:q} \
+        {params.merge_option:q} \
         {params.original_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
         {params.candidate_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        {params.validated_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
+        {params.valid_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
         {params.overlap_matrix_dir:q}/{wildcards.genome:q}_accessory.csv \
         {params.plot_dataframes_dir:q}/{wildcards.genome:q}_accessory.parquet
         '''
@@ -357,7 +362,7 @@ rule ranges_analysis:
         candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
                                 genome=defaults.SPECIES,
                                 suffix=['main', 'accessory']),
-        validated_tracks=expand(os.path.join(defaults.TRACK_VALIDATED_DIR,'{genome}_main.gff3'),
+        valid_tracks=expand(os.path.join(defaults.TRACK_VALID_DIR,'{genome}_main.gff3'),
                                 genome=defaults.SPECIES),
         overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),
                               genome=defaults.SPECIES,
@@ -405,7 +410,7 @@ rule plot_generator:
 rule circle_plot_generator_setup:
     input:
         fasta=os.path.join(defaults.SPECIES_DB, '{genome}.fa'),
-        hits= os.path.join(defaults.TRACK_VALIDATED_DIR, '{genome}_main.gff3'),
+        hits= os.path.join(defaults.TRACK_VALID_DIR, '{genome}_main.gff3'),
         ltrdigest=os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
     output:
         circle_plot_png=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),
@@ -414,7 +419,7 @@ rule circle_plot_generator_setup:
     params:
         species_db=defaults.SPECIES_DB,
         ltrdigest_dir=defaults.LTRDIGEST_DIR,
-        validated_tracks_dir=defaults.TRACK_VALIDATED_DIR,
+        valid_tracks_dir=defaults.TRACK_VALID_DIR,
         circle_plot_dir=defaults.CIRCLE_PLOT_DIR,
         bitscore_threshold=config.get('circle_plot_bitscore_threshold',0),
     threads:
@@ -423,7 +428,7 @@ rule circle_plot_generator_setup:
         '''
         Rscript circle_plot_generator.R \
         {params.species_db:q}/{wildcards.genome:q}.fa \
-        {params.validated_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
         {params.bitscore_threshold:q} \
         {params.circle_plot_dir:q}/{wildcards.genome:q}
