@@ -13,7 +13,7 @@ rule genome_downloader_setup:
         species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
     params:
         SPECIES_DB=defaults.SPECIES_DB,
-        DOWNLOAD_LOG=defaults.DOWNLOAD_LOG,
+        DOWNLOAD_LOG=defaults.DOWNLOAD_LOG
     threads:
         workflow.cores / 3
     shell:
@@ -35,7 +35,7 @@ rule genome_downloader:
 rule pfam_hmm_downloader:
     output:
         md5=os.path.join(defaults.ACCESSORY_DB, 'md5sum.txt'),
-        hmm=os.path.join(defaults.ACCESSORY_DB, 'Pfam-A.hmm'),
+        hmm=os.path.join(defaults.ACCESSORY_DB, 'Pfam-A.hmm')
     params:
         accessory_dir=defaults.ACCESSORY_DB,
         url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz',
@@ -59,18 +59,13 @@ rule blast_db_generator_setup:
         not_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.not'),
         nsq_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nsq'),
         ntf_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ntf'),
-        nto_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto'),
+        nto_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto')
     params:
         db_dir=defaults.SPECIES_DB
     shell:
         """
-        for ext in FASTA fasta fna fas; do
-            for file in *."$ext"; do
-                if [ -f "$file" ]; then
-                    mv "$file" "${{file%.*}}.fa"
-                fi
-            done
-        done && \
+        find . -maxdepth 1 -type f \( -iname '*.fasta' -o -iname '*.fna' -o -iname '*.fas' -o -iname '*.FASTA' \) \
+        | parallel 'mv {{}} "{{.}}.fa"' && \
         makeblastdb -in {input.fa:q} -dbtype nucl -parse_seqids \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """
@@ -98,7 +93,7 @@ rule ltr_index_generator_setup:
         suf_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.SPECIES_DB,
-        suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
+        suffix_params='-tis -suf -des -ssp -sds -dna -lcp'
     threads:
         workflow.cores
     shell:
@@ -157,7 +152,7 @@ rule ltr_digester_setup:
         ltrharvest_output=rules.ltr_harvester_setup.output.ltr_sorted_gff3,
         pfam_database=rules.pfam_hmm_downloader.output
     output:
-        ltr_gff3 = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
+        ltr_gff3 = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3')
     params:
         ltr_harvest_path=defaults.LTRHARVEST_DIR,
         hmm_profile_path=defaults.HMM_PROFILE_DIR,
@@ -181,7 +176,7 @@ rule ltr_digester_setup:
 rule ltr_digester:
     input:
         ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'),
-                           genome=defaults.SPECIES, ext=['gff3']),
+                           genome=defaults.SPECIES, ext=['gff3'])
 
 
 rule probe_extractor:
@@ -207,7 +202,7 @@ rule full_genome_blaster_setup:
         input_pkl=rules.probe_extractor.output.probe_pkl,
         blast_db=rules.blast_db_generator.output
     output:
-        parquet_species=os.path.join(defaults.TBLASTN_PICKLE_DIR, '{genome}.pkl'),
+        parquet_species=os.path.join(defaults.TBLASTN_PICKLE_DIR, '{genome}.pkl')
     params:
         tblastn_pickle_dir=defaults.TBLASTN_PICKLE_DIR,
         num_threads=1
@@ -244,7 +239,7 @@ rule species_segmenter_setup:
         all_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
         species_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'),
-                               genome=defaults.SPECIES, suffix=['full', 'main', 'accessory']),
+                               genome=defaults.SPECIES, suffix=['full', 'main', 'accessory'])
     params:
         output_dir = defaults.SEGMENTED_SPECIES_DIR
     shell:
@@ -268,7 +263,7 @@ rule ranges_analysis_main_setup:
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_main.gff3'),
         valid_tracks=os.path.join(defaults.TRACK_VALID_DIR,'{genome}_main.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_main.csv'),
-        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_main.parquet'),
+        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_main.parquet')
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
@@ -317,7 +312,7 @@ rule ranges_analysis_accessory_setup:
         original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_accessory.gff3'),
         candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_accessory.gff3'),
         overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_accessory.csv'),
-        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_accessory.parquet'),
+        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_accessory.parquet')
     params:
         species_db=defaults.SPECIES_DB,
         segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
@@ -369,13 +364,13 @@ rule ranges_analysis:
                               suffix=['main', 'accessory']),
         plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),
                                genome=defaults.SPECIES,
-                               suffix=['main', 'accessory']),
+                               suffix=['main', 'accessory'])
 
 
 rule plot_generator_setup:
     input:
         plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),
-                               genome=defaults.SPECIES, suffix=['main','accessory']),
+                               genome=defaults.SPECIES, suffix=['main','accessory'])
     output:
         density_plots=expand(os.path.join(defaults.PLOT_DIR,'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
@@ -411,7 +406,7 @@ rule circle_plot_generator_setup:
     input:
         fasta=os.path.join(defaults.SPECIES_DB, '{genome}.fa'),
         hits= os.path.join(defaults.TRACK_VALID_DIR, '{genome}_main.gff3'),
-        ltrdigest=os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
+        ltrdigest=os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3')
     output:
         circle_plot_png=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),
         circle_plot_pdf=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.pdf')
@@ -421,7 +416,7 @@ rule circle_plot_generator_setup:
         ltrdigest_dir=defaults.LTRDIGEST_DIR,
         valid_tracks_dir=defaults.TRACK_VALID_DIR,
         circle_plot_dir=defaults.CIRCLE_PLOT_DIR,
-        bitscore_threshold=config.get('circle_plot_bitscore_threshold',0),
+        bitscore_threshold=config.get('circle_plot_bitscore_threshold',0)
     threads:
         workflow.cores
     shell:
@@ -442,7 +437,7 @@ rule circle_plot_generator:
 # TODO: SUFFIX PARSING
 rule hotspot_detector_setup:
     input:
-        tracks=rules.ranges_analysis.input,
+        tracks=rules.ranges_analysis.input
     output:
         hotspot_csv=os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'),
         hotspot_histogram_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_histogram.pdf'),

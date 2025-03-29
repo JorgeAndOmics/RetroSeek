@@ -1,6 +1,5 @@
 blast:
   e_value: 0.01
-  accession_id_regex: '[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}'
   probe_min_length:
     GAG: 200
     POL: 400
@@ -44,10 +43,13 @@ logging:
     thread: { color: 'green' }
 
 execution:
-  use_species_list: false
+  use_species_dict: false
   max_retrieval_attempts: 9
   max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'
+
+input:
+  probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes.csv'
 
 display:
   display_requests_warning: false
@@ -60,17 +62,52 @@ root:
   results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/results'
   logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/logs'
 
-tables:
-  delimiter: ','
-  attributes:
-    - Family
-    - Virus
-    - Abbreviation
-    - Species
-    - Probe
-    - Accession
-    - Identifier
-    - Strand
+domains:
+  POL:
+    - "ase"
+    - "RVT_1"
+    - "RVT_2"
+    - "RVT_thumb"
+    - "rve"
+    - "IN_DBD_C"
+  GAG:
+    - "Gag"
+    - "gag"
+    - "GAG"
+    - "zf"
+    - "PTAP"
+    - "YPXL"
+  ENV:
+    - "coat"
+    - "FP"
+    - "HR1"
+    - "HR2"
+  PR15:
+    - "PR15"
 
-input:
-  species_file: '../species/species.txt'
+species:
+  Desmodus_rotundus: Desmodus rotundus
+  Miniopterus_schreibersii: Miniopterus schreibersii
+  Tadarida_brasiliensis: Tadarida brasiliensis
+  Antrozous_pallidus: Antrozous pallidus
+  Molossus_molossus: Molossus molossus
+  Artibeus_lituratus: Artibeus lituratus
+  Eptesicus_fuscus: Eptesicus fuscus
+  Myotis_myotis: Myotis myotis
+  Eptesicus_nilssonii: Eptesicus nilssonii
+  Pipistrellus_kuhlii: Pipistrellus kuhlii
+  Rhinolophus_ferrumequinum: Rhinolophus ferrumequinum
+  Saccopteryx_bilineata: Saccopteryx bilineata
+  Vespertilio_murinus: Vespertilio murinus
+  Plecotus_auritus: Plecotus auritus
+  Rhinolophus_hipposideros: Rhinolophus hipposideros
+  Phyllostomus_discolor: Phyllostomus discolor
+  Myotis_daubentonii: Myotis daubentonii
+  Myotis_mystacinus: Myotis mystacinus
+  Corynorhinus_townsendii: Corynorhinus townsendii
+  Hipposideros_larvatus: Hipposideros larvatus
+  Rhynchonycteris_naso: Rhynchonycteris naso
+  Saccopteryx_leptura: Saccopteryx leptura
+  Molossus_alvarezi: Molossus alvarezi
+  Glossophaga_mutica: Glossophaga mutica
+  Molossus_nigricans: Molossus nigricans

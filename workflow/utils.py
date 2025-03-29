@@ -1,9 +1,6 @@
-from ratelimit import limits, sleep_and_retry
-import cloudpickle
-import pickle
+import dill
 import random
 import string
-import dill
 import os
 
 from functools import wraps
@@ -26,8 +23,6 @@ def pickler(data, output_directory_path, output_file_name: str) -> None:
             :param output_file_name: The name of the file to save the pickled data in.
 
     """
-    if not os.path.exists(os.path.join(output_directory_path)):
-        os.makedirs(os.path.join(output_directory_path), exist_ok=True)
     with open(os.path.join(output_directory_path, output_file_name), 'wb') as f:
         dill.dump(data, f)
 
@@ -57,27 +52,6 @@ def unpickler(input_directory_path, input_file_name: str):
     except Exception as e:
         logging.error(f'Failed to unpickle {file_path}')
         raise Exception(f'Failed to unpickle {file_path}') from e
-
-
-def directory_generator(parent_directory_path,
-                        new_directory_name):
-    """
-    Generates a directory if it does not exist.
-
-        Parameters
-        ----------
-            :param parent_directory_path: The directory in which to generate the new subdirectory.
-            :param new_directory_name: The name of the new subdirectory.
-
-        Returns
-        -------
-            :returns: The path to the generated directory
-
-    """
-    new_path = os.path.join(parent_directory_path, new_directory_name)
-    if not os.path.exists(new_path):
-        os.makedirs(new_path, exist_ok=True)
-    return new_path
 
 
 def directory_file_retriever(input_directory_path) -> list:
