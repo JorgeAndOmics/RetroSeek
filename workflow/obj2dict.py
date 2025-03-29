@@ -1,137 +1,171 @@
+"""
+Object-to-Table Converter
+=========================
+
+This script deserializes one or more pickled Object dictionaries, extracts their attributes,
+and compiles them into a unified DataFrame, which is then saved as both CSV and Parquet files.
+
+Modules:
+    - `utils`: Utility functions.
+    - `defaults`: project-wide constants such as thread count and directory paths.
+    - `colored_logging`: for structured logging.
+    - `argparse`, `pandas`, `os`, `tqdm`, `concurrent.futures`: for CLI, tabular processing, I/O, and parallelism.
+
+Main Workflow:
+    1. Parse command-line arguments for input pickle files and output base name.
+    2. Unpickle and load Object dictionaries.
+    3. Extract attributes from each object (including nested GenBank, Alignment, and HSP data).
+    4. Store results in a tabular format.
+    5. Save the final DataFrame to both CSV and Parquet formats.
+
+Requirements:
+    - Input `.pkl` files must reside in `defaults.PICKLE_DIR`.
+    - The `Object` class must be readable; no changes in environment or class definition between pickling and unpickling.
+
+Usage:
+    python obj2table.py --files genomeA.pkl genomeB.pkl --output_file output/probes
+"""
+
+# =============================================================================
+# Imports and Logging Setup
+# =============================================================================
 import pandas as pd
 import os
 import logging
+import argparse
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import defaults
 import utils
 from colored_logging import colored_logging
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-import argparse
-
-
-def extract_attributes_from_object(obj):
+# =============================================================================
+# 1. Attribute Extraction Function
+# =============================================================================
+def extract_attributes_from_object(obj) -> dict:
     """
-    Extracts attributes from the Object instance.
-    If tabular_data is available, use it to override fields that can be derived from tabular results.
+    Extracts all structured attributes from a probe Object for tabular export.
+
+        Parameters
+        ----------
+            :param obj: A single Object instance representing a probe. Must have `.genbank`, `.alignment`, and `.HSP` as optional attributes.
+
+        Returns
+        -------
+            :returns: data: A dictionary mapping field names to scalar values, ready for DataFrame construction. It includes:
+                - Basic metadata from the Object itself
+                - GenBank fields (if `.genbank` is not None)
+                - Alignment metadata (if `.alignment` is not None)
+                - BLAST HSP features (if `.HSP` is not None)
+
+        Raises
+        ------
+            :raises AttributeError: If the Object structure does not expose required attributes.
+            :raises Exception: For any unexpected failure during data extraction.
     """
-    data = {}
-    # Extract attributes from the Object itself
-    data['family'] = obj.family
-    data['virus'] = obj.virus
-    data['abbreviation'] = obj.abbreviation
-    data['species'] = obj.species
-    data['probe'] = obj.probe
-    data['accession'] = obj.accession
-    data['identifier'] = obj.identifier
-    data['strand'] = obj.strand
+    data: dict = {
+        # Basic Object attributes
+        'family': obj.family,
+        'virus': obj.virus,
+        'abbreviation': obj.abbreviation,
+        'species': obj.species,
+        'species_name': defaults.SPECIES_DICT.get(obj.species, obj.species),
+        'probe': obj.probe,
+        'accession': obj.accession,
+        'identifier': obj.identifier,
+        'strand': obj.strand,
+    }
 
-    # Extract attributes from genbank (SeqRecord)
-    if obj.genbank:
-        gb = obj.genbank
-        data['genbank_id'] = gb.id
-        data['genbank_name'] = gb.name
-        data['genbank_description'] = gb.description
-        data['genbank_dbxrefs'] = gb.dbxrefs
-        data['genbank_annotations'] = str(gb.annotations)
-        data['genbank_seq'] = str(gb.seq)
-    else:
-        data['genbank_id'] = None
-        data['genbank_name'] = None
-        data['genbank_description'] = None
-        data['genbank_dbxrefs'] = None
-        data['genbank_annotations'] = None
-        data['genbank_seq'] = None
+    # GenBank info
+    gb = obj.genbank
+    data |= {
+        'genbank_id': gb.id if gb else None,
+        'genbank_name': gb.name if gb else None,
+        'genbank_description': gb.description if gb else None,
+        'genbank_dbxrefs': gb.dbxrefs if gb else None,
+        'genbank_annotations': str(gb.annotations) if gb else None,
+        'genbank_seq': str(gb.seq) if gb else None,
+    }
 
-    # Extract attributes from alignment (from XML)
-    if obj.alignment:
-        aln = obj.alignment
-        data['alignment_title'] = aln.title
-        data['alignment_length'] = aln.length
-        data['alignment_accession'] = aln.accession
-        data['alignment_hit_id'] = aln.hit_id
-        data['alignment_hit_def'] = aln.hit_def
-    else:
-        data['alignment_title'] = None
-        data['alignment_length'] = None
-        data['alignment_accession'] = None
-        data['alignment_hit_id'] = None
-        data['alignment_hit_def'] = None
+    # Alignment info
+    aln = obj.alignment
+    data |= {
+        'alignment_title': aln.title if aln else None,
+        'alignment_length': aln.length if aln else None,
+        'alignment_accession': aln.accession if aln else None,
+        'alignment_hit_id': aln.hit_id if aln else None,
+        'alignment_hit_def': aln.hit_def if aln else None,
+    }
 
-    # Extract attributes from HSP (from XML)
-    if obj.HSP:
-        hsp = obj.HSP
-        data['hsp_bits'] = hsp.bits
-        data['hsp_score'] = hsp.score
-        data['hsp_evalue'] = hsp.expect
-        data['hsp_query'] = hsp.query
-        data['hsp_sbjct'] = hsp.sbjct
-        data['hsp_query_start'] = hsp.query_start
-        data['hsp_query_end'] = hsp.query_end
-        data['hsp_sbjct_start'] = hsp.sbjct_start
-        data['hsp_sbjct_end'] = hsp.sbjct_end
-        data['hsp_identity'] = hsp.identities
-        data['hsp_align_length'] = hsp.align_length
-        data['hsp_gaps'] = hsp.gaps
-        data['hsp_positives'] = hsp.positives
-        data['hsp_strand'] = hsp.strand
-        data['hsp_frame'] = hsp.frame
-    else:
-        # yay!
-        data['hsp_bits'] = None
-        data['hsp_score'] = None
-        data['hsp_evalue'] = None
-        data['hsp_query'] = None
-        data['hsp_sbjct'] = None
-        data['hsp_query_start'] = None
-        data['hsp_query_end'] = None
-        data['hsp_sbjct_start'] = None
-        data['hsp_sbjct_end'] = None
-        data['hsp_identity'] = None
-        data['hsp_align_length'] = None
-        data['hsp_positives'] = None
-        data['hsp_gaps'] = None
-        data['hsp_strand'] = None
-        data['hsp_frame'] = None
+    # HSP info
+    hsp = obj.HSP
+    data |= {
+        'hsp_bits': hsp.bits if hsp else None,
+        'hsp_score': hsp.score if hsp else None,
+        'hsp_evalue': hsp.expect if hsp else None,
+        'hsp_query': hsp.query if hsp else None,
+        'hsp_sbjct': hsp.sbjct if hsp else None,
+        'hsp_query_start': hsp.query_start if hsp else None,
+        'hsp_query_end': hsp.query_end if hsp else None,
+        'hsp_sbjct_start': hsp.sbjct_start if hsp else None,
+        'hsp_sbjct_end': hsp.sbjct_end if hsp else None,
+        'hsp_identity': hsp.identities if hsp else None,
+        'hsp_align_length': hsp.align_length if hsp else None,
+        'hsp_gaps': hsp.gaps if hsp else None,
+        'hsp_positives': hsp.positives if hsp else None,
+        'hsp_strand': hsp.strand if hsp else None,
+        'hsp_frame': hsp.frame if hsp else None,
+    }
 
     return data
 
 
+# =============================================================================
+# 2. Main Execution Block
+# =============================================================================
 if __name__ == '__main__':
+    # Initialize logging
     colored_logging(log_file_name='obj2dict.txt')
 
-    parser = argparse.ArgumentParser(description='Converts objects to DataFrame.')
+    # -------------------------------------------------------------------------
+    # 2.1 Argument Parsing
+    # -------------------------------------------------------------------------
+    parser = argparse.ArgumentParser(description='Converts serialized probe Objects into a tabular DataFrame.')
     parser.add_argument(
         '--files',
         type=str,
         nargs='+',
         required=True,
-        help='Name(s) of the pickle file(s) in PICKLE_DIR to load.'
+        help='One or more pickle files to load from PICKLE_DIR.'
     )
     parser.add_argument(
         '--output_file',
         type=str,
         required=True,
-        help='Base name for the output CSV and Parquet files (extensions .csv and .parquet will be added automatically).'
+        help='Base name for output files (CSV and Parquet will be generated).'
     )
     args = parser.parse_args()
 
-    # Load and concatenate objects from all provided pickle files
-    all_objects = []
+    # -------------------------------------------------------------------------
+    # 2.2 Load Object Dictionaries from Pickles
+    # -------------------------------------------------------------------------
+    all_objects: list = []
     for file in args.files:
         objct_dict = utils.unpickler(
             input_directory_path=defaults.PICKLE_DIR,
             input_file_name=file
         )
         logging.info(f'{os.path.basename(file).split(".")[0]}: {len(objct_dict)} objects retrieved')
-        all_objects.extend(list(objct_dict.values()))
+        all_objects.extend(objct_dict.values())
 
-    logging.info(f'Total objects loaded from all files: {len(all_objects)}')
+    logging.info(f'Total objects loaded: {len(all_objects)}')
 
-
-    results = []
-    with tqdm(total=len(all_objects), desc='Processing objects') as pbar:
+    # -------------------------------------------------------------------------
+    # 2.3 Extract Attributes in Parallel
+    # -------------------------------------------------------------------------
+    results: list[dict] = []
+    with tqdm(total=len(all_objects), desc='Processing serialised objects...') as pbar:
         with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
             futures = [executor.submit(extract_attributes_from_object, obj) for obj in all_objects]
             for future in as_completed(futures):
@@ -140,11 +174,12 @@ if __name__ == '__main__':
 
     df = pd.DataFrame(results)
 
+    # -------------------------------------------------------------------------
+    # 2.4 Save DataFrame to CSV and Parquet
+    # -------------------------------------------------------------------------
     output_csv_path = f'{args.output_file}.csv'
     output_parquet_path = f'{args.output_file}.parquet'
 
     df.to_csv(output_csv_path, index=False)
-    logging.info(f'Saved DataFrame as CSV to {output_csv_path}')
 
     df.to_parquet(output_parquet_path, index=False)
-    logging.info(f'Saved DataFrame as Parquet to {output_parquet_path}')

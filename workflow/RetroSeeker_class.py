@@ -1,3 +1,18 @@
+"""
+object_class.py
+
+This module provides the core functionality for executing BLAST queries against local databases,
+parsing the results, and retrieving corresponding GenBank records. It defines a structured RetroSeeker
+dataclass for holding sequence alignment information.
+
+Used as part of a larger pipeline for identifying endogenous viral elements (ERVs), this module
+supports reproducible, scalable, and programmatic BLAST processing and metadata enrichment.
+
+
+Classes:
+- RetroSeeker: stores alignment, HSP, sequence, and metadata for each result.
+"""
+
 from dataclasses import dataclass, field
 from typing import Optional, Any
 from io import StringIO
@@ -10,7 +25,7 @@ import defaults
 from Bio import SeqIO
 
 @dataclass
-class Object:
+class RetroSeeker:
     """
     A class to store data from genomic objects.
 

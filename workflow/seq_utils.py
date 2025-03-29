@@ -1,3 +1,25 @@
+"""
+seq_utils.py
+
+This module provides utilities to perform BLAST searches on sequence objects,
+parse the resulting alignments, fetch associated GenBank records, and organize
+retrieved information. The workflow supports local and online databases, allows
+threaded execution, and includes failure tolerance for sequence retrieval.
+
+Dependencies:
+- Biopython (Bio.Blast, Bio.Entrez)
+- tqdm (for progress bars)
+- logging
+- subprocess (for BLAST calls and format conversions)
+
+Main components:
+- `blast_retriever`: Orchestrates the BLAST pipeline.
+- `blast_executor`: Runs BLAST tasks sequentially.
+- `blaster` / `blaster_parser`: Wraps subprocess-based BLAST call and parses output.
+- `gb_fetcher`: Fetches sequence from Entrez given accession ID and alignment.
+- `gb_executor`: Fetches sequences for a dictionary of objects.
+"""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from collections import Counter
@@ -13,7 +35,7 @@ import sys
 import re
 import os
 
-from object_class import Object
+from RetroSeeker_class import Object
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
@@ -41,7 +63,7 @@ def species_divider(object_dict: dict) -> dict:
     return species_dict
 
 
-def _blaster(instance, command: str, input_database_path, subject: str, num_threads: int,  _outfmt: str = '11'):
+def blaster(instance, command: str, input_database_path, subject: str, num_threads: int,  _outfmt: str = '11'):
     """
     Runs a BLAST search for a given object against a given database
 
@@ -86,7 +108,7 @@ def _blaster(instance, command: str, input_database_path, subject: str, num_thre
         return None
 
 
-def _blaster_parser(result, instance: object, subject: str) -> dict:
+def blaster_parser(result, instance: object, subject: str) -> dict:
     """
         Parameters
         ----------
@@ -103,7 +125,7 @@ def _blaster_parser(result, instance: object, subject: str) -> dict:
     ------
         :raise Exception: If an error occurs while parsing the BLAST output.
 
-    CAUTION!: This function is specifically designed to parse the output of the [_blaster] function.
+    CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict = {}
     regex_pattern = re.compile(defaults.ACCESSION_ID_REGEX)
@@ -183,12 +205,12 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
 
     """
     try:
-        if blast_result := _blaster(instance=instance,
+        if blast_result := blaster(instance=instance,
                                     command=command,
                                     subject=subject,
                                     input_database_path=input_database_path,
                                     num_threads=num_threads):
-            return _blaster_parser(blast_result, instance, subject)
+            return blaster_parser(blast_result, instance, subject)
         logging.warning(f'Could not parse sequences for {instance.probe}, {instance.virus} against {subject}')
         return None
     except Exception as e:
