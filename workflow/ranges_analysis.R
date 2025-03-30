@@ -20,11 +20,11 @@ suppressMessages({
 # -------------------------------
 # 2. PARSE COMMAND-LINE ARGUMENTS
 # -------------------------------
-parser <- ArgumentParser(description = 'Process enERVate and LTRdigest integration overlaps')
+parser <- ArgumentParser(description = 'Process tBLASTn and LTRdigest integration overlaps')
 
 # Define expected command-line arguments
 parser$add_argument("--fasta", required=TRUE, help="Genome FASTA input file")
-parser$add_argument("--enervate", required=TRUE, help="enERVate Parquet input file")
+parser$add_argument("--blast", required=TRUE, help="tBLASTn Parquet input file")
 parser$add_argument("--ltrdigest", required=TRUE, help="LTRdigest GFF3 input file")
 parser$add_argument("--probes", required=TRUE, help="Probes metadata file (CSV)")
 parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
@@ -36,8 +36,8 @@ parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for 
 
 args <- parser$parse_args()
 
-# Print which enERVate file is being processed
-print(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$enervate)), "..."))
+# Print which tBLASTn file is being processed
+print(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
 
 # -----------------------------
 # 3. CONFIGURATION PARAMETERS
@@ -46,7 +46,7 @@ print(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$e
 config <- yaml::read_yaml(args$config)
 
 # Import thresholds and merging behavior from config
-probe_min_length   <- unlist(config$blast$probe_min_length)
+probe_min_length   <- unlist(config$parameters$probe_min_length)
 bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold) %||% 0
 identity_threshold <- as.numeric(config$parameters$identity_threshold) %||% 0
 ltr_resize         <- as.numeric(config$parameters$ltr_resize) %||% 0
@@ -56,7 +56,7 @@ merge_options      <- config$parameters$merge_options %||% "virus"
 # 4. DETERMINE FILE TYPE
 # -----------------------------
 # Whether this is a _main file (used for optional domain validation)
-is_main <- grepl("_main", args$enervate) & !grepl("_accessory", args$enervate)
+is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 
 # -----------------------------
 # 5. LOAD FASTA AND CHR LENGTHS
@@ -68,7 +68,7 @@ names(chrom_lengths) <- stringr::str_extract(names(chrom_lengths), "^[A-Za-z]+_?
 # -----------------------------
 # 6. LOAD INPUT FILES
 # -----------------------------
-data <- arrow::read_parquet(args$enervate)
+data <- arrow::read_parquet(args$blast)
 ltr_data <- rtracklayer::import(args$ltrdigest, format = "gff3")
 
 # -----------------------------
@@ -216,45 +216,45 @@ ltr_domain <- ltr_domain %>%
 
 
 # -----------------------------
-# 14. OVERLAP DETECTION: enERVate vs. LTRs
+# 14. OVERLAP DETECTION: tBLASTn vs. LTRs
 # -----------------------------
 
-# Compute overlaps between enERVate hits and LTR retrotransposons
-ov.E2L <- findOverlaps(named_reduced_gr, ltr_retro)
-ov.L2E <- findOverlaps(ltr_retro, named_reduced_gr)
+# Compute overlaps between tBLASTn hits and LTR retrotransposons
+ov.B2L <- findOverlaps(named_reduced_gr, ltr_retro)
+ov.L2B <- findOverlaps(ltr_retro, named_reduced_gr)
 
 # Extract overlapping/non-overlapping hits
-EonL       <- named_reduced_gr[unique(queryHits(ov.E2L))]    # enERVate hits overlapping LTRs
-EoutsideL  <- named_reduced_gr[-unique(queryHits(ov.E2L))]   # enERVate hits outside LTRs
-LonE       <- ltr_retro[unique(queryHits(ov.L2E))]           # LTRs overlapping enERVate hits
-LoutsideE  <- ltr_retro[-unique(queryHits(ov.L2E))]          # LTRs with no enERVate overlap
+BonL       <- named_reduced_gr[unique(queryHits(ov.B2L))]    # tBLASTn hits overlapping LTRs
+BoutsideL  <- named_reduced_gr[-unique(queryHits(ov.B2L))]   # tBLASTn hits outside LTRs
+LonB       <- ltr_retro[unique(queryHits(ov.L2B))]           # LTRs overlapping tBLASTn hits
+LoutsideB  <- ltr_retro[-unique(queryHits(ov.L2B))]          # LTRs with no tBLASTn overlap
 
 # Compute percentages of overlap
-percent_EonL       <- round(length(EonL) / length(named_reduced_gr) * 100, 2)
-percent_EoutsideL  <- round(length(EoutsideL) / length(named_reduced_gr) * 100, 2)
-percent_LonE       <- round(length(LonE) / length(ltr_retro) * 100, 2)
-percent_LoutsideE  <- round(length(LoutsideE) / length(ltr_retro) * 100, 2)
+percent_BonL       <- round(length(BonL) / length(named_reduced_gr) * 100, 2)
+percent_BoutsideL  <- round(length(BoutsideL) / length(named_reduced_gr) * 100, 2)
+percent_LonB       <- round(length(LonB) / length(ltr_retro) * 100, 2)
+percent_LoutsideB  <- round(length(LoutsideB) / length(ltr_retro) * 100, 2)
 
 
 # -----------------------------
 # 15. OVERLAP SUMMARY TABLES
 # -----------------------------
 
-# Summary: enERVate intervals
-enervate_overlap_df <- data.frame(
-  In   = length(EonL),
-  Out  = length(EoutsideL),
-  InP  = percent_EonL,
-  OutP = percent_EoutsideL,
-  row.names = "enERVate"
+# Summary: tBLASTn intervals
+blast_overlap_df <- data.frame(
+  In   = length(BonL),
+  Out  = length(BoutsideL),
+  InP  = percent_BonL,
+  OutP = percent_BoutsideL,
+  row.names = "tBLASTn"
 )
 
 # Summary: LTR intervals
 ltr.full_overlap_df <- data.frame(
-  In   = length(LonE),
-  Out  = length(LoutsideE),
-  InP  = percent_LonE,
-  OutP = percent_LoutsideE,
+  In   = length(LonB),
+  Out  = length(LoutsideB),
+  InP  = percent_LonB,
+  OutP = percent_LoutsideB,
   row.names = "LTRdigest"
 )
 
@@ -326,7 +326,7 @@ ltr_overlap_df <- ltrdigest_overlap_calculator(named_reduced_gr, ltr_retro)
 # -----------------------------
 
 # Merge global and per-probe overlap dataframes
-overlap_df <- rbind(enervate_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
+overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
 
 
 # -----------------------------
@@ -347,11 +347,11 @@ plot_df <- as.data.frame(reduced_gr) %>%
 
 
 # -----------------------------
-# 20. IDENTIFY VALID enERVate HITS
+# 20. IDENTIFY VALID tBLASTn HITS
 # -----------------------------
 
 # Candidate hits are those overlapping LTR regions
-ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
+ltr_valid_hits <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
 
 
 # -----------------------------
@@ -360,13 +360,13 @@ ltr_valid_hits <- named_reduced_gr[queryHits(ov.E2L)] %>% arrange(start)
 
 domain_valid_hits <- gr %>%
   
-  # Step 1: Overlap enERVate hits with valid LTR hits (strand-aware)
+  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
   join_overlap_inner_directed(
     ltr_valid_hits,
     suffix = c(".gr", ".ltr_valid")
   ) %>%
   
-  # Step 2: Keep only pairs where probes match between enERVate and LTR
+  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
   filter(probe.gr == probe.ltr_valid) %>%
   mutate(probe = probe.gr) %>%
   
@@ -412,7 +412,7 @@ domain_valid_hits <- gr %>%
 # Export GRanges in GFF3 format
 rtracklayer::export(gr, args$original_ranges, format = "gff3")
 rtracklayer::export(ltr_valid_hits, args$candidate_ranges, format = "gff3")
-if (is_main) rtracklayer::export(domain_valid_hits, args$valid_ranges, format = "gff3")
+rtracklayer::export(domain_valid_hits, args$valid_ranges, format = "gff3")
 
 # Export overlap summary and plotting data
 arrow::write_parquet(plot_df, args$plot_dataframe)

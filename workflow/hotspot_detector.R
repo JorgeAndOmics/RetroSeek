@@ -18,7 +18,7 @@ suppressMessages({
 # =============================================================================
 parser <- ArgumentParser(description = "ERV Hotspot Permutation Analysis")
 
-parser$add_argument("--genome", required=TRUE, help="Path to genome FASTA file")
+parser$add_argument("--fasta", required=TRUE, help="Path to genome FASTA file")
 parser$add_argument("--gff", required=TRUE, help="Path to GFF3 with ERV annotations")
 parser$add_argument("--config", required=TRUE, help="YAML config file")
 parser$add_argument("--csv_output_dir", required=TRUE, help="Directory to write CSV output")
@@ -27,7 +27,7 @@ parser$add_argument("--hotspot_output_dir", required=TRUE, help="Directory to wr
 
 args <- parser$parse_args()
 
-args.genome <- file.path(args$genome)
+args.genome <- file.path(args$fasta)
 args.gff <- file.path(args$gff)
 args.yaml <- file.path(args$config)
 args.csv_output_dir <- file.path(args$csv_output_dir)

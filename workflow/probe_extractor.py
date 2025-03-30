@@ -46,7 +46,7 @@ import defaults
 # =============================================================================
 # 1. CSV Table Parser
 # =============================================================================
-def table_parser(input_csv_file: str) -> dict[str, Object]:
+def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
     """
     Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
 
@@ -92,11 +92,11 @@ if __name__ == '__main__':
     colored_logging(log_file_name='probe_extractor.txt')
 
     # Parse probe metadata from table
-    probe_dict: dict[str, Object] = table_parser(
+    probe_dict: dict[str, RetroSeeker] = table_parser(
         input_csv_file=defaults.PROBE_CSV)
 
     # Fetch sequence data from GenBank (or similar)
-    probe_extraction: dict[str, Object] = seq_utils.gb_executor(
+    probe_extraction: dict[str, RetroSeeker] = seq_utils.gb_executor(
         object_dict=probe_dict,
         online_database='protein',
         display_full_info=defaults.DISPLAY_OPERATION_INFO,
@@ -106,6 +106,6 @@ if __name__ == '__main__':
     # Save extracted probes to serialized file
     utils.pickler(
         data=probe_extraction,
-        output_directory_path=defaults.PICKLE_DIR,
+        output_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
         output_file_name='probe_dict.pkl'
     )

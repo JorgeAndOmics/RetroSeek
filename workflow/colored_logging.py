@@ -31,7 +31,7 @@ def colored_logging(log_file_name: str) -> None:
     """
     # Configure coloredlogs with the custom field and level styles
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s', handlers=[
-        logging.FileHandler(os.path.join(defaults.LOG_DIR, log_file_name), mode='w'),
+        logging.FileHandler(os.path.join(defaults.PATH_DICT['LOG_DIR'], log_file_name), mode='w'),
         logging.StreamHandler()
     ]
                         )

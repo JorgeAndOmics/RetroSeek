@@ -1,17 +1,12 @@
 blast:
   e_value: 0.01
-  probe_min_length:
-    GAG: 200
-    POL: 400
-    ENV: 200
-    VIF: 200
-    N_protein: 200
-    P_protein: 200
-    G_protein: 200
-    L_protein: 200
-    X_protein: 200
-    M_protein: 200
-    Pr160: 200
+  optional_parameters: ''
+
+genome_tools:
+  suffix_array_parts: 3
+  suffixerator_optional_parameters: ''
+  ltrharvest_optional_parameters: ''
+  ltrdigest_optional_parameters: ''
 
 parameters:
   identity_threshold: 0
@@ -24,6 +19,18 @@ parameters:
   hotspot_mask_mismatch: 3
   hotspot_permutations: 1
   hotspot_pvalue_threshold: 0.05
+  probe_min_length:
+    GAG: 200
+    POL: 400
+    ENV: 200
+    VIF: 200
+    N_protein: 200
+    P_protein: 200
+    G_protein: 200
+    L_protein: 200
+    X_protein: 200
+    M_protein: 200
+    Pr160: 200
 
 logging:
   level_styles:
@@ -42,8 +49,15 @@ logging:
     process: { color: 'green' }
     thread: { color: 'green' }
 
+plots:
+  dpi: 300
+  width: 15
+  height: 12
+  show_upper_percent: 0.95
+  circle_plot_bitscore_threshold: 0
+
 execution:
-  use_species_dict: false
+  use_species_dict: true
   max_retrieval_attempts: 9
   max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'
@@ -86,28 +100,6 @@ domains:
     - "PR15"
 
 species:
-  Desmodus_rotundus: Desmodus rotundus
-  Miniopterus_schreibersii: Miniopterus schreibersii
-  Tadarida_brasiliensis: Tadarida brasiliensis
-  Antrozous_pallidus: Antrozous pallidus
-  Molossus_molossus: Molossus molossus
-  Artibeus_lituratus: Artibeus lituratus
-  Eptesicus_fuscus: Eptesicus fuscus
-  Myotis_myotis: Myotis myotis
-  Eptesicus_nilssonii: Eptesicus nilssonii
-  Pipistrellus_kuhlii: Pipistrellus kuhlii
-  Rhinolophus_ferrumequinum: Rhinolophus ferrumequinum
-  Saccopteryx_bilineata: Saccopteryx bilineata
-  Vespertilio_murinus: Vespertilio murinus
-  Plecotus_auritus: Plecotus auritus
-  Rhinolophus_hipposideros: Rhinolophus hipposideros
-  Phyllostomus_discolor: Phyllostomus discolor
-  Myotis_daubentonii: Myotis daubentonii
-  Myotis_mystacinus: Myotis mystacinus
-  Corynorhinus_townsendii: Corynorhinus townsendii
-  Hipposideros_larvatus: Hipposideros larvatus
-  Rhynchonycteris_naso: Rhynchonycteris naso
-  Saccopteryx_leptura: Saccopteryx leptura
-  Molossus_alvarezi: Molossus alvarezi
-  Glossophaga_mutica: Glossophaga mutica
-  Molossus_nigricans: Molossus nigricans
+  'GCA_003054995.1': 'Wasp-A'
+  'GCA_045786645.1': 'Wasp-B'
+

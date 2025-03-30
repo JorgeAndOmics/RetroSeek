@@ -26,8 +26,8 @@ with open(CONFIG_FILE, 'r') as f:
 
 # BLAST
 E_VALUE = config['blast']['e_value']
-ACCESSION_ID_REGEX = '[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}'
-PROBE_MIN_LENGTH = config['blast']['probe_min_length']
+ACCESSION_ID_REGEX = r'[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}'
+PROBE_MIN_LENGTH = config['parameters']['probe_min_length']
 
 # Logging
 LEVEL_STYLES = config['logging']['level_styles']
@@ -109,4 +109,4 @@ SPECIES_DICT: dict = config.get('species', {})
 if not USE_SPECIES_DICT:
     SPECIES: list = [(f.split('.fa')[0]).strip() for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
 else:
-    SPECIES: list = [SPECIES_DICT.keys()]
+    SPECIES: list = SPECIES_DICT.keys()
