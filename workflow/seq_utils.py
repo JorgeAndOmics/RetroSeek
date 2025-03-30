@@ -35,7 +35,7 @@ import sys
 import re
 import os
 
-from RetroSeeker_class import Object
+from RetroSeeker_class import RetroSeeker
 
 from Bio.Blast import NCBIXML
 from Bio import Entrez
@@ -113,7 +113,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
         Parameters
         ----------
         :param result: The result of [blaster] function.
-        :param instance: The Object instance containing information about the query.
+        :param instance: The RetroSeeker instance containing information about the query.
         :param subject: The particular genome against whose database it's being BLASTed.
 
     Returns
@@ -160,7 +160,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
                     accession_id = accession_id_search[0]
                     random_string = utils.random_string_generator(6)
 
-                    new_instance = Object(
+                    new_instance = RetroSeeker(
                         family=str(instance.family),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
@@ -220,14 +220,14 @@ def _blast_task(instance: object, command: str, subject: str, input_database_pat
 
 
 def blast_executor(object_dict: dict,
-                              command: str,
-                              input_database_path,
-                              num_threads: str,
-                              display_full_info: bool,
-                              genome: str,
-                              ) -> dict:
+                   command: str,
+                   input_database_path,
+                   num_threads: str,
+                   display_full_info: bool,
+                   genome: str,
+                   ) -> dict:
     """
-    Runs BLAST tasks sequentially without using ThreadPoolExecutor
+    Runs BLAST tasks sequentially
 
         Parameters
         ----------

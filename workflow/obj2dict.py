@@ -140,7 +140,7 @@ if __name__ == '__main__':
         help='One or more pickle files to load from PICKLE_DIR.'
     )
     parser.add_argument(
-        '--output_file',
+        '--output_file_name',
         type=str,
         required=True,
         help='Base name for output files (CSV and Parquet will be generated).'
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     all_objects: list = []
     for file in args.files:
         objct_dict = utils.unpickler(
-            input_directory_path=defaults.PICKLE_DIR,
+            input_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
             input_file_name=file
         )
         logging.info(f'{os.path.basename(file).split(".")[0]}: {len(objct_dict)} objects retrieved')
@@ -177,8 +177,8 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     # 2.4 Save DataFrame to CSV and Parquet
     # -------------------------------------------------------------------------
-    output_csv_path = f'{args.output_file}.csv'
-    output_parquet_path = f'{args.output_file}.parquet'
+    output_csv_path = f'{args.output_file_name}.csv'
+    output_parquet_path = f'{args.output_file_name}.parquet'
 
     df.to_csv(output_csv_path, index=False)
 

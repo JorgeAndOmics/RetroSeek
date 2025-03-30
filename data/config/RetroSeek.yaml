@@ -1,0 +1,47 @@
+name: RetroSeek
+channels:
+  - conda-forge
+  - bioconda
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - python==3.10
+  - beautifulsoup4==4.12.3
+  - biopython==1.83
+  - certifi==2025.1.31
+  - charset-normalizer==3.3.2
+  - colorama==0.4.6
+  - coloredlogs==15.0.1
+  - dill==0.3.9
+  - humanfriendly==10.0
+  - idna==3.8
+  - numpy
+  - pandas==2.2.2
+  - pyarrow==17.0.0
+  - python-dateutil==2.9.0.post0
+  - pytz==2024.1
+  - requests==2.32.3
+  - six==1.16.0
+  - tqdm==4.67.1
+  - urllib3==2.2.2
+  - taxonkit
+  - hmmer
+  - r-arrow
+  - r-tidyverse
+  - bioconductor-genomicranges
+  - bioconductor-rtracklayer
+  - bioconductor-plyranges
+  - bioconductor-biostrings
+  - ncbi-datasets-cli
+  - pv
+  - r-ggalluvial
+  - r-ggdist
+  - r-ggsci
+  - r-ggfittext
+  - bioconductor-ggbio
+  - r-ggnewscale
+  - r-reticulate
+  - bioconductor-regioner
+  - r-argparse
+  - r-plotly
+

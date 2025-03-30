@@ -32,7 +32,7 @@ parser <- ArgumentParser(description = "Create circular genome plot from FASTA a
 parser$add_argument("--fasta", required = TRUE, help = "FASTA file containing the genome")
 parser$add_argument("--gff_custom", required = TRUE, help = "Custom GFF annotation file")
 parser$add_argument("--gff_ltrdigest", required = TRUE, help = "LTRdigest GFF annotation file")
-parser$add_argument("--threshold", required = TRUE, type = "double", help = "Bitscore threshold for outer ring")
+parser$add_argument("--config", required = TRUE, help = "Configuration YAML")
 parser$add_argument("--output", required = TRUE, help = "Output prefix path (no extension)")
 
 args <- parser$parse_args()
@@ -40,8 +40,10 @@ args <- parser$parse_args()
 args.fasta_file        <- args$fasta
 args.gff_custom_file   <- args$gff_custom
 args.gff_ltrdigest_file<- args$gff_ltrdigest
-args.bitscore_threshold<- args$threshold
+args.config            <- args$config
 args.output_file       <- args$output
+
+bitscore_threshold <- config$plots$circle_plot_bitscore_threshold
 
 # Inform user
 message("Processing circle plots for: ", basename(args.gff_custom_file))
@@ -124,7 +126,7 @@ p <- ggplot() +
   ) +
   
   layout_circle(
-    subset(gff_custom, as.numeric(mean_bitscore) > args.bitscore_threshold),
+    subset(gff_custom, as.numeric(mean_bitscore) > bitscore_threshold),
     aes(y = mean_bitscore, color = probe, alpha = mean_identity),
     geom = "point",
     radius = 14,

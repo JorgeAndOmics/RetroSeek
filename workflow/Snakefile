@@ -1,5 +1,6 @@
 import os
 import math
+
 import defaults
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
@@ -10,10 +11,10 @@ configfile: defaults.CONFIG_FILE
 
 rule genome_downloader_setup:
     output:
-        species=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
+        species=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
     params:
-        SPECIES_DB=defaults.SPECIES_DB,
-        DOWNLOAD_LOG=defaults.DOWNLOAD_LOG
+        SPECIES_DB=defaults.PATH_DICT['SPECIES_DB'],
+        DOWNLOAD_LOG=defaults.PATH_DICT['DOWNLOAD_LOG']
     threads:
         workflow.cores / 3
     shell:
@@ -24,7 +25,7 @@ rule genome_downloader_setup:
 
 rule genome_downloader:
     input:
-        species=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES)
+        species=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES)
     priority: 100
     shell:
         """
@@ -34,82 +35,88 @@ rule genome_downloader:
 
 rule pfam_hmm_downloader:
     output:
-        md5=os.path.join(defaults.ACCESSORY_DB, 'md5sum.txt'),
-        hmm=os.path.join(defaults.ACCESSORY_DB, 'Pfam-A.hmm')
+        md5=os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'md5sum.txt'),
+        hmm=os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Pfam-A.hmm')
     params:
-        accessory_dir=defaults.ACCESSORY_DB,
+        hmm_profile_dir=defaults.PATH_DICT['HMM_PROFILE_DIR'],
         url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz',
-        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums'
+        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums',
+        gunzip_decomp_threads=workflow.cores
     shell:
         """
+        cd {params.hmm_profile_dir:q} && \
         wget -O {output.hmm:q}.gz {params.url:q} && \
         wget -O {output.md5:q} {params.md5_url:q} && \
         grep "Pfam-A.hmm.gz" {output.md5:q} | md5sum -c - && \
-        gunzip -d -f {params.accessory_dir:q}/Pfam-A.hmm.gz > {output.hmm:q}
+        echo "MD5 checksum for HMM profile is correct. Decompressing..." && \
+        gunzip -d -f -v -k {params.hmm_profile_dir:q}/Pfam-A.hmm.gz
         """
 
 
 rule blast_db_generator_setup:
     input:
-        fa = os.path.join(defaults.SPECIES_DB, '{genome}.fa')
+        fa = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
     output:
-        ndb_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ndb'),
-        nhr_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nhr'),
-        nin_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nin'),
-        not_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.not'),
-        nsq_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nsq'),
-        ntf_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.ntf'),
-        nto_file=os.path.join(defaults.SPECIES_DB,'{genome}','{genome}.nto')
+        ndb_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.ndb'),
+        nhr_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.nhr'),
+        nin_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.nin'),
+        not_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.not'),
+        nsq_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.nsq'),
+        ntf_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.ntf'),
+        nto_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'],'{genome}','{genome}.nto')
     params:
-        db_dir=defaults.SPECIES_DB
+        db_dir=defaults.PATH_DICT['SPECIES_DB'],
+        optional_params=config['blast'].get('optional_parameters', '')
+    threads:
+        workflow.cores         # Faster download, not conflicts
     shell:
         """
         find . -maxdepth 1 -type f \( -iname '*.fasta' -o -iname '*.fna' -o -iname '*.fas' -o -iname '*.FASTA' \) \
         | parallel 'mv {{}} "{{.}}.fa"' && \
-        makeblastdb -in {input.fa:q} -dbtype nucl -parse_seqids \
+        makeblastdb -in {input.fa:q} -dbtype nucl -parse_seqids {params.optional_params} \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """
 
 
 rule blast_db_generator:
     input:
-        blast_db = expand(os.path.join(defaults.SPECIES_DB, '{genome}/{genome}.{ext}'),
+        blast_db = expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}/{genome}.{ext}'),
                           genome=defaults.SPECIES,
                           ext=BLAST_DB_EXT)
 
 
 rule ltr_index_generator_setup:
     input:
-        fa=os.path.join(defaults.SPECIES_DB, '{genome}.fa')
+        fa=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
     output:
-        des_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.des'),
-        esq_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.esq'),
-        lcp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.lcp'),
-        llv_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.llv'),
-        md5_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.md5'),
-        prj_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.prj'),
-        sds_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.sds'),
-        ssp_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.ssp'),
-        suf_file=os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.suf')
+        des_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.des'),
+        esq_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.esq'),
+        lcp_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.lcp'),
+        llv_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.llv'),
+        md5_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.md5'),
+        prj_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.prj'),
+        sds_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.sds'),
+        ssp_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.ssp'),
+        suf_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.suf')
     params:
-        db_dir=defaults.SPECIES_DB,
-        suffix_params='-tis -suf -des -ssp -sds -dna -lcp'
-    threads:
-        workflow.cores
+        db_dir=defaults.PATH_DICT['SPECIES_DB'],
+        suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
+        optional_params=config['genome_tools'].get('suffixerator_optional_parameters', ''),
+        suffix_array_parts=config['genome_tools'].get('suffix_array_parts', 2)      # We divide by parts because it's a memory-intensive process
     shell:
         """
         echo "Generating suffix array for {wildcards.genome:q}" && \
         gt suffixerator \
         -db {input.fa:q} \
         -indexname {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q} \
-        {params.suffix_params} \
-        -parts 2
+        {params.suffix_params} {params.optional_params}\
+        -parts {params.suffix_array_parts}
         """
 
 
 rule ltr_index_generator:
     input:
-        idx = expand(os.path.join(defaults.SPECIES_DB, '{genome}', '{genome}.{ext}'),
+        idx = expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.{ext}'),
                      genome=defaults.SPECIES,
                      ext=LTR_INDEX_EXT)
 
@@ -118,12 +125,13 @@ rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator_setup.output
     output:
-        ltr_fasta = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.fa'),
-        ltr_gff3 = os.path.join(defaults.LTRHARVEST_DIR, '{genome}.gff3'),
-        ltr_sorted_gff3 = os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.gff3')
+        ltr_fasta = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
+        ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
+        ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3')
     params:
-        index_directory_path=defaults.SPECIES_DB,
-        output_directory_path=os.path.join(defaults.LTRHARVEST_DIR)
+        index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
+        output_directory_path=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR']),
+        optional_params=config['genome_tools'].get('ltrharvest_optional_parameters','')
     shell:
         '''
         TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
@@ -131,7 +139,8 @@ rule ltr_harvester_setup:
         -seqids \
         -index {params.index_directory_path:q}/{wildcards.genome:q}/{wildcards.genome:q} \
         -out {params.output_directory_path:q}/{wildcards.genome:q}.fa \
-        -gff3 {params.output_directory_path:q}/{wildcards.genome:q}.gff3 && \
+        -gff3 {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
+        {params.optional_params} && \
         gt gff3 -sort {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
         > {params.output_directory_path:q}/{wildcards.genome:q}_sorted.gff3
         '''
@@ -139,10 +148,10 @@ rule ltr_harvester_setup:
 
 rule ltr_harvester:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}.{ext}'),
+        ltr_files = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.{ext}'),
                            genome=defaults.SPECIES,
                            ext=['fa', 'gff3']),
-        ltr_sorted_gff3 = expand(os.path.join(defaults.LTRHARVEST_DIR, '{genome}_sorted.{ext}'),
+        ltr_sorted_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.{ext}'),
                                  genome=defaults.SPECIES,
                                  ext=['gff3'])
 
@@ -152,18 +161,19 @@ rule ltr_digester_setup:
         ltrharvest_output=rules.ltr_harvester_setup.output.ltr_sorted_gff3,
         pfam_database=rules.pfam_hmm_downloader.output
     output:
-        ltr_gff3 = os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3')
+        ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     params:
-        ltr_harvest_path=defaults.LTRHARVEST_DIR,
-        hmm_profile_path=defaults.HMM_PROFILE_DIR,
-        index_directory_path=defaults.SPECIES_DB,
-        output_directory_path=defaults.LTRDIGEST_DIR
+        ltr_harvest_path=defaults.PATH_DICT['LTRHARVEST_DIR'],
+        hmm_profile_path=defaults.PATH_DICT['HMM_PROFILE_DIR'],
+        index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
+        output_directory_path=defaults.PATH_DICT['LTRDIGEST_DIR'],
+        optional_params=config['genome_tools'].get('ltrdigest_optional_parameters','')
     shell:
         '''
         echo "Running LTRDigest for {wildcards.genome:q}" && \
         TMPDIR=$(mktemp -d /tmp/ltrdigest_{wildcards.genome}_XXXXXX) && \
         gt ltrdigest \
-        -v -matchdescstart \
+        -v -matchdescstart {params.optional_params} \
         -seqfile {params.index_directory_path:q}/{wildcards.genome:q}.fa \
         -hmms {params.hmm_profile_path:q}/Pfam-A.hmm -- \
         {params.ltr_harvest_path:q}/{wildcards.genome:q}_sorted.gff3 \
@@ -175,25 +185,25 @@ rule ltr_digester_setup:
 
 rule ltr_digester:
     input:
-        ltr_files = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.{ext}'),
+        ltr_files = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.{ext}'),
                            genome=defaults.SPECIES, ext=['gff3'])
 
 
 rule probe_extractor:
     input:
-        probe_table=os.path.join(defaults.TABLE_INPUT_DIR, 'probes.csv')
+        probe_table=os.path.join(defaults.PATH_DICT['TABLE_INPUT_DIR'], 'probes.csv')
     output:
-        probe_pkl=os.path.join(defaults.PICKLE_DIR, 'probe_dict.pkl'),
-        probe_csv=os.path.join(defaults.TABLE_OUTPUT_DIR, 'probe_dict.csv'),
-        probe_parquet=os.path.join(defaults.TABLE_OUTPUT_DIR, 'probe_dict.parquet')
+        probe_pkl=os.path.join(defaults.PATH_DICT['PICKLE_DIR'], 'probe_dict.pkl'),
+        probe_csv=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.csv'),
+        probe_parquet=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.parquet')
     params:
-        table_dir=defaults.TABLE_OUTPUT_DIR
+        table_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
     threads:
         workflow.cores
     shell:
         '''
         python probe_extractor.py && \
-        python obj2dict.py --files probe_dict.pkl --output_file {params.table_dir}/probe_dict
+        python obj2dict.py --files probe_dict.pkl --output_file_name {params.table_dir}/probe_dict
         '''
 
 
@@ -202,9 +212,9 @@ rule full_genome_blaster_setup:
         input_pkl=rules.probe_extractor.output.probe_pkl,
         blast_db=rules.blast_db_generator.output
     output:
-        parquet_species=os.path.join(defaults.TBLASTN_PICKLE_DIR, '{genome}.pkl')
+        parquet_species=os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'], '{genome}.pkl')
     params:
-        tblastn_pickle_dir=defaults.TBLASTN_PICKLE_DIR,
+        tblastn_pickle_dir=defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],
         num_threads=1
     shell:
         '''
@@ -214,186 +224,173 @@ rule full_genome_blaster_setup:
 
 rule full_genome_blaster:
     input:
-        pkl_species=expand(os.path.join(defaults.TBLASTN_PICKLE_DIR,'{genome}.pkl'), genome=defaults.SPECIES)
+        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=defaults.SPECIES)
 
 
 rule blast_pkl2parquet:
     input:
-        pkl_species=expand(os.path.join(defaults.TBLASTN_PICKLE_DIR,'{genome}.pkl'), genome=defaults.SPECIES)
+        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=defaults.SPECIES)
     output:
-        csv_full=os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.csv'),
-        parquet_full=os.path.join(defaults.TABLE_OUTPUT_DIR, 'full_genome_blast.parquet')
+        csv_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.csv'),
+        parquet_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.parquet')
     params:
-        tmp_dir=defaults.TMP_DIR,
-        table_output_dir=defaults.TABLE_OUTPUT_DIR
+        tmp_dir=defaults.PATH_DICT['TMP_DIR'],
+        table_output_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
     shell:
         '''
         rm -rf {params.tmp_dir:q} && \
-        python obj2dict.py --files {input.pkl_species:q} --output_file {params.table_output_dir:q}/full_genome_blast
+        python obj2dict.py --files {input.pkl_species:q} --output_file_name {params.table_output_dir:q}/full_genome_blast
         '''
 
 rule species_segmenter_setup:
     input:
         input_parquet = rules.blast_pkl2parquet.output.parquet_full
     output:
-        all_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, 'all_{suffix}.parquet'),
+        all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
-        species_parquet=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_{suffix}.parquet'),
+        species_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
                                genome=defaults.SPECIES, suffix=['full', 'main', 'accessory'])
     params:
-        output_dir = defaults.SEGMENTED_SPECIES_DIR
+        output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
     shell:
-        'Rscript species_segmenter.R {input.input_parquet:q} {params.output_dir:q}'
+        'Rscript species_segmenter.R \
+        --input_file {input.input_parquet:q} \
+        --output_dir {params.output_dir:q}'
 
 
 rule species_segmenter:
     input:
         rules.species_segmenter_setup.output
 
-# TODO: CHANGE ARG PARSING TO R-ARGPARSE
 rule ranges_analysis_main_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
-        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_main.parquet'),
+        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES),
+        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_main.parquet'),
                                  genome=defaults.SPECIES),
-        ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
+        ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
                           genome=defaults.SPECIES)
     output:
-        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_main.gff3'),
-        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_main.gff3'),
-        valid_tracks=os.path.join(defaults.TRACK_VALID_DIR,'{genome}_main.gff3'),
-        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_main.csv'),
-        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_main.parquet')
+        original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_main.gff3'),
+        candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_main.gff3'),
+        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
+        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_main.csv'),
+        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet')
     params:
-        species_db=defaults.SPECIES_DB,
-        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
-        probes_dir=defaults.TABLE_INPUT_DIR,
-        workflow_dir=defaults.WORKFLOW_DIR,
-        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
-        ltr_digest_dir=defaults.LTRDIGEST_DIR,
-        original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
-        candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
-        valid_tracks_dir=defaults.TRACK_VALID_DIR,
-        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        bitscore_threshold=config['parameters'].get('bitscore_threshold', 0),
-        identity_threshold=config['parameters'].get('identity_threshold', 0),
-        ltr_resize=config['parameters'].get('ltr_resize',0),
-        merge_option=config['parameters'].get('merge_option', 'virus')
+        species_db=defaults.PATH_DICT['SPECIES_DB'],
+        segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
+        probes_csv=defaults.PROBE_CSV,
+        workflow_dir=defaults.PATH_DICT['WORKFLOW_DIR'],
+        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        ltr_digest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
+        yaml_config_file=defaults.CONFIG_FILE,
+        original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
+        candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
+        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
     shell:
         '''
         Rscript ranges_analysis.R \
-        {params.species_db:q}/{wildcards.genome:q}.fa \
-        {params.segmented_species_dir:q}/{wildcards.genome:q}_main.parquet \
-        {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
-        {params.probes_dir:q}/probes.csv \
-        {params.workflow_dir:q} \
-        {params.bitscore_threshold:q} \
-        {params.identity_threshold:q} \
-        {params.ltr_resize:q} \
-        {params.merge_option:q} \
-        {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        {params.candidate_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        {params.overlap_matrix_dir:q}/{wildcards.genome:q}_main.csv \
-        {params.plot_dataframes_dir:q}/{wildcards.genome:q}_main.parquet
+        --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
+        --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_main.parquet \
+        --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
+        --probes {params.probes_csv:q} \
+        --config {params.yaml_config_file:q} \
+        --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}_main.csv \
+        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}_main.parquet
         '''
 
 
 rule ranges_analysis_accessory_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.SPECIES_DB, '{genome}.fa'), genome=defaults.SPECIES),
-        species_segmented=expand(os.path.join(defaults.SEGMENTED_SPECIES_DIR, '{genome}_accessory.parquet'),
+        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES),
+        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_accessory.parquet'),
                                  genome=defaults.SPECIES),
-        ltr_gff3 = expand(os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3'),
+        ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
                           genome=defaults.SPECIES)
     output:
-        original_tracks=os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_accessory.gff3'),
-        candidate_tracks=os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_accessory.gff3'),
-        overlap_matrix=os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_accessory.csv'),
-        plot_dataframes=os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_accessory.parquet')
+        original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_accessory.gff3'),
+        candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_accessory.gff3'),
+        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_accessory.csv'),
+        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
     params:
-        species_db=defaults.SPECIES_DB,
-        segmented_species_dir=defaults.SEGMENTED_SPECIES_DIR,
-        probes_dir=defaults.TABLE_INPUT_DIR,
-        workflow_dir=defaults.WORKFLOW_DIR,
-        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
-        ltr_digest_dir=defaults.LTRDIGEST_DIR,
-        original_tracks_dir=defaults.TRACK_ORIGINAL_DIR,
-        candidate_tracks_dir=defaults.TRACK_CANDIDATES_DIR,
-        valid_tracks_dir=defaults.TRACK_VALID_DIR,
-        overlap_matrix_dir=defaults.TABLE_OVERLAP_MATRIX_DIR,
-        bitscore_threshold=config['parameters'].get('bitscore_threshold',0),
-        identity_threshold=config['parameters'].get('identity_threshold',0),
-        ltr_resize=config['parameters'].get('ltr_resize',0),
-        merge_option=config['parameters'].get('merge_option','virus')
+        species_db=defaults.PATH_DICT['SPECIES_DB'],
+        segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
+        probes_csv=defaults.PROBE_CSV,
+        workflow_dir=defaults.PATH_DICT['WORKFLOW_DIR'],
+        yaml_config_file=defaults.CONFIG_FILE,
+        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        ltr_digest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
+        original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
+        candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
+        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
     threads:
         workflow.cores      # Apparently doesn't take well to multicore
     shell:
         '''
         Rscript ranges_analysis.R \
-        {params.species_db:q}/{wildcards.genome:q}.fa \
-        {params.segmented_species_dir:q}/{wildcards.genome:q}_accessory.parquet \
-        {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
-        {params.probes_dir:q}/probes.csv \
-        {params.workflow_dir:q} \
-        {params.bitscore_threshold:q} \
-        {params.identity_threshold:q} \
-        {params.ltr_resize:q} \
-        {params.merge_option:q} \
-        {params.original_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        {params.candidate_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        {params.valid_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        {params.overlap_matrix_dir:q}/{wildcards.genome:q}_accessory.csv \
-        {params.plot_dataframes_dir:q}/{wildcards.genome:q}_accessory.parquet
+        --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
+        --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_accessory.parquet \
+        --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
+        --probes {params.probes_csv:q} \
+        --config {params.yaml_config_file:q} \
+        --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
+        --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
+        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
+        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}_accessory.csv \
+        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}_accessory.parquet
         '''
 
 rule ranges_analysis:
     input:
-        original_tracks=expand(os.path.join(defaults.TRACK_ORIGINAL_DIR,'{genome}_{suffix}.gff3'),
+        original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_{suffix}.gff3'),
                                genome=defaults.SPECIES,
                                suffix=['main', 'accessory']),
-        candidate_tracks=expand(os.path.join(defaults.TRACK_CANDIDATES_DIR,'{genome}_{suffix}.gff3'),
+        candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_{suffix}.gff3'),
                                 genome=defaults.SPECIES,
                                 suffix=['main', 'accessory']),
-        valid_tracks=expand(os.path.join(defaults.TRACK_VALID_DIR,'{genome}_main.gff3'),
+        valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
                                 genome=defaults.SPECIES),
-        overlap_matrix=expand(os.path.join(defaults.TABLE_OVERLAP_MATRIX_DIR,'{genome}_{suffix}.csv'),
+        overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_{suffix}.csv'),
                               genome=defaults.SPECIES,
                               suffix=['main', 'accessory']),
-        plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
                                genome=defaults.SPECIES,
                                suffix=['main', 'accessory'])
 
 
 rule plot_generator_setup:
     input:
-        plot_dataframes=expand(os.path.join(defaults.PLOT_DATAFRAMES_DIR,'{genome}_{suffix}.parquet'),
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
                                genome=defaults.SPECIES, suffix=['main','accessory'])
     output:
-        density_plots=expand(os.path.join(defaults.PLOT_DIR,'{density_probe}_density.png'),
+        density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
-        raincloud_plots=expand(os.path.join(defaults.PLOT_DIR,'{raincloud_probe}_raincloud.png'),
+        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
                                raincloud_probe=['main','accessory']),
-        bar_plots=expand(os.path.join(defaults.PLOT_DIR,'{bar_probe}_bar.png'),
+        bar_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{bar_probe}_bar.png'),
                          bar_probe=['full', 'main','accessory']),
-        sankey_plots=expand(os.path.join(defaults.PLOT_DIR,'{sankey_probe}_sankey_{plot_type}.png'),
+        sankey_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
                             sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
-        balloon_plots=expand(os.path.join(defaults.PLOT_DIR,'{balloon_probe}_balloon.png'),
+        balloon_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{balloon_probe}_balloon.png'),
                              balloon_probe=['main','accessory'])
     params:
-        plot_dataframes_dir=defaults.PLOT_DATAFRAMES_DIR,
-        plot_dir=defaults.PLOT_DIR,
-        filter_threshold=config.get('filter_threshold',0.005)
+        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        plot_dir=defaults.PATH_DICT['PLOT_DIR'],
+        config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
     shell:
         '''
         Rscript plot2sort.R \
-        {params.plot_dataframes_dir:q} \
-        {params.plot_dir:q} \
-        {params.filter_threshold:q}
+        --input {params.plot_dataframes_dir:q} \
+        --output {params.plot_dir:q} \
+        --config {params.config_yaml:q}
         '''
 
 
@@ -404,34 +401,34 @@ rule plot_generator:
 
 rule circle_plot_generator_setup:
     input:
-        fasta=os.path.join(defaults.SPECIES_DB, '{genome}.fa'),
-        hits= os.path.join(defaults.TRACK_VALID_DIR, '{genome}_main.gff3'),
-        ltrdigest=os.path.join(defaults.LTRDIGEST_DIR, '{genome}.gff3')
+        fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        hits= os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}_main.gff3'),
+        ltrdigest=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     output:
-        circle_plot_png=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),
-        circle_plot_pdf=os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.pdf')
+        circle_plot_png=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),
+        circle_plot_pdf=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.pdf')
 
     params:
-        species_db=defaults.SPECIES_DB,
-        ltrdigest_dir=defaults.LTRDIGEST_DIR,
-        valid_tracks_dir=defaults.TRACK_VALID_DIR,
-        circle_plot_dir=defaults.CIRCLE_PLOT_DIR,
+        species_db=defaults.PATH_DICT['SPECIES_DB'],
+        ltrdigest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
+        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        circle_plot_dir=defaults.PATH_DICT['CIRCLE_PLOT_DIR'],
         bitscore_threshold=config.get('circle_plot_bitscore_threshold',0)
     threads:
         workflow.cores
     shell:
         '''
         Rscript circle_plot_generator.R \
-        {params.species_db:q}/{wildcards.genome:q}.fa \
-        {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
-        {params.bitscore_threshold:q} \
-        {params.circle_plot_dir:q}/{wildcards.genome:q}
+        --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
+        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
+        --config {params.bitscore_threshold:q} \
+        --output {params.circle_plot_dir:q}/{wildcards.genome:q}
         '''
 
 rule circle_plot_generator:
     input:
-        circle_plots=expand(os.path.join(defaults.CIRCLE_PLOT_DIR, '{genome}.png'),genome=defaults.SPECIES)
+        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=defaults.SPECIES)
 
 
 # TODO: SUFFIX PARSING
@@ -439,40 +436,40 @@ rule hotspot_detector_setup:
     input:
         tracks=rules.ranges_analysis.input
     output:
-        hotspot_csv=os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'),
-        hotspot_histogram_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_histogram.pdf'),
-        hotspot_density_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_density.pdf'),
-        hotspot_heatmap_pdf=os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_heatmap.pdf'),
-        hotspot_track=os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3')
+        hotspot_csv=os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),
+        hotspot_histogram_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),
+        hotspot_density_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'),
+        hotspot_heatmap_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'),
+        hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3')
     params:
-        genomes_dir=defaults.SPECIES_DB,
-        input_track_dir=defaults.TRACK_ORIGINAL_DIR,          # For now
+        genomes_dir=defaults.PATH_DICT['SPECIES_DB'],
+        input_track_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],          # For now
         window_size=config.get('hotspot_window_size', 10000),
         mask_size=config.get('hotspot_mask_size', 20),
         mask_mismatch=config.get('hotspot_mask_mismatch', 2),
         permutations=config.get('hotspot_permutations', 3),
         pvalue_threshold=config.get('hotspot_pvalue_threshold', 0.05),
-        csv_dir=defaults.TABLE_HOTSPOT_DIR,
-        pdf_dir=defaults.HOTSPOT_PDF_DIR,
-        track_dir=defaults.TRACK_HOTSPOTS_DIR,
+        csv_dir=defaults.PATH_DICT['TABLE_HOTSPOT_DIR'],
+        pdf_dir=defaults.PATH_DICT['HOTSPOT_PDF_DIR'],
+        track_dir=defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
     shell:
         '''
         Rscript hotspot_detector.R \
-        {params.genomes_dir:q}/{wildcards.genome}.fa \
-        {params.input_track_dir:q}/{wildcards.genome}_main.gff3 \
-        {params.config_yaml:q} \
-        {params.csv_dir:q} \
-        {params.pdf_dir:q} \
-        {params.track_dir:q}
+        --fasta {params.genomes_dir:q}/{wildcards.genome}.fa \
+        --gff {params.input_track_dir:q}/{wildcards.genome}_main.gff3 \
+        --config {params.config_yaml:q} \
+        --csv_output_dir {params.csv_dir:q} \
+        --pdf_output_dir {params.pdf_dir:q} \
+        --hotspot_output_dir {params.track_dir:q}
         '''
 
 rule hotspot_detector:
     input:
-        hotspot_csv=expand(os.path.join(defaults.TABLE_HOTSPOT_DIR, '{genome}.csv'), genome=defaults.SPECIES),
-        hotspot_histogram_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_histogram.pdf'), genome=defaults.SPECIES),
-        hotspot_density_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_density.pdf'), genome=defaults.SPECIES),
-        hotspot_heatmap_pdf=expand(os.path.join(defaults.HOTSPOT_PDF_DIR, '{genome}_heatmap.pdf'), genome=defaults.SPECIES),
-        hotspot_track=expand(os.path.join(defaults.TRACK_HOTSPOTS_DIR, '{genome}.gff3'), genome=defaults.SPECIES)
+        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=defaults.SPECIES),
+        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=defaults.SPECIES),
+        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=defaults.SPECIES),
+        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=defaults.SPECIES),
+        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=defaults.SPECIES)

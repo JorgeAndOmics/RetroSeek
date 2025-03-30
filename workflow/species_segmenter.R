@@ -18,13 +18,13 @@ parser$add_argument("--output_dir", required = TRUE, help = "Directory to write 
 
 args <- parser$parse_args()
 
-input_file <- args$input_file
-output_dir <- args$output_dir
+args.input_file <- args$input_file
+args.output_dir <- args$output_dir
 
 # =============================================================================
 # 2. Load Input File
 # =============================================================================
-data <- arrow::read_parquet(input_file)
+data <- arrow::read_parquet(args.input_file)
 
 # =============================================================================
 # 3. Helper Function: Named Group Split
@@ -58,8 +58,8 @@ species_names <- data %>%
 # 5. Write Main & Accessory Parquet Outputs
 # =============================================================================
 message("Splitting hits for main and accessory probes")
-arrow::write_parquet(main_probes, file.path(output_dir, "all_main.parquet"))
-arrow::write_parquet(accessory_probes, file.path(output_dir, "all_accessory.parquet"))
+arrow::write_parquet(main_probes, file.path(args.output_dir, "all_main.parquet"))
+arrow::write_parquet(accessory_probes, file.path(args.output_dir, "all_accessory.parquet"))
 
 # =============================================================================
 # 6. Write Species-Specific Outputs
@@ -69,22 +69,22 @@ for (sp in species_names) {
   
   # ALL
   if (sp %in% names(all_probes)) {
-    arrow::write_parquet(all_probes[[sp]], file.path(output_dir, paste0(sp, "_full.parquet")))
+    arrow::write_parquet(all_probes[[sp]], file.path(args.output_dir, paste0(sp, "_full.parquet")))
   } else {
-    arrow::write_parquet(data[0, ], file.path(output_dir, paste0(sp, "_full.parquet")))
+    arrow::write_parquet(data[0, ], file.path(args.output_dir, paste0(sp, "_full.parquet")))
   }
   
   # MAIN
   if (sp %in% names(species_groups_main)) {
-    arrow::write_parquet(species_groups_main[[sp]], file.path(output_dir, paste0(sp, "_main.parquet")))
+    arrow::write_parquet(species_groups_main[[sp]], file.path(args.output_dir, paste0(sp, "_main.parquet")))
   } else {
-    arrow::write_parquet(main_probes[0, ], file.path(output_dir, paste0(sp, "_main.parquet")))
+    arrow::write_parquet(main_probes[0, ], file.path(args.output_dir, paste0(sp, "_main.parquet")))
   }
   
   # ACCESSORY
   if (sp %in% names(species_groups_accessory)) {
-    arrow::write_parquet(species_groups_accessory[[sp]], file.path(output_dir, paste0(sp, "_accessory.parquet")))
+    arrow::write_parquet(species_groups_accessory[[sp]], file.path(args.output_dir, paste0(sp, "_accessory.parquet")))
   } else {
-    arrow::write_parquet(accessory_probes[0, ], file.path(output_dir, paste0(sp, "_accessory.parquet")))
+    arrow::write_parquet(accessory_probes[0, ], file.path(args.output_dir, paste0(sp, "_accessory.parquet")))
   }
 }

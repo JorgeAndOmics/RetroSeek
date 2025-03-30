@@ -203,7 +203,7 @@ class RetroSeeker:
         # Create a temporary file to write the FASTA text
         with tempfile.NamedTemporaryFile(mode='w',
                                          delete=False,
-                                         dir=defaults.TMP_DIR,
+                                         dir=defaults.PATH_DICT['TMP_DIR'],
                                          suffix=f'.{obj_type}') as tmp_file:
             tmp_file.write(seq_obj)
 

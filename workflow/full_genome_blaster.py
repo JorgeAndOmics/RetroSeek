@@ -68,7 +68,7 @@ if __name__ == '__main__':
     # 1.2 Load Probe Dictionary
     # -------------------------------------------------------------------------
     probe_dict: dict[str, object] = utils.unpickler(
-        input_directory_path=defaults.PICKLE_DIR,
+        input_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
         input_file_name='probe_dict.pkl'
     )
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
         object_dict=probe_dict,
         command='tblastn',
         genome=genome,
-        input_database_path=defaults.SPECIES_DB,
+        input_database_path=defaults.PATH_DICT['SPECIES_DB'],
         num_threads=num_threads,
         display_full_info=False
     )
@@ -89,6 +89,6 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     utils.pickler(
         data=tblastn_results,
-        output_directory_path=defaults.TBLASTN_PICKLE_DIR,
+        output_directory_path=defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],
         output_file_name=f'{genome}.pkl'
     )
