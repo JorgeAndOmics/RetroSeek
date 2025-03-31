@@ -1,13 +1,26 @@
 import os
 import math
+import pandas as pd
 
 import defaults
+
+def retrieve_species_list(csv_path:str, default:list[str]=None) -> list[str]:
+    if os.path.exists(csv_path):
+        return pd.read_csv(csv_path)["species"].unique().tolist()
+    else:
+        return default
+
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
+SPECIES = retrieve_species_list(
+    csv_path=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'],'full_genome_blast.csv'),
+    default=defaults.SPECIES
+)
 
 configfile: defaults.CONFIG_FILE
+
 
 rule genome_downloader_setup:
     output:
@@ -25,7 +38,7 @@ rule genome_downloader_setup:
 
 rule genome_downloader:
     input:
-        species=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES)
+        species=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES)
     priority: 100
     shell:
         """
@@ -81,7 +94,7 @@ rule blast_db_generator_setup:
 rule blast_db_generator:
     input:
         blast_db = expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}/{genome}.{ext}'),
-                          genome=defaults.SPECIES,
+                          genome=SPECIES,
                           ext=BLAST_DB_EXT)
 
 
@@ -117,7 +130,7 @@ rule ltr_index_generator_setup:
 rule ltr_index_generator:
     input:
         idx = expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.{ext}'),
-                     genome=defaults.SPECIES,
+                     genome=SPECIES,
                      ext=LTR_INDEX_EXT)
 
 
@@ -149,10 +162,10 @@ rule ltr_harvester_setup:
 rule ltr_harvester:
     input:
         ltr_files = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.{ext}'),
-                           genome=defaults.SPECIES,
+                           genome=SPECIES,
                            ext=['fa', 'gff3']),
         ltr_sorted_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.{ext}'),
-                                 genome=defaults.SPECIES,
+                                 genome=SPECIES,
                                  ext=['gff3'])
 
 
@@ -186,7 +199,7 @@ rule ltr_digester_setup:
 rule ltr_digester:
     input:
         ltr_files = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.{ext}'),
-                           genome=defaults.SPECIES, ext=['gff3'])
+                           genome=SPECIES, ext=['gff3'])
 
 
 rule probe_extractor:
@@ -224,12 +237,12 @@ rule full_genome_blaster_setup:
 
 rule full_genome_blaster:
     input:
-        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=defaults.SPECIES)
+        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=SPECIES)
 
 
 rule blast_pkl2parquet:
     input:
-        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=defaults.SPECIES)
+        pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=SPECIES)
     output:
         csv_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.csv'),
         parquet_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.parquet')
@@ -249,7 +262,7 @@ rule species_segmenter_setup:
         all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
         species_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
-                               genome=defaults.SPECIES, suffix=['full', 'main', 'accessory'])
+                               genome=SPECIES, suffix=['full', 'main', 'accessory'])
     params:
         output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
     shell:
@@ -264,11 +277,11 @@ rule species_segmenter:
 
 rule ranges_analysis_main_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES),
+        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES),
         species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_main.parquet'),
-                                 genome=defaults.SPECIES),
+                                 genome=SPECIES),
         ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=defaults.SPECIES)
+                          genome=SPECIES)
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_main.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_main.gff3'),
@@ -307,11 +320,11 @@ rule ranges_analysis_main_setup:
 
 rule ranges_analysis_accessory_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=defaults.SPECIES),
+        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES),
         species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_accessory.parquet'),
-                                 genome=defaults.SPECIES),
+                                 genome=SPECIES),
         ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=defaults.SPECIES)
+                          genome=SPECIES)
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_accessory.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_accessory.gff3'),
@@ -349,25 +362,25 @@ rule ranges_analysis_accessory_setup:
 rule ranges_analysis:
     input:
         original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_{suffix}.gff3'),
-                               genome=defaults.SPECIES,
+                               genome=SPECIES,
                                suffix=['main', 'accessory']),
         candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_{suffix}.gff3'),
-                                genome=defaults.SPECIES,
+                                genome=SPECIES,
                                 suffix=['main', 'accessory']),
         valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
-                                genome=defaults.SPECIES),
+                                genome=SPECIES),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_{suffix}.csv'),
-                              genome=defaults.SPECIES,
+                              genome=SPECIES,
                               suffix=['main', 'accessory']),
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
-                               genome=defaults.SPECIES,
+                               genome=SPECIES,
                                suffix=['main', 'accessory'])
 
 
 rule plot_generator_setup:
     input:
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
-                               genome=defaults.SPECIES, suffix=['main','accessory'])
+                               genome=SPECIES, suffix=['main','accessory'])
     output:
         density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
@@ -428,7 +441,7 @@ rule circle_plot_generator_setup:
 
 rule circle_plot_generator:
     input:
-        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=defaults.SPECIES)
+        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=SPECIES)
 
 
 # TODO: SUFFIX PARSING
@@ -468,8 +481,8 @@ rule hotspot_detector_setup:
 
 rule hotspot_detector:
     input:
-        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=defaults.SPECIES),
-        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=defaults.SPECIES),
-        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=defaults.SPECIES),
-        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=defaults.SPECIES),
-        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=defaults.SPECIES)
+        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=SPECIES),
+        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=SPECIES),
+        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=SPECIES),
+        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=SPECIES),
+        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=SPECIES)
