@@ -70,12 +70,19 @@ def extract_attributes_from_object(obj) -> dict:
         'virus': obj.virus,
         'abbreviation': obj.abbreviation,
         'species': obj.species,
-        'species_name': defaults.SPECIES_DICT.get(obj.species, obj.species),
         'probe': obj.probe,
         'accession': obj.accession,
         'identifier': obj.identifier,
         'strand': obj.strand,
     }
+    if defaults.USE_SPECIES_DICT:
+        data |= {
+            'species_name': defaults.SPECIES_DICT.get(obj.species, obj.species),
+        }
+    else:
+        data |= {
+            'species_name': obj.species,
+        }
 
     # GenBank info
     gb = obj.genbank

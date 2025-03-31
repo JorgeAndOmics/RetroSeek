@@ -7,10 +7,12 @@ suppressMessages({
   library(Biostrings)     # DNA sequence utilities
   library(rtracklayer)    # GFF I/O
   library(GenomicRanges)  # Genomic interval operations
+  library(plyranges)      # Genomic data manipulation
   library(regioneR)       # Permutation testing for genomic intervals
   library(tidyverse)      # Data manipulation and visualization
   library(purrr)          # Functional programming tools
   library(yaml)           # YAML config parsing
+  library(ggsci)          # Scientific color palettes
 })
 
 # =============================================================================
@@ -52,6 +54,10 @@ genome_granges <- GRanges(
 )
 
 chrom.names.filtered <- stringr::str_extract(names(subject_genome), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
+
+seqlevels(genome_granges) <- chrom.names.filtered
+seqnames(genome_granges) <- chrom.names.filtered
+
 seqinfo.vec <- setNames(width(subject_genome), chrom.names.filtered)
 
 # =============================================================================
@@ -133,4 +139,159 @@ summary_df <- map_dfr(perm_results, function(res) {
 })
 summary_df$Adjusted_pvalue <- p.adjust(summary_df$P_value, method = "BH")
 
-write_csv(summary_df, file.path(args.csv_output_dir, paste0(species_name, ".csv")))
+write_csv(summary_df, file.path(args.csv_output_dir, paste0(species, ".csv")))
+
+# =============================================================================
+# 8. Export Permutation Test Plots (Histogram) for Each Family
+# =============================================================================
+pdf(file.path(args.pdf_output_dir, paste0(species, "_histogram.pdf")), width = 15, height = 12)
+for (res in perm_results) {
+  perm_values    <- res$perm_result$numOverlaps$permuted   # Recompute for easier plotting within a single pdf
+  observed_value <- res$perm_result$numOverlaps$observed
+  ntimes         <- res$perm_result$numOverlaps$ntimes
+  alternative    <- res$perm_result$numOverlaps$alternative
+  p_value        <- res$perm_result$numOverlaps$pval
+  adjusted_p     <- summary_df %>%
+    filter(Family == res$family) %>%
+    pull(Adjusted_pvalue)
+  
+  df <- data.frame(Overlaps = perm_values)
+  perm_mean <- mean(perm_values)
+  perm_sd   <- sd(perm_values)
+  
+  p_hist <- ggplot(df, aes(x = Overlaps)) +
+    geom_histogram(binwidth = 10, fill = "lightblue", color = "black") +
+    geom_vline(xintercept = observed_value, color = "red", linetype = "dashed", size = 1) +
+    labs(
+      title = paste("Permutation Test -", species_name, "\nFamily:", res$family),
+      subtitle = paste(
+        "Observed overlaps =", observed_value,
+        "| Permuted overlaps (mean ± SD) =",
+        sprintf("%.2f ± %.2f", perm_mean, perm_sd),
+        "| Adjusted p-value (BH) =", sprintf("%.3g", adjusted_p),
+        "| Permutations =", ntimes,
+        "| Alternative:", alternative
+      ),
+      x = "Number of Overlaps",
+      y = "Frequency"
+    ) +
+    theme_minimal() +
+    scale_fill_nejm()
+  
+  print(p_hist)
+}
+dev.off()
+
+# =============================================================================
+# 9. Integration Hotspot Analysis per Family (Window-Based)
+# =============================================================================
+n_perm_hotspots <- n_perms
+hotspots_list <- list()
+
+for (fam in names(gff_list)) {
+  cat("Performing hotspot empirical permutation analysis for family:", fam, "\n")
+  
+  events <- gff_list[[fam]]   # Factual observations
+  obs_counts <- countOverlaps(genomic_windows, events)
+  
+  null_matrix <- matrix(NA, nrow = length(genomic_windows), ncol = n_perm_hotspots)
+  for (i in seq_len(n_perm_hotspots)) {
+    randomized_events <- randomize_ervs(events, genome_granges)
+    null_matrix[, i] <- countOverlaps(genomic_windows, randomized_events)
+  }
+  
+  pvals <- apply(null_matrix, 1, function(x) mean(x >= obs_counts))
+  pvals_adjusted <- p.adjust(pvals, method = "BH")
+  
+  pvalue_threshold <- config$parameters$hotspot_pvalue_threshold
+  
+  hotspot_windows <- genomic_windows[pvals_adjusted < pvalue_threshold]
+  
+  hotspots_list[[fam]] <- list(
+    observed_counts = obs_counts,
+    pvalues         = pvals_adjusted,
+    hotspots        = hotspot_windows
+  )
+}
+
+all_hotspots <- GRanges()
+for (fam in names(hotspots_list)) {
+  hs <- hotspots_list[[fam]]$hotspots
+  if (length(hs) > 0) {
+    mcols(hs)$family <- fam
+    all_hotspots <- c(all_hotspots, hs)
+  }
+}
+
+outfile <- file.path(args.hotspot_output_dir, paste0(species, ".gff3"))
+rtracklayer::export(all_hotspots, outfile, format = "gff3")
+
+# =============================================================================
+# A) EMPIRICAL DENSITY PLOTS (Permutation Distribution)
+# =============================================================================
+density_pdf_path <- file.path(args.pdf_output_dir, paste0(species, "_density.pdf"))
+pdf(density_pdf_path, width = 15, height = 12)
+for (res in perm_results) {
+  family_name    <- res$family
+  perm_values    <- res$perm_result$numOverlaps$permuted
+  observed_value <- res$perm_result$numOverlaps$observed
+  perm_mean      <- mean(perm_values)
+  perm_sd        <- sd(perm_values)
+  
+  adjusted_pval <- summary_df %>%
+    filter(Family == family_name) %>%
+    pull(Adjusted_pvalue)
+  
+  df <- data.frame(Overlaps = perm_values)
+  
+  p_density <- ggplot(df, aes(x = Overlaps)) +
+    geom_density(fill = "lightblue", alpha = 0.5) +
+    geom_vline(xintercept = observed_value, color = "red", linetype = "dashed", size = 1) +
+    labs(
+      title = paste0("Empirical Density of Permuted Overlaps - ", species_name),
+      subtitle = paste(
+        "Family:", family_name,
+        "| Observed =", observed_value,
+        "| Perm. Mean ± SD =", sprintf("%.2f ± %.2f", perm_mean, perm_sd),
+        "| Adj. p-value =", sprintf("%.3g", adjusted_pval)
+      ),
+      x = "Number of Overlaps",
+      y = "Density"
+    ) +
+    theme_minimal()
+  
+  print(p_density)
+}
+dev.off()
+
+
+# =============================================================================
+# B) HEATMAP OF OBSERVED COUNTS
+# =============================================================================
+heatmap_pdf_path <- file.path(args.pdf_output_dir, paste0(species, "_heatmap.pdf"))
+pdf(heatmap_pdf_path, width = 15, height = 12)
+
+for (fam in names(hotspots_list)) {
+  obs_counts <- hotspots_list[[fam]]$observed_counts
+  fam_df <- data.frame(
+    seqnames     = as.character(seqnames(genomic_windows)),
+    start        = start(genomic_windows),
+    OverlapCount = obs_counts
+  )
+  
+  p_heatmap <- ggplot(fam_df, aes(x = seqnames, y = start, fill = OverlapCount)) +
+    geom_tile() +
+    scale_fill_bs5("pink") +
+    labs(
+      title = paste("Heatmap of Observed Overlap Counts -", species_name),
+      subtitle = paste("Family:", fam),
+      x = "Chromosome",
+      y = "Window Start (bp)",
+      fill = "Overlap\nCount"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle=90, hjust=1))
+  
+  print(p_heatmap)
+}
+dev.off()
