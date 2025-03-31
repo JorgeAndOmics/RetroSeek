@@ -53,7 +53,7 @@ plots:
   dpi: 300
   width: 15
   height: 12
-  show_upper_percent: 0.95
+  omit_lower_percent: 0.05
   circle_plot_bitscore_threshold: 0
 
 execution:
