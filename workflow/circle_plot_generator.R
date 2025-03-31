@@ -21,6 +21,7 @@ suppressMessages({
   library(ggsci)           # For scientific color palettes
   library(ggnewscale)      # For adding new color scales
   library(stringr)         # For regex-based string extraction
+  library(yaml)            # For YAML configuration parsing
 })
 
 # ------------------------------
@@ -43,10 +44,12 @@ args.gff_ltrdigest_file<- args$gff_ltrdigest
 args.config            <- args$config
 args.output_file       <- args$output
 
+config <- yaml::read_yaml(args.config)
+
 bitscore_threshold <- config$plots$circle_plot_bitscore_threshold
 
 # Inform user
-message("Processing circle plots for: ", basename(args.gff_custom_file))
+message("Generating circle plots for: ", tools::file_path_sans_ext(basename(args.gff_custom_file)))
 
 # ------------------------------
 # 3. LOAD FASTA FILE (GENOME SEQUENCES)
@@ -192,5 +195,5 @@ p <- ggplot() +
 # ------------------------------
 # 9. SAVE PLOT AS IMAGE FILE
 # ------------------------------
-ggplot2::ggsave(filename = paste0(args.output, ".png"), plot = p, width = 20, height = 20, dpi = 500)
-ggplot2::ggsave(filename = paste0(args.output, ".pdf"), plot = p, width = 20, height = 20, dpi = 500)
+ggplot2::ggsave(filename = paste0(args.output_file, ".png"), plot = p, width = 20, height = 20, dpi = 500)
+ggplot2::ggsave(filename = paste0(args.output_file, ".pdf"), plot = p, width = 20, height = 20, dpi = 500)

@@ -413,7 +413,7 @@ rule circle_plot_generator_setup:
         ltrdigest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
         circle_plot_dir=defaults.PATH_DICT['CIRCLE_PLOT_DIR'],
-        bitscore_threshold=config.get('circle_plot_bitscore_threshold',0)
+        config_file=defaults.CONFIG_FILE
     threads:
         workflow.cores
     shell:
@@ -422,7 +422,7 @@ rule circle_plot_generator_setup:
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
-        --config {params.bitscore_threshold:q} \
+        --config {params.config_file:q} \
         --output {params.circle_plot_dir:q}/{wildcards.genome:q}
         '''
 

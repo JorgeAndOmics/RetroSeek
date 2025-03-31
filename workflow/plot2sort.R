@@ -45,10 +45,10 @@ args.output.dir      <- args$output
 args.config.file     <- args$config
 
 # Read threshold from YAML
-plot_filter_threshold <- yaml::read_yaml(args.config.file)$plot_filter_threshold %||% 0.95
-plot_dpi              <- yaml::read_yaml(args.config.file)$plot_dpi %||% 300
-plot_height           <- yaml::read_yaml(args.config.file)$plot_height %||% 12
-plot_width            <- yaml::read_yaml(args.config.file)$plot_width %||% 15
+plot_filter_threshold <- yaml::read_yaml(args.config.file)$plots$omit_lower_percent %||% 0.99
+plot_dpi              <- yaml::read_yaml(args.config.file)$plots$dpi %||% 300
+plot_height           <- yaml::read_yaml(args.config.file)$plots$height %||% 12
+plot_width            <- yaml::read_yaml(args.config.file)$plots$width %||% 15
 
 cat("Generating RetroSeek plots...\n")
 
@@ -56,8 +56,8 @@ cat("Generating RetroSeek plots...\n")
 # ----------------------------
 # 4. READ PARQUET INPUT FILES
 # ----------------------------
-main_files      <- list.files(args.input_dir, pattern = "_main\\.parquet$", full.names = TRUE)
-accessory_files <- list.files(args.input_dir, pattern = "_accessory\\.parquet$", full.names = TRUE)
+main_files      <- list.files(args.input.dir, pattern = "_main\\.parquet$", full.names = TRUE)
+accessory_files <- list.files(args.input.dir, pattern = "_accessory\\.parquet$", full.names = TRUE)
 
 if (length(main_files) == 0)      stop("No main parquet files found.")
 if (length(accessory_files) == 0) stop("No accessory parquet files found.")
@@ -66,6 +66,28 @@ all.main      <- purrr::map_dfr(main_files, arrow::read_parquet)
 all.accessory <- purrr::map_dfr(accessory_files, arrow::read_parquet)
 all.full      <- bind_rows(all.main, all.accessory)
 
+
+# ----------------------------
+# 4B. MAP ACCESSION TO SPECIES NAME
+# ----------------------------
+
+# Load species mapping from YAML config
+species_map <- yaml::read_yaml(args.config.file)$species
+
+# Convert named list to tibble for join
+species_df <- tibble(
+  species      = names(species_map),
+  species_name = unname(unlist(species_map))
+)
+
+# Join species_name into all datasets
+all.main      <- all.main      %>% left_join(species_df, by = "species")
+all.accessory <- all.accessory %>% left_join(species_df, by = "species")
+all.full      <- all.full      %>% left_join(species_df, by = "species")
+
+all.main <- all.main %>% select(-species) %>% rename(species = species_name)
+all.accessory <- all.accessory %>% select(-species) %>% rename(species = species_name)
+all.full <- all.full %>% select(-species) %>% rename(species = species_name)
 
 # ----------------------------
 # 5. QUANTILE CALCULATIONS
@@ -88,7 +110,7 @@ bit.accessory <- q_stats(all.accessory)
 # ----------------------------
 group_count <- function(df) {
   df %>%
-    group_by(species_name, virus, probe, family, abbreviation) %>%
+    group_by(species, virus, probe, family, abbreviation) %>%
     summarise(count = n(), .groups = "keep") %>%
     ungroup()
 }
@@ -96,7 +118,6 @@ group_count <- function(df) {
 all.counted_probe      <- group_count(all.full)
 main.counted_probe     <- group_count(all.main)
 accessory.counted_probe <- group_count(all.accessory)
-
 
 # ----------------------------
 # 7. DENSITY PLOTS
@@ -132,11 +153,11 @@ all.accessory.density.plot <- density_bitscore_plot(all.accessory, bit.accessory
 # ----------------------------
 bar_plot <- function(data) {
   data <- data %>%
-    group_by(species_name, family) %>%
+    group_by(species, family) %>%
     summarise(count = sum(count), .groups = "drop")
   
   ggplot(data) +
-    aes(x = species_name, y = count, fill = family, alpha = count) +
+    aes(x = species, y = count, fill = family, alpha = count) +
     geom_col(color = "black", linewidth = 0.2) +
     scale_fill_futurama() +
     scale_alpha_continuous(range = c(0.5, 1)) +
@@ -186,7 +207,7 @@ accessory.full.raincloud.bitscore_probe.plot <- raincloud_bitscore_plot(all.acce
 balloon_virus_species_plot <- function(data) {
   manual_colours <- futurama_unlimited_palette(5, length(unique(data$probe)))
   
-  ggplot(data, aes(x = abbreviation, y = factor(species_name, levels = rev(unique(species_name))))) +
+  ggplot(data, aes(x = abbreviation, y = factor(species, levels = rev(unique(species))))) +
     geom_point(aes(color = probe, fill = probe, alpha = count, size = count^3), shape = 15) +
     facet_wrap(~ probe) +
     scale_color_manual(values = manual_colours) +
@@ -211,47 +232,30 @@ accessory.full.balloon.virus_species.plot <- balloon_virus_species_plot(accessor
 # 11. SANKEY PLOTS
 # ----------------------------
 
+# Prepare data for each sankey
+data.main.sankey.species.probe <-main.counted_probe %>% group_by(species, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.accessory.sankey.species.probe <- accessory.counted_probe %>% group_by(species, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.main.sankey.family.probe <- main.counted_probe %>% group_by(family, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.accessory.sankey.family.probe <- accessory.counted_probe %>% group_by(family, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.main.sankey.species.family <- main.counted_probe %>% group_by(species, family) %>% summarise(count = sum(count), .groups = "drop")
+data.accessory.sankey.species.family <- accessory.counted_probe %>% group_by(species, family) %>% summarise(count = sum(count), .groups = "drop")
+
 sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
   
-  species_sums <- data %>%
-    group_by(species) %>%
-    summarise(species_count = sum(count)) %>%
-    arrange(desc(species_count))
+  ordered_species <- sort(unique(data$species), decreasing = TRUE)
+  ordered_probe <- sort(unique(data$probe), decreasing = TRUE)
   
-  probe_sums <- data %>%
-    group_by(probe) %>%
-    summarise(probe_count = sum(count)) %>%
-    arrange(desc(probe_count))
-  
-  data_filtered <- data %>%
-    inner_join(
-      probe_sums %>%
-        filter(probe_count >= filter_threshold * grand_total) %>%
-        select(probe),
-      by = "probe"
-    ) %>%
-    inner_join(
-      species_sums %>%
-        filter(species_count >= filter_threshold * grand_total) %>%
-        select(species),
-      by = "species"
-    ) %>%
-    mutate(
-      species = factor(species, levels = species_sums$species),
-      probe   = factor(probe,   levels = probe_sums$probe)
-    )
-  
-  required_cols <- c("species", "probe", "count")
-  missing_cols  <- setdiff(required_cols, names(data_filtered))
-  if (length(missing_cols) > 0) {
-    stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
-  }
-  
-  num_colours     <- max(length(unique(data_filtered$species)), length(unique(data_filtered$probe)))
+  data <- data %>%
+  mutate(
+    species = factor(species, levels = ordered_species),
+    probe   = factor(probe,   levels = ordered_probe)
+  )
+
+  num_colours     <- max(length(unique(data$species)), length(unique(data$probe)))
   manual_colours  <- futurama_unlimited_palette(12, num_colours)
   
-  ggplot(data_filtered, aes(axis1 = species, axis2 = probe, y = count)) +
+  ggplot(data, aes(axis1 = species, axis2 = probe, y = count)) +
     geom_alluvium(aes(fill = species, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
@@ -276,44 +280,19 @@ sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_thres
 sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
   
-  family_sums <- data %>%
-    group_by(family) %>%
-    summarise(family_count = sum(count)) %>%
-    arrange(desc(family_count))
+  ordered_family <- sort(unique(data$family), decreasing = TRUE)
+  ordered_probe <- sort(unique(data$probe), decreasing = TRUE)
+
+  data <- data  %>%
+  mutate(
+    family = factor(family, levels = ordered_family),
+    probe  = factor(probe,  levels = ordered_probe)
+  )
   
-  probe_sums <- data %>%
-    group_by(probe) %>%
-    summarise(probe_count = sum(count)) %>%
-    arrange(desc(probe_count))
-  
-  data_filtered <- data %>%
-    inner_join(
-      probe_sums %>%
-        filter(probe_count >= filter_threshold * grand_total) %>%
-        select(probe),
-      by = "probe"
-    ) %>%
-    inner_join(
-      family_sums %>%
-        filter(family_count >= filter_threshold * grand_total) %>%
-        select(family),
-      by = "family"
-    ) %>%
-    mutate(
-      family = factor(family, levels = family_sums$family),
-      probe  = factor(probe,  levels = probe_sums$probe)
-    )
-  
-  required_cols <- c("family", "probe", "count")
-  missing_cols  <- setdiff(required_cols, names(data_filtered))
-  if (length(missing_cols) > 0) {
-    stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
-  }
-  
-  num_colours     <- max(length(unique(data_filtered$family)), length(unique(data_filtered$probe)))
+  num_colours     <- max(length(unique(data$family)), length(unique(data$probe)))
   manual_colours  <- futurama_unlimited_palette(12, num_colours)
   
-  ggplot(data_filtered, aes(axis1 = family, axis2 = probe, y = count)) +
+  ggplot(data, aes(axis1 = family, axis2 = probe, y = count)) +
     geom_alluvium(aes(fill = family, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
@@ -338,44 +317,19 @@ sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_thresh
 sankey_species_family_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
   
-  family_sums <- data %>%
-    group_by(family) %>%
-    summarise(family_count = sum(count)) %>%
-    arrange(desc(family_count))
+  ordered_species <- sort(unique(data$species), decreasing = TRUE)
+  ordered_family <- sort(unique(data$family), decreasing = TRUE)
   
-  species_sums <- data %>%
-    group_by(species) %>%
-    summarise(species_count = sum(count)) %>%
-    arrange(desc(species_count))
-  
-  data_filtered <- data %>%
-    inner_join(
-      family_sums %>%
-        filter(family_count >= filter_threshold * grand_total) %>%
-        select(family),
-      by = "family"
-    ) %>%
-    inner_join(
-      species_sums %>%
-        filter(species_count >= filter_threshold * grand_total) %>%
-        select(species),
-      by = "species"
-    ) %>%
+    data <- data %>%
     mutate(
-      species = factor(species, levels = species_sums$species),
-      family  = factor(family,  levels = family_sums$family)
+      species = factor(species, levels = ordered_species),
+      family  = factor(family,  levels = ordered_family)
     )
-  
-  required_cols <- c("species", "family", "count")
-  missing_cols  <- setdiff(required_cols, names(data_filtered))
-  if (length(missing_cols) > 0) {
-    stop(paste("Error: Missing columns in data:", paste(missing_cols, collapse = ", ")))
-  }
-  
-  num_colours     <- max(length(unique(data_filtered$species)), length(unique(data_filtered$family)))
+
+  num_colours     <- max(length(unique(data$species)), length(unique(data$family)))
   manual_colours  <- futurama_unlimited_palette(12, num_colours)
   
-  ggplot(data_filtered, aes(axis1 = species, axis2 = family, y = count)) +
+  ggplot(data, aes(axis1 = species, axis2 = family, y = count)) +
     geom_alluvium(aes(fill = species, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
@@ -396,14 +350,14 @@ sankey_species_family_plot <- function(data, filter_threshold = plot_filter_thre
     theme(legend.position = "none")
 }
 
-main.full.sankey.species_probe_plot   <- sankey_species_probe_plot(main.counted_probe)
-accessory.full.sankey.species_probe_plot <- sankey_species_probe_plot(accessory.counted_probe)
+main.full.sankey.species_probe_plot   <- sankey_species_probe_plot(data.main.sankey.species.probe)
+accessory.full.sankey.species_probe_plot <- sankey_species_probe_plot(data.accessory.sankey.species.probe)
 
-main.full.sankey.family_probe_plot    <- sankey_family_probe_plot(main.counted_probe)
-accessory.full.sankey.family_probe_plot <- sankey_family_probe_plot(accessory.counted_probe)
+main.full.sankey.family_probe_plot    <- sankey_family_probe_plot(data.main.sankey.family.probe)
+accessory.full.sankey.family_probe_plot <- sankey_family_probe_plot(data.accessory.sankey.family.probe)
 
-main.full.sankey.species_family_plot  <- sankey_species_family_plot(main.counted_probe)
-accessory.full.sankey.species_family_plot <- sankey_species_family_plot(accessory.counted_probe)
+main.full.sankey.species_family_plot  <- sankey_species_family_plot(data.main.sankey.species.family)
+accessory.full.sankey.species_family_plot <- sankey_species_family_plot(data.accessory.sankey.species.family)
 
 # ----------------------------
 # 12. EXPORT PLOTS

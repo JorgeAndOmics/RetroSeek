@@ -24,7 +24,7 @@ Usage:
     Run from the command line:
         python full_genome_blaster.py --genome MyGenomeName [--num_threads 2]
 """
-
+# TODO: Export empty objects/tables in case of no BLAST hits
 # =============================================================================
 # Imports and Logging Setup
 # =============================================================================

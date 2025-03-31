@@ -28,7 +28,7 @@ parser$add_argument("--blast", required=TRUE, help="tBLASTn Parquet input file")
 parser$add_argument("--ltrdigest", required=TRUE, help="LTRdigest GFF3 input file")
 parser$add_argument("--probes", required=TRUE, help="Probes metadata file (CSV)")
 parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
-parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original reduced hits")
+parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original reduced and merged hits")
 parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits overlapping LTRs")
 parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
 parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
@@ -150,9 +150,7 @@ reducing.gr <- function(gr) {
       virus          = paste(sort(unique(virus)), collapse = "; "),
       family         = paste(sort(unique(family)), collapse = "; "),
       mean_bitscore  = if (length(bitscore) > 1) mean(bitscore) else bitscore,
-      sd_bitscore    = if (length(bitscore) > 1) sd(bitscore)   else 0,
       mean_identity  = if (length(identity) > 1) mean(identity) else identity,
-      sd_identity    = if (length(identity) > 1) sd(identity)   else 0,
       type           = "proviral_sequence"
     ) %>%
     arrange(.by_group = start)
@@ -267,7 +265,7 @@ probe_overlap_calculator <- function(gr, ltr_retro) {
   probes <- unique(gr$probe)
   overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
   rownames(overlap_df) <- probes
-  colnames(overlap_df) <- c("In", "Out", "In%", "Out%")
+  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
   
   for (pr in probes) {
     gr_pr <- gr[gr$probe == pr]
@@ -298,7 +296,7 @@ ltrdigest_overlap_calculator <- function(gr, ltr_retro) {
   probes <- unique(gr$probe)
   overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
   rownames(overlap_df) <- paste0("LTR_", probes)
-  colnames(overlap_df) <- c("In", "Out", "In%", "Out%")
+  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
   
   for (pr in probes) {
     gr_pr <- gr[gr$probe == pr]
@@ -389,15 +387,11 @@ domain_valid_hits <- gr %>%
     species       = paste(unique(species.gr), collapse = "; "),
     virus         = paste(sort(unique(virus.gr)), collapse = "; "),
     family        = paste(sort(unique(family.gr)), collapse = "; "),
-    origin        = "proviral_sequence",
-    type          = "protein_match",
     name          = paste(sort(unique(name)), collapse = "; "),
     ID            = paste(sort(unique(ID)), collapse = "; "),
     Parent        = paste(unique(Parent), collapse = "; "),
     mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
-    sd_bitscore   = paste(unique(sd_bitscore), collapse = "; "),
     mean_identity = paste(unique(mean_identity), collapse = "; "),
-    sd_identity   = paste(unique(sd_identity), collapse = "; ")
   ) %>%
   
   # Step 7: Clean up and order result
@@ -410,9 +404,15 @@ domain_valid_hits <- gr %>%
 # -----------------------------
 
 # Export GRanges in GFF3 format
-rtracklayer::export(gr, args$original_ranges, format = "gff3")
-rtracklayer::export(ltr_valid_hits, args$candidate_ranges, format = "gff3")
-rtracklayer::export(domain_valid_hits, args$valid_ranges, format = "gff3")
+track_exporter <- function (track, path) {
+  if (length(track) > 0) {
+    rtracklayer::export(track, path, format = "gff3")
+  }
+}
+
+track_exporter(named_reduced_gr, args$original_ranges)
+track_exporter(ltr_valid_hits, args$candidate_ranges)
+track_exporter(domain_valid_hits, args$valid_ranges)
 
 # Export overlap summary and plotting data
 arrow::write_parquet(plot_df, args$plot_dataframe)
