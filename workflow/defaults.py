@@ -41,7 +41,7 @@ PATH_DICT = {
 # === Root Directories ===
 PATH_DICT['DATA_DIR'] = os.path.abspath(os.path.join(config['root'].get('data_root_folder', os.path.join(PATH_DICT['ROOT'], 'data'))))
 PATH_DICT['RESULTS_DIR'] = os.path.abspath(os.path.join(config['root'].get('results_root_folder', os.path.join(PATH_DICT['ROOT'], 'results'))))
-PATH_DICT['LOG_DIR'] = os.path.abspath(os.path.join(config['root'].get('log_root_folder', os.path.join(PATH_DICT['ROOT'], 'logs'))))
+PATH_DICT['LOG_DIR'] = os.path.abspath(os.path.join(config['root'].get('logs_root_folder', os.path.join(PATH_DICT['ROOT'], 'logs'))))
 PATH_DICT['WORKFLOW_DIR'] = os.path.abspath(os.path.join(config['root'].get('workflow_root_folder', os.path.join(PATH_DICT['ROOT'], 'workflow'))))
 
 # === Database Directories ===
@@ -50,6 +50,7 @@ PATH_DICT['SPECIES_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT_DB'], 'bl
 PATH_DICT['ACCESSORY_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'accessory'))
 
 # === Data Subdirectories ===
+PATH_DICT['CONFIG_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'config'))
 PATH_DICT['SPECIES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'species'))
 PATH_DICT['TABLE_INPUT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'tables'))
 PATH_DICT['PICKLE_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'pickles'))
@@ -92,6 +93,7 @@ for value in PATH_DICT.values():
 
 # Execution and requests
 USE_SPECIES_DICT = config.get('execution', False).get('use_species_dict', False)
+RETRIVAL_TIME_LAG = config['execution'].get('retrieval_time_lag', 0.3)
 MAX_RETRIEVAL_ATTEMPTS = config['execution'].get('max_retrieval_attempts', 3)
 MAX_THREADPOOL_WORKERS = config['execution'].get('max_threadpool_workers', 1)
 ENTREZ_EMAIL = config['execution'].get('entrez_email', '')

@@ -44,4 +44,6 @@ dependencies:
   - bioconductor-regioner
   - r-argparse
   - r-plotly
+  - yamale
+  - pandera
 

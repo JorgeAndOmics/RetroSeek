@@ -8,14 +8,14 @@ the resulting data as pickled Python objects.
 
 Modules:
     - `colored_logging`: Custom logging with color-coded console/file output.
-    - `object_class`: Contains the `Object` class representing a probe with metadata.
+    - `RetroSeek_class`: Contains the `RetroSeek` class representing a probe with metadata.
     - `seq_utils`: Provides functions for online sequence retrieval.
     - `utils`: Contains general-purpose utilities (e.g., string generator, pickling).
     - `defaults`: Stores configuration constants like directory paths and flags.
 
 Main Workflow:
-    1. Reads a probe metadata, comma-separated CSV file (columns: Family, Name, Abbreviation, Probe, Accession).
-    2. Constructs a dictionary of `Object` instances keyed by accession ID.
+    1. Reads a probe metadata, comma-separated CSV file (columns: Group, Name, Abbreviation, Probe, Accession).
+    2. Constructs a dictionary of `RetroSeek` instances keyed by accession ID.
     3. Fetches sequences from a remote database using the given metadata.
     4. Serializes the extracted objects to a pickle file for downstream use.
 
@@ -53,7 +53,7 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
         Parameters
         ----------
             :param input_csv_file: Path to the input CSV file containing probe metadata.
-                                   Expected columns: Family, Name, Abbreviation, Probe, Accession.
+                                   Expected columns: Label, Name, Abbreviation, Probe, Accession.
 
         Returns
         -------
@@ -71,7 +71,7 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
     # Build dictionary mapping accession IDs to Object instances
     probe_dict: dict[str, RetroSeeker] = {
         str(row["Accession"]): RetroSeeker(
-            family=str(row['Family']),
+            label=str(row['Label']),
             virus=str(row['Name']),
             abbreviation=str(row['Abbreviation']),
             probe=str(row['Probe']),

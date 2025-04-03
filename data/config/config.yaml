@@ -1,24 +1,24 @@
 blast:
-  e_value: 0.01
-  optional_parameters: ''
+  e_value: 0.01   # E-value threshold for tBLASTn
+  optional_parameters: ''   # Additional parameters for tBLASTn
 
 genome_tools:
   suffix_array_parts: 3
-  suffixerator_optional_parameters: ''
-  ltrharvest_optional_parameters: ''
-  ltrdigest_optional_parameters: ''
+  suffixerator_optional_parameters: ''    # Additional parameters for suffixerator
+  ltrharvest_optional_parameters: ''   # Additional parameters for ltrharvest
+  ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
 
 parameters:
-  identity_threshold: 0
-  bitscore_threshold: 0
-  ltr_resize: 0
-  merge_option: 'virus'
-  hotspot_group_split: false
-  hotspot_window_size: 10000
-  hotspot_mask_size: 20
-  hotspot_mask_mismatch: 3
-  hotspot_permutations: 1
-  hotspot_pvalue_threshold: 0.05
+  identity_threshold: 0    # 0 for no threshold
+  bitscore_threshold: 0   # 0 for no threshold
+  ltr_resize: 0   # 0 for no resize
+  merge_option: 'virus'   # 'virus' or 'label'
+  hotspot_group_split: false   # true or false
+  hotspot_window_size: 10000   # at least 1
+  hotspot_mask_size: 20   # 0 for no masking
+  hotspot_mask_mismatch: 3    # 0 for no mask mismatch allowed
+  hotspot_permutations: 1   # 0 for no permutations
+  hotspot_pvalue_threshold: 0.05   # 0 for no p-value threshold
   probe_min_length:
     GAG: 200
     POL: 400
@@ -53,14 +53,15 @@ plots:
   dpi: 300
   width: 15
   height: 12
-  omit_lower_percent: 0.05
-  circle_plot_bitscore_threshold: 0
+  omit_lower_percent: 0.05   # Percentage of lower count results to omit for Sankey plots. 0 to display all results.
+  circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
-  use_species_dict: true
-  max_retrieval_attempts: 9
+  use_species_dict: true   # true or false
+  retrieval_time_lag: 0.3   # Time in seconds to wait between NCBI Entrez API requests for validation
+  max_retrieval_attempts: 9   # Number of attempts to retrieve sequences from NCBI
   max_threadpool_workers: null  # null for None, take all available workers
-  entrez_email: 'jgonzlez@tcd.ie'
+  entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
 
 input:
   probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes.csv'

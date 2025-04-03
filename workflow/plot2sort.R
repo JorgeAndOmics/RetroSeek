@@ -110,7 +110,7 @@ bit.accessory <- q_stats(all.accessory)
 # ----------------------------
 group_count <- function(df) {
   df %>%
-    group_by(species, virus, probe, family, abbreviation) %>%
+    group_by(species, virus, probe, label, abbreviation) %>%
     summarise(count = n(), .groups = "keep") %>%
     ungroup()
 }
@@ -153,11 +153,11 @@ all.accessory.density.plot <- density_bitscore_plot(all.accessory, bit.accessory
 # ----------------------------
 bar_plot <- function(data) {
   data <- data %>%
-    group_by(species, family) %>%
+    group_by(species, label) %>%
     summarise(count = sum(count), .groups = "drop")
   
   ggplot(data) +
-    aes(x = species, y = count, fill = family, alpha = count) +
+    aes(x = species, y = count, fill = label, alpha = count) +
     geom_col(color = "black", linewidth = 0.2) +
     scale_fill_futurama() +
     scale_alpha_continuous(range = c(0.5, 1)) +
@@ -235,10 +235,10 @@ accessory.full.balloon.virus_species.plot <- balloon_virus_species_plot(accessor
 # Prepare data for each sankey
 data.main.sankey.species.probe <-main.counted_probe %>% group_by(species, probe) %>% summarise(count = sum(count), .groups = "drop")
 data.accessory.sankey.species.probe <- accessory.counted_probe %>% group_by(species, probe) %>% summarise(count = sum(count), .groups = "drop")
-data.main.sankey.family.probe <- main.counted_probe %>% group_by(family, probe) %>% summarise(count = sum(count), .groups = "drop")
-data.accessory.sankey.family.probe <- accessory.counted_probe %>% group_by(family, probe) %>% summarise(count = sum(count), .groups = "drop")
-data.main.sankey.species.family <- main.counted_probe %>% group_by(species, family) %>% summarise(count = sum(count), .groups = "drop")
-data.accessory.sankey.species.family <- accessory.counted_probe %>% group_by(species, family) %>% summarise(count = sum(count), .groups = "drop")
+data.main.sankey.label.probe <- main.counted_probe %>% group_by(label, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.accessory.sankey.label.probe <- accessory.counted_probe %>% group_by(label, probe) %>% summarise(count = sum(count), .groups = "drop")
+data.main.sankey.species.label <- main.counted_probe %>% group_by(species, label) %>% summarise(count = sum(count), .groups = "drop")
+data.accessory.sankey.species.label <- accessory.counted_probe %>% group_by(species, label) %>% summarise(count = sum(count), .groups = "drop")
 
 sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
@@ -277,23 +277,23 @@ sankey_species_probe_plot <- function(data, filter_threshold = plot_filter_thres
 }
 
 
-sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
+sankey_label_probe_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
   
-  ordered_family <- sort(unique(data$family), decreasing = TRUE)
+  ordered_label <- sort(unique(data$label), decreasing = TRUE)
   ordered_probe <- sort(unique(data$probe), decreasing = TRUE)
 
   data <- data  %>%
   mutate(
-    family = factor(family, levels = ordered_family),
+    label = factor(label, levels = ordered_label),
     probe  = factor(probe,  levels = ordered_probe)
   )
   
-  num_colours     <- max(length(unique(data$family)), length(unique(data$probe)))
+  num_colours     <- max(length(unique(data$label)), length(unique(data$probe)))
   manual_colours  <- futurama_unlimited_palette(12, num_colours)
   
-  ggplot(data, aes(axis1 = family, axis2 = probe, y = count)) +
-    geom_alluvium(aes(fill = family, alpha = count)) +
+  ggplot(data, aes(axis1 = label, axis2 = probe, y = count)) +
+    geom_alluvium(aes(fill = label, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
       aes(
@@ -314,22 +314,22 @@ sankey_family_probe_plot <- function(data, filter_threshold = plot_filter_thresh
 }
 
 
-sankey_species_family_plot <- function(data, filter_threshold = plot_filter_threshold) {
+sankey_species_label_plot <- function(data, filter_threshold = plot_filter_threshold) {
   grand_total <- sum(data$count)
   
   ordered_species <- sort(unique(data$species), decreasing = TRUE)
-  ordered_family <- sort(unique(data$family), decreasing = TRUE)
+  ordered_label <- sort(unique(data$label), decreasing = TRUE)
   
     data <- data %>%
     mutate(
       species = factor(species, levels = ordered_species),
-      family  = factor(family,  levels = ordered_family)
+      label  = factor(label,  levels = ordered_label)
     )
 
-  num_colours     <- max(length(unique(data$species)), length(unique(data$family)))
+  num_colours     <- max(length(unique(data$species)), length(unique(data$label)))
   manual_colours  <- futurama_unlimited_palette(12, num_colours)
   
-  ggplot(data, aes(axis1 = species, axis2 = family, y = count)) +
+  ggplot(data, aes(axis1 = species, axis2 = label, y = count)) +
     geom_alluvium(aes(fill = species, alpha = count)) +
     geom_stratum(alpha = 0, color = "black", linewidth = 0.2) +
     geom_text(
@@ -353,11 +353,11 @@ sankey_species_family_plot <- function(data, filter_threshold = plot_filter_thre
 main.full.sankey.species_probe_plot   <- sankey_species_probe_plot(data.main.sankey.species.probe)
 accessory.full.sankey.species_probe_plot <- sankey_species_probe_plot(data.accessory.sankey.species.probe)
 
-main.full.sankey.family_probe_plot    <- sankey_family_probe_plot(data.main.sankey.family.probe)
-accessory.full.sankey.family_probe_plot <- sankey_family_probe_plot(data.accessory.sankey.family.probe)
+main.full.sankey.label_probe_plot    <- sankey_label_probe_plot(data.main.sankey.label.probe)
+accessory.full.sankey.label_probe_plot <- sankey_label_probe_plot(data.accessory.sankey.label.probe)
 
-main.full.sankey.species_family_plot  <- sankey_species_family_plot(data.main.sankey.species.family)
-accessory.full.sankey.species_family_plot <- sankey_species_family_plot(data.accessory.sankey.species.family)
+main.full.sankey.species_label_plot  <- sankey_species_label_plot(data.main.sankey.species.label)
+accessory.full.sankey.species_label_plot <- sankey_species_label_plot(data.accessory.sankey.species.label)
 
 # ----------------------------
 # 12. EXPORT PLOTS
@@ -385,8 +385,8 @@ save_plot("accessory_balloon.png", accessory.full.balloon.virus_species.plot)
 
 # Sankey
 save_plot("main_sankey_a.png", main.full.sankey.species_probe_plot)
-save_plot("main_sankey_b.png", main.full.sankey.family_probe_plot)
-save_plot("main_sankey_c.png", main.full.sankey.species_family_plot)
+save_plot("main_sankey_b.png", main.full.sankey.label_probe_plot)
+save_plot("main_sankey_c.png", main.full.sankey.species_label_plot)
 save_plot("accessory_sankey_a.png", accessory.full.sankey.species_probe_plot)
-save_plot("accessory_sankey_b.png", accessory.full.sankey.family_probe_plot)
-save_plot("accessory_sankey_c.png", accessory.full.sankey.species_family_plot)
+save_plot("accessory_sankey_b.png", accessory.full.sankey.label_probe_plot)
+save_plot("accessory_sankey_c.png", accessory.full.sankey.species_label_plot)

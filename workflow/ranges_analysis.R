@@ -81,7 +81,7 @@ gr <- GRanges(
 )
 
 # Attach metadata to GRanges object
-mcols(gr)$family   <- data$family
+mcols(gr)$label    <- data$label
 mcols(gr)$virus    <- data$virus
 mcols(gr)$bitscore <- data$hsp_bits
 mcols(gr)$identity <- (data$hsp_identity / data$hsp_align_length) * 100
@@ -118,15 +118,15 @@ if (merge_options == "virus") {
       min.gapwidth = gap_val,
       virus    = as.character(unique(virus)),
       species  = as.character(unique(species)),
-      family   = as.character(unique(family)),
+      label   = as.character(unique(label)),
       bitscore = max(bitscore),
       identity = max(identity)
     )
   })
-} else if (merge_options == "family") {
+} else if (merge_options == "label") {
   gr_list_reduced <- sapply(gr_list, function(sub_gr) {
     gap_val <- unique(sub_gr$min_gapwidth)
-    sub_gr %>% group_by(probe, family) %>% reduce_ranges_directed(
+    sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
       min.gapwidth = gap_val,
       virus    = paste(unique(virus), collapse = "; "),
       species  = as.character(unique(species)),
@@ -148,7 +148,7 @@ reducing.gr <- function(gr) {
     reduce_ranges_directed(
       species        = paste(unique(species), collapse = "; "),
       virus          = paste(sort(unique(virus)), collapse = "; "),
-      family         = paste(sort(unique(family)), collapse = "; "),
+      label         = paste(sort(unique(label)), collapse = "; "),
       mean_bitscore  = if (length(bitscore) > 1) mean(bitscore) else bitscore,
       mean_identity  = if (length(identity) > 1) mean(identity) else identity,
       type           = "proviral_sequence"
@@ -333,13 +333,13 @@ overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr
 
 # Read virus metadata
 probe_df <- read.csv2(args$probes, header = TRUE, sep = ",")
-probe_df_sum <- probe_df %>% distinct(Name, Family, Abbreviation)
+probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
 
 # Prepare plot-friendly dataframe from reduced GRanges
 plot_df <- as.data.frame(reduced_gr) %>%
   tidyr::separate_rows(virus, sep = "; ") %>%
   mutate(
-    family = probe_df_sum$Family[match(virus, probe_df_sum$Name)],
+    label = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
     abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)]
   )
 
@@ -386,7 +386,7 @@ domain_valid_hits <- gr %>%
     probe         = paste(unique(probe.ltr_valid), collapse = "; "),
     species       = paste(unique(species.gr), collapse = "; "),
     virus         = paste(sort(unique(virus.gr)), collapse = "; "),
-    family        = paste(sort(unique(family.gr)), collapse = "; "),
+    label        = paste(sort(unique(label.gr)), collapse = "; "),
     name          = paste(sort(unique(name)), collapse = "; "),
     ID            = paste(sort(unique(ID)), collapse = "; "),
     Parent        = paste(unique(Parent), collapse = "; "),
