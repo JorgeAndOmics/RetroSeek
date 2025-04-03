@@ -66,7 +66,7 @@ def extract_attributes_from_object(obj) -> dict:
     """
     data: dict = {
         # Basic Object attributes
-        'family': obj.family,
+        'label': obj.label,
         'virus': obj.virus,
         'abbreviation': obj.abbreviation,
         'species': obj.species,

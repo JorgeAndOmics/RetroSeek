@@ -161,7 +161,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
                     random_string = utils.random_string_generator(6)
 
                     new_instance = RetroSeeker(
-                        family=str(instance.family),
+                        label=str(instance.label),
                         virus=str(instance.virus),
                         abbreviation=str(instance.abbreviation),
                         species=instance.species or subject,

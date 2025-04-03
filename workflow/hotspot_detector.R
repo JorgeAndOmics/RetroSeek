@@ -86,18 +86,18 @@ randomize_ervs <- function(A, genome, ...) {
 }
 
 # =============================================================================
-# 5. Import and Split GFF3 by Family
+# 5. Import and Split GFF3 by Label
 # =============================================================================
 subject_genome_gff <- rtracklayer::import(args.gff, format = "gff3")
 
-if (!"family" %in% colnames(mcols(subject_genome_gff))) {
-  stop("The GFF3 file does not contain a 'family' metadata field.")
+if (!"label" %in% colnames(mcols(subject_genome_gff))) {
+  stop("The GFF3 file does not contain a 'label' metadata field.")
 }
 
 subject_genome_gff_clean <- as(subject_genome_gff, "GRanges")
 
 gff_list <- if (config$parameters$hotspot_group_split) {
-  split(subject_genome_gff_clean, mcols(subject_genome_gff_clean)$family)
+  split(subject_genome_gff_clean, mcols(subject_genome_gff_clean)$label)
 } else {
   list("Ungrouped" = subject_genome_gff_clean)
 }
@@ -119,7 +119,7 @@ perm_results <- map2(
       evaluate.function = numOverlaps,
       ntimes = n_perms
     )
-    list(family = .x, perm_result = result)
+    list(label = .x, perm_result = result)
   }
 )
 
@@ -129,7 +129,7 @@ perm_results <- map2(
 summary_df <- map_dfr(perm_results, function(res) {
   data.frame(
     Species      = species_name,
-    Family       = res$family,
+    Label       = res$label,
     Observed     = res$perm_result$numOverlaps$observed,
     P_value      = res$perm_result$numOverlaps$pval,
     Z_score      = res$perm_result$numOverlaps$zscore,
@@ -142,7 +142,7 @@ summary_df$Adjusted_pvalue <- p.adjust(summary_df$P_value, method = "BH")
 write_csv(summary_df, file.path(args.csv_output_dir, paste0(species, ".csv")))
 
 # =============================================================================
-# 8. Export Permutation Test Plots (Histogram) for Each Family
+# 8. Export Permutation Test Plots (Histogram) for Each Label
 # =============================================================================
 pdf(file.path(args.pdf_output_dir, paste0(species, "_histogram.pdf")), width = 15, height = 12)
 for (res in perm_results) {
@@ -152,7 +152,7 @@ for (res in perm_results) {
   alternative    <- res$perm_result$numOverlaps$alternative
   p_value        <- res$perm_result$numOverlaps$pval
   adjusted_p     <- summary_df %>%
-    filter(Family == res$family) %>%
+    filter(Label == res$label) %>%
     pull(Adjusted_pvalue)
   
   df <- data.frame(Overlaps = perm_values)
@@ -163,7 +163,7 @@ for (res in perm_results) {
     geom_histogram(binwidth = 10, fill = "lightblue", color = "black") +
     geom_vline(xintercept = observed_value, color = "red", linetype = "dashed", size = 1) +
     labs(
-      title = paste("Permutation Test -", species_name, "\nFamily:", res$family),
+      title = paste("Permutation Test -", species_name, "\nLabel:", res$label),
       subtitle = paste(
         "Observed overlaps =", observed_value,
         "| Permuted overlaps (mean ± SD) =",
@@ -183,13 +183,13 @@ for (res in perm_results) {
 dev.off()
 
 # =============================================================================
-# 9. Integration Hotspot Analysis per Family (Window-Based)
+# 9. Integration Hotspot Analysis per Label (Window-Based)
 # =============================================================================
 n_perm_hotspots <- n_perms
 hotspots_list <- list()
 
 for (fam in names(gff_list)) {
-  cat("Performing hotspot empirical permutation analysis for family:", fam, "\n")
+  cat("Performing hotspot empirical permutation analysis for label:", fam, "\n")
   
   events <- gff_list[[fam]]   # Factual observations
   obs_counts <- countOverlaps(genomic_windows, events)
@@ -218,7 +218,7 @@ all_hotspots <- GRanges()
 for (fam in names(hotspots_list)) {
   hs <- hotspots_list[[fam]]$hotspots
   if (length(hs) > 0) {
-    mcols(hs)$family <- fam
+    mcols(hs)$label <- fam
     all_hotspots <- c(all_hotspots, hs)
   }
 }
@@ -232,14 +232,14 @@ rtracklayer::export(all_hotspots, outfile, format = "gff3")
 density_pdf_path <- file.path(args.pdf_output_dir, paste0(species, "_density.pdf"))
 pdf(density_pdf_path, width = 15, height = 12)
 for (res in perm_results) {
-  family_name    <- res$family
+  label_name    <- res$label
   perm_values    <- res$perm_result$numOverlaps$permuted
   observed_value <- res$perm_result$numOverlaps$observed
   perm_mean      <- mean(perm_values)
   perm_sd        <- sd(perm_values)
   
   adjusted_pval <- summary_df %>%
-    filter(Family == family_name) %>%
+    filter(Label == label_name) %>%
     pull(Adjusted_pvalue)
   
   df <- data.frame(Overlaps = perm_values)
@@ -250,7 +250,7 @@ for (res in perm_results) {
     labs(
       title = paste0("Empirical Density of Permuted Overlaps - ", species_name),
       subtitle = paste(
-        "Family:", family_name,
+        "Label:", label_name,
         "| Observed =", observed_value,
         "| Perm. Mean ± SD =", sprintf("%.2f ± %.2f", perm_mean, perm_sd),
         "| Adj. p-value =", sprintf("%.3g", adjusted_pval)
@@ -284,7 +284,7 @@ for (fam in names(hotspots_list)) {
     scale_fill_bs5("pink") +
     labs(
       title = paste("Heatmap of Observed Overlap Counts -", species_name),
-      subtitle = paste("Family:", fam),
+      subtitle = paste("Label:", fam),
       x = "Chromosome",
       y = "Window Start (bp)",
       fill = "Overlap\nCount"

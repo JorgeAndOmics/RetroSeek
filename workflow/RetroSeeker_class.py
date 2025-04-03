@@ -31,7 +31,7 @@ class RetroSeeker:
 
         Parameters
         ----------
-            family: The family of the virus
+            label: The label of the virus
             virus: The name of the virus
             abbreviation: The abbreviation of the virus
             species: The BLASTed species or agent
@@ -67,7 +67,7 @@ class RetroSeeker:
             display_gff: Displays the GFF record
             is_complete: Checks if the object contains Genbank, FASTA and GFF records
     """
-    family: str = field(default=None)
+    label: str = field(default=None)
     virus: str = field(default=None)
     abbreviation: str = field(default=None)
     species: str = field(default=None)
@@ -82,7 +82,7 @@ class RetroSeeker:
     strand: Optional[Any] = field(default=None, init=False, repr=False)
 
     def __repr__(self):
-        return (f'{self.family},'
+        return (f'{self.label},'
                 f'{self.virus},'
                 f'{self.abbreviation},'
                 f'{self.species},'
@@ -384,7 +384,7 @@ class RetroSeeker:
                 :returns: str or None: Object information.
 
         """
-        info = (f'Family: {self.family}\n'
+        info = (f'Label: {self.label}\n'
                 f'Virus: {self.virus}\n'
                 f'Abbreviation: {self.abbreviation}\n'
                 f'Probe: {self.probe}\n'
