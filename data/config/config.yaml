@@ -57,6 +57,7 @@ plots:
   circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
+  num_cores: 16   # Number of cores to use for parallel processing
   use_species_dict: true   # true or false
   retrieval_time_lag: 0.3   # Time in seconds to wait between NCBI Entrez API requests for validation
   max_retrieval_attempts: 9   # Number of attempts to retrieve sequences from NCBI
@@ -67,6 +68,7 @@ input:
   probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes.csv'
 
 display:
+  display_snakemake_info: false
   display_requests_warning: false
   display_operation_info: false
 

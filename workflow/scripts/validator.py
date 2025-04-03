@@ -219,12 +219,14 @@ def main_validator(fasta_files: list) -> bool:
         csv_file=defaults.config['input']['probe_csv']
     )
 
-    fasta_bool = []
-    for fasta_file in fasta_files:
-        fasta_ok = fasta_validator(fasta_file=fasta_file)
-        fasta_bool.append(fasta_ok)
-    
-    fasta_validation = all(fasta_bool)
+    if not defaults.USE_SPECIES_DICT and fasta_files:
+        fasta_bool = []
+        for fasta_file in fasta_files:
+            fasta_ok = fasta_validator(fasta_file=fasta_file)
+            fasta_bool.append(fasta_ok)
+        fasta_validation = all(fasta_bool)
+    else:
+        fasta_validation = True
 
     program_validation = validate_programs()
 
@@ -239,40 +241,45 @@ def green_light(all_valid: bool) -> bool:
     """
     if not all_valid:
         logging.warning(f'Settings validation failed. Please check the logs at {defaults.PATH_DICT["LOG_DIR"]} for details.')
-    
-    if all_valid:
-        logging.info('All systems green, ready to rock.')
-        time.sleep(0.1)
-        proceed = input('Proceed [Y/n]: ') or 'Y'
-        if proceed.upper() == 'Y':
-            logging.info('RetroSeek started. Depending on your system, this may take some time.')
-        elif proceed.upper() == 'N':
-            logging.warning('Workflow aborted by user.')
-        else:
-            logging.warning('Wrong input. Please try again')
-            green_light(all_valid)
+        return False
+
+    logging.info('All systems green, ready to rock.')
+    time.sleep(0.1)
+    proceed = input('Proceed [Y/n]: ') or 'Y'
+    if proceed.upper() == 'Y':
+        logging.info('RetroSeek started. Depending on your system, this may take some time.')
+        return True
+    elif proceed.upper() == 'N':
+        logging.warning('Workflow aborted by user.')
+        return False
+    else:
+        logging.warning('Wrong input. Please try again')
+        green_light(all_valid)
             
             
-if __name__ == '__main__':
+def run(fasta_files: list[str] = None) -> bool:
     colored_logging(log_file_name='validator.log')
-    
+
+    parser = argparse.ArgumentParser(description='Validate RetroSeek inputs.')
+
     parser.add_argument(
         '--fasta_files',
         nargs='+',
-        type=list,
         default=None,
         help='FASTA file paths.'
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args() if fasta_files is None else parser.parse_args([])
 
-    # Set FASTA file path list
-    fasta_files = args.fasta_files or []
+    fasta_files_list = fasta_files or args.fasta_files or []
 
-    # Validate all files
-    all_valid = main_validator(fasta_files=fasta_files)
+    all_valid = main_validator(fasta_files=fasta_files_list)
 
-    # Print green light message
-    green_light(all_valid=all_valid)
+    return green_light(all_valid=all_valid)
+
+
+if __name__ == '__main__':
+    run()
+
     
     

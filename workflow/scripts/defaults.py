@@ -44,6 +44,9 @@ PATH_DICT['RESULTS_DIR'] = os.path.abspath(os.path.join(config['root'].get('resu
 PATH_DICT['LOG_DIR'] = os.path.abspath(os.path.join(config['root'].get('logs_root_folder', os.path.join(PATH_DICT['ROOT'], 'logs'))))
 PATH_DICT['WORKFLOW_DIR'] = os.path.abspath(os.path.join(config['root'].get('workflow_root_folder', os.path.join(PATH_DICT['ROOT'], 'workflow'))))
 
+# === Workflow Directories ===
+PATH_DICT['SCRIPTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['WORKFLOW_DIR'], 'scripts'))
+
 # === Database Directories ===
 PATH_DICT['ROOT_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'local'))
 PATH_DICT['SPECIES_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT_DB'], 'blast_dbs', 'species'))
@@ -92,6 +95,7 @@ for value in PATH_DICT.values():
     os.makedirs(value, exist_ok=True)
 
 # Execution and requests
+NUM_CORES = config['execution'].get('num_cores', 1)
 USE_SPECIES_DICT = config.get('execution', False).get('use_species_dict', False)
 RETRIVAL_TIME_LAG = config['execution'].get('retrieval_time_lag', 0.3)
 MAX_RETRIEVAL_ATTEMPTS = config['execution'].get('max_retrieval_attempts', 3)
@@ -99,6 +103,7 @@ MAX_THREADPOOL_WORKERS = config['execution'].get('max_threadpool_workers', 1)
 ENTREZ_EMAIL = config['execution'].get('entrez_email', '')
 
 # Display
+DISPLAY_SNAKEMAKE_INFO: bool = config['display']['display_snakemake_info']
 DISPLAY_REQUESTS_WARNING: bool = config['display']['display_requests_warning']
 DISPLAY_OPERATION_INFO: bool = config['display']['display_operation_info']
 

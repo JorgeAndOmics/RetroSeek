@@ -2,7 +2,8 @@ import os
 import math
 import pandas as pd
 
-import defaults
+from scripts import defaults
+import scripts
 
 def retrieve_species_list(csv_path:str, default:list[str]=None) -> list[str]:
     if os.path.exists(csv_path):
@@ -32,7 +33,7 @@ rule genome_downloader_setup:
         workflow.cores / 3
     shell:
         '''
-        bash genome_downloader.sh {wildcards.genome:q} {params.SPECIES_DB:q} {params.DOWNLOAD_LOG:q}
+        bash scripts/genome_downloader.sh {wildcards.genome:q} {params.SPECIES_DB:q} {params.DOWNLOAD_LOG:q}
         '''
 
 
@@ -215,8 +216,8 @@ rule probe_extractor:
         workflow.cores
     shell:
         '''
-        python probe_extractor.py && \
-        python obj2dict.py --files probe_dict.pkl --output_file_name {params.table_dir}/probe_dict
+        python scripts/probe_extractor.py && \
+        python scripts/obj2dict.py --files probe_dict.pkl --output_file_name {params.table_dir}/probe_dict
         '''
 
 
@@ -231,7 +232,7 @@ rule full_genome_blaster_setup:
         num_threads=1
     shell:
         '''
-        python full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
+        python scripts/full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
         '''
 
 
@@ -252,7 +253,7 @@ rule blast_pkl2parquet:
     shell:
         '''
         rm -rf {params.tmp_dir:q} && \
-        python obj2dict.py --files {input.pkl_species:q} --output_file_name {params.table_output_dir:q}/full_genome_blast
+        python scripts/obj2dict.py --files {input.pkl_species:q} --output_file_name {params.table_output_dir:q}/full_genome_blast
         '''
 
 rule species_segmenter_setup:
@@ -266,7 +267,7 @@ rule species_segmenter_setup:
     params:
         output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
     shell:
-        'Rscript species_segmenter.R \
+        'Rscript scripts/species_segmenter.R \
         --input_file {input.input_parquet:q} \
         --output_dir {params.output_dir:q}'
 
@@ -304,7 +305,7 @@ rule ranges_analysis_main_setup:
         workflow.cores   # Apparently doesn't take well to multicore
     shell:
         '''
-        Rscript ranges_analysis.R \
+        Rscript scripts/ranges_analysis.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_main.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
@@ -346,7 +347,7 @@ rule ranges_analysis_accessory_setup:
         workflow.cores      # Apparently doesn't take well to multicore
     shell:
         '''
-        Rscript ranges_analysis.R \
+        Rscript scripts/ranges_analysis.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_accessory.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
@@ -400,7 +401,7 @@ rule plot_generator_setup:
         workflow.cores
     shell:
         '''
-        Rscript plot2sort.R \
+        Rscript scripts/plot2sort.R \
         --input {params.plot_dataframes_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q}
@@ -431,7 +432,7 @@ rule circle_plot_generator_setup:
         workflow.cores
     shell:
         '''
-        Rscript circle_plot_generator.R \
+        Rscript scripts/circle_plot_generator.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
@@ -470,7 +471,7 @@ rule hotspot_detector_setup:
         workflow.cores
     shell:
         '''
-        Rscript hotspot_detector.R \
+        Rscript scripts/hotspot_detector.R \
         --fasta {params.genomes_dir:q}/{wildcards.genome}.fa \
         --gff {params.input_track_dir:q}/{wildcards.genome}_main.gff3 \
         --config {params.config_yaml:q} \

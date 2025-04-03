@@ -1,0 +1,104 @@
+blast: include('blast_schema')
+genome_tools: include('genome_tools_schema')
+parameters: include('parameters_schema')
+logging: include('logging_schema')
+plots: include('plots_schema')
+execution: include('execution_schema')
+input: include('input_schema')
+display: include('display_schema')
+root: include('root_schema')
+domains: include('domains_schema')
+species: include('species_schema')
+
+---
+
+blast_schema:
+  e_value: num(min=0)
+  optional_parameters: str(required=False)
+
+genome_tools_schema:
+  suffix_array_parts: int()
+  suffixerator_optional_parameters: str(required=False)
+  ltrharvest_optional_parameters: str(required=False)
+  ltrdigest_optional_parameters: str(required=False)
+
+parameters_schema:
+  identity_threshold: int(min=0)
+  bitscore_threshold: num(min=0)
+  ltr_resize: int(min=0)
+  merge_option: str(matches='^(virus|label)$')
+  hotspot_group_split: bool()
+  hotspot_window_size: int(min=1)
+  hotspot_mask_size: int(min=0)
+  hotspot_mask_mismatch: int(min=0)
+  hotspot_permutations: int(min=1)
+  hotspot_pvalue_threshold: num(min=0)
+  probe_min_length: map(int(min=0), key=str())
+
+
+logging_schema:
+  level_styles: include('level_styles_schema')
+  field_styles: include('field_styles_schema')
+
+level_styles_schema:
+  debug: include('color_only_schema')
+  info: include('color_bold_schema')
+  warning: include('color_only_schema')
+  error: include('color_bold_schema')
+  critical: include('color_bold_bg_schema')
+
+field_styles_schema:
+  asctime: include('color_only_schema')
+  hostname: include('color_only_schema')
+  levelname: include('color_only_schema')
+  name: include('color_only_schema')
+  programname: include('color_only_schema')
+  username: include('color_only_schema')
+  process: include('color_only_schema')
+  thread: include('color_only_schema')
+
+color_only_schema:
+  color: str()
+
+color_bold_schema:
+  color: str()
+  bold: str()
+
+color_bold_bg_schema:
+  color: str()
+  bold: str()
+  background: str()
+
+plots_schema:
+  dpi: int(min=1)
+  width: int(min=1)
+  height: int(min=1)
+  omit_lower_percent: num(min=0)
+  circle_plot_bitscore_threshold: num(min=0)
+
+execution_schema:
+  num_cores: int(min=1)
+  use_species_dict: bool()
+  retrieval_time_lag: num(min=0)
+  max_retrieval_attempts: int(min=1)
+  max_threadpool_workers: any(int(min=1), null())
+  entrez_email: str()
+
+input_schema:
+  probe_csv: str()
+
+display_schema:
+  display_snakemake_info: bool()
+  display_requests_warning: bool()
+  display_operation_info: bool()
+
+root_schema:
+  db_root_folder: str()
+  workflow_root_folder: str()
+  data_root_folder: str()
+  results_root_folder: str()
+  logs_root_folder: str()
+
+domains_schema: map(list(str()), key=str())
+
+species_schema: map(str(), key=str())

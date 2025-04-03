@@ -1,0 +1,82 @@
+#!/usr/bin/env python3.10
+
+from pathlib import Path
+import subprocess
+import argparse
+import logging
+import sys
+import re
+
+
+from workflow.scripts import defaults, validator, colored_logging
+
+
+def standardize_fasta_extensions(fasta_dir_path: str):
+    """
+    Standardize the extensions of all FASTA files in the provided directory to .fasta.
+    """
+    pattern = re.compile(r'\.(fa|fasta|fna|fas)$', re.IGNORECASE)
+
+    for file in Path(fasta_dir_path).iterdir():
+        if file.is_file() and pattern.search(file.name):
+            new_name = file.with_name(file.stem + '.fa')
+            print(f"Renaming: {file.name} -> {new_name.name}")
+            file.rename(new_name)
+
+def run_snakemake_rule(rule: str, num_cores: int, display_info: bool) -> None:
+    """
+    Run a shell command using subprocess.
+    """
+    if not display_info:
+        shell_cmd: list[str] = [
+            'snakemake',
+            rule,
+            '--cores',
+            str(num_cores),
+            '--rerun_incomplete',
+            '-p'
+        ]
+    else:
+        shell_cmd: list[str] = [
+            'snakemake',
+            rule,
+            '--cores',
+            str(num_cores),
+            '--rerun_incomplete',
+        ]
+
+    try:
+        subprocess.run(shell_cmd, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Snakemake rule failed with error: {e.stderr.decode()}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    colored_logging.colored_logging(log_file_name='RetroSeek_main.log')
+
+    parser = argparse.ArgumentParser(description='RetroSeek: A tool for directed ERV detection and analysis.')
+
+    parser.add_argument('--generate_global_plots', '-p', action='store_true', help='Generate plots from the analysis.')
+    parser.add_argument('--generate_circle_plots', '-c', action='store_true', help='Generate circle plots from the species in analysis.')
+    parser.add_argument('--hotspot_detection', '-h', action='store_true', help='Perform ERV hotspot detection.')
+    parser.add_argument('--help', '-H', action='help', help='Show options and documentation.')
+
+    args = parser.parse_args()
+
+    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
+
+    species_paths = [os.path.join(defaults.PATH_DICT["SPECIES_DB"], f'{species}.fa') for species in defaults.SPECIES]
+    validation = validator.run(species_paths)
+
+    if validation:
+        run_snakemake_rule('ranges_analysis', defaults.NUM_CORES, defaults.DISPLAY_SNAKEMAKE_INFO)
+
+        if args.generate_global_plots:
+            run_snakemake_rule('plot_generator', defaults.NUM_CORES, defaults.DISPLAY_SNAKEMAKE_INFO)
+        if args.generate_circle_plots:
+            run_snakemake_rule('circle_plot_generator', defaults.NUM_CORES, defaults.DISPLAY_SNAKEMAKE_INFO)
+        if args.hotspot_detection:
+            run_snakemake_rule('hotspot_detector', defaults.NUM_CORES, defaults.DISPLAY_SNAKEMAKE_INFO)
+
+    logging.info("RetroSeek analysis completed successfully.")
