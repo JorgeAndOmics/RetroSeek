@@ -1,89 +1,86 @@
-import defaults
+# -------------------
+# DEPENDENCIES
+# -------------------
 
-import pandera as pa
-import pandas as pd
-import subprocess
-import argparse
-import yamale
-import time
 import os
+import re
+import sys
+import time
+import argparse
+import subprocess
+import logging
+from typing import List, Optional
 
-from Bio.SeqRecord import SeqRecord
+import yamale
+import pandas as pd
+import pandera as pa
 from Bio import Entrez, SeqIO
+from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
+import defaults
+import validator
 from colored_logging import colored_logging
-import logging
 
 
+# -----------------------------
+# YAML VALIDATION
+# -----------------------------
 
-def yaml_validator(yaml_file: str, yaml_schema: str) -> None:
+def yaml_validator(yaml_file: str, yaml_schema: str) -> bool:
     """
-    Validates the YAML configuration file by checking for the presence of required fields against provided schema.
+    Validates the YAML configuration file against a Yamale schema.
 
-        Parameters
-        ----------
-            :param yaml_file: Path to the YAML configuration file.
-            :param yaml_schema: Path to the YAML schema file.
+    Parameters
+    ----------
+    yaml_file : str
+        Path to the YAML configuration file.
+    yaml_schema : str
+        Path to the YAML schema file.
 
-        Returns
-        -------
-            :returns: bool: True if the YAML file is valid, False otherwise.
-
-        Raises
-        ------
-            :raises FileNotFoundError: If the specified YAML file does not exist.
-            :raises KeyError: If required fields are missing from the YAML.
+    Returns
+    -------
+    bool
+        True if the YAML is valid, False otherwise.
     """
     try:
-        yaml_schema = yamale.make_schema(yaml_schema)
-        yaml_data = yamale.make_data(yaml_file)
-        yamale.validate(yaml_schema, yaml_data)
-
+        schema = yamale.make_schema(yaml_schema)
+        data = yamale.make_data(yaml_file)
+        yamale.validate(schema, data)
         logging.info('YAML configuration file is valid.')
-
         return True
 
     except yamale.YamaleError as e:
         for results in e.results:
             for error in results.errors:
                 logging.warning(f"Configuration error: {error}")
-
         return False
+
+
+# -----------------------------
+# CSV VALIDATION
+# -----------------------------
 
 def csv_validator(csv_file: str) -> bool:
     """
-    Validates the CSV file by checking for the presence of required fields.
+    Validates the CSV file for required fields and checks NCBI accession validity.
 
-        Parameters
-        ----------
-            :param csv_file: Path to the CSV file.
+    Parameters
+    ----------
+    csv_file : str
+        Path to the CSV file.
 
-        Returns
-        -------
-            :returns: bool: True if the CSV file is valid, False otherwise.
-
-        Raises
-        ------
-            :raises FileNotFoundError: If the specified CSV file does not exist.
-            :raises KeyError: If required fields are missing from the CSV.
+    Returns
+    -------
+    bool
+        True if CSV passes validation, False otherwise.
     """
-    def check_ncbi(series: list) -> bool:
-        """
-        Checks if the given accession ID exists in the NCBI database.
 
-            Parameters
-            ----------
-                :param series: The whole accession ID field to check.
-
-            Returns
-            -------
-                :returns: bool: Series of boolean flags if NCBI entries exists or not.
-        """
-
+    def check_ncbi(series: pd.Series) -> pd.Series:
+        """Check if accession IDs exist in the NCBI protein database."""
+        logging.debug('Checking NCBI entries...')
         def ncbi_exists(acc: str) -> bool:
             time.sleep(0.3)
-            logging.debug(f'Checking NCBI for {acc}')
             Entrez.email = defaults.ENTREZ_EMAIL
             try:
                 with Entrez.esearch(db='protein', term=acc) as handle:
@@ -92,39 +89,38 @@ def csv_validator(csv_file: str) -> bool:
             except Exception:
                 return False
 
-        return series.apply(lambda x: ncbi_exists(x))
+        return series.apply(ncbi_exists)
 
-    # Read the CSV file into a DataFrame
-    input_df = pd.read_csv(csv_file)
-
-    # Check for required fields
-    field_schema = {
-        'Label': pa.Column(str, nullable=False),
-        'Name': pa.Column(str, nullable=False),
-        'Abbreviation': pa.Column(str, nullable=False),
-        'Probe': pa.Column(str, nullable=False),
-        'Accession': pa.Column(
-            str, nullable=False,
-            checks=pa.Check(check_ncbi, element_wise=False)
-        )
-    }
-
-    # Parse schema
-    csv_schema = pa.DataFrameSchema(field_schema)
-
-    # Validate
     try:
-        csv_schema.validate(input_df)
+        df = pd.read_csv(csv_file)
+
+        schema = pa.DataFrameSchema({
+            'Label': pa.Column(str, nullable=False),
+            'Name': pa.Column(str, nullable=False),
+            'Abbreviation': pa.Column(str, nullable=False),
+            'Probe': pa.Column(str, nullable=False),
+            'Accession': pa.Column(
+                str, nullable=False,
+                checks=pa.Check(check_ncbi, element_wise=False)
+            )
+        })
+
+        schema.validate(df)
         logging.info('CSV input file is valid.')
         return True
+
     except (pa.errors.SchemaError, FileNotFoundError, KeyError) as e:
-        logging.warning(f"CSV input error: {e}")
+        logging.warning(f'CSV input error: {e}')
         return False
 
 
+# -----------------------------
+# FASTA VALIDATION
+# -----------------------------
+
 def fasta_validator(fasta_file: str) -> bool:
     """
-    Validates a FASTA file: structure, headers, and (optionally) sequence content.
+    Validates a FASTA file for content and headers.
 
     Parameters
     ----------
@@ -136,7 +132,6 @@ def fasta_validator(fasta_file: str) -> bool:
     bool
         True if valid, False otherwise.
     """
-
     if not os.path.exists(fasta_file):
         logging.warning(f"FASTA file does not exist: {fasta_file}")
         return False
@@ -149,16 +144,31 @@ def fasta_validator(fasta_file: str) -> bool:
 
         for i, record in enumerate(records):
             if not record.id:
-                logging.warning(f"Record {i+1} is missing a header.")
+                logging.warning(f"Record {i + 1} is missing a header.")
                 return False
 
         logging.info(f'FASTA file {fasta_file} is valid.')
         return True
 
     except Exception as e:
+        logging.warning(f"Error parsing FASTA: {e}")
         return False
 
+
+# -----------------------------
+# TOOL AVAILABILITY CHECK
+# -----------------------------
+
 def validate_programs() -> bool:
+    """
+    Validates required external programs are available in the system path.
+
+    Returns
+    -------
+    bool
+        True if all required programs are available, False otherwise.
+    """
+
     def check_version(cmd: str, version_cmd: str) -> bool:
         try:
             subprocess.run([cmd, version_cmd], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -166,85 +176,107 @@ def validate_programs() -> bool:
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
-    blast_exists = check_version('tblastn', '-version')
-    gt_exists = check_version('gt', '--version')
-    datasets_exists = check_version('datasets', '--version')
+    checks = {
+        'BLAST+': check_version('tblastn', '-version'),
+        'Genometools': check_version('gt', '--version'),
+        'Datasets': check_version('datasets', '--version')
+    }
 
-    if not blast_exists:
-        logging.warning('BLAST+ not found. Please install it.')
-    else:
-        logging.info('BLAST+ is installed.')
-    if not gt_exists:
-        logging.warning('Genometools not found. Please install it.')
-    else:
-        logging.info('Genometools is installed.')
-    if not datasets_exists:
-        logging.warning('Datasets not found. Please install it.')
-    else:
-        logging.info('Datasets is installed.')
+    for tool, status in checks.items():
+        log_fn = logging.info if status else logging.warning
+        log_fn(f"{tool} {'is installed.' if status else 'not found. Please install it.'}")
 
-    return all([blast_exists, gt_exists, datasets_exists])
+    return all(checks.values())
 
 
-def validate_ncbi_key() -> bool:
+# -----------------------------
+# NCBI API KEY VALIDATION
+# -----------------------------
+
+def validate_ncbi_key() -> None:
     """
-    Validates the NCBI API key in the environment. If the key is not found, prompts the user to enter it 
-    and sets it in the environment variables.
+    Ensures that an NCBI API key is available in the environment.
+    Prompts the user to enter one if not present.
     """
     if 'NCBI_API_KEY' not in os.environ:
-        logging.warning('No NCBI API key found. You can set it with: export NCBI_API_KEY="your_api_key". Do you want to set it now?')
-        if api_key := input('Enter your NCBI API key [Leave empty to skip]: ') or None:
+        logging.warning('No NCBI API key found. You can set it with: export NCBI_API_KEY="your_api_key".')
+        if (
+            api_key := input('Enter your NCBI API key [Leave empty to skip]: ')
+            or None
+        ):
             os.environ['NCBI_API_KEY'] = api_key
             logging.info('NCBI API key set in environment variables.')
         else:
             logging.warning('No NCBI API key provided. Expect slower NCBI retrievals.')
     else:
         logging.info("NCBI API key is set in the environment variables.")
-        
-def main_validator(fasta_files: list) -> bool:
+
+
+# -----------------------------
+# MASTER VALIDATION ENTRYPOINT
+# -----------------------------
+
+def main_validator(fasta_files: Optional[List[str]]) -> bool:
     """
-    Main function to validate the YAML, CSV, and FASTA files. It also checks for the NCBI API key in the environment
-    and if the required programs are installed.
-    
-    :return: True if all validations pass, False otherwise.
+    Orchestrates validation for YAML, CSV, FASTA, external tools, and API key.
+
+    Parameters
+    ----------
+    fasta_files : list of str or None
+        List of FASTA file paths to validate.
+
+    Returns
+    -------
+    bool
+        True if all checks pass, False otherwise.
     """
     logging.debug('Starting input validation process...')
 
-    yaml_validation = yaml_validator(
+    yaml_ok = yaml_validator(
         yaml_schema=os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'schema.yaml'),
         yaml_file=defaults.CONFIG_FILE
     )
-    
-    csv_validation = csv_validator(
-        csv_file=defaults.config['input']['probe_csv']
-    )
+
+    csv_ok = csv_validator(csv_file=defaults.config['input']['probe_csv'])
 
     if not defaults.USE_SPECIES_DICT and fasta_files:
-        fasta_bool = []
-        for fasta_file in fasta_files:
-            fasta_ok = fasta_validator(fasta_file=fasta_file)
-            fasta_bool.append(fasta_ok)
-        fasta_validation = all(fasta_bool)
+        fasta_results = [fasta_validator(f) for f in fasta_files]
+        fasta_ok = all(fasta_results)
     else:
-        fasta_validation = True
+        fasta_ok = True
 
-    program_validation = validate_programs()
+    programs_ok = validate_programs()
 
     validate_ncbi_key()
 
+    return all([yaml_ok, csv_ok, fasta_ok, programs_ok])
 
-    return all([yaml_validation, csv_validation, fasta_validation, program_validation])
-        
+
+# -----------------------------
+# INTERACTIVE CONFIRMATION
+# -----------------------------
+
 def green_light(all_valid: bool) -> bool:
     """
-    Prints a green light message indicating that the validation is complete.
+    Asks user to confirm whether to proceed if all validations passed.
+
+    Parameters
+    ----------
+    all_valid : bool
+        Whether all validations were successful.
+
+    Returns
+    -------
+    bool
+        True if user wants to proceed, False otherwise.
     """
     if not all_valid:
-        logging.warning(f'Settings validation failed. Please check the logs at {defaults.PATH_DICT["LOG_DIR"]} for details.')
+        logging.warning(f'Settings validation failed. Check logs at {defaults.PATH_DICT["LOG_DIR"]}.')
         return False
 
     logging.info('All systems green, ready to rock.')
     time.sleep(0.1)
+
     proceed = input('Proceed [Y/n]: ') or 'Y'
     if proceed.upper() == 'Y':
         logging.info('RetroSeek started. Depending on your system, this may take some time.')
@@ -253,15 +285,42 @@ def green_light(all_valid: bool) -> bool:
         logging.warning('Workflow aborted by user.')
         return False
     else:
-        logging.warning('Wrong input. Please try again')
-        green_light(all_valid)
-            
-            
-def run(fasta_files: list[str] = None) -> bool:
+        logging.warning('Invalid input. Please try again.')
+        return green_light(all_valid)
+
+
+# -----------------------------
+# ENTRYPOINT
+# -----------------------------
+
+def run(fasta_files: Optional[List[str]] = None) -> bool:
+    """
+    CLI entrypoint to trigger validation routines and prompt user to continue.
+
+    Parameters
+    ----------
+    fasta_files : list of str, optional
+        List of FASTA file paths to validate.
+
+    Returns
+    -------
+    bool
+        True if user confirms execution after passing validation, False otherwise.
+    """
     colored_logging(log_file_name='validator.log')
 
-    parser = argparse.ArgumentParser(description='Validate RetroSeek inputs.')
+    fasta_files_list = fasta_files or []
+    all_valid = main_validator(fasta_files=fasta_files_list)
 
+    return green_light(all_valid=all_valid)
+
+
+# -----------------------------
+# SCRIPT EXECUTION
+# -----------------------------
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Validate RetroSeek inputs.')
     parser.add_argument(
         '--fasta_files',
         nargs='+',
@@ -269,17 +328,5 @@ def run(fasta_files: list[str] = None) -> bool:
         help='FASTA file paths.'
     )
 
-    args = parser.parse_args() if fasta_files is None else parser.parse_args([])
-
-    fasta_files_list = fasta_files or args.fasta_files or []
-
-    all_valid = main_validator(fasta_files=fasta_files_list)
-
-    return green_light(all_valid=all_valid)
-
-
-if __name__ == '__main__':
-    run()
-
-    
-    
+    args = parser.parse_args()
+    run(args.fasta_files)

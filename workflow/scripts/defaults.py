@@ -16,11 +16,12 @@ Configuration:
 Usage:
     This script is intended to be imported as a module and not run directly.
 """
-
+from pathlib import Path
 import yaml
 import os
 
-CONFIG_FILE = os.path.abspath(os.path.join('..', 'data', 'config', 'config.yaml'))
+CONFIG_FILE = Path(__file__).parents[2] / 'data' / 'config' / 'config.yaml'
+
 with open(CONFIG_FILE, 'r') as f:
     config = yaml.safe_load(f)
 
@@ -42,7 +43,7 @@ PATH_DICT = {
 PATH_DICT['DATA_DIR'] = os.path.abspath(os.path.join(config['root'].get('data_root_folder', os.path.join(PATH_DICT['ROOT'], 'data'))))
 PATH_DICT['RESULTS_DIR'] = os.path.abspath(os.path.join(config['root'].get('results_root_folder', os.path.join(PATH_DICT['ROOT'], 'results'))))
 PATH_DICT['LOG_DIR'] = os.path.abspath(os.path.join(config['root'].get('logs_root_folder', os.path.join(PATH_DICT['ROOT'], 'logs'))))
-PATH_DICT['WORKFLOW_DIR'] = os.path.abspath(os.path.join(config['root'].get('workflow_root_folder', os.path.join(PATH_DICT['ROOT'], 'workflow'))))
+PATH_DICT['WORKFLOW_DIR'] = Path(__file__).parent
 
 # === Workflow Directories ===
 PATH_DICT['SCRIPTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['WORKFLOW_DIR'], 'scripts'))

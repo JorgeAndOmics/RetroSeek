@@ -74,7 +74,6 @@ display:
 
 root:
   db_root_folder: '/mnt/v/databases'    # Root folder for databases
-  workflow_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/workflow'
   data_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data'
   results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/results'
   logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/logs'

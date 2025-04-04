@@ -3,7 +3,6 @@ import math
 import pandas as pd
 
 from scripts import defaults
-import scripts
 
 def retrieve_species_list(csv_path:str, default:list[str]=None) -> list[str]:
     if os.path.exists(csv_path):
