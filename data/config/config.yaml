@@ -12,6 +12,7 @@ parameters:
   identity_threshold: 0    # 0 for no threshold
   bitscore_threshold: 0   # 0 for no threshold
   ltr_resize: 0   # 0 for no resize
+  ltr_flank_margin: 0   # 0 for no margin
   merge_option: 'virus'   # 'virus' or 'label'
   hotspot_group_split: false   # true or false
   hotspot_window_size: 10000   # at least 1

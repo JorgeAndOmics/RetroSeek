@@ -31,6 +31,8 @@ parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
 parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original reduced and merged hits")
 parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits overlapping LTRs")
 parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
+parser$add_argument("--solo_ltr_ranges", required=FALSE, help="GFF3 output: solo LTRs")
+parser$add_argument("--flanking_ltr_ranges", required=FALSE, help="GFF3 output: flanking LTRs")
 parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
 parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for plotting")
 
@@ -55,7 +57,7 @@ merge_options      <- config$parameters$merge_options %||% "virus"
 # -----------------------------
 # 4. DETERMINE FILE TYPE
 # -----------------------------
-# Whether this is a _main file (used for optional domain validation)
+# Whether this is a _main file (used for optional domain validation and ltr parsing)
 is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 
 # -----------------------------
@@ -148,7 +150,7 @@ reducing.gr <- function(gr) {
     reduce_ranges_directed(
       species        = paste(unique(species), collapse = "; "),
       virus          = paste(sort(unique(virus)), collapse = "; "),
-      label         = paste(sort(unique(label)), collapse = "; "),
+      label          = paste(sort(unique(label)), collapse = "; "),
       mean_bitscore  = if (length(bitscore) > 1) mean(bitscore) else bitscore,
       mean_identity  = if (length(identity) > 1) mean(identity) else identity,
       type           = "proviral_sequence"
@@ -212,6 +214,67 @@ ltr_domain <- ltr_domain %>%
   mutate(probe = purrr::map_chr(name, assign_probe)) %>%
   filter(!is.na(probe))  # Retain only domains successfully mapped to a probe
 
+# -----------------------------
+# 13B. EXTRACT SOLO LTRs
+# -----------------------------
+# Main and Accessory will provide the same tracks, as they don't depend on BLAST
+# results, so we only perform it on main tracks
+if (is_main) {
+  # Step 1: Extract all LTR features and their Parent IDs
+  ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
+  ltr_seqs$ParentID <- sapply(mcols(ltr_seqs)$Parent, function(x) sub(".*Parent=([^;]+).*", "\\1", x))
+  
+  # Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
+  ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
+  erv_ids <- unique(mcols(ervs)$ID)
+
+  # Step 3: Filter out LTRs that are part of full ERVs (i.e., retain only solo LTRs)
+  solo_ltr <- ltr_seqs[!ltr_seqs$ParentID %in% erv_ids]
+  
+  # Step 4: Assign unique ID to each solo LTR
+  if (length(solo_ltr) > 0) {
+  solo_ltr$ID <- paste0("soloLTR_", seq_along(solo_ltr))
+  } 
+} else {
+  solo_ltr <- GRanges()  # Empty GRanges if no solo LTRs
+}
+
+# -----------------------------
+# 13C. EXTRACT FLANKING LTRs FROM ERVs
+# -----------------------------
+if (is_main) {
+  # Step 1: Keep only LTRs that belong to full ERVs
+  ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
+  
+  # Step 2: Join strand/start from parent ERVs for orientation
+  erv_meta <- data.frame(
+    ID = mcols(ervs)$ID,
+    strand = as.character(strand(ervs)),
+    start = start(ervs)
+  )
+  
+  # Step 3: Add orientation and relative position info
+  mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
+  mcols(ltr_flanking)$start_erv <- erv_meta$start[match(ltr_flanking$ParentID, erv_meta$ID)]
+  
+  # Step 4: Label LTR side (left/right) heuristically
+  ltr_flanking$LTR_side <- ifelse(
+    (ltr_flanking$strand_erv == "+" & start(ltr_flanking) <= ltr_flanking$start_erv + config$parameters$ltr_flank_margin),
+    "left",
+    ifelse(
+      (ltr_flanking$strand_erv == "-" & start(ltr_flanking) >= ltr_flanking$start_erv - config$parameters$ltr_flank_margin),
+      "left",
+      "right"
+    )
+  )
+  
+  # Step 5: Assign ID based on ERV and LTR side
+  if (length(ltr_flanking) > 0) {
+    ltr_flanking$ID <- paste0("flankLTR_", ltr_flanking$ParentID, "_", ltr_flanking$LTR_side)
+  } 
+} else {
+  ltr_flanking <- GRanges()   # Empty GRanges if no flanking LTRs
+}
 
 # -----------------------------
 # 14. OVERLAP DETECTION: tBLASTn vs. LTRs
@@ -402,17 +465,23 @@ domain_valid_hits <- gr %>%
 # -----------------------------
 # 22. EXPORT OUTPUT FILES
 # -----------------------------
+# Export GRanges in GFF3 format. If empty GRanges, it will create a GFF3 file with only the header.
 
-# Export GRanges in GFF3 format
-track_exporter <- function (track, path) {
+track_exporter <- function(track, path) {
   if (length(track) > 0) {
     rtracklayer::export(track, path, format = "gff3")
+  } else {
+    writeLines("##gff-version 3", con = path)
   }
 }
 
 track_exporter(named_reduced_gr, args$original_ranges)
 track_exporter(ltr_valid_hits, args$candidate_ranges)
 track_exporter(domain_valid_hits, args$valid_ranges)
+if (is_main) {    # Export solo LTRs and flanking LTRs only if this is a main file
+  track_exporter(solo_ltr, args$solo_ltr_ranges)
+  track_exporter(ltr_flanking, args$flanking_ltr_ranges)
+}
 
 # Export overlap summary and plotting data
 arrow::write_parquet(plot_df, args$plot_dataframe)
