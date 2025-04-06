@@ -26,6 +26,7 @@ parameters_schema:
   identity_threshold: int(min=0)
   bitscore_threshold: num(min=0)
   ltr_resize: int(min=0)
+  ltr_flank_margin: int(min=0)
   merge_option: str(matches='^(virus|label)$')
   hotspot_group_split: bool()
   hotspot_window_size: int(min=1)

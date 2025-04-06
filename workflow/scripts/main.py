@@ -67,7 +67,7 @@ def run_snakemake_rule(rule: str, num_cores: int, display_info: bool, snakemake_
     ]
 
     if not display_info:
-        shell_cmd.append("-p")
+        shell_cmd.append("-q")
 
     try:
         result = subprocess.run(shell_cmd)

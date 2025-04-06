@@ -280,6 +280,8 @@ rule ranges_analysis_main_setup:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_main.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_main.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
+        solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
+        flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_main.csv'),
         plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet')
     params:
@@ -293,6 +295,8 @@ rule ranges_analysis_main_setup:
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
+        flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
@@ -307,6 +311,8 @@ rule ranges_analysis_main_setup:
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --solo_ltr_ranges {params.solo_ltr_dir:q}/{wildcards.genome:q}.gff3 \
+        --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}_main.csv \
         --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}_main.parquet
         '''
@@ -322,6 +328,7 @@ rule ranges_analysis_accessory_setup:
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_accessory.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_accessory.gff3'),
+        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_accessory.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_accessory.csv'),
         plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
     params:
@@ -335,6 +342,8 @@ rule ranges_analysis_accessory_setup:
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
+        flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
     threads:
         workflow.cores      # Apparently doesn't take well to multicore
@@ -362,6 +371,10 @@ rule ranges_analysis:
                                 genome=SPECIES,
                                 suffix=['main', 'accessory']),
         valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
+                                genome=SPECIES),
+        solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
+                            genome=SPECIES),
+        flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
                                 genome=SPECIES),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_{suffix}.csv'),
                               genome=SPECIES,

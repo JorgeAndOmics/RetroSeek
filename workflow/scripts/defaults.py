@@ -81,8 +81,10 @@ PATH_DICT['TRACK_VALID_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR
 PATH_DICT['TRACK_HOTSPOTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'hotspots'))
 
 # === Results - LTR ===
-PATH_DICT['LTRHARVEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'ltrharvest'))
-PATH_DICT['LTRDIGEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'ltrdigest'))
+PATH_DICT['LTRHARVEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'ltrharvest'))
+PATH_DICT['LTRDIGEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'ltrdigest'))
+PATH_DICT['SOLO_LTR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'solo_ltr'))
+PATH_DICT['FLANKING_LTR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'flanking_ltr'))
 
 # === Logs & Workflow ===
 PATH_DICT['DOWNLOAD_LOG'] = os.path.abspath(os.path.join(PATH_DICT['LOG_DIR'], 'download_log.log'))
