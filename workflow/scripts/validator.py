@@ -286,14 +286,14 @@ def green_light(all_valid: bool) -> bool:
         return False
     else:
         logging.warning('Invalid input. Please try again.')
-        return green_light(all_valid)
+        green_light(all_valid)
 
 
 # -----------------------------
 # ENTRYPOINT
 # -----------------------------
 
-def run(fasta_files: Optional[List[str]] = None) -> bool:
+def validation_run(fasta_files: Optional[List[str]] = None) -> bool:
     """
     CLI entrypoint to trigger validation routines and prompt user to continue.
 
@@ -313,20 +313,3 @@ def run(fasta_files: Optional[List[str]] = None) -> bool:
     all_valid = main_validator(fasta_files=fasta_files_list)
 
     return green_light(all_valid=all_valid)
-
-
-# -----------------------------
-# SCRIPT EXECUTION
-# -----------------------------
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Validate RetroSeek inputs.')
-    parser.add_argument(
-        '--fasta_files',
-        nargs='+',
-        default=None,
-        help='FASTA file paths.'
-    )
-
-    args = parser.parse_args()
-    run(args.fasta_files)
