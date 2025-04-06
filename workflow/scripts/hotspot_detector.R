@@ -180,7 +180,7 @@ for (res in perm_results) {
   
   print(p_hist)
 }
-dev.off()
+invisible(dev.off())
 
 # =============================================================================
 # 9. Integration Hotspot Analysis per Label (Window-Based)
@@ -262,7 +262,7 @@ for (res in perm_results) {
   
   print(p_density)
 }
-dev.off()
+invisible(dev.off())
 
 
 # =============================================================================
@@ -294,4 +294,4 @@ for (fam in names(hotspots_list)) {
   
   print(p_heatmap)
 }
-dev.off()
+invisible(dev.off())
