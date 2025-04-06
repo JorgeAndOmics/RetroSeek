@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # -----------------------------
     # EXECUTE MAIN PIPELINE
     # -----------------------------
-    main_cmd: list = ['python', 'scripts/main.py']
+    main_cmd: list = ['python', 'scripts/RetroSeek.py']
 
     if args.skip_validation:
         main_cmd.append('--skip_validation')

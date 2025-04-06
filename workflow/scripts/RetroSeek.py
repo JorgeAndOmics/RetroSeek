@@ -210,7 +210,10 @@ def cli_entry() -> None:
     validation = True if args.skip_validation else validation_run(species_paths)
     if validation:
         if args.full_analysis:
-            run_snakemake_rule('full_analysis', defaults.NUM_CORES, defaults.DISPLAY_SNAKEMAKE_INFO)
+            run_snakemake_rule('full_analysis',
+                               num_cores=defaults.NUM_CORES,
+                               display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                               snakemake_flags=unknown)
 
         if args.download_genomes:
             run_snakemake_rule('genome_downloader',
