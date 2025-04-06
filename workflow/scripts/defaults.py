@@ -104,9 +104,9 @@ MAX_THREADPOOL_WORKERS = config['execution'].get('max_threadpool_workers', 1)
 ENTREZ_EMAIL = config['execution'].get('entrez_email', '')
 
 # Display
-DISPLAY_SNAKEMAKE_INFO: bool = config['display']['display_snakemake_info']
-DISPLAY_REQUESTS_WARNING: bool = config['display']['display_requests_warning']
-DISPLAY_OPERATION_INFO: bool = config['display']['display_operation_info']
+DISPLAY_SNAKEMAKE_INFO: bool = config['display'].get('display_snakemake_info', False)
+DISPLAY_REQUESTS_WARNING: bool = config['display'].get('display_requests_warning', False)
+DISPLAY_OPERATION_INFO: bool = config['display'].get('display_operation_info', False)
 
 # INPUT
 PROBE_CSV = os.path.abspath(config['input'].get('probe_csv'))

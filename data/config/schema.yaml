@@ -94,7 +94,6 @@ display_schema:
 
 root_schema:
   db_root_folder: str()
-  workflow_root_folder: str()
   data_root_folder: str()
   results_root_folder: str()
   logs_root_folder: str()

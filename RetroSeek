@@ -23,6 +23,67 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--full_analysis', '-f',
+        action='store_true',
+        help='Run complete pipeline.'
+    )
+
+    parser.add_argument(
+        '--download_genomes', '-d',
+        action='store_true',
+        help="Downloads genomes specified in .yaml file. "
+             "Will skip download if the same files exist currently in the target directory"
+    )
+
+    parser.add_argument(
+        '--download_hmm', '-dhmm',
+        action='store_true',
+        help="Setup domain database"
+    )
+
+    parser.add_argument(
+        '--suffix_arrays', '-s',
+        action='store_true',
+        help="Generate GenomeTools suffix arrays for genomes."
+    )
+
+    parser.add_argument(
+        '--ltr_candidates', '-ltr',
+        action='store_true',
+        help="Generates LTR candidate files for genomes via LTRHarvest."
+    )
+
+    parser.add_argument(
+        '--ltr_domains', '-ltrd',
+        action='store_true',
+        help="Generates domain-enriched LTR candidate files for genomes via LTRDigest."
+    )
+
+    parser.add_argument(
+        '--blast_dbs', '-bdb',
+        action='store_true',
+        help="Generates BLAST databases from genomes."
+    )
+
+    parser.add_argument(
+        '--probe_extractor', '-ps',
+        action='store_true',
+        help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs."
+    )
+
+    parser.add_argument(
+        '--blast', '-b',
+        action='store_true',
+        help="Runs tBLASTn of provided sequences against genome databases."
+    )
+
+    parser.add_argument(
+        '--ranges_analysis', '-r',
+        action='store_true',
+        help="Performs genomic range integration of BLAST and LTR candidate results."
+    )
+
+    parser.add_argument(
         '--generate_global_plots', '-p',
         action='store_true',
         help='Generate plots from the analysis.'
@@ -35,12 +96,18 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--hotspot_detection', '-d',
+        '--hotspot_detection', '-hd',
         action='store_true',
         help='Perform ERV hotspot detection.'
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        '--skip_validation', '-skp',
+        action='store_true',
+        help='Skip input validation.'
+    )
+
+    args, unknown = parser.parse_known_args()
 
     # -----------------------------
     # DEFINE SCRIPT EXECUTION PATH
@@ -50,25 +117,48 @@ if __name__ == '__main__':
     # -----------------------------
     # EXECUTE MAIN PIPELINE
     # -----------------------------
-    subprocess.run(['python', 'scripts/main.py'], cwd=script_dir)
+    main_cmd: list = ['python', 'scripts/main.py']
 
-    # -----------------------------
-    # OPTIONAL MODULES
-    # -----------------------------
+    if args.skip_validation:
+        main_cmd.append('--skip_validation')
+
+    if args.full_analysis:
+        main_cmd.append('--full_analysis')
+
+    if args.download_genomes:
+        main_cmd.append('--download_genomes')
+
+    if args.download_hmm:
+        main_cmd.append('--download_hmm')
+
+    if args.suffix_arrays:
+        main_cmd.append('--suffix_arrays')
+
+    if args.ltr_candidates:
+        main_cmd.append('--ltr_candidates')
+
+    if args.ltr_domains:
+        main_cmd.append('--ltr_domains')
+
+    if args.blast_dbs:
+        main_cmd.append('--blast_dbs')
+
+    if args.blast:
+        main_cmd.append('--blast')
+
+    if args.ranges_analysis:
+        main_cmd.append('--ranges_analysis')
+
     if args.generate_global_plots:
-        subprocess.run(
-            ['python', 'scripts/main.py', '--generate_global_plots'],
-            cwd=script_dir
-        )
+        main_cmd.append('--generate_global_plots')
 
     if args.generate_circle_plots:
-        subprocess.run(
-            ['python', 'scripts/main.py', '--generate_circle_plots'],
-            cwd=script_dir
-        )
+        main_cmd.append('--generate_circle_plots')
 
     if args.hotspot_detection:
-        subprocess.run(
-            ['python', 'scripts/main.py', '--hotspot_detection'],
-            cwd=script_dir
-        )
+        main_cmd.append('--hotspot_detection')
+
+    if unknown:
+        main_cmd.extend(unknown)
+
+    subprocess.run(main_cmd, cwd=script_dir)
