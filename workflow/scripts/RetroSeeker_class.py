@@ -1,5 +1,5 @@
 """
-object_class.py
+RetroSeeker_class.py
 
 This module provides the core functionality for executing BLAST queries against local databases,
 parsing the results, and retrieving corresponding GenBank records. It defines a structured RetroSeeker

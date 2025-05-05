@@ -102,80 +102,80 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
-        '--full_analysis', '-f',
+        '--full_analysis',
         action='store_true',
         help='Run complete pipeline.'
     )
 
     parser.add_argument(
-        '--download_genomes', '-dg',
+        '--download_genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
              "Will skip download if the same files exist currently in the target directory"
     )
 
     parser.add_argument(
-        '--download_hmm', '-dhmm',
+        '--download_hmm',
         action='store_true',
         help="Setup domain database"
     )
 
     parser.add_argument(
-        '--suffix_arrays', '-s',
+        '--suffix_arrays',
         action='store_true',
         help="Generate GenomeTools suffix arrays for genomes."
     )
 
     parser.add_argument(
-        '--ltr_candidates', '-ltr',
+        '--ltr_candidates',
         action='store_true',
         help="Generates LTR candidate files for genomes via LTRHarvest."
     )
 
     parser.add_argument(
-        '--ltr_domains', '-ltrd',
+        '--ltr_domains',
         action='store_true',
         help="Generates domain-enriched LTR candidate files for genomes via LTRDigest."
     )
 
     parser.add_argument(
-        '--blast_dbs', '-bdb',
+        '--blast_dbs',
         action='store_true',
         help="Generates BLAST databases from genomes."
     )
 
     parser.add_argument(
-        '--probe_extractor', '-ps',
+        '--probe_extractor',
         action='store_true',
         help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs."
     )
 
     parser.add_argument(
-        '--blast', '-b',
+        '--blast',
         action='store_true',
         help="Runs tBLASTn of provided sequences against genome databases."
     )
 
     parser.add_argument(
-        '--ranges_analysis', '-r',
+        '--ranges_analysis',
         action='store_true',
         help="Performs genomic range integration of BLAST and LTR candidate results."
     )
 
     parser.add_argument(
-        '--generate_global_plots', '-p',
+        '--generate_global_plots',
         action='store_true',
         help='Generate plots from the analysis.'
     )
 
     parser.add_argument(
-        '--generate_circle_plots', '-c',
+        '--generate_circle_plots',
         action='store_true',
         help='Generate circle plots from the species in analysis.'
     )
 
     parser.add_argument(
-        '--hotspot_detection', '-hd',
+        '--hotspot_detection',
         action='store_true',
         help='Perform ERV hotspot detection.'
     )
