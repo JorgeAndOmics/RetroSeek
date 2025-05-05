@@ -48,7 +48,9 @@ rule pfam_hmm_downloader:
     params:
         hmm_profile_dir=defaults.PATH_DICT['HMM_PROFILE_DIR'],
         url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz',
-        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums',
+        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums'
+    threads:
+        workflow.cores
     shell:
         """
         cd {params.hmm_profile_dir:q} && \
@@ -110,6 +112,7 @@ rule ltr_index_generator_setup:
         suffix_params='-tis -suf -des -ssp -sds -dna -lcp',
         optional_params=config['genome_tools'].get('suffixerator_optional_parameters', ''),
         suffix_array_parts=config['genome_tools'].get('suffix_array_parts', 2)      # We divide by parts because it's a memory-intensive process
+    threads: config.get('rule_threads', 1)
     shell:
         """
         echo "Generating suffix array for {wildcards.genome:q}" && \
@@ -139,6 +142,7 @@ rule ltr_harvester_setup:
         index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
         output_directory_path=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR']),
         optional_params=config['genome_tools'].get('ltrharvest_optional_parameters','')
+    threads: config.get('rule_threads',1)
     shell:
         '''
         TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
@@ -175,6 +179,7 @@ rule ltr_digester_setup:
         index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
         output_directory_path=defaults.PATH_DICT['LTRDIGEST_DIR'],
         optional_params=config['genome_tools'].get('ltrdigest_optional_parameters','')
+    threads: config.get('rule_threads',1)
     shell:
         '''
         echo "Running LTRDigest for {wildcards.genome:q}" && \
@@ -223,6 +228,7 @@ rule full_genome_blaster_setup:
     params:
         tblastn_pickle_dir=defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],
         num_threads=1
+    threads: config.get('rule_threads',1)
     shell:
         '''
         python scripts/full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
@@ -243,6 +249,7 @@ rule blast_pkl2parquet:
     params:
         tmp_dir=defaults.PATH_DICT['TMP_DIR'],
         table_output_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
+    threads: config.get('rule_threads', 1)
     shell:
         '''
         rm -rf {params.tmp_dir:q} && \
@@ -257,6 +264,7 @@ rule species_segmenter_setup:
                            suffix=['main', 'accessory']),
         species_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
                                genome=SPECIES, suffix=['full', 'main', 'accessory'])
+    threads: config.get('rule_threads',1)
     params:
         output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
     shell:

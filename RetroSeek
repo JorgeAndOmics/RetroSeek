@@ -23,14 +23,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-f',
         '--full_analysis',
         action='store_true',
         help='Run complete pipeline.'
     )
 
     parser.add_argument(
-        '-d',
         '--download_genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
@@ -38,77 +36,66 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-dhmm',
         '--download_hmm',
         action='store_true',
         help="Setup domain database"
     )
 
     parser.add_argument(
-        '-s',
         '--suffix_arrays',
         action='store_true',
         help="Generate GenomeTools suffix arrays for genomes."
     )
 
     parser.add_argument(
-        '-ltr',
         '--ltr_candidates',
         action='store_true',
         help="Generates LTR candidate files for genomes via LTRHarvest."
     )
 
     parser.add_argument(
-        '-ltrd',
         '--ltr_domains',
         action='store_true',
         help="Generates domain-enriched LTR candidate files for genomes via LTRDigest."
     )
 
     parser.add_argument(
-        '-bdb',
         '--blast_dbs',
         action='store_true',
         help="Generates BLAST databases from genomes."
     )
 
     parser.add_argument(
-        '-ps',
         '--probe_extractor',
         action='store_true',
         help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs."
     )
 
     parser.add_argument(
-        '-b',
         '--blast',
         action='store_true',
         help="Runs tBLASTn of provided sequences against genome databases."
     )
 
     parser.add_argument(
-        '-r',
         '--ranges_analysis',
         action='store_true',
         help="Performs genomic range integration of BLAST and LTR candidate results."
     )
 
     parser.add_argument(
-        '-p',
         '--generate_global_plots',
         action='store_true',
         help='Generate plots from the analysis.'
     )
 
     parser.add_argument(
-        '-c',
         '--generate_circle_plots',
         action='store_true',
         help='Generate circle plots from the species in analysis.'
     )
 
     parser.add_argument(
-        '-hd',
         '--hotspot_detection',
         action='store_true',
         help='Perform ERV hotspot detection.'

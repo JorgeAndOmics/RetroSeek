@@ -14,7 +14,7 @@ Modules:
     - `defaults`: Stores configuration constants like directory paths and flags.
 
 Main Workflow:
-    1. Reads a probe metadata, comma-separated CSV file (columns: Group, Name, Abbreviation, Probe, Accession).
+    1. Reads a probe metadata, comma-separated CSV file (columns: Label, Name, Abbreviation, Probe, Accession).
     2. Constructs a dictionary of `RetroSeek` instances keyed by accession ID.
     3. Fetches sequences from a remote database using the given metadata.
     4. Serializes the extracted objects to a pickle file for downstream use.
@@ -57,7 +57,7 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
 
         Returns
         -------
-            :returns: probe_dict: A dictionary mapping accession IDs to `Object` instances that encapsulate probe metadata.
+            :returns: probe_dict: A dictionary mapping accession IDs to `RetroSeeker` instances that encapsulate probe metadata.
 
         Raises
         ------
