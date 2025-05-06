@@ -28,9 +28,12 @@ parser$add_argument("--blast", required=TRUE, help="tBLASTn Parquet input file")
 parser$add_argument("--ltrdigest", required=TRUE, help="LTRdigest GFF3 input file")
 parser$add_argument("--probes", required=TRUE, help="Probes metadata file (CSV)")
 parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
-parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original reduced and merged hits")
+parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original and merged hits")
+parser$add_argument("--original_ranges_reduced", required=TRUE, help="GFF3 output: original reduced and merged hits")
 parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits overlapping LTRs")
+parser$add_argument("--candidate_ranges_reduced", required=TRUE, help="GFF3 output: reduced hits overlapping LTRs")
 parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
+parser$add_argument("--valid_ranges_reduced", required=TRUE, help="GFF3 output: reduced domain-validated hits")
 parser$add_argument("--solo_ltr_ranges", required=FALSE, help="GFF3 output: solo LTRs")
 parser$add_argument("--flanking_ltr_ranges", required=FALSE, help="GFF3 output: flanking LTRs")
 parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
@@ -113,20 +116,21 @@ mcols(gr)$min_gapwidth <- gap_vals
 gr_list <- split(gr, ~ probe)
 
 # Group-specific reduction using reduce_ranges_directed
-if (merge_options == "virus") {
-  gr_list_reduced <- sapply(gr_list, function(sub_gr) {
-    gap_val <- unique(sub_gr$min_gapwidth)
-    sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
-      min.gapwidth = gap_val,
-      virus    = as.character(unique(virus)),
-      species  = as.character(unique(species)),
-      label   = as.character(unique(label)),
-      bitscore = max(bitscore),
-      identity = max(identity)
-    )
-  })
-} else if (merge_options == "label") {
-  gr_list_reduced <- sapply(gr_list, function(sub_gr) {
+
+gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
+  gap_val <- unique(sub_gr$min_gapwidth)
+  sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
+    min.gapwidth = gap_val,
+    virus    = as.character(unique(virus)),
+    species  = as.character(unique(species)),
+    label   = as.character(unique(label)),
+    bitscore = max(bitscore),
+    identity = max(identity)
+  )
+})
+
+if (merge_options == "label") {
+  gr_list_reduced_label <- sapply(gr_list, function(sub_gr) {
     gap_val <- unique(sub_gr$min_gapwidth)
     sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
       min.gapwidth = gap_val,
@@ -139,7 +143,13 @@ if (merge_options == "virus") {
 }
 
 # Combine all reduced probe groups
-gr <- bind_ranges(gr_list_reduced)
+gr_virus <- bind_ranges(gr_list_reduced_virus)
+
+if (merge_options == "label") {
+  gr <- bind_ranges(gr_list_reduced_label)
+} else {
+  gr <- gr_virus
+}
 
 # -----------------------------
 # 11. GLOBAL REDUCTION ACROSS PROBES
@@ -159,6 +169,9 @@ reducing.gr <- function(gr) {
 }
 
 reduced_gr <- reducing.gr(gr)
+
+gr_virus <- gr_virus %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
+
 named_reduced_gr <- reduced_gr %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
 
 # -----------------------------
@@ -219,59 +232,55 @@ ltr_domain <- ltr_domain %>%
 # -----------------------------
 # Main and Accessory will provide the same tracks, as they don't depend on BLAST
 # results, so we only perform it on main tracks
-if (is_main) {
-  # Step 1: Extract all LTR features and their Parent IDs
-  ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
-  ltr_seqs$ParentID <- sapply(mcols(ltr_seqs)$Parent, function(x) sub(".*Parent=([^;]+).*", "\\1", x))
-  
-  # Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
-  ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
-  erv_ids <- unique(mcols(ervs)$ID)
 
-  # Step 3: Filter out LTRs that are part of full ERVs (i.e., retain only solo LTRs)
-  solo_ltr <- ltr_seqs[!ltr_seqs$ParentID %in% erv_ids]
-  
-  # Step 4: Assign unique ID to each solo LTR
-  if (length(solo_ltr) > 0) {
+# Step 1: Extract all LTR features and their Parent IDs
+ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
+ltr_seqs$ParentID <- sapply(mcols(ltr_seqs)$Parent, function(x) sub(".*Parent=([^;]+).*", "\\1", x))
+
+# Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
+ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
+erv_ids <- unique(mcols(ervs)$ID)
+
+# Step 3: Filter out LTRs that are part of full ERVs (i.e., retain only solo LTRs)
+solo_ltr <- ltr_seqs[!ltr_seqs$ParentID %in% erv_ids]
+
+# Step 4: Assign unique ID to each solo LTR
+if (length(solo_ltr) > 0) {
   solo_ltr$ID <- paste0("soloLTR_", seq_along(solo_ltr))
-  } 
-} else {
-  solo_ltr <- GRanges()  # Empty GRanges if no solo LTRs
 }
 
 # -----------------------------
 # 13C. EXTRACT FLANKING LTRs FROM ERVs
 # -----------------------------
-if (is_main) {
-  # Step 1: Keep only LTRs that belong to full ERVs
-  ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
-  
-  # Step 2: Join strand/start from parent ERVs for orientation
-  erv_meta <- data.frame(
-    ID = mcols(ervs)$ID,
-    strand = as.character(strand(ervs)),
-    start = start(ervs)
-  )
-  
-  # Step 3: Add orientation and relative position info
-  mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
-  mcols(ltr_flanking)$start_erv <- erv_meta$start[match(ltr_flanking$ParentID, erv_meta$ID)]
-  
-  # Step 4: Label LTR side (left/right) heuristically
-  ltr_flanking$LTR_side <- ifelse(
-    (ltr_flanking$strand_erv == "+" & start(ltr_flanking) <= ltr_flanking$start_erv + config$parameters$ltr_flank_margin),
+
+# Step 1: Keep only LTRs that belong to full ERVs
+ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
+
+# Step 2: Join strand/start from parent ERVs for orientation
+erv_meta <- data.frame(
+  ID = mcols(ervs)$ID,
+  strand = as.character(strand(ervs)),
+  start = start(ervs)
+)
+
+# Step 3: Add orientation and relative position info
+mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
+mcols(ltr_flanking)$start_erv <- erv_meta$start[match(ltr_flanking$ParentID, erv_meta$ID)]
+
+# Step 4: Label LTR side (left/right) heuristically
+ltr_flanking$LTR_side <- ifelse(
+  (ltr_flanking$strand_erv == "+" & start(ltr_flanking) <= ltr_flanking$start_erv + config$parameters$ltr_flank_margin),
+  "left",
+  ifelse(
+    (ltr_flanking$strand_erv == "-" & start(ltr_flanking) >= ltr_flanking$start_erv - config$parameters$ltr_flank_margin),
     "left",
-    ifelse(
-      (ltr_flanking$strand_erv == "-" & start(ltr_flanking) >= ltr_flanking$start_erv - config$parameters$ltr_flank_margin),
-      "left",
-      "right"
-    )
+    "right"
   )
-  
-  # Step 5: Assign ID based on ERV and LTR side
-  if (length(ltr_flanking) > 0) {
-    ltr_flanking$ID <- paste0("flankLTR_", ltr_flanking$ParentID, "_", ltr_flanking$LTR_side)
-  } 
+)
+
+# Step 5: Assign ID based on ERV and LTR side
+if (length(ltr_flanking) > 0) {
+  ltr_flanking$ID <- paste0("flankLTR_", ltr_flanking$ParentID, "_", ltr_flanking$LTR_side)
 } else {
   ltr_flanking <- GRanges()   # Empty GRanges if no flanking LTRs
 }
@@ -282,6 +291,7 @@ if (is_main) {
 
 # Compute overlaps between tBLASTn hits and LTR retrotransposons
 ov.B2L <- findOverlaps(named_reduced_gr, ltr_retro)
+ov.B2L.virus <- findOverlaps(gr_virus, ltr_retro)
 ov.L2B <- findOverlaps(ltr_retro, named_reduced_gr)
 
 # Extract overlapping/non-overlapping hits
@@ -412,18 +422,61 @@ plot_df <- as.data.frame(reduced_gr) %>%
 # -----------------------------
 
 # Candidate hits are those overlapping LTR regions
-ltr_valid_hits <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
+ltr_valid_hits <- gr_virus[queryHits(ov.B2L.virus)] %>% arrange(start)
+ltr_valid_hits_reduced <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
 
 
 # -----------------------------
 # 21. OPTIONAL DOMAIN VALIDATION
 # -----------------------------
 
-domain_valid_hits <- gr %>%
+domain_valid_hits <- gr_virus %>%
   
   # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
   join_overlap_inner_directed(
     ltr_valid_hits,
+    suffix = c(".gr", ".ltr_valid")
+  ) %>%
+  
+  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
+  filter(probe.gr == probe.ltr_valid) %>%
+  mutate(probe = probe.gr) %>%
+  
+  # Step 3: Overlap the result with LTR domains (strand-aware again)
+  join_overlap_inner_directed(
+    ltr_domain,
+    suffix = c(".merged", ".ltr_domain")
+  ) %>%
+  
+  # Step 4: Filter only cases where probe labels match again
+  filter(probe.merged == probe.ltr_domain) %>%
+  mutate(Parent = as.character(Parent)) %>%
+  
+  # Step 5: Clean up and order result
+  mutate(
+    probe         = probe.merged,
+    species       = species.gr,
+    virus         = virus.gr,
+    label         = label.gr,
+    name          = name,
+    Parent        = Parent,
+    ID            = ID.gr,
+    bitscore = bitscore.gr,
+    identity = identity.gr
+  ) %>%
+  select(
+    probe, species, virus, label,
+    name, ID, Parent,
+    bitscore, identity
+  ) %>%
+  arrange(start)
+
+
+domain_valid_hits_reduced <- gr %>%
+  
+  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
+  join_overlap_inner_directed(
+    ltr_valid_hits_reduced,
     suffix = c(".gr", ".ltr_valid")
   ) %>%
   
@@ -475,13 +528,18 @@ track_exporter <- function(track, path) {
   }
 }
 
-track_exporter(named_reduced_gr, args$original_ranges)
-track_exporter(ltr_valid_hits, args$candidate_ranges)
-track_exporter(domain_valid_hits, args$valid_ranges)
-if (is_main) {    # Export solo LTRs and flanking LTRs only if this is a main file
-  track_exporter(solo_ltr, args$solo_ltr_ranges)
-  track_exporter(ltr_flanking, args$flanking_ltr_ranges)
-}
+track_exporter(gr_virus,               args$original_ranges)
+track_exporter(named_reduced_gr,       args$original_ranges_reduced)
+
+track_exporter(ltr_valid_hits,         args$candidate_ranges)
+track_exporter(ltr_valid_hits_reduced, args$candidate_ranges_reduced)
+
+track_exporter(domain_valid_hits,      args$valid_ranges)
+track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
+
+track_exporter(solo_ltr, args$solo_ltr_ranges)
+track_exporter(ltr_flanking, args$flanking_ltr_ranges)
+
 
 # Export overlap summary and plotting data
 arrow::write_parquet(plot_df, args$plot_dataframe)

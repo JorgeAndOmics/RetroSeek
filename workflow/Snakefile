@@ -262,8 +262,10 @@ rule species_segmenter_setup:
     output:
         all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
-        species_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
-                               genome=SPECIES, suffix=['full', 'main', 'accessory'])
+        species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
+                               genome=SPECIES),
+        species_parquet_suffix=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
+                               genome=SPECIES, suffix=['main', 'accessory'])
     threads: config.get('rule_threads',1)
     params:
         output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
@@ -272,26 +274,29 @@ rule species_segmenter_setup:
         --input_file {input.input_parquet:q} \
         --output_dir {params.output_dir:q}'
 
-
 rule species_segmenter:
     input:
         rules.species_segmenter_setup.output
 
-rule ranges_analysis_main_setup:
+
+rule ranges_analysis_setup:
     input:
         original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES),
-        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_main.parquet'),
+        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
                                  genome=SPECIES),
         ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
                           genome=SPECIES)
     output:
-        original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_main.gff3'),
-        candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_main.gff3'),
-        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
-        solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-        flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
-        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_main.csv'),
-        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet')
+        original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
+        original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
+        candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'], '{genome}.gff3'),
+        candidate_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
+        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+        # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
+        # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
+        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
@@ -312,85 +317,46 @@ rule ranges_analysis_main_setup:
         '''
         Rscript scripts/ranges_analysis.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_main.parquet \
+        --blast {params.segmented_species_dir:q}/{wildcards.genome:q}.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         --probes {params.probes_csv:q} \
         --config {params.yaml_config_file:q} \
-        --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
-        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
+        --original_ranges_reduced {params.original_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
+        --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}.gff3 \
+        --candidate_ranges_reduced {params.candidate_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
+        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
+        --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --solo_ltr_ranges {params.solo_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
-        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}_main.csv \
-        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}_main.parquet
+        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}.csv \
+        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet
         '''
 
-
-rule ranges_analysis_accessory_setup:
-    input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES),
-        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_accessory.parquet'),
-                                 genome=SPECIES),
-        ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=SPECIES)
-    output:
-        original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_accessory.gff3'),
-        candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_accessory.gff3'),
-        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_accessory.gff3'),
-        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_accessory.csv'),
-        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
-    params:
-        species_db=defaults.PATH_DICT['SPECIES_DB'],
-        segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
-        probes_csv=defaults.PROBE_CSV,
-        workflow_dir=defaults.PATH_DICT['WORKFLOW_DIR'],
-        yaml_config_file=defaults.CONFIG_FILE,
-        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
-        ltr_digest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
-        original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
-        candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
-        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
-        solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
-        flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
-        overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
-    threads:
-        workflow.cores      # Apparently doesn't take well to multicore
-    shell:
-        '''
-        Rscript scripts/ranges_analysis.R \
-        --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --blast {params.segmented_species_dir:q}/{wildcards.genome:q}_accessory.parquet \
-        --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
-        --probes {params.probes_csv:q} \
-        --config {params.yaml_config_file:q} \
-        --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}_accessory.gff3 \
-        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}_accessory.csv \
-        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}_accessory.parquet
-        '''
 
 rule ranges_analysis:
     input:
-        original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_{suffix}.gff3'),
-                               genome=SPECIES,
-                               suffix=['main', 'accessory']),
-        candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_{suffix}.gff3'),
-                                genome=SPECIES,
-                                suffix=['main', 'accessory']),
-        valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_main.gff3'),
+        original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
+                               genome=SPECIES),
+        original_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}.gff3'),
+                               genome=SPECIES),
+        candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
                                 genome=SPECIES),
-        solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-                            genome=SPECIES),
-        flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+        candidate_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
                                 genome=SPECIES),
-        overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}_{suffix}.csv'),
-                              genome=SPECIES,
-                              suffix=['main', 'accessory']),
-        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
-                               genome=SPECIES,
-                               suffix=['main', 'accessory'])
+        valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
+                             genome=SPECIES),
+        valid_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
+                                genome=SPECIES),
+        # solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
+        #                     genome=SPECIES),
+        # flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+        #                         genome=SPECIES),
+        overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
+                              genome=SPECIES),
 
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+                               genome=SPECIES)
 
 rule plot_generator_setup:
     input:

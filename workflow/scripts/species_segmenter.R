@@ -69,9 +69,9 @@ for (sp in species_names) {
   
   # ALL
   if (sp %in% names(all_probes)) {
-    arrow::write_parquet(all_probes[[sp]], file.path(args.output_dir, paste0(sp, "_full.parquet")))
+    arrow::write_parquet(all_probes[[sp]], file.path(args.output_dir, paste0(sp, ".parquet")))
   } else {
-    arrow::write_parquet(data[0, ], file.path(args.output_dir, paste0(sp, "_full.parquet")))
+    arrow::write_parquet(data[0, ], file.path(args.output_dir, paste0(sp, ".parquet")))
   }
   
   # MAIN
