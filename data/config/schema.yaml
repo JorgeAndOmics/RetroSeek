@@ -34,6 +34,8 @@ parameters_schema:
   hotspot_mask_mismatch: int(min=0)
   hotspot_permutations: int(min=1)
   hotspot_pvalue_threshold: num(min=0)
+  probe_to_pair: str(required=False)
+  pair_max_gap: num(min=0)
   probe_min_length: map(int(min=0), key=str())
 
 
