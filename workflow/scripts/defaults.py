@@ -50,7 +50,7 @@ PATH_DICT['SCRIPTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['WORKFLOW_DIR'
 
 # === Database Directories ===
 PATH_DICT['ROOT_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'local'))
-PATH_DICT['SPECIES_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT_DB'], 'blast_dbs', 'species'))
+PATH_DICT['SPECIES_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT_DB'], 'blast_dbs_OLD', 'species'))
 PATH_DICT['ACCESSORY_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'accessory'))
 
 # === Data Subdirectories ===
