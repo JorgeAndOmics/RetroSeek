@@ -102,12 +102,6 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
-        '--full_analysis',
-        action='store_true',
-        help='Run complete pipeline.'
-    )
-
-    parser.add_argument(
         '--download_genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
@@ -181,6 +175,12 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
+        '--pair_detection',
+        action='store_true',
+        help='Perform probe-pair detection.'
+    )
+
+    parser.add_argument(
         '--skip_validation', '-skp',
         action='store_true',
         help='Skip input validation.'
@@ -209,12 +209,6 @@ def cli_entry() -> None:
 
     validation = True if args.skip_validation else validation_run(species_paths)
     if validation:
-        if args.full_analysis:
-            run_snakemake_rule('full_analysis',
-                               num_cores=defaults.NUM_CORES,
-                               display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                               snakemake_flags=unknown)
-
         if args.download_genomes:
             run_snakemake_rule('genome_downloader',
                                num_cores=defaults.NUM_CORES,
@@ -283,6 +277,12 @@ def cli_entry() -> None:
 
         if args.hotspot_detection:
             run_snakemake_rule('hotspot_detector',
+                               num_cores=defaults.NUM_CORES,
+                               display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                               snakemake_flags=unknown)
+
+        if args.pair_detection:
+            run_snakemake_rule('pair_detector',
                                num_cores=defaults.NUM_CORES,
                                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                                snakemake_flags=unknown)

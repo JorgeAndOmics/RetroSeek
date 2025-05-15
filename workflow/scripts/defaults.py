@@ -67,6 +67,7 @@ PATH_DICT['TABLE_HOTSPOT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_O
 PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'overlap_matrix'))
 PATH_DICT['SEGMENTED_SPECIES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'segmented_species'))
 PATH_DICT['PLOT_DATAFRAMES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'plot_dataframes'))
+PATH_DICT['TABLE_PAIR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_pairs'))
 
 # === Results - Plots ===
 PATH_DICT['PLOT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'plots'))
