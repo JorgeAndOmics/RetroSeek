@@ -23,12 +23,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--full_analysis',
-        action='store_true',
-        help='Run complete pipeline.'
-    )
-
-    parser.add_argument(
         '--download_genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
@@ -102,6 +96,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--pair_detection',
+        action='store_true',
+        help='Perform specified probe-pair detection.'
+    )
+
+    parser.add_argument(
         '-skp',
         '--skip_validation',
         action='store_true',
@@ -122,9 +122,6 @@ if __name__ == '__main__':
 
     if args.skip_validation:
         main_cmd.append('--skip_validation')
-
-    if args.full_analysis:
-        main_cmd.append('--full_analysis')
 
     if args.download_genomes:
         main_cmd.append('--download_genomes')
@@ -158,6 +155,9 @@ if __name__ == '__main__':
 
     if args.hotspot_detection:
         main_cmd.append('--hotspot_detection')
+
+    if args.pair_detection:
+        main_cmd.append('--pair_detection')
 
     if unknown:
         main_cmd.extend(unknown)

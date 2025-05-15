@@ -14,7 +14,8 @@ def retrieve_species_list(csv_path:str, default:list[str]=None) -> list[str]:
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
-SPECIES = retrieve_species_list(
+SPECIES = defaults.SPECIES
+SPECIES_POST = retrieve_species_list(
     csv_path=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'],'full_genome_blast.csv'),
     default=defaults.SPECIES
 )
@@ -263,9 +264,9 @@ rule species_segmenter_setup:
         all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all_{suffix}.parquet'),
                            suffix=['main', 'accessory']),
         species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                               genome=SPECIES),
+                               genome=SPECIES_POST),
         species_parquet_suffix=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
-                               genome=SPECIES, suffix=['main', 'accessory'])
+                               genome=SPECIES_POST, suffix=['main', 'accessory'])
     threads: config.get('rule_threads',1)
     params:
         output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
@@ -337,31 +338,31 @@ rule ranges_analysis_setup:
 rule ranges_analysis:
     input:
         original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
-                               genome=SPECIES),
+                               genome=SPECIES_POST),
         original_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}.gff3'),
-                               genome=SPECIES),
+                               genome=SPECIES_POST),
         candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
-                                genome=SPECIES),
+                                genome=SPECIES_POST),
         candidate_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
-                                genome=SPECIES),
+                                genome=SPECIES_POST),
         valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
-                             genome=SPECIES),
+                             genome=SPECIES_POST),
         valid_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
-                                genome=SPECIES),
+                                genome=SPECIES_POST),
         # solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
         #                     genome=SPECIES),
         # flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         #                         genome=SPECIES),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-                              genome=SPECIES),
+                              genome=SPECIES_POST),
 
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-                               genome=SPECIES)
+                               genome=SPECIES_POST)
 
 rule plot_generator_setup:
     input:
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
-                               genome=SPECIES, suffix=['main','accessory'])
+                               genome=SPECIES_POST, suffix=['main','accessory'])
     output:
         density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
@@ -422,7 +423,7 @@ rule circle_plot_generator_setup:
 
 rule circle_plot_generator:
     input:
-        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=SPECIES)
+        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=SPECIES_POST)
 
 
 # TODO: SUFFIX PARSING
@@ -453,7 +454,7 @@ rule hotspot_detector_setup:
         '''
         Rscript scripts/hotspot_detector.R \
         --fasta {params.genomes_dir:q}/{wildcards.genome}.fa \
-        --gff {params.input_track_dir:q}/{wildcards.genome}_main.gff3 \
+        --gff {params.input_track_dir:q}/{wildcards.genome}.gff3 \
         --config {params.config_yaml:q} \
         --csv_output_dir {params.csv_dir:q} \
         --pdf_output_dir {params.pdf_dir:q} \
@@ -462,8 +463,31 @@ rule hotspot_detector_setup:
 
 rule hotspot_detector:
     input:
-        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=SPECIES),
-        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=SPECIES),
-        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=SPECIES),
-        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=SPECIES),
-        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=SPECIES)
+        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=SPECIES_POST),
+        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=SPECIES_POST),
+        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=SPECIES_POST),
+        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=SPECIES_POST),
+        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=SPECIES_POST)
+
+
+rule pair_detector_setup:
+    input:
+        gff3_file=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
+    output:
+        pair_table=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'),
+    params:
+        config_yaml=defaults.CONFIG_FILE,
+        table_output_dir=defaults.PATH_DICT['TABLE_PAIR_DIR']
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript scripts/pair_detector.R \
+        --config {params.config_yaml:q} \
+        --gff {input.gff3_file:q} \
+        --table_output_dir {params.table_output_dir:q}
+        '''
+
+rule pair_detector:
+    input:
+        pair_table=expand(os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'), genome=SPECIES_POST)

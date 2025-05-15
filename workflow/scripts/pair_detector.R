@@ -136,18 +136,15 @@ waffle_plot <- pair_counts %>%
   ggplot(aes(fill = other.probe, values = count)) +
   geom_waffle(size = 0.1, color = "white") +
   labs(title = paste("Distribution of pairs for", config$parameters$probe_to_pair),
-       subtitle = paste("Probe:", probe_to_pair),
-       x = "Count",
-       y = "Probe") +
+       subtitle = paste("Probe:", probe_to_pair)) +
   theme_minimal() +
   facet_grid(~type) +
   theme(legend.position = "bottom",
         axis.text.x = element_blank(),  # removes x-axis numbers
-        axis.ticks.x = element_blank()  # removes x-axis ticks
+        axis.ticks.x = element_blank(),  # removes x-axis ticks
+        axis.ticks.y = element_blank(),  # removes y-axis ticks
+        axis.text.y = element_blank(),  # removes y-axis numbers
   )
-
-
-waffle_plot
 
 
 # ------------------------------
