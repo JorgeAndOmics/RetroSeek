@@ -202,9 +202,8 @@ rule ltr_digester:
                            genome=SPECIES, ext=['gff3'])
 
 
+# TODO: FIX INPUT IN PROBE_EXTRACTOR RULE
 rule probe_extractor:
-    input:
-        probe_table=os.path.join(defaults.PATH_DICT['TABLE_INPUT_DIR'], 'probes.csv')
     output:
         probe_pkl=os.path.join(defaults.PATH_DICT['PICKLE_DIR'], 'probe_dict.pkl'),
         probe_csv=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.csv'),

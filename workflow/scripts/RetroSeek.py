@@ -209,6 +209,7 @@ def cli_entry() -> None:
 
     validation = True if args.skip_validation else validation_run(species_paths)
     if validation:
+
         if args.download_genomes:
             run_snakemake_rule('genome_downloader',
                                num_cores=defaults.NUM_CORES,

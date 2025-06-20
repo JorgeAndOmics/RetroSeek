@@ -138,6 +138,9 @@ if __name__ == '__main__':
     if args.ltr_domains:
         main_cmd.append('--ltr_domains')
 
+    if args.probe_extractor:
+        main_cmd.append('--probe_extractor')
+
     if args.blast_dbs:
         main_cmd.append('--blast_dbs')
 
