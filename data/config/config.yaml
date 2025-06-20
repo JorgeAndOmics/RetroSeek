@@ -68,10 +68,10 @@ execution:
   entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
 
 input:
-  probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes_WASPS.csv'
+  probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes_TRUE.csv'
 
 display:
-  display_snakemake_info: true
+  display_snakemake_info: false
   display_requests_warning: false
   display_operation_info: false
 
@@ -105,6 +105,29 @@ domains:
     - "PR15"
 
 species:
-  'GCA_045786645.1': 'Wasp-A'
-  'GCA_003054995.1': 'Wasp-B'
+  'Desmodus_rotundus': 'Desmodus rotundus'
+  'Miniopterus_schreibersii': 'Miniopterus schreibersii'
+  'Tadarida_brasiliensis': 'Tadarida brasiliensis'
+  'Antrozous_pallidus': 'Antrozous pallidus'
+  'Molossus_molossus': 'Molossus molossus'
+  'Artibeus_lituratus': 'Artibeus lituratus'
+  'Eptesicus_fuscus': 'Eptesicus fuscus'
+  'Myotis_myotis': 'Myotis myotis'
+  'Eptesicus_nilssonii': 'Eptesicus nilssonii'
+  'Pipistrellus_kuhlii': 'Pipistrellus kuhlii'
+  'Rhinolophus_ferrumequinum': 'Rhinolophus ferrumequinum'
+  'Saccopteryx_bilineata': 'Saccopteryx bilineata'
+  'Vespertilio_murinus': 'Vespertilio murinus'
+  'Plecotus_auritus': 'Plecotus auritus'
+  'Rhinolophus_hipposideros': 'Rhinolophus hipposideros'
+  'Phyllostomus_discolor': 'Phyllostomus discolor'
+  'Myotis_daubentonii': 'Myotis daubentonii'
+  'Myotis_mystacinus': 'Myotis mystacinus'
+  'Corynorhinus_townsendii': 'Corynorhinus townsendii'
+  'Hipposideros_larvatus': 'Hipposideros larvatus'
+  'Rhynchonycteris_naso': 'Rhynchonycteris naso'
+  'Saccopteryx_leptura': 'Saccopteryx leptura'
+  'Molossus_alvarezi': 'Molossus alvarezi'
+  'Glossophaga_mutica': 'Glossophaga mutica'
+  'Molossus_nigricans': 'Molossus nigricans'
 
