@@ -163,7 +163,7 @@ RetroSeek accepts any combination of Snakemake-compatible options to fine-tune p
 
 ## Acknowledgements
 
-[![Picture7.png](https://i.postimg.cc/GtChQ3NV/Picture7.png)](https://postimg.cc/MM9SZwzm)
+[![TCD.jpg](data/images/TCD.jpg)](images/TCD.jpg)
 
 - *Ní Leathlobhair* lab *@* Moyne
 
