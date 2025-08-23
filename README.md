@@ -113,7 +113,6 @@ RetroSeek is executed from the command line, offering fine-grained control over 
 - `--generate_global_plots`: Produce analytical plots summarizing key results.
 - `--generate_circle_plots`: Generate circular genome visualizations per species.
 - `--hotspot_detection`: Identify ERV hotspots within the genomes.
-- `--full_analysis`: Execute the entire pipeline from preprocessing to visualization.
 - `-skp`, `--skip_validation`: Bypass pre-run input and configuration validation checks.
 
 RetroSeek also supports execution of arbitrary Snakemake workflows to enhance adaptability across environments, including HPC clusters and cloud platforms. For advanced customization, refer to the [Snakemake documentation](https://snakemake.readthedocs.io).
@@ -122,10 +121,10 @@ RetroSeek also supports execution of arbitrary Snakemake workflows to enhance ad
 
 RetroSeek is designed for resilience and flexibility. In the event of a crash or interruption (e.g., blackout), the pipeline will resume from the most recent successful checkpoint, avoiding the need to reprocess completed steps.
 
-To execute the full pipeline using all available CPU cores and skip input validation:
+To generate genomic ranges ranked by confidence tiers using all available CPU cores and skip input validation:
 
 ```bash
-./RetroSeek --full_analysis --cores all --skip_validation
+./RetroSeek --ranges_analysis --cores all --skip_validation
 ```
 
 To generate BLAST databases for specified host genomes, using all cores and suppressing standard progress messages:
@@ -152,7 +151,7 @@ To generate genome-wide summary plots from previously computed results:
 ./RetroSeek --generate_global_plots --cores 2
 ```
 
-To execute the full pipeline with a custom Snakemake profile:
+To generate integrated genomic ranges with a custom Snakemake profile:
 
 ```bash
 ./RetroSeek --full_analysis --profile hpc_cluster --latency-wait 90
@@ -162,13 +161,18 @@ RetroSeek accepts any combination of Snakemake-compatible options to fine-tune p
 
 ## Screenshots
 
-[![Picture9.jpg](https://i.postimg.cc/rwCb0VCz/Picture9.jpg)](https://postimg.cc/PCJK0k7k)
+## Screenshots
 
-[![Picture8.jpg](https://i.postimg.cc/tC68bts3/Picture8.jpg)](https://postimg.cc/w76wcNcM)
+[![bar.png](data/images/bar.png)](images/bar.png)
 
-[![Picture10.jpg](https://i.postimg.cc/tTfmQYyv/Picture10.jpg)](https://postimg.cc/JDNQj7sj)
+[![density.png](data/images/density.png)](images/density.png)
 
-[![Picture12.jpg](https://i.postimg.cc/dQkxRmmb/Picture12.jpg)](https://postimg.cc/HjmzdMNz)
+[![balloon.png](data/images/balloon.png)](images/balloon.png)
+
+[![sankey_a.png](data/images/sankey_a.png)](images/sankey_a.png)
+
+[![genome.png](data/images/genome.png)](images/genome.png)
+
 ## Acknowledgements
 
 [![Picture7.png](https://i.postimg.cc/GtChQ3NV/Picture7.png)](https://postimg.cc/MM9SZwzm)
