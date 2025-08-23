@@ -6,7 +6,7 @@
 
 
 ![Logo](https://i.postimg.cc/Vs3JLfVM/High-Resolution-Color-Logo-cropped.png)
-
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white) ![R](https://img.shields.io/badge/R-4.x-blue?logo=r&logoColor=white) ![Bioconductor](https://img.shields.io/badge/Bioconductor-R%20ecosystem-lightgrey?logo=r&logoColor=white) ![NCBI](https://img.shields.io/badge/NCBI-Entrez%20%26%20Datasets-lightblue) ![Bash](https://img.shields.io/badge/Bash-Scripting-green?logo=gnubash&logoColor=white)
 
 # RetroSeek
 
@@ -41,19 +41,6 @@ reconciling multiple evidence layers, ensuring robust consensus across host geno
 - Extensive, richly annotated output files in FASTA, GFF3 and tabular formats.
 
 - Integrated, publication-ready reporting with comprehensive visual outputs.
-
-
-## Technologies
-
-![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
-
-![R](https://img.shields.io/badge/R-4.x-blue?logo=r&logoColor=white)
-
-![Bioconductor](https://img.shields.io/badge/Bioconductor-R%20ecosystem-lightgrey?logo=r&logoColor=white)
-
-![NCBI](https://img.shields.io/badge/NCBI-Entrez%20%26%20Datasets-lightblue)
-
-![Bash](https://img.shields.io/badge/Bash-Scripting-green?logo=gnubash&logoColor=white)
 
 
 ## Installation
@@ -113,6 +100,7 @@ RetroSeek is executed from the command line, offering fine-grained control over 
 - `--generate_global_plots`: Produce analytical plots summarizing key results.
 - `--generate_circle_plots`: Generate circular genome visualizations per species.
 - `--hotspot_detection`: Identify ERV hotspots within the genomes.
+- `--pair_detection`: Identify putative recombination events within the genomes.
 - `-skp`, `--skip_validation`: Bypass pre-run input and configuration validation checks.
 
 RetroSeek also supports execution of arbitrary Snakemake workflows to enhance adaptability across environments, including HPC clusters and cloud platforms. For advanced customization, refer to the [Snakemake documentation](https://snakemake.readthedocs.io).
@@ -154,7 +142,7 @@ To generate genome-wide summary plots from previously computed results:
 To generate integrated genomic ranges with a custom Snakemake profile:
 
 ```bash
-./RetroSeek --full_analysis --profile hpc_cluster --latency-wait 90
+./RetroSeek --ranges_analysis --profile hpc_cluster --latency-wait 90
 ```
 
 RetroSeek accepts any combination of Snakemake-compatible options to fine-tune performance and scheduling on a wide range of environments, from local development machines to cloud-based and high-performance compute clusters. RetroSeek will generate the optimal Directed Acyclic Graph (DAG) of operations to minimize execution time given the provided resources.
