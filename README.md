@@ -10,7 +10,7 @@
 
 # RetroSeek
 
-**RetroSeek** is a full object-oriented, parallelized, end-to-end computational pipeline designed to detect,
+**RetroSeek** is an end-to-end computational pipeline designed to detect,
 categorize and annotate specified ERV integrations in genome assemblies. Built upon the Snakemake
 workflow management system, it is designed with a strong emphasis on parallelization, modularity,
 resilience, and reproducibility, enabling the efficient and scalable identification of an user-defined set
