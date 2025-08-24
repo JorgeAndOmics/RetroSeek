@@ -64,8 +64,21 @@ if (!any(grepl(probe_to_pair, ranges$probe))) {
 # -----------------------------
 # 4. DATA PREPARATION
 # -----------------------------
+# Remove duplicates from ranges
+ranges <- ranges[!duplicated(ranges)]
+
 # function to find all "self vs. other" pairs within max_gap base pairs
 max_gap <- as.integer(config$parameters$pair_max_gap)
+
+# Get 5' end of range based on strand
+get_5prime <- function(start, end, strand) {
+  case_when(
+    strand == "+" ~ start,
+    strand == "-" ~ end,
+    strand == "*" ~ start,  # Treat unknown strand as +
+    TRUE ~ start
+  )
+}
 
 find_pairs <- function(ranges, max_gap) {
   
@@ -111,10 +124,19 @@ find_pairs <- function(ranges, max_gap) {
     pairs_df$self.ID <- mcols(self_ranges)$ID[queryHits(ov)]
     pairs_df$other.ID <- mcols(other_ranges)$ID[subjectHits(ov)]
   }
-  
-  # 5. Add a column to indicate the distance between the two ranges
-  pairs_df$distance <- abs(pairs_df$self.start - pairs_df$other.start)
-  
+
+  # 5. Add a column to indicate coordinate distance between the two ranges starts
+    pairs_df <- pairs_df %>% mutate(coord_distance = abs(self.start - other.start))
+
+  # 6. Add a column to indicate the biological distance between the two ranges, based on 5' ends
+  pairs_df$self.5prime <- get_5prime(pairs_df$self.start, pairs_df$self.end, pairs_df$self.strand)
+  pairs_df$other.5prime <- get_5prime(pairs_df$other.start, pairs_df$other.end, pairs_df$other.strand)
+  pairs_df$bio_distance <- abs(pairs_df$self.5prime - pairs_df$other.5prime)  # Distance between 5' ends according to strand
+  pairs_df <- pairs_df %>% select(-self.5prime, -other.5prime)
+
+  # 7. Add a column to indicate the span distance between the two ranges, ignoring strand
+  pairs_df <- pairs_df %>% mutate(span_distance = abs(pmax(self.end, other.end) - pmin(self.start, other.start)))
+
   return(pairs_df)
 }
 
@@ -151,3 +173,4 @@ waffle_plot <- pair_counts %>%
 # EXPORT RESULTS
 # ------------------------------
 write.csv(pair_df, file.path(args$table_output_dir, paste0(file.basename, ".csv")), row.names = FALSE)
+arrow::write_parquet(pair_df, file.path(args$table_output_dir, paste0(file.basename, ".parquet")))
