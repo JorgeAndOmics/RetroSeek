@@ -134,7 +134,7 @@ rule ltr_index_generator:
 
 rule ltr_harvester_setup:
     input:
-        rules.ltr_index_generator_setup.output
+        rules.ltr_index_generator.input
     output:
         ltr_fasta = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
         ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
@@ -170,7 +170,7 @@ rule ltr_harvester:
 
 rule ltr_digester_setup:
     input:
-        ltrharvest_output=rules.ltr_harvester_setup.output.ltr_sorted_gff3,
+        ltrharvest_output=rules.ltr_harvester.input.ltr_sorted_gff3,
         pfam_database=rules.pfam_hmm_downloader.output
     output:
         ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
@@ -471,9 +471,10 @@ rule hotspot_detector:
 
 rule pair_detector_setup:
     input:
-        gff3_file=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
+        gff3_file=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
     output:
-        pair_table=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'),
+        pair_table_csv=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'),
+        pair_table_parquet=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.parquet')
     params:
         config_yaml=defaults.CONFIG_FILE,
         table_output_dir=defaults.PATH_DICT['TABLE_PAIR_DIR']
