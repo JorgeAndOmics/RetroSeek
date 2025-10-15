@@ -74,7 +74,7 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
             label=str(row['Label']),
             virus=str(row['Name']),
             abbreviation=str(row['Abbreviation']),
-            probe=str(row['Probe']),
+            probe=str(row['Probe']).upper(),
             accession=str(row['Accession']),
             identifier=utils.random_string_generator(6)  # Random 6-char unique ID
         )
