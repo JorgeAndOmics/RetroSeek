@@ -3,7 +3,8 @@ Object-to-Table Converter
 =========================
 
 This script deserializes one or more pickled Object dictionaries, extracts their attributes,
-and compiles them into a unified DataFrame, which is then saved as both CSV and Parquet files.
+and compiles them into species-specific DataFrames, which are then concatenated and saved
+as both CSV and Parquet files.
 
 Modules:
     - `utils`: Utility functions.
@@ -14,9 +15,11 @@ Modules:
 Main Workflow:
     1. Parse command-line arguments for input pickle files and output base name.
     2. Unpickle and load Object dictionaries.
-    3. Extract attributes from each object (including nested GenBank, Alignment, and HSP data).
-    4. Store results in a tabular format.
-    5. Save the final DataFrame to both CSV and Parquet formats.
+    3. Group objects by species.
+    4. Extract attributes from each object (including nested GenBank, Alignment, and HSP data).
+    5. Store results in species-specific DataFrames within a dictionary.
+    6. Concatenate all species DataFrames into a unified DataFrame.
+    7. Save the final DataFrame to both CSV and Parquet formats.
 
 Requirements:
     - Input `.pkl` files must reside in `defaults.PICKLE_DIR`.
@@ -35,6 +38,7 @@ import logging
 import argparse
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 
 import defaults
 import utils
@@ -169,24 +173,49 @@ if __name__ == '__main__':
     logging.info(f'Total objects loaded: {len(all_objects)}')
 
     # -------------------------------------------------------------------------
-    # 2.3 Extract Attributes in Parallel
+    # 2.3 Group Objects by Species
     # -------------------------------------------------------------------------
-    results: list[dict] = []
-    with tqdm(total=len(all_objects), desc='Processing serialised objects...') as pbar:
-        with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
-            futures = [executor.submit(extract_attributes_from_object, obj) for obj in all_objects]
-            for future in as_completed(futures):
-                results.append(future.result())
-                pbar.update()
+    species_objects: dict = defaultdict(list)
+    for obj in all_objects:
+        species_objects[obj.species].append(obj)
 
-    df = pd.DataFrame(results)
+    logging.info(f'Objects grouped into {len(species_objects)} species')
 
     # -------------------------------------------------------------------------
-    # 2.4 Save DataFrame to CSV and Parquet
+    # 2.4 Process Each Species Sequentially and Build DataFrames
+    # -------------------------------------------------------------------------
+    species_dataframes: dict = {}
+
+    for species, objects in species_objects.items():
+        logging.info(f'Processing species: {species} ({len(objects)} objects)')
+
+        results: list[dict] = []
+        with tqdm(total=len(objects), desc=f'Processing {species}') as pbar:
+            with ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor:
+                futures = [executor.submit(extract_attributes_from_object, obj) for obj in objects]
+                for future in as_completed(futures):
+                    results.append(future.result())
+                    pbar.update()
+
+        species_df = pd.DataFrame(results)
+        species_dataframes[species] = species_df
+        logging.info(f'Species {species}: DataFrame created with {len(species_df)} rows')
+
+    # -------------------------------------------------------------------------
+    # 2.5 Concatenate All Species DataFrames
+    # -------------------------------------------------------------------------
+    logging.info('Concatenating all species DataFrames...')
+    df = pd.concat(species_dataframes.values(), ignore_index=True)
+    logging.info(f'Final DataFrame: {len(df)} total rows from {len(species_dataframes)} species')
+
+    # -------------------------------------------------------------------------
+    # 2.6 Save DataFrame to CSV and Parquet
     # -------------------------------------------------------------------------
     output_csv_path = f'{args.output_file_name}.csv'
     output_parquet_path = f'{args.output_file_name}.parquet'
 
     df.to_csv(output_csv_path, index=False)
+    logging.info(f'CSV saved to: {output_csv_path}')
 
     df.to_parquet(output_parquet_path, index=False)
+    logging.info(f'Parquet saved to: {output_parquet_path}')

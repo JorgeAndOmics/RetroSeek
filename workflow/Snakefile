@@ -83,7 +83,7 @@ rule blast_db_generator_setup:
         """
         find . -maxdepth 1 -type f \( -iname '*.fasta' -o -iname '*.fna' -o -iname '*.fas' -o -iname '*.FASTA' \) \
         | parallel 'mv {{}} "{{.}}.fa"' && \
-        makeblastdb -in {input.fa:q} -dbtype nucl -parse_seqids {params.optional_params} \
+        makeblastdb -in {input.fa:q} -dbtype nucl {params.optional_params} \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """
 
