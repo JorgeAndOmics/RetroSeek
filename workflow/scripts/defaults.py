@@ -7,7 +7,7 @@ constants and directory paths used throughout the project.
 
 Modules:
     - `yaml`: For parsing the YAML configuration file.
-    - `os`: For handling file and directory paths.
+    - `pathlib.Path`: For handling file and directory paths.
 
 Configuration:
     - The configuration file is expected to be located at `../data/config/config.yaml`.
@@ -18,7 +18,6 @@ Usage:
 """
 from pathlib import Path
 import yaml
-import os
 
 CONFIG_FILE = Path(__file__).parents[2] / 'data' / 'config' / 'config.yaml'
 
@@ -36,67 +35,67 @@ FIELD_STYLES = config['logging']['field_styles']
 
 # Directories
 PATH_DICT = {
-    'ROOT': os.path.abspath(config['root'].get('db_root_folder', os.path.join('..')))
+    'ROOT': Path(config['root'].get('db_root_folder', '..')).resolve()
 }
 
 # === Root Directories ===
-PATH_DICT['DATA_DIR'] = os.path.abspath(os.path.join(config['root'].get('data_root_folder', os.path.join(PATH_DICT['ROOT'], 'data'))))
-PATH_DICT['RESULTS_DIR'] = os.path.abspath(os.path.join(config['root'].get('results_root_folder', os.path.join(PATH_DICT['ROOT'], 'results'))))
-PATH_DICT['LOG_DIR'] = os.path.abspath(os.path.join(config['root'].get('logs_root_folder', os.path.join(PATH_DICT['ROOT'], 'logs'))))
+PATH_DICT['DATA_DIR'] = Path(config['root'].get('data_root_folder', PATH_DICT['ROOT'] / 'data')).resolve()
+PATH_DICT['RESULTS_DIR'] = Path(config['root'].get('results_root_folder', PATH_DICT['ROOT'] / 'results')).resolve()
+PATH_DICT['LOG_DIR'] = Path(config['root'].get('logs_root_folder', PATH_DICT['ROOT'] / 'logs')).resolve()
 PATH_DICT['WORKFLOW_DIR'] = Path(__file__).parent
 
 # === Workflow Directories ===
-PATH_DICT['SCRIPTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['WORKFLOW_DIR'], 'scripts'))
+PATH_DICT['SCRIPTS_DIR'] = (PATH_DICT['WORKFLOW_DIR'] / 'scripts').resolve()
 
 # === Database Directories ===
-PATH_DICT['ROOT_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'local'))
-PATH_DICT['SPECIES_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT_DB'], 'blast_dbs_OLD', 'species'))
-PATH_DICT['ACCESSORY_DB'] = os.path.abspath(os.path.join(PATH_DICT['ROOT'], 'accessory'))
+PATH_DICT['ROOT_DB'] = (PATH_DICT['ROOT'] / 'local').resolve()
+PATH_DICT['SPECIES_DB'] = (PATH_DICT['ROOT_DB'] / 'blast_dbs_OLD' / 'species').resolve()
+PATH_DICT['ACCESSORY_DB'] = (PATH_DICT['ROOT'] / 'accessory').resolve()
 
 # === Data Subdirectories ===
-PATH_DICT['CONFIG_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'config'))
-PATH_DICT['SPECIES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'species'))
-PATH_DICT['TABLE_INPUT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'tables'))
-PATH_DICT['PICKLE_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'pickles'))
-PATH_DICT['TMP_DIR'] = os.path.abspath(os.path.join(PATH_DICT['DATA_DIR'], 'tmp'))
-PATH_DICT['TBLASTN_PICKLE_DIR'] = os.path.abspath(os.path.join(PATH_DICT['PICKLE_DIR'], 'tblastn'))
+PATH_DICT['CONFIG_DIR'] = (PATH_DICT['DATA_DIR'] / 'config').resolve()
+PATH_DICT['SPECIES_DIR'] = (PATH_DICT['DATA_DIR'] / 'species').resolve()
+PATH_DICT['TABLE_INPUT_DIR'] = (PATH_DICT['DATA_DIR'] / 'tables').resolve()
+PATH_DICT['PICKLE_DIR'] = (PATH_DICT['DATA_DIR'] / 'pickles').resolve()
+PATH_DICT['TMP_DIR'] = (PATH_DICT['DATA_DIR'] / 'tmp').resolve()
+PATH_DICT['TBLASTN_PICKLE_DIR'] = (PATH_DICT['PICKLE_DIR'] / 'tblastn').resolve()
 
 # === Results - Tables ===
-PATH_DICT['TABLE_OUTPUT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'tables'))
-PATH_DICT['TABLE_HOTSPOT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'hotspots'))
-PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'overlap_matrix'))
-PATH_DICT['SEGMENTED_SPECIES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'segmented_species'))
-PATH_DICT['PLOT_DATAFRAMES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'plot_dataframes'))
-PATH_DICT['TABLE_PAIR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_pairs'))
+PATH_DICT['TABLE_OUTPUT_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'tables').resolve()
+PATH_DICT['TABLE_HOTSPOT_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'hotspots').resolve()
+PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'overlap_matrix').resolve()
+PATH_DICT['SEGMENTED_SPECIES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'segmented_species').resolve()
+PATH_DICT['PLOT_DATAFRAMES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'plot_dataframes').resolve()
+PATH_DICT['TABLE_PAIR_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'probe_pairs').resolve()
 
 # === Results - Plots ===
-PATH_DICT['PLOT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'plots'))
-PATH_DICT['CIRCLE_PLOT_DIR'] = os.path.abspath(os.path.join(PATH_DICT['PLOT_DIR'], 'circle_plots'))
-PATH_DICT['HOTSPOT_PDF_DIR'] = os.path.abspath(os.path.join(PATH_DICT['PLOT_DIR'], 'hotspot_pdfs'))
+PATH_DICT['PLOT_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'plots').resolve()
+PATH_DICT['CIRCLE_PLOT_DIR'] = (PATH_DICT['PLOT_DIR'] / 'circle_plots').resolve()
+PATH_DICT['HOTSPOT_PDF_DIR'] = (PATH_DICT['PLOT_DIR'] / 'hotspot_pdfs').resolve()
 
 # === Results - Tracks ===
-PATH_DICT['TRACK_DIR'] = os.path.abspath(os.path.join(PATH_DICT['RESULTS_DIR'], 'tracks'))
-PATH_DICT['TRACK_ORIGINAL_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'original'))
-PATH_DICT['TRACK_CANDIDATES_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'candidates'))
-PATH_DICT['TRACK_VALID_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'valid'))
-PATH_DICT['TRACK_HOTSPOTS_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'hotspots'))
+PATH_DICT['TRACK_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'tracks').resolve()
+PATH_DICT['TRACK_ORIGINAL_DIR'] = (PATH_DICT['TRACK_DIR'] / 'original').resolve()
+PATH_DICT['TRACK_CANDIDATES_DIR'] = (PATH_DICT['TRACK_DIR'] / 'candidates').resolve()
+PATH_DICT['TRACK_VALID_DIR'] = (PATH_DICT['TRACK_DIR'] / 'valid').resolve()
+PATH_DICT['TRACK_HOTSPOTS_DIR'] = (PATH_DICT['TRACK_DIR'] / 'hotspots').resolve()
 
 # === Results - LTR ===
-PATH_DICT['LTRHARVEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'ltrharvest'))
-PATH_DICT['LTRDIGEST_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'ltrdigest'))
-PATH_DICT['SOLO_LTR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'solo_ltr'))
-PATH_DICT['FLANKING_LTR_DIR'] = os.path.abspath(os.path.join(PATH_DICT['TRACK_DIR'], 'flanking_ltr'))
+PATH_DICT['LTRHARVEST_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltrharvest').resolve()
+PATH_DICT['LTRDIGEST_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltrdigest').resolve()
+PATH_DICT['SOLO_LTR_DIR'] = (PATH_DICT['TRACK_DIR'] / 'solo_ltr').resolve()
+PATH_DICT['FLANKING_LTR_DIR'] = (PATH_DICT['TRACK_DIR'] / 'flanking_ltr').resolve()
 
 # === Logs & Workflow ===
-PATH_DICT['DOWNLOAD_LOG'] = os.path.abspath(os.path.join(PATH_DICT['LOG_DIR'], 'download_log.log'))
+PATH_DICT['DOWNLOAD_LOG'] = (PATH_DICT['LOG_DIR'] / 'download_log.log').resolve()
 
 # === Accessory Tools ===
-PATH_DICT['HMM_PROFILE_DIR'] = os.path.abspath(os.path.join(PATH_DICT['ACCESSORY_DB'], 'hmm_profiles'))
+PATH_DICT['HMM_PROFILE_DIR'] = (PATH_DICT['ACCESSORY_DB'] / 'hmm_profiles').resolve()
 
 
 # Directory generation
 for value in PATH_DICT.values():
-    os.makedirs(value, exist_ok=True)
+    value.mkdir(parents=True, exist_ok=True)
 
 # Execution and requests
 NUM_CORES = config['execution'].get('num_cores', 1)
@@ -112,12 +111,12 @@ DISPLAY_REQUESTS_WARNING: bool = config['display'].get('display_requests_warning
 DISPLAY_OPERATION_INFO: bool = config['display'].get('display_operation_info', False)
 
 # INPUT
-PROBE_CSV = os.path.abspath(config['input'].get('probe_csv'))
+PROBE_CSV = Path(config['input'].get('probe_csv')).resolve()
 
 # Genomes
 SPECIES_DICT: dict = config.get('species', {})
 
 if not USE_SPECIES_DICT:
-    SPECIES: list = [(f.split('.fa')[0]).strip() for f in os.listdir(SPECIES_DB) if f.endswith('.fa')]
+    SPECIES: list = [(f.name.split('.fa')[0]).strip() for f in PATH_DICT['SPECIES_DB'].iterdir() if f.suffix == '.fa']
 else:
     SPECIES: list = SPECIES_DICT.keys()
