@@ -48,7 +48,7 @@ PATH_DICT['WORKFLOW_DIR'] = Path(__file__).parent
 PATH_DICT['SCRIPTS_DIR'] = (PATH_DICT['WORKFLOW_DIR'] / 'scripts').resolve()
 
 # === Database Directories ===
-PATH_DICT['ROOT_DB'] = (PATH_DICT['ROOT'] / 'local').resolve()
+PATH_DICT['ROOT_DB'] = (PATH_DICT['ROOT']).resolve()
 PATH_DICT['SPECIES_DB'] = (PATH_DICT['ROOT_DB']).resolve()
 PATH_DICT['ACCESSORY_DB'] = (PATH_DICT['ROOT'] / 'accessory').resolve()
 
