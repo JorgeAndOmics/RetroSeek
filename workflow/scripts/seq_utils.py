@@ -128,7 +128,6 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict = {}
-    regex_pattern = re.compile(defaults.ACCESSION_ID_REGEX)
     try:
         # Write ASN.1 to a temp file
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.asn') as tmp_asn:
@@ -156,8 +155,8 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
                     logging.warning('No alignments found.')
                     continue
                 for hsp in alignment.hsps:
-                    accession_id_search = regex_pattern.search(alignment.title)
-                    accession_id = accession_id_search[0]
+                    # Use alignment.hit_def
+                    accession_id = alignment.hit_def
                     random_string = utils.random_string_generator(6)
 
                     new_instance = RetroSeeker(
