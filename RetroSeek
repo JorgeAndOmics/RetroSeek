@@ -23,44 +23,44 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--download_genomes',
+        '--download-genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
              "Will skip download if the same files exist currently in the target directory"
     )
 
     parser.add_argument(
-        '--download_hmm',
+        '--download-hmm',
         action='store_true',
         help="Setup domain database"
     )
 
     parser.add_argument(
-        '--suffix_arrays',
+        '--suffix-arrays',
         action='store_true',
         help="Generate GenomeTools suffix arrays for genomes."
     )
 
     parser.add_argument(
-        '--ltr_candidates',
+        '--ltr-candidates',
         action='store_true',
         help="Generates LTR candidate files for genomes via LTRHarvest."
     )
 
     parser.add_argument(
-        '--ltr_domains',
+        '--ltr-domains',
         action='store_true',
         help="Generates domain-enriched LTR candidate files for genomes via LTRDigest."
     )
 
     parser.add_argument(
-        '--blast_dbs',
+        '--blast-dbs',
         action='store_true',
         help="Generates BLAST databases from genomes."
     )
 
     parser.add_argument(
-        '--probe_extractor',
+        '--probe-extractor',
         action='store_true',
         help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs."
     )
@@ -72,31 +72,31 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--ranges_analysis',
+        '--ranges-analysis',
         action='store_true',
         help="Performs genomic range integration of BLAST and LTR candidate results."
     )
 
     parser.add_argument(
-        '--generate_global_plots',
+        '--generate-global-plots',
         action='store_true',
         help='Generate plots from the analysis.'
     )
 
     parser.add_argument(
-        '--generate_circle_plots',
+        '--generate-circle-plots',
         action='store_true',
         help='Generate circle plots from the species in analysis.'
     )
 
     parser.add_argument(
-        '--hotspot_detection',
+        '--hotspot-detection',
         action='store_true',
         help='Perform ERV hotspot detection.'
     )
 
     parser.add_argument(
-        '--pair_detection',
+        '--pair-detection',
         action='store_true',
         help='Perform specified probe-pair detection.'
     )
@@ -121,46 +121,46 @@ if __name__ == '__main__':
     main_cmd: list = ['python', 'scripts/RetroSeek.py']
 
     if args.skip_validation:
-        main_cmd.append('--skip_validation')
+        main_cmd.append('--skip-validation')
 
     if args.download_genomes:
-        main_cmd.append('--download_genomes')
+        main_cmd.append('--download-genomes')
 
     if args.download_hmm:
-        main_cmd.append('--download_hmm')
+        main_cmd.append('--download-hmm')
 
     if args.suffix_arrays:
-        main_cmd.append('--suffix_arrays')
+        main_cmd.append('--suffix-arrays')
 
     if args.ltr_candidates:
-        main_cmd.append('--ltr_candidates')
+        main_cmd.append('--ltr-candidates')
 
     if args.ltr_domains:
-        main_cmd.append('--ltr_domains')
+        main_cmd.append('--ltr-domains')
 
     if args.probe_extractor:
-        main_cmd.append('--probe_extractor')
+        main_cmd.append('--probe-extractor')
 
     if args.blast_dbs:
-        main_cmd.append('--blast_dbs')
+        main_cmd.append('--blast-dbs')
 
     if args.blast:
         main_cmd.append('--blast')
 
     if args.ranges_analysis:
-        main_cmd.append('--ranges_analysis')
+        main_cmd.append('--ranges-analysis')
 
     if args.generate_global_plots:
-        main_cmd.append('--generate_global_plots')
+        main_cmd.append('--generate-global-plots')
 
     if args.generate_circle_plots:
-        main_cmd.append('--generate_circle_plots')
+        main_cmd.append('--generate-circle-plots')
 
     if args.hotspot_detection:
-        main_cmd.append('--hotspot_detection')
+        main_cmd.append('--hotspot-detection')
 
     if args.pair_detection:
-        main_cmd.append('--pair_detection')
+        main_cmd.append('--pair-detection')
 
     if unknown:
         main_cmd.extend(unknown)

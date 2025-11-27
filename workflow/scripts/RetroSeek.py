@@ -102,44 +102,44 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
-        '--download_genomes',
+        '--download-genomes',
         action='store_true',
         help="Downloads genomes specified in .yaml file. "
              "Will skip download if the same files exist currently in the target directory"
     )
 
     parser.add_argument(
-        '--download_hmm',
+        '--download-hmm',
         action='store_true',
         help="Setup domain database"
     )
 
     parser.add_argument(
-        '--suffix_arrays',
+        '--suffix-arrays',
         action='store_true',
         help="Generate GenomeTools suffix arrays for genomes."
     )
 
     parser.add_argument(
-        '--ltr_candidates',
+        '--ltr-candidates',
         action='store_true',
         help="Generates LTR candidate files for genomes via LTRHarvest."
     )
 
     parser.add_argument(
-        '--ltr_domains',
+        '--ltr-domains',
         action='store_true',
         help="Generates domain-enriched LTR candidate files for genomes via LTRDigest."
     )
 
     parser.add_argument(
-        '--blast_dbs',
+        '--blast-dbs',
         action='store_true',
         help="Generates BLAST databases from genomes."
     )
 
     parser.add_argument(
-        '--probe_extractor',
+        '--probe-extractor',
         action='store_true',
         help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs."
     )
@@ -151,37 +151,37 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
-        '--ranges_analysis',
+        '--ranges-analysis',
         action='store_true',
         help="Performs genomic range integration of BLAST and LTR candidate results."
     )
 
     parser.add_argument(
-        '--generate_global_plots',
+        '--generate-global-plots',
         action='store_true',
         help='Generate plots from the analysis.'
     )
 
     parser.add_argument(
-        '--generate_circle_plots',
+        '--generate-circle-plots',
         action='store_true',
         help='Generate circle plots from the species in analysis.'
     )
 
     parser.add_argument(
-        '--hotspot_detection',
+        '--hotspot-detection',
         action='store_true',
         help='Perform ERV hotspot detection.'
     )
 
     parser.add_argument(
-        '--pair_detection',
+        '--pair-detection',
         action='store_true',
         help='Perform probe-pair detection.'
     )
 
     parser.add_argument(
-        '--skip_validation', '-skp',
+        '--skip-validation', '-skp',
         action='store_true',
         help='Skip input validation.'
     )
