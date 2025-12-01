@@ -68,7 +68,6 @@ is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 # -----------------------------
 fa_file <- Biostrings::readDNAStringSet(args$fasta)
 chrom_lengths <- setNames(width(fa_file), names(fa_file))
-names(chrom_lengths) <- stringr::str_extract(names(chrom_lengths), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
 
 # -----------------------------
 # 6. LOAD INPUT FILES
