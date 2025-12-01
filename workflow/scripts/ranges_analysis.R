@@ -404,7 +404,7 @@ overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr
 # -----------------------------
 
 # Read virus metadata
-probe_df <- read.csv2(args$probes, header = TRUE, sep = ",")
+probe_df <- readr::read_csv(args$probes, show_col_types = FALSE)
 probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
 
 # Prepare plot-friendly dataframe from reduced GRanges
