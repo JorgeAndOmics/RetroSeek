@@ -3,9 +3,9 @@ blast:
   optional_parameters: ''   # Additional parameters for tBLASTn
 
 genome_tools:
-  suffix_array_parts: 3
+  suffix_array_parts: 30
   suffixerator_optional_parameters: ''    # Additional parameters for suffixerator
-  ltrharvest_optional_parameters: ''   # Additional parameters for ltrharvest
+  ltrharvest_optional_parameters: '' # Additional parameters for ltrharvest
   ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
 
 parameters:
@@ -28,12 +28,6 @@ parameters:
     ENV: 200
     VIF: 200
     N_protein: 200
-    P_protein: 200
-    G_protein: 200
-    L_protein: 200
-    X_protein: 200
-    M_protein: 200
-    Pr160: 200
 
 logging:
   level_styles:
@@ -60,35 +54,35 @@ plots:
   circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
-  num_cores: 16   # Number of cores to use for parallel processing
+  num_cores: 64   # Number of cores to use for parallel processing
   use_species_dict: true   # true or false
   retrieval_time_lag: 0.3   # Time in seconds to wait between NCBI Entrez API requests for validation
   max_retrieval_attempts: 9   # Number of attempts to retrieve sequences from NCBI
   max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
 
+# TODO: REORGANIZE ALL PATHS TO BE CLOSER TO ROOT PATHS, AND ADJUST SCHEMA ACCORDINGLY
+
 input:
-  probe_csv: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data/tables/probes_TRUE.csv'
+  probe_csv: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data/tables/probes_TRUE.csv'
 
 display:
   display_snakemake_info: false
   display_requests_warning: false
-  display_operation_info: false
+  display_operation_info: true
 
 root:
-  db_root_folder: '/mnt/v/databases'    # Root folder for databases
-  data_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/data'
-  results_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/results'
-  logs_root_folder: '/mnt/c/Users/Lympha/Documents/Repositories/RetroSeek/logs'
+  db_root_folder: '/mnt/c/Users/Administrator/Documents/Databases/bat103/bat103-fasta'    # Root folder for databases
+  data_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data'
+  results_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/results'
+  logs_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/logs'
 
 domains:
   POL:
     - "ase"
     - "RVT_1"
     - "RVT_2"
-    - "RVT_thumb"
-    - "rve"
-    - "IN_DBD_C"
+
   GAG:
     - "Gag"
     - "gag"
@@ -105,29 +99,107 @@ domains:
     - "PR15"
 
 species:
-  'Desmodus_rotundus': 'Desmodus rotundus'
-  'Miniopterus_schreibersii': 'Miniopterus schreibersii'
-  'Tadarida_brasiliensis': 'Tadarida brasiliensis'
-  'Antrozous_pallidus': 'Antrozous pallidus'
-  'Molossus_molossus': 'Molossus molossus'
-  'Artibeus_lituratus': 'Artibeus lituratus'
-  'Eptesicus_fuscus': 'Eptesicus fuscus'
-  'Myotis_myotis': 'Myotis myotis'
-  'Eptesicus_nilssonii': 'Eptesicus nilssonii'
-  'Pipistrellus_kuhlii': 'Pipistrellus kuhlii'
-  'Rhinolophus_ferrumequinum': 'Rhinolophus ferrumequinum'
-  'Saccopteryx_bilineata': 'Saccopteryx bilineata'
-  'Vespertilio_murinus': 'Vespertilio murinus'
-  'Plecotus_auritus': 'Plecotus auritus'
-  'Rhinolophus_hipposideros': 'Rhinolophus hipposideros'
-  'Phyllostomus_discolor': 'Phyllostomus discolor'
-  'Myotis_daubentonii': 'Myotis daubentonii'
-  'Myotis_mystacinus': 'Myotis mystacinus'
-  'Corynorhinus_townsendii': 'Corynorhinus townsendii'
-  'Hipposideros_larvatus': 'Hipposideros larvatus'
-  'Rhynchonycteris_naso': 'Rhynchonycteris naso'
-  'Saccopteryx_leptura': 'Saccopteryx leptura'
-  'Molossus_alvarezi': 'Molossus alvarezi'
-  'Glossophaga_mutica': 'Glossophaga mutica'
-  'Molossus_nigricans': 'Molossus nigricans'
+  # HLantPal2: "Antrozous pallidus"
+  HLartInt1A: "Artibeus intermedius"
+  # HLartLit1A: "Artibeus lituratus"
+  # HLaseSto2: "Aselliscus stoliczkanus"
+  # HLbraCav1A: "Brachyphylla cavernarum"
+  # HLcarPer2: "Carollia perspicillata"
+  # HLcenSen1A: "Centurio senex"
+  # HLchoMin1B: "Choeroniscus minor"
+  # HLcisSea1A: "Cistugo seabrae"
+  # HLcorMex1: "Corynorhinus mexicanus"
+  # HLcorTow1A: "Corynorhinus townsendii"
+  # HLcraTho2A: "Craseonycteris thonglongyai"
+  # HLcynSph1: "Cynopterus sphinx"
+  # HLdesRot15A: "Desmodus rotundus"
+  # HLdiaYou3A: "Diaemus youngii"
+  # HLdipEca2A: "Diphylla ecaudata"
+  # HLectAlb1A: "Ectophylla alba"
+  # HLeonSpe2A: "Eonycteris spelaea"
+  # HLeroBom1A: "Erophylla bombifrons"
+  # HLeumNan1A: "Eumops nanus"
+  # HLfurHor1: "Furipterus horrens"
+  # HLgloMut1A: "Glossophaga mutica"
+  # HLgloSor2: "Glossophaga soricina"
+  # HLglyDav1A: "Glyphonycteris daviesi"
+  # HLhipAba1A: "Hipposideros abae"
+  # HLhipArm2: "Hipposideros armiger"
+  # HLhipCaf2A: "Hipposideros caffer"
+  # HLhipCyc2: "Hipposideros cyclops"
+  # HLhipJon1A: "Hipposideros jonesi"
+  # HLhipLar2: "Hipposideros larvatus"
+  # HLhipSwi1: "Hipposideros swinhoii"
+  # HLhypMon1: "Hypsignathus monstrosus"
+  # HLlasEga1A: "Lasiurus ega"
+  # HLlepYer2A: "Leptonycteris yerbabuenae"
+  # HLeptFus3: "Leptonycteris fuscus"      # inferred, synonym of L. yerbabuenae/curasoae
+  HLeptNil3: "Leptonycteris nivalis"     # inferred (Mexican long-nosed bat)
+  # HLlioSpu1A: "Lionycteris spurrelli"
+  # HLlonInu1A: "Lonchorhina inusitata"
+  # HLmacMac1A: "Macrophyllum macrophyllum"
+  # HLmacWat1A: "Macrotus waterhousii"
+  # HLmegSpa1: "Megaderma spasma"
+  # HLmicMeg1: "Micronycteris megalotis"
+  # HLminAus1: "Miniopterus australis"
+  # HLminNat2B: "Miniopterus natalensis"
+  # HLminSch2A: "Miniopterus schreibersii"
+  # HLmolAlv2A: "Molossus alvarezi"
+  # HLmolMol2: "Molossus molossus"
+  # HLmolNig2A: "Molossus nigricans"
+  # HLmopCon1: "Mops condylurus"
+  # HLmorMeg1: "Mormoops megalophylla"
+  # HLmyoAui1: "Myotis auriculus"
+  # HLmyoCal2: "Myotis californicus"
+  # HLmyoDau2: "Myotis daubentonii"
+  # HLmyoEvo1: "Myotis evotis"
+  # HLmyoLuc2: "Myotis lucifugus"
+  # HLmyoMyo6: "Myotis myotis"
+  # HLmyoMys2A: "Myotis mystacinus"
+  # HLmyoNig1: "Myotis nigricans"
+  # HLmyoOcc1: "Myotis occultus"
+  # HLmyoPil1: "Myotis pilosus"
+  # HLmyoThy2: "Myotis thysanodes"
+  # HLmyoVel1: "Myotis velifer"
+  # HLmyoViv2: "Myotis vivesi"
+  # HLmyoVol2: "Myotis volans"
+  # HLmyoYum1A: "Myotis yumanensis"
+  # HLmysTub2: "Mystacina tuberculata"
+  # HLmyzAur1: "Myzopoda aurita"
+  # HLnatTum1: "Natalus tumidirostris"
+  # HLnocLep2: "Noctilio leporinus"
+  # HLnycAvi1: "Nyctalus aviator"
+  # HLnycThe1A: "Nycteris thebaica"
+  # HLphyDis3: "Phyllostomus discolor"
+  # HLphyHas1: "Phyllostomus hastatus"
+  # HLpipKuh2: "Pipistrellus kuhlii"
+  # HLpipNat1A: "Pipistrellus nathusii"
+  # HLpipPyg1: "Pipistrellus pygmaeus"
+  # HLplaGui1A: "Platyrrhinus guianensis"
+  # HLpleAur1: "Plecotus auritus"
+  # HLrhiAff2: "Rhinolophus affinis"
+  # HLrhiFer5: "Rhinolophus ferrumequinum"
+  # HLrhiHip1A: "Rhinolophus hipposideros"
+  # HLrhiLuc4: "Rhinolophus luctus variant 4"        # inferred
+  # HLrhiLuc5: "Rhinolophus luctus variant 5"        # inferred
+  # HLrhiMic1: "Rhinopoma microphyllum"
+  # HLrhiMus1: "Rhinopoma muscatellum"
+  # HLrhiPea1: "Rhinopoma petersi"
+  # HLrhiPum1A: "Rhinophylla pumilio"
+  # HLrhiSed2: "Rhinolophus sedulus"       # inferred
+  # HLrhiSin3: "Rhinolophus sinicus"
+  # HLrhiTri2: "Rhinolophus trifoliatus"
+  # HLrhyNas2A: "Rhynchonycteris naso"
+  # HLrouAeg4: "Rousettus aegyptiacus"
+  # HLsacBil1: "Saccopteryx bilineata"
+  # HLsacLep1: "Saccopteryx leptura"
+  # HLtadBra3: "Tadarida brasiliensis"
+  # HLtapMel1: "Taphozous melanopogon"
+  # HLthyTri1: "Thyroptera tricolor"
+  # HLtraCir4A: "Trachops cirrhosus"
+  # HLtriNic1A: "Trinycteris nicefori"
+  # HLtriPer1A: "Triaenops persicus"
+  # HLuroBil1: "Uroderma bilobatum"        # inferred
+  # HLvamThy1A: "Vampyressa thyone"
+  HLvesMur1: "Vespertilio murinus"
 
