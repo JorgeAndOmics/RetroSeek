@@ -6,7 +6,7 @@ suppressMessages({
   library(yaml)
   library(argparse)
   library(arrow)
-  library(dplyr)  # More explicit than tidyverse
+  library(dplyr)
 })
 
 # =============================================================================
@@ -25,7 +25,7 @@ args <- parser$parse_args()
 data <- arrow::read_parquet(args$input_file)
 config <- yaml::read_yaml(args$config_file)
 
-# Store probe names from config (don't overwrite later)
+# Store probe names from config
 main_probe_names <- config$parameters$main_probes
 
 # =============================================================================
@@ -41,19 +41,16 @@ arrow::write_parquet(accessory_probes_df, file.path(args$output_dir, "all_access
 # =============================================================================
 # 4. Split by Species and Write Per-Species Files
 # =============================================================================
-species_list <- split(data, data$species)
+species_list <- data %>%
+  group_by(species) %>%
+  group_split(.keep = TRUE)
 
-species_names <- data %>%
-  distinct(species) %>%
-  pull(species)
-
-names(species_list) <- species_names
-
-# Write species-specific files
-for (sp in species_names) {
+# Write species-specific files by extracting name directly from each group
+for (i in seq_along(species_list)) {
+  sp <- unique(species_list[[i]]$species)
   message(paste("Writing hits for species:", sp))
   arrow::write_parquet(
-    species_list[[sp]],
+    species_list[[i]],
     file.path(args$output_dir, paste0(sp, ".parquet"))
   )
 }
