@@ -41,9 +41,7 @@ arrow::write_parquet(accessory_probes_df, file.path(args$output_dir, "all_access
 # =============================================================================
 # 4. Split by Species and Write Per-Species Files
 # =============================================================================
-species_list <- data %>%
-  group_by(species) %>%
-  group_split(.keep = TRUE)
+species_list <- split(data, data$species)
 
 species_names <- data %>%
   distinct(species) %>%
