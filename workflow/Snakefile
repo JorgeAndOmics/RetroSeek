@@ -260,19 +260,19 @@ rule species_segmenter_setup:
     input:
         input_parquet = rules.blast_pkl2parquet.output.parquet_full
     output:
-        all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all_{suffix}.parquet'),
-                           suffix=['main', 'accessory']),
+        all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all{suffix}.parquet'),
+                           suffix=['_main', '_accessory']),
         species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                               genome=SPECIES_POST),
-        species_parquet_suffix=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}_{suffix}.parquet'),
-                               genome=SPECIES_POST, suffix=['main', 'accessory'])
+                               genome=SPECIES_POST)
     threads: config.get('rule_threads',1)
     params:
-        output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR']
+        output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
+        config_file = defaults.CONFIG_FILE
     shell:
         'Rscript scripts/species_segmenter.R \
         --input_file {input.input_parquet:q} \
-        --output_dir {params.output_dir:q}'
+        --output_dir {params.output_dir:q} \
+        --config_file {params.config_file:q}'
 
 rule species_segmenter:
     input:
@@ -281,11 +281,11 @@ rule species_segmenter:
 
 rule ranges_analysis_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES),
+        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES_POST),
         species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                                 genome=SPECIES),
+                                 genome=SPECIES_POST),
         ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=SPECIES)
+                          genome=SPECIES_POST)
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
@@ -296,7 +296,9 @@ rule ranges_analysis_setup:
         # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
         # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-        plot_dataframes=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet')
+        plot_dataframes_full=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+        plot_dataframes_main=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet'),
+        plot_dataframes_accessory=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
@@ -354,14 +356,15 @@ rule ranges_analysis:
         #                         genome=SPECIES),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
                               genome=SPECIES_POST),
-
-        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-                               genome=SPECIES_POST)
+        plot_dataframes_full=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+                               genome=SPECIES_POST),
+        plot_dataframes_suffixed=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
+                                 genome=SPECIES_POST, suffix=['_main','_accessory'])
 
 rule plot_generator_setup:
     input:
-        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_{suffix}.parquet'),
-                               genome=SPECIES_POST, suffix=['main','accessory'])
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
+                               genome=SPECIES_POST, suffix=['_main','_accessory'])
     output:
         density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
