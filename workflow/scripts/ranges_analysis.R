@@ -42,7 +42,7 @@ parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for 
 args <- parser$parse_args()
 
 # Print which tBLASTn file is being processed
-print(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
+message(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
 
 # -----------------------------
 # 3. CONFIGURATION PARAMETERS
@@ -56,6 +56,7 @@ bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold) %||% 0
 identity_threshold <- as.numeric(config$parameters$identity_threshold) %||% 0
 ltr_resize         <- as.numeric(config$parameters$ltr_resize) %||% 0
 merge_options      <- config$parameters$merge_options %||% "virus"
+main_probes        <- config$parameters$main_probes
 
 # -----------------------------
 # 4. DETERMINE FILE TYPE
@@ -407,13 +408,23 @@ overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr
 probe_df <- readr::read_csv(args$probes, show_col_types = FALSE)
 probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
 
-# Prepare plot-friendly dataframe from reduced GRanges
+# Prepare plot-friendly dataframes from reduced GRanges
 plot_df <- as.data.frame(reduced_gr) %>%
   tidyr::separate_rows(virus, sep = "; ") %>%
   mutate(
     label = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
     abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)]
   )
+
+# Generate further dataframes by filtering for main and accessory probes
+plot_df_main <- plot_df %>%
+  filter(probe %in% main_probes) %>%
+  mutate(probe_type = "main")
+
+plot_df_accessory <- plot_df %>%
+  filter(!probe %in% main_probes) %>%
+  mutate(probe_type = "accessory")
+
 
 
 # -----------------------------
@@ -539,7 +550,10 @@ track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
 track_exporter(solo_ltr, args$solo_ltr_ranges)
 track_exporter(ltr_flanking, args$flanking_ltr_ranges)
 
-
-# Export overlap summary and plotting data
+# Export plotting data
 arrow::write_parquet(plot_df, args$plot_dataframe)
+arrow::write_parquet(plot_df_main, sub(".parquet", "_main.parquet", args$plot_dataframe))
+arrow::write_parquet(plot_df_accessory, sub(".parquet", "_accessory.parquet", args$plot_dataframe))
+
+# Export overlap summary matrix
 write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)

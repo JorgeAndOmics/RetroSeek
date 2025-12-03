@@ -22,6 +22,11 @@ parameters:
   hotspot_pvalue_threshold: 0.05   # 0 for no p-value threshold
   probe_to_pair: 'ENV'  # Probe to pair with for pair detection
   pair_max_gap: 300000   # Maximum gap allowed between probes in a pair
+  main_probes:
+    - 'POL'
+    - 'GAG'
+    - 'ENV'
+    - 'PRO'
   probe_min_length:
     GAG: 200
     POL: 400

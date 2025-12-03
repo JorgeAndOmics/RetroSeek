@@ -3,6 +3,7 @@
 # =============================================================================
 options(warn = -1)
 suppressMessages({
+  library(yaml)
   library(argparse)
   library(arrow)
   library(tidyverse)
@@ -11,20 +12,28 @@ suppressMessages({
 # =============================================================================
 # 1. Parse Command-Line Arguments
 # =============================================================================
-parser <- ArgumentParser(description = "Split a Parquet dataset by species and probe class.")
+parser <- ArgumentParser(description = "Split a Parquet dataset by species")
 
 parser$add_argument("--input_file", required = TRUE, help = "Path to input Parquet file.")
 parser$add_argument("--output_dir", required = TRUE, help = "Directory to write output Parquet files.")
+parser$add_argument("--config_file", required = TRUE, help = "Path to configuration YAML file.")
 
 args <- parser$parse_args()
 
 args.input_file <- args$input_file
 args.output_dir <- args$output_dir
+args.config_file <- args$config_file
 
 # =============================================================================
 # 2. Load Input File
 # =============================================================================
 data <- arrow::read_parquet(args.input_file)
+
+# Load configuration file
+config <- yaml::read_yaml(args.config_file)
+
+# Load main probes from config
+main_probes <- config$parameters$main_probes
 
 # =============================================================================
 # 3. Helper Function: Named Group Split
@@ -43,11 +52,13 @@ group_split_named <- function(df, groupvar) {
 # =============================================================================
 all_probes <- group_split_named(data, species)
 
-main_probes <- data %>% filter(toupper(probe) %in% c("ENV", "POL", "GAG"))
-accessory_probes <- data %>% filter(!toupper(probe) %in% c("ENV", "POL", "GAG"))
+main_probes <- data %>%
+  filter(probe %in% main_probes)
 
-species_groups_main <- group_split_named(main_probes, species)
-species_groups_accessory <- group_split_named(accessory_probes, species)
+accessory_probes <- data %>%
+    filter(!probe %in% main_probes)
+
+species_groups <- group_split_named(data, species)
 
 species_names <- data %>%
   arrange(species) %>%
@@ -57,7 +68,6 @@ species_names <- data %>%
 # =============================================================================
 # 5. Write Main & Accessory Parquet Outputs
 # =============================================================================
-message("Splitting hits for main and accessory probes")
 arrow::write_parquet(main_probes, file.path(args.output_dir, "all_main.parquet"))
 arrow::write_parquet(accessory_probes, file.path(args.output_dir, "all_accessory.parquet"))
 
@@ -72,19 +82,5 @@ for (sp in species_names) {
     arrow::write_parquet(all_probes[[sp]], file.path(args.output_dir, paste0(sp, ".parquet")))
   } else {
     arrow::write_parquet(data[0, ], file.path(args.output_dir, paste0(sp, ".parquet")))
-  }
-  
-  # MAIN
-  if (sp %in% names(species_groups_main)) {
-    arrow::write_parquet(species_groups_main[[sp]], file.path(args.output_dir, paste0(sp, "_main.parquet")))
-  } else {
-    arrow::write_parquet(main_probes[0, ], file.path(args.output_dir, paste0(sp, "_main.parquet")))
-  }
-  
-  # ACCESSORY
-  if (sp %in% names(species_groups_accessory)) {
-    arrow::write_parquet(species_groups_accessory[[sp]], file.path(args.output_dir, paste0(sp, "_accessory.parquet")))
-  } else {
-    arrow::write_parquet(accessory_probes[0, ], file.path(args.output_dir, paste0(sp, "_accessory.parquet")))
   }
 }
