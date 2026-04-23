@@ -407,7 +407,7 @@ rule plot_generator:
 rule circle_plot_generator_setup:
     input:
         fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
-        hits= os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}_main.gff3'),
+        hits=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         ltrdigest=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     output:
         circle_plot_png=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),
@@ -425,7 +425,7 @@ rule circle_plot_generator_setup:
         '''
         Rscript scripts/circle_plot_generator.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
         --config {params.config_file:q} \
         --output {params.circle_plot_dir:q}/{wildcards.genome:q}
