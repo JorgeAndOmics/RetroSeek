@@ -2,8 +2,9 @@
 # DEPENDENCIES
 # -------------------
 
-# Suppress warnings so that the output is cleaner; warnings won't appear on-screen.
-options(warn = -1)
+# Warnings are not globally suppressed — that was hiding legitimate problems
+# (malformed config defaults, NA coercions in aggregation). Suppress narrowly
+# via suppressWarnings() at specific call sites where needed.
 
 # Suppress messages from loading libraries, so the console remains uncluttered.
 suppressMessages({
@@ -100,13 +101,21 @@ message(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args
 # Read YAML configuration file
 config <- yaml::read_yaml(args$config)
 
-# Import thresholds and merging behavior from config
+# Import thresholds and merging behavior from config.
+# Note on `%||%` ordering: rlang's null-coalescing operator only fires when
+# its LHS is NULL. `as.numeric(NULL)` returns `numeric(0)`, which is NOT NULL,
+# so `as.numeric(x) %||% 0` never substitutes the default. Apply %||% BEFORE
+# coercion so the default takes effect when the config key is absent.
 probe_min_length   <- unlist(config$parameters$probe_min_length)
-bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold) %||% 0
-identity_threshold <- as.numeric(config$parameters$identity_threshold) %||% 0
-ltr_resize         <- as.numeric(config$parameters$ltr_resize) %||% 0
-merge_options      <- config$parameters$merge_options %||% "virus"
-main_probes        <- config$parameters$main_probes
+bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold %||% 0)
+identity_threshold <- as.numeric(config$parameters$identity_threshold %||% 0)
+ltr_resize         <- as.numeric(config$parameters$ltr_resize %||% 0)
+# Fix typo: the config key is `merge_option` (singular, matching the schema).
+# The pre-refactor code read `merge_options` (plural), so the fallback "virus"
+# always fired and the label-grouped reduction branch was unreachable.
+merge_options      <- config$parameters$merge_option %||% "virus"
+# main_probes is semantically a set — duplicates ignored in membership checks.
+main_probes        <- unique(config$parameters$main_probes)
 
 # -----------------------------
 # 3B. AGGREGATION STRATEGIES
@@ -155,12 +164,6 @@ classify_probe_category <- function(probe_col, main_set, separator = "; ") {
     "mixed"
   }, character(1))
 }
-
-# -----------------------------
-# 4. DETERMINE FILE TYPE
-# -----------------------------
-# Whether this is a _main file (used for optional domain validation and ltr parsing)
-is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 
 # -----------------------------
 # 5. LOAD FASTA AND CHR LENGTHS
@@ -226,7 +229,12 @@ message(sprintf("   %d of %d hits kept", length(gr), .pre_filter_n))
 # -----------------------------
 # 9. ADD SEQUENCE METADATA
 # -----------------------------
-seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = gr$species[1])
+# Per-genome pipeline: every row of gr$species should be the same species.
+# An invariant — enforce it rather than silently picking gr$species[1].
+.species_values <- unique(gr$species)
+stopifnot("ranges_analysis: expected a single species per run, got multiple" =
+            length(.species_values) == 1L)
+seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = .species_values)
 seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
 
 # -----------------------------
@@ -239,7 +247,7 @@ gr_list <- split(gr, ~ probe)
 
 # Group-specific reduction using reduce_ranges_directed
 
-gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
+gr_list_reduced_virus <- lapply(gr_list, function(sub_gr) {
   gap_val <- unique(sub_gr$min_gapwidth)
   sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
     min.gapwidth = gap_val,
@@ -264,7 +272,7 @@ gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
 })
 
 if (merge_options == "label") {
-  gr_list_reduced_label <- sapply(gr_list, function(sub_gr) {
+  gr_list_reduced_label <- lapply(gr_list, function(sub_gr) {
     gap_val <- unique(sub_gr$min_gapwidth)
     sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
       min.gapwidth = gap_val,
@@ -323,7 +331,7 @@ reducing.gr <- function(gr) {
       query_coverage  = pmin(1, sum(query_coverage)),
       type            = "proviral_sequence"
     ) %>%
-    arrange(.by_group = start)
+    arrange(start, .by_group = TRUE)
 }
 
 reduced_gr <- reducing.gr(gr)
@@ -392,9 +400,16 @@ ltr_domain <- ltr_domain %>%
 # Main and Accessory will provide the same tracks, as they don't depend on BLAST
 # results, so we only perform it on main tracks
 
-# Step 1: Extract all LTR features and their Parent IDs
+# Step 1: Extract all LTR features and their Parent IDs.
+# rtracklayer::import already parses GFF3 Parent attributes into a
+# CharacterList (one element per row, each a character vector of parent IDs).
+# The pre-refactor regex `sub(".*Parent=([^;]+).*", "\\1", x)` was a no-op on
+# already-parsed strings and worked only by accident. Use the parsed structure
+# directly: take the first parent ID per row.
 ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
-ltr_seqs$ParentID <- sapply(mcols(ltr_seqs)$Parent, function(x) sub(".*Parent=([^;]+).*", "\\1", x))
+ltr_seqs$ParentID <- vapply(mcols(ltr_seqs)$Parent,
+                            function(x) if (length(x) > 0L) as.character(x[[1]]) else NA_character_,
+                            character(1))
 
 # Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
 ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
@@ -700,7 +715,7 @@ domain_valid_hits_reduced <- gr %>%
   
   # Step 7: Clean up and order result
   select(-probe.ltr_valid) %>%
-  arrange(.by_group = start)
+  arrange(start, .by_group = TRUE)
 
 
 # -----------------------------
