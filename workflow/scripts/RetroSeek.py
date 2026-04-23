@@ -71,15 +71,16 @@ def run_snakemake_rule(rule: str, num_cores: int, display_info: bool, snakemake_
 
     try:
         result = subprocess.run(shell_cmd)
-        if result.returncode != 0:
-            logging.error(f"Snakemake rule '{rule}' failed with code {result.returncode}")
-            logging.error(result.stderr)
-            sys.exit(result.returncode)
-        else:
-            return
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Snakemake rule failed with error: {e.stderr.decode()}")
+    except (FileNotFoundError, OSError) as exc:
+        logging.error(f"Failed to invoke snakemake for rule '{rule}': {exc}")
         sys.exit(1)
+
+    if result.returncode != 0:
+        logging.error(
+            f"Snakemake rule '{rule}' failed with exit code {result.returncode}. "
+            f"See snakemake output above for details."
+        )
+        sys.exit(result.returncode)
 
 
 # -----------------------------
