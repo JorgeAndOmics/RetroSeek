@@ -403,6 +403,87 @@ rule ranges_analysis:
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
                                genome=SPECIES_POST)
 
+
+# ───────────────────────────── LTR_retriever chain ───────────────────────────
+# Pre-filter LTRharvest SCN by RetroSeek's retroviral-confirmed ERV set
+# (valid_ranges.gff3) — Coupling A. Then hand the filtered SCN to
+# LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
+# derived from the retained intact ERVs. See docs/solo_ltr.md for full
+# mechanism and the LTR_retriever stages.
+rule ltr_retriever_prefilter_setup:
+    input:
+        scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
+        des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
+        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3')
+    output:
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}.retroviral.scn')
+    threads: 1
+    shell:
+        '''
+        python scripts/ltr_retriever_prefilter.py \
+            --scn {input.scn:q} \
+            --des {input.des:q} \
+            --valid-ranges {input.valid_ranges:q} \
+            --output {output.retroviral_scn:q}
+        '''
+
+
+rule ltr_retriever_prefilter:
+    input:
+        retroviral_scn = expand(
+            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}.retroviral.scn'),
+            genome=SPECIES_POST
+        )
+
+
+# Invoke LTR_retriever itself. It writes multiple output files into its working
+# directory; we declare the three we consume downstream (.pass.list.gff3,
+# .nmtf.pass.list, .LTRlib.fa). Other LTR_retriever outputs appear alongside
+# them and are considered working files.
+rule ltr_retriever_setup:
+    input:
+        genome_fa      = os.path.join(defaults.PATH_DICT['SPECIES_DB'],     '{genome}.fa'),
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}.retroviral.scn')
+    output:
+        pass_list_gff3 = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
+        nmtf_pass_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+        ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa')
+    params:
+        out_dir           = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}'),
+        substitution_rate = config['ltr_retriever'].get('substitution_rate', 1.3e-8),
+        min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91),
+        noanno            = '-noanno' if config['ltr_retriever'].get('noanno', True) else ''
+    threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
+    shell:
+        '''
+        mkdir -p {params.out_dir:q} && \
+        cd {params.out_dir:q} && \
+        LTR_retriever \
+            -genome {input.genome_fa:q} \
+            -inharvest {input.retroviral_scn:q} \
+            -u {params.substitution_rate} \
+            -miniden {params.min_similarity} \
+            -threads {threads} \
+            {params.noanno}
+        '''
+
+
+rule ltr_retriever:
+    input:
+        pass_gff3 = expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
+            genome=SPECIES_POST
+        ),
+        nmtf      = expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+            genome=SPECIES_POST
+        ),
+        lib       = expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
+            genome=SPECIES_POST
+        )
+
+
 rule plot_generator_setup:
     input:
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
