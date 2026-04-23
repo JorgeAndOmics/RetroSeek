@@ -1,0 +1,59 @@
+name: retroseek
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  # ── runtime ──────────────────────────────────────────────
+  - python=3.10
+  - snakemake>=8
+  - snakemake-wrapper-utils
+
+  # ── external bio tools ──────────────────────────────────
+  - blast>=2.15          # tblastn, blastn, makeblastdb
+  - genometools-genometools  # gt ltrharvest, gt ltrdigest
+  - ncbi-datasets-cli    # genome download via `datasets`
+
+  # ── python libs ─────────────────────────────────────────
+  - biopython
+  - pandas
+  - pyarrow              # parquet I/O from Python
+  - pandera
+  - dill
+  - tqdm
+  - coloredlogs
+  - pyyaml
+  - yamale
+
+  # ── R + data stack ──────────────────────────────────────
+  - r-base=4.3
+  - r-tidyverse
+  - r-argparse
+  - r-yaml
+  - r-arrow              # parquet I/O from R
+  - r-purrr
+  - r-stringr
+  - r-ggsci
+  - r-ggnewscale
+  - r-ggalluvial
+  - r-ggdist
+  - r-waffle
+
+  # ── R Bioconductor ──────────────────────────────────────
+  - bioconductor-biostrings
+  - bioconductor-genomicranges
+  - bioconductor-rtracklayer
+  - bioconductor-plyranges
+  - bioconductor-regioner
+  - bioconductor-ggbio
+
+  # ── dev / QA ────────────────────────────────────────────
+  - pytest>=8
+  - pytest-cov
+  - pytest-mock
+  - mypy>=1.15
+  - ruff>=0.11
+  - pre-commit>=4
+  - r-lintr
+  - r-styler
+  - r-testthat
