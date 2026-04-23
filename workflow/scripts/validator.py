@@ -19,7 +19,6 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
 import defaults
-import validator
 from colored_logging import colored_logging
 
 
@@ -286,7 +285,7 @@ def green_light(all_valid: bool) -> bool:
         return False
     else:
         logging.warning('Invalid input. Please try again.')
-        green_light(all_valid)
+        return green_light(all_valid)
 
 
 # -----------------------------
