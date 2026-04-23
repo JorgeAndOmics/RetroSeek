@@ -505,18 +505,12 @@ plot_df <- if (is.list(plot_df$virus) && !is.character(plot_df$virus)) {
 plot_df <- plot_df %>%
   mutate(
     label        = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
-    abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)]
+    abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)],
+    # Tag each row with its probe category. Replaces the pre-refactor
+    # three-file fanout (plot_df_main / plot_df_accessory / full). Downstream
+    # plot2sort.R filters on this column instead of reading separate files.
+    probe_type   = if_else(probe %in% main_probes, "main", "accessory")
   )
-
-# Generate further dataframes by filtering for main and accessory probes.
-# (The single-parquet-with-probe_type-column refactor arrives in commit 4.)
-plot_df_main <- plot_df %>%
-  filter(probe %in% main_probes) %>%
-  mutate(probe_type = "main")
-
-plot_df_accessory <- plot_df %>%
-  filter(!probe %in% main_probes) %>%
-  mutate(probe_type = "accessory")
 
 
 
@@ -660,10 +654,11 @@ track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
 track_exporter(solo_ltr, args$solo_ltr_ranges)
 track_exporter(ltr_flanking, args$flanking_ltr_ranges)
 
-# Export plotting data
+# Export plotting data as a single parquet per genome. The pre-refactor
+# three-file fanout (_main / _accessory / full) is collapsed into a
+# probe_type column on plot_df so downstream plotters filter rather than
+# glob by filename.
 arrow::write_parquet(plot_df, args$plot_dataframe)
-arrow::write_parquet(plot_df_main, sub(".parquet", "_main.parquet", args$plot_dataframe))
-arrow::write_parquet(plot_df_accessory, sub(".parquet", "_accessory.parquet", args$plot_dataframe))
 
 # Export overlap summary matrix
 write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)

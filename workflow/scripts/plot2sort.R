@@ -34,7 +34,7 @@ futurama_unlimited_palette <- function(input_colour_number = 12, output_colour_n
 # ----------------------------
 parser <- ArgumentParser(description = "Generate plots from enERVate Parquet results")
 
-parser$add_argument("--input",   required = TRUE, help = "Input directory with *_main.parquet and *_accessory.parquet files")
+parser$add_argument("--input",   required = TRUE, help = "Input directory with one {genome}.parquet per species; each carries a probe_type column (main | accessory).")
 parser$add_argument("--output",  required = TRUE, help = "Directory to save output plots")
 parser$add_argument("--config",  required = TRUE, help = "YAML config file with plot parameters")
 
@@ -56,15 +56,22 @@ cat("Generating RetroSeek plots...\n")
 # ----------------------------
 # 4. READ PARQUET INPUT FILES
 # ----------------------------
-main_files      <- list.files(args.input.dir, pattern = "_main\\.parquet$", full.names = TRUE)
-accessory_files <- list.files(args.input.dir, pattern = "_accessory\\.parquet$", full.names = TRUE)
+# Single pattern: one parquet per genome, each carrying a probe_type column
+# (main | accessory) produced by ranges_analysis.R. The pre-refactor
+# *_main.parquet / *_accessory.parquet file fanout has been removed.
+parquet_files <- list.files(args.input.dir,
+                            pattern = "\\.parquet$",
+                            full.names = TRUE)
 
-if (length(main_files) == 0)      stop("No main parquet files found.")
-if (length(accessory_files) == 0) stop("No accessory parquet files found.")
+if (length(parquet_files) == 0) stop("No per-genome plot parquet files found.")
 
-all.main      <- purrr::map_dfr(main_files, arrow::read_parquet)
-all.accessory <- purrr::map_dfr(accessory_files, arrow::read_parquet)
-all.full      <- bind_rows(all.main, all.accessory)
+all.full      <- purrr::map_dfr(parquet_files, arrow::read_parquet)
+if (!"probe_type" %in% colnames(all.full)) {
+  stop("plot2sort.R: input parquet(s) missing probe_type column. ",
+       "Rebuild ranges_analysis outputs — the plot dataframe contract changed.")
+}
+all.main      <- all.full %>% filter(probe_type == "main")
+all.accessory <- all.full %>% filter(probe_type == "accessory")
 
 
 # ----------------------------
