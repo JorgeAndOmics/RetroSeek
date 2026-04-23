@@ -170,8 +170,13 @@ rule ltr_harvester:
 
 rule ltr_digester_setup:
     input:
-        ltrharvest_output=rules.ltr_harvester.input.ltr_sorted_gff3,
-        pfam_database=rules.pfam_hmm_downloader.output
+        ltr_sorted_gff3=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
+        pfam_database=rules.pfam_hmm_downloader.output,
+        fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        suffix_index=expand(
+            os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{{genome}}', '{{genome}}.{ext}'),
+            ext=LTR_INDEX_EXT
+        )
     output:
         ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     params:
