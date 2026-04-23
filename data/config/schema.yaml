@@ -1,6 +1,7 @@
 blast: include('blast_schema')
 genome_tools: include('genome_tools_schema')
 parameters: include('parameters_schema')
+ltr_retriever: include('ltr_retriever_schema', required=False)
 logging: include('logging_schema')
 plots: include('plots_schema')
 execution: include('execution_schema')
@@ -53,6 +54,14 @@ aggregation_schema:
 solo_ltr_aggregation_schema:
   probe: str(matches='^(list|concatenate|best|majority|first|strict)$')
   best_tiebreaker: str(matches='^(consensus_members|bitscore|identity)$')
+
+ltr_retriever_schema:
+  substitution_rate:        num(min=0)
+  min_ltr_similarity:       num(min=0, max=100)
+  threads_per_genome:       int(min=1)
+  noanno:                   bool()
+  restrict_to_retroviral:   bool()
+  nearest_erv_max_distance: int(min=0)
 
 
 logging_schema:

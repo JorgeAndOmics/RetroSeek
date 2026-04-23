@@ -68,6 +68,13 @@ PATH_DICT['SEGMENTED_SPECIES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'segmented
 PATH_DICT['PLOT_DATAFRAMES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'plot_dataframes').resolve()
 PATH_DICT['TABLE_PAIR_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'probe_pairs').resolve()
 PATH_DICT['TABLE_MANIFEST_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'manifest').resolve()
+PATH_DICT['TABLE_SOLO_INTACT_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'solo_intact_ratio').resolve()
+# LTRharvest screen-format (.scn) intermediate — consumed by LTR_retriever.
+# Lives under /data (not /results) because it's a working format, not an output.
+PATH_DICT['LTR_SCN_DIR'] = (PATH_DICT['DATA_DIR'] / 'ltr_scn').resolve()
+# LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
+# consensus library — all the files LTR_retriever emits per genome).
+PATH_DICT['LTR_RETRIEVER_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltr_retriever').resolve()
 
 # === Results - Plots ===
 PATH_DICT['PLOT_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'plots').resolve()
