@@ -9,6 +9,7 @@ import time
 import argparse
 import subprocess
 import logging
+from pathlib import Path
 from typing import List, Optional
 
 import yamale
@@ -131,7 +132,7 @@ def fasta_validator(fasta_file: str) -> bool:
     bool
         True if valid, False otherwise.
     """
-    if not os.path.exists(fasta_file):
+    if not Path(fasta_file).exists():
         logging.warning(f"FASTA file does not exist: {fasta_file}")
         return False
 
@@ -232,7 +233,7 @@ def main_validator(fasta_files: Optional[List[str]]) -> bool:
     logging.debug('Starting input validation process...')
 
     yaml_ok = yaml_validator(
-        yaml_schema=os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'schema.yaml'),
+        yaml_schema=str(Path(defaults.PATH_DICT['CONFIG_DIR']) / 'schema.yaml'),
         yaml_file=defaults.CONFIG_FILE
     )
 

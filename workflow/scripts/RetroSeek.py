@@ -2,7 +2,6 @@
 # DEPENDENCIES
 # -------------------
 
-import os
 import re
 import sys
 import logging
@@ -198,7 +197,7 @@ def cli_entry() -> None:
     # VALIDATE INPUT & EXECUTE RULES
     # -----------------------------
     species_paths: list = [
-        os.path.join(defaults.PATH_DICT["SPECIES_DB"], f'{species}.fa')
+        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f'{species}.fa')
         for species in defaults.SPECIES
     ]
 

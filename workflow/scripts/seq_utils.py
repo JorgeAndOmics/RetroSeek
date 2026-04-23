@@ -24,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from collections import Counter
 from io import StringIO
+from pathlib import Path
 from tqdm import tqdm
 import subprocess
 import tempfile
@@ -33,7 +34,6 @@ import string
 import time
 import sys
 import re
-import os
 
 from RetroSeeker_class import RetroSeeker
 
@@ -84,7 +84,7 @@ def blaster(instance, command: str, input_database_path, subject: str, num_threa
         ------
             :raise Exception: If an error occurs while running BLAST.
     """
-    input_path = os.path.join(input_database_path, subject, subject) if subject else input_database_path
+    input_path = str(Path(input_database_path) / subject / subject) if subject else input_database_path
     subject = subject or input_database_path
     try:
         blast_command = [
