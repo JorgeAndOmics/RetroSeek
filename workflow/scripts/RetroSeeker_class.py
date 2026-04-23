@@ -93,8 +93,8 @@ class RetroSeeker:
     def __hash__(self):
         return hash(self.identifier)
 
-    def __eq__(self, other):
-        if isinstance(other, Object):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, RetroSeeker):
             return self.identifier == other.identifier
         return False
 
