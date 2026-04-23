@@ -61,6 +61,18 @@ parameters:
     probe: "list"
     best_tiebreaker: "consensus_members"  # consensus_members | bitscore | identity
 
+# LTR_retriever post-processing of LTRharvest output for solo-LTR detection.
+# See docs/solo_ltr.md for the full mechanism (how LTR_retriever's three
+# stages work, what "family" means, how the pre-filter + label-propagation
+# couplings work).
+ltr_retriever:
+  substitution_rate: 1.3e-8         # bp substitutions per site per year; 1.3e-8 for mammals, 7e-9 for plants
+  min_ltr_similarity: 91            # LTR_retriever -miniden (%); LTR-pair similarity floor for intact ERVs
+  threads_per_genome: 4             # LTR_retriever -threads per-genome invocation
+  noanno: true                      # skip LTR_retriever's internal TE annotation (RetroSeek has its own via probes)
+  restrict_to_retroviral: true      # Coupling A: pre-filter LTRharvest SCN by valid_ranges.gff3 before handing to LTR_retriever
+  nearest_erv_max_distance: 10000   # bp window for the solo-LTR → valid ERV nearest-ERV label-propagation fallback
+
 logging:
   level_styles:
     debug: { color: 'white' }
