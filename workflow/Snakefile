@@ -449,11 +449,11 @@ rule hotspot_detector_setup:
     params:
         genomes_dir=defaults.PATH_DICT['SPECIES_DB'],
         input_track_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],          # For now
-        window_size=config.get('hotspot_window_size', 10000),
-        mask_size=config.get('hotspot_mask_size', 20),
-        mask_mismatch=config.get('hotspot_mask_mismatch', 2),
-        permutations=config.get('hotspot_permutations', 3),
-        pvalue_threshold=config.get('hotspot_pvalue_threshold', 0.05),
+        window_size=config['parameters'].get('hotspot_window_size', 10000),
+        mask_size=config['parameters'].get('hotspot_mask_size', 20),
+        mask_mismatch=config['parameters'].get('hotspot_mask_mismatch', 2),
+        permutations=config['parameters'].get('hotspot_permutations', 3),
+        pvalue_threshold=config['parameters'].get('hotspot_pvalue_threshold', 0.05),
         csv_dir=defaults.PATH_DICT['TABLE_HOTSPOT_DIR'],
         pdf_dir=defaults.PATH_DICT['HOTSPOT_PDF_DIR'],
         track_dir=defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
