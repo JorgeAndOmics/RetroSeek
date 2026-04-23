@@ -93,11 +93,14 @@ all.full <- all.full %>% select(-species) %>% rename(species = species_name)
 # 5. QUANTILE CALCULATIONS
 # ----------------------------
 q_stats <- function(df) {
+  # Quartile summary over the per-range max_bitscore — the strongest single
+  # alignment in each merged range. Replaces the earlier mean_bitscore, which
+  # was a statistically dubious arithmetic mean over log-scaled bitscores.
   list(
-    mean   = mean(df$mean_bitscore),
-    q1     = quantile(df$mean_bitscore, 0.25),
-    median = quantile(df$mean_bitscore, 0.50),
-    q3     = quantile(df$mean_bitscore, 0.75)
+    mean   = mean(df$max_bitscore),
+    q1     = quantile(df$max_bitscore, 0.25),
+    median = quantile(df$max_bitscore, 0.50),
+    q3     = quantile(df$max_bitscore, 0.75)
   )
 }
 
@@ -125,7 +128,12 @@ accessory.counted_probe <- group_count(all.accessory)
 density_bitscore_plot <- function(data, q1, median, q3) {
   manual_colours <- futurama_unlimited_palette(3, length(unique(data$probe)))
   
-  ggplot(data, aes(x = mean_bitscore, fill = probe, colour = probe, weight = mean_identity)) +
+  # Unweighted density over max_bitscore. The earlier implementation weighted
+  # observations by mean_identity — dropped here because max_identity doesn't
+  # carry the same per-observation meaning, and an unweighted density gives a
+  # cleaner statistical read. If per-range identity needs visual emphasis,
+  # prefer a separate plot rather than a weight aesthetic.
+  ggplot(data, aes(x = max_bitscore, fill = probe, colour = probe)) +
     geom_density(alpha = 0.4, adjust = 3) +
     scale_fill_manual(values = manual_colours) +
     scale_color_manual(values = manual_colours) +
@@ -133,8 +141,8 @@ density_bitscore_plot <- function(data, q1, median, q3) {
     annotate("text", x = q1 + 20,     y = 1e-4, label = "Q1") +
     annotate("text", x = median + 20, y = 1e-4, label = "Q2") +
     annotate("text", x = q3 + 20,     y = 1e-4, label = "Q3") +
-    scale_x_continuous(breaks = seq(0, max(data$mean_bitscore, na.rm = TRUE), by = 100)) +
-    labs(x = "HSP Bitscore", y = "Density") +
+    scale_x_continuous(breaks = seq(0, max(data$max_bitscore, na.rm = TRUE), by = 100)) +
+    labs(x = "HSP Bitscore (max per range)", y = "Density") +
     theme_minimal() +
     theme(
       text            = element_text(face = "bold"),
@@ -182,14 +190,14 @@ all.accessory.bar.plot <- bar_plot(accessory.counted_probe)
 raincloud_bitscore_plot <- function(data) {
   manual_colours <- futurama_unlimited_palette(3, length(unique(data$probe)))
   
-  ggplot(data, aes(y = probe, x = mean_bitscore, fill = probe, color = probe)) +
+  ggplot(data, aes(y = probe, x = max_bitscore, fill = probe, color = probe)) +
     ggdist::stat_halfeye(adjust = 0.5, justification = 0, alpha = 0.5, .width = c(0.5, 0.95)) +
     geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.7) +
     ggdist::stat_dots(side = "right", dotsize = 0.1, alpha = 0.01, binwidth = 0.2) +
     scale_fill_manual(values = manual_colours) +
     scale_color_manual(values = manual_colours) +
     theme_minimal() +
-    labs(x = "HSP Bitscore", y = "Probe") +
+    labs(x = "HSP Bitscore (max per range)", y = "Probe") +
     theme(
       text        = element_text(face = "bold"),
       axis.title  = element_text(size = 12),
