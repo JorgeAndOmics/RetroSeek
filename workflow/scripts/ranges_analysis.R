@@ -52,8 +52,7 @@ parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits
 parser$add_argument("--candidate_ranges_reduced", required=TRUE, help="GFF3 output: reduced hits overlapping LTRs")
 parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
 parser$add_argument("--valid_ranges_reduced", required=TRUE, help="GFF3 output: reduced domain-validated hits")
-parser$add_argument("--solo_ltr_ranges", required=FALSE, help="GFF3 output: solo LTRs")
-parser$add_argument("--flanking_ltr_ranges", required=FALSE, help="GFF3 output: flanking LTRs")
+parser$add_argument("--flanking_ltr_ranges", required=TRUE, help="GFF3 output: flanking LTRs (two per parent ERV — left and right on strand axis)")
 parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
 parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for plotting")
 parser$add_argument("--manifest", required=FALSE, help="YAML manifest of inputs, config, counts, outputs, tool versions")
@@ -395,39 +394,28 @@ ltr_domain <- ltr_domain %>%
   filter(!is.na(probe))  # Retain only domains successfully mapped to a probe
 
 # -----------------------------
-# 13B. EXTRACT SOLO LTRs
+# 13B. EXTRACT FLANKING LTRs FROM ERVs
 # -----------------------------
-# Main and Accessory will provide the same tracks, as they don't depend on BLAST
-# results, so we only perform it on main tracks
+# Solo-LTR production is handled by the LTR_retriever-based workstream, which
+# runs as a separate Snakemake rule feeding valid_ranges.gff3 back through
+# LTR_retriever's consensus-build + BLAST-back mechanism. The pre-refactor
+# `solo_ltr <- ltr_seqs[!ParentID %in% erv_ids]` was always empty because
+# LTRdigest output only contains LTRs that ARE children of full ERVs by
+# construction — see .claude/memory/gotchas.md #2a. Section removed here.
 
 # Step 1: Extract all LTR features and their Parent IDs.
 # rtracklayer::import already parses GFF3 Parent attributes into a
 # CharacterList (one element per row, each a character vector of parent IDs).
-# The pre-refactor regex `sub(".*Parent=([^;]+).*", "\\1", x)` was a no-op on
-# already-parsed strings and worked only by accident. Use the parsed structure
-# directly: take the first parent ID per row.
 ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
 ltr_seqs$ParentID <- vapply(mcols(ltr_seqs)$Parent,
                             function(x) if (length(x) > 0L) as.character(x[[1]]) else NA_character_,
                             character(1))
 
-# Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
+# Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs).
 ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
 erv_ids <- unique(mcols(ervs)$ID)
 
-# Step 3: Filter out LTRs that are part of full ERVs (i.e., retain only solo LTRs)
-solo_ltr <- ltr_seqs[!ltr_seqs$ParentID %in% erv_ids]
-
-# Step 4: Assign unique ID to each solo LTR
-if (length(solo_ltr) > 0) {
-  solo_ltr$ID <- paste0("soloLTR_", seq_along(solo_ltr))
-}
-
-# -----------------------------
-# 13C. EXTRACT FLANKING LTRs FROM ERVs
-# -----------------------------
-
-# Step 1: Keep only LTRs that belong to full ERVs
+# Step 3: Keep only LTRs that belong to full ERVs — these are the flanks.
 ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
 
 # Step 2: Join strand + both coordinates from parent ERVs for orientation.
@@ -807,7 +795,6 @@ track_exporter(domain_valid_hits,         args$valid_ranges)
 track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
 bed_exporter(domain_valid_hits_reduced,   sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
 
-track_exporter(solo_ltr, args$solo_ltr_ranges)
 track_exporter(ltr_flanking, args$flanking_ltr_ranges)
 
 # Record final tallies for the manifest.
@@ -852,11 +839,11 @@ if (!is.null(args$manifest)) {
       elapsed_seconds = round(as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs")), 2)
     ),
     inputs = list(
-      fasta      = list(path = args$fasta,     md5 = .file_md5(args$fasta)),
-      blast      = list(path = args$blast,     md5 = .file_md5(args$blast)),
-      ltrdigest  = list(path = args$ltrdigest, md5 = .file_md5(args$ltrdigest)),
-      probes     = list(path = args$probes,    md5 = .file_md5(args$probes)),
-      config     = list(path = args$config,    md5 = .file_md5(args$config))
+      fasta     = list(path = args$fasta,     md5 = .file_md5(args$fasta)),
+      blast     = list(path = args$blast,     md5 = .file_md5(args$blast)),
+      ltrdigest = list(path = args$ltrdigest, md5 = .file_md5(args$ltrdigest)),
+      probes    = list(path = args$probes,    md5 = .file_md5(args$probes)),
+      config    = list(path = args$config,    md5 = .file_md5(args$config))
     ),
     config_snapshot = list(
       aggregation      = config$parameters$aggregation,
@@ -881,6 +868,8 @@ if (!is.null(args$manifest)) {
       valid_ranges_reduced        = args$valid_ranges_reduced,
       valid_ranges_reduced_bed    = sub("\\.gff3$", ".bed", args$valid_ranges_reduced),
       flanking_ltr_ranges         = args$flanking_ltr_ranges,
+      # Solo-LTR production is emitted by the LTR_retriever-based workstream,
+      # not ranges_analysis. Not listed here.
       overlap_matrix              = args$overlap_matrix,
       plot_dataframe              = args$plot_dataframe
     ),
