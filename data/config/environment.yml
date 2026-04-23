@@ -13,6 +13,10 @@ dependencies:
   - blast>=2.15          # tblastn, blastn, makeblastdb
   - genometools-genometools  # gt ltrharvest, gt ltrdigest
   - ncbi-datasets-cli    # genome download via `datasets`
+  - ltr_retriever        # solo-LTR post-processing of LTRharvest output
+                         #   pulls Perl + HMMER + TRF as transitive deps;
+                         #   used by workflow/scripts/ltr_retriever_prefilter.py
+                         #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
 
   # ── python libs ─────────────────────────────────────────
   - biopython
