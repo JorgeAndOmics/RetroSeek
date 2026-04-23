@@ -340,8 +340,8 @@ def gb_fetcher(instance: object,
     }
     if instance.HSP:
         kwargs |= {
-            'seq_start': max(1, instance.HSP.sbjct_start + expand_by),
-            'seq_stop': instance.HSP.sbjct_end + expand_by,
+            'seq_start': max(1, instance.HSP.sbjct_start),
+            'seq_stop': instance.HSP.sbjct_end,
         }
     try:
         with Entrez.efetch(**kwargs) as handle:
