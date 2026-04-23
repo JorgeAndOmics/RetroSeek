@@ -227,7 +227,10 @@ rule probe_extractor:
 rule full_genome_blaster_setup:
     input:
         input_pkl=rules.probe_extractor.output.probe_pkl,
-        blast_db=rules.blast_db_generator.output
+        blast_db=expand(
+            os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{{genome}}', '{{genome}}.{ext}'),
+            ext=BLAST_DB_EXT
+        )
     output:
         parquet_species=os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'], '{genome}.pkl')
     params:
