@@ -34,6 +34,33 @@ parameters:
     VIF: 200
     N_protein: 200
 
+  # How metadata (virus / label / probe / species) is aggregated when overlapping
+  # ranges are collapsed via plyranges::reduce_ranges_directed. Every field below
+  # accepts one of the strategies: list | concatenate | best | majority | first | strict.
+  #   list        : native multi-value (CharacterList in R, list<string> in parquet,
+  #                 comma-separated in GFF3 attributes). Default — no information lost.
+  #   concatenate : single string joined by concat_separator. Backward-compatible.
+  #   best        : single value from the row with the highest best_tiebreaker.
+  #   majority    : mode; ties resolved by first alphabetical.
+  #   first       : alphabetical first. Deterministic but arbitrary.
+  #   strict      : single value if all contributors agree, else strict_marker.
+  aggregation:
+    virus: "list"
+    label: "list"
+    probe: "list"
+    species: "first"                 # per-genome pipeline — rows share one species
+    best_tiebreaker: "bitscore"      # bitscore | identity | align_length
+    concat_separator: "; "
+    strict_marker: "ambiguous"
+
+  # Probe-label propagation strategy for solo LTRs produced by the LTR_retriever
+  # workstream. Uses the same vocabulary as `aggregation` above; tiebreaker is
+  # specific to how solo-LTR contributors are ranked (count of ERVs contributing
+  # to the consensus family, or inherited from ERV evidence).
+  solo_ltr_aggregation:
+    probe: "list"
+    best_tiebreaker: "consensus_members"  # consensus_members | bitscore | identity
+
 logging:
   level_styles:
     debug: { color: 'white' }
