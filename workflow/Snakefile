@@ -327,8 +327,9 @@ rule ranges_analysis_setup:
         candidate_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
-        # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-        # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+        # solo_ltr production has moved to the LTR_retriever-based workstream
+        # (separate rule); the file is no longer produced by ranges_analysis.R.
+        flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
         plot_dataframe=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
         manifest=os.path.join(defaults.PATH_DICT['TABLE_MANIFEST_DIR'],'{genome}.yaml'),
@@ -346,7 +347,6 @@ rule ranges_analysis_setup:
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
-        solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
         manifest_dir=defaults.PATH_DICT['TABLE_MANIFEST_DIR'],
@@ -366,7 +366,6 @@ rule ranges_analysis_setup:
         --candidate_ranges_reduced {params.candidate_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
-        --solo_ltr_ranges {params.solo_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}.csv \
         --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet \
@@ -388,10 +387,10 @@ rule ranges_analysis:
                              genome=SPECIES_POST),
         valid_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
                                 genome=SPECIES_POST),
-        # solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-        #                     genome=SPECIES),
-        # flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
-        #                         genome=SPECIES),
+        # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
+        # demand solo_ltr/{genome}.gff3 here.
+        flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+                            genome=SPECIES_POST),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
                               genome=SPECIES_POST),
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
