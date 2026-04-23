@@ -115,6 +115,15 @@ data <- arrow::read_parquet(args$blast)
 ltr_data <- rtracklayer::import(args$ltrdigest, format = "gff3")
 
 # -----------------------------
+# 6B. PROBE METADATA (for query_coverage calculation)
+# -----------------------------
+# Read the probes CSV early so composite-metric computation (section 10+)
+# can look up probe amino-acid lengths for query_coverage.
+probe_df     <- readr::read_csv(args$probes, show_col_types = FALSE)
+probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
+probe_lengths <- setNames(nchar(probe_df$Probe), probe_df$Abbreviation)
+
+# -----------------------------
 # 7. BUILD GRanges OBJECT
 # -----------------------------
 gr <- GRanges(
@@ -123,13 +132,19 @@ gr <- GRanges(
   strand   = data$strand
 )
 
-# Attach metadata to GRanges object
-mcols(gr)$label    <- data$label
-mcols(gr)$virus    <- data$virus
-mcols(gr)$bitscore <- data$hsp_bits
-mcols(gr)$identity <- (data$hsp_identity / data$hsp_align_length) * 100
-mcols(gr)$species  <- data$species
-mcols(gr)$probe    <- data$probe
+# Attach metadata to GRanges object. Additions beyond the pre-refactor set:
+# - evalue, align_length (for min_evalue + query_coverage composite metrics)
+# - query_start, query_end (reserved for future per-position coverage refinement)
+mcols(gr)$label        <- data$label
+mcols(gr)$virus        <- data$virus
+mcols(gr)$bitscore     <- data$hsp_bits
+mcols(gr)$identity     <- (data$hsp_identity / data$hsp_align_length) * 100
+mcols(gr)$species      <- data$species
+mcols(gr)$probe        <- data$probe
+mcols(gr)$evalue       <- data$hsp_evalue
+mcols(gr)$align_length <- data$hsp_align_length
+mcols(gr)$query_start  <- data$hsp_query_start
+mcols(gr)$query_end    <- data$hsp_query_end
 
 # -----------------------------
 # 8. FILTER LOW-QUALITY RANGES
@@ -159,17 +174,23 @@ gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
   gap_val <- unique(sub_gr$min_gapwidth)
   sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
     min.gapwidth = gap_val,
-    virus    = aggregate_values(virus,   agg_virus,
-                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    species  = aggregate_values(species, agg_species,
-                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    label    = aggregate_values(label,   agg_label,
-                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    bitscore = max(bitscore),
-    identity = max(identity)
+    virus           = aggregate_values(virus,   agg_virus,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    species         = aggregate_values(species, agg_species,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    label           = aggregate_values(label,   agg_label,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    # Composite metrics — replace mean_bitscore / mean_identity.
+    n_hits          = length(bitscore),
+    max_bitscore    = max(bitscore),
+    sum_bitscore    = sum(bitscore),
+    median_bitscore = stats::median(bitscore),
+    max_identity    = max(identity),
+    min_evalue      = min(evalue),
+    query_coverage  = pmin(1, sum(align_length) / probe_lengths[probe[1]])
   )
 })
 
@@ -178,14 +199,19 @@ if (merge_options == "label") {
     gap_val <- unique(sub_gr$min_gapwidth)
     sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
       min.gapwidth = gap_val,
-      virus    = aggregate_values(virus,   agg_virus,
-                                  tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                  separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      species  = aggregate_values(species, agg_species,
-                                  tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                  separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      bitscore = max(bitscore),
-      identity = max(identity)
+      virus           = aggregate_values(virus,   agg_virus,
+                                         tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
+                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      species         = aggregate_values(species, agg_species,
+                                         tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
+                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      n_hits          = length(bitscore),
+      max_bitscore    = max(bitscore),
+      sum_bitscore    = sum(bitscore),
+      median_bitscore = stats::median(bitscore),
+      max_identity    = max(identity),
+      min_evalue      = min(evalue),
+      query_coverage  = pmin(1, sum(align_length) / probe_lengths[probe[1]])
     )
   })
 }
@@ -206,18 +232,26 @@ reducing.gr <- function(gr) {
   gr %>%
     group_by(probe) %>%
     reduce_ranges_directed(
-      species       = aggregate_values(species, agg_species,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      virus         = aggregate_values(virus,   agg_virus,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      label         = aggregate_values(label,   agg_label,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      mean_bitscore = if (length(bitscore) > 1) mean(bitscore) else bitscore,
-      mean_identity = if (length(identity) > 1) mean(identity) else identity,
-      type          = "proviral_sequence"
+      species         = aggregate_values(species, agg_species,
+                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      virus           = aggregate_values(virus,   agg_virus,
+                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      label           = aggregate_values(label,   agg_label,
+                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      # Composite metrics — propagated from the upstream (gr_virus/gr_list)
+      # reduction. For globally-reduced ranges these are re-aggregated across
+      # contributing upstream reductions.
+      n_hits          = sum(n_hits),
+      max_bitscore    = max(max_bitscore),
+      sum_bitscore    = sum(sum_bitscore),
+      median_bitscore = stats::median(median_bitscore),
+      max_identity    = max(max_identity),
+      min_evalue      = min(min_evalue),
+      query_coverage  = pmin(1, sum(query_coverage)),
+      type            = "proviral_sequence"
     ) %>%
     arrange(.by_group = start)
 }
@@ -457,20 +491,25 @@ overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr
 # -----------------------------
 # 19. CONSTRUCT PLOTTING DATAFRAME
 # -----------------------------
+# probe_df / probe_df_sum are already loaded in section 6B for probe_lengths.
 
-# Read virus metadata
-probe_df <- readr::read_csv(args$probes, show_col_types = FALSE)
-probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
-
-# Prepare plot-friendly dataframes from reduced GRanges
-plot_df <- as.data.frame(reduced_gr) %>%
-  tidyr::separate_rows(virus, sep = "; ") %>%
+# Prepare plot-friendly dataframe from reduced GRanges. Virus may arrive either
+# as a list-column (when agg_virus = "list" — the default, CharacterList in R)
+# or as a delimited string (other strategies). Handle both.
+plot_df <- as.data.frame(reduced_gr)
+plot_df <- if (is.list(plot_df$virus) && !is.character(plot_df$virus)) {
+  tidyr::unnest(plot_df, cols = virus)
+} else {
+  tidyr::separate_rows(plot_df, virus, sep = agg_concat_separator)
+}
+plot_df <- plot_df %>%
   mutate(
-    label = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
+    label        = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
     abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)]
   )
 
-# Generate further dataframes by filtering for main and accessory probes
+# Generate further dataframes by filtering for main and accessory probes.
+# (The single-parquet-with-probe_type-column refactor arrives in commit 4.)
 plot_df_main <- plot_df %>%
   filter(probe %in% main_probes) %>%
   mutate(probe_type = "main")
@@ -562,28 +601,33 @@ domain_valid_hits_reduced <- gr %>%
   group_by(probe.ltr_valid) %>%
   
   # Step 6: Reduce overlapping domains, aggregating relevant fields via the
-  # configured per-field strategies. Tiebreaker uses mean_bitscore / mean_identity
-  # (pre-reduce values carried in from the upstream reducing.gr step) since the
-  # raw per-hit bitscore/identity aren't in scope here.
+  # configured per-field strategies. Tiebreaker uses max_bitscore / max_identity
+  # (carried in from upstream reducing.gr — per-hit values aren't in scope here).
   reduce_ranges_directed(
-    probe         = aggregate_values(probe.ltr_valid, agg_probe,
-                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
-                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    species       = aggregate_values(species.gr,      agg_species,
-                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
-                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    virus         = aggregate_values(virus.gr,        agg_virus,
-                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
-                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    label         = aggregate_values(label.gr,        agg_label,
-                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
-                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    probe           = aggregate_values(probe.ltr_valid, agg_probe,
+                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    species         = aggregate_values(species.gr,      agg_species,
+                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    virus           = aggregate_values(virus.gr,        agg_virus,
+                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    label           = aggregate_values(label.gr,        agg_label,
+                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
     # `name`, `ID`, `Parent` are LTRdigest-specific — always list, lossless.
-    name          = aggregate_values(name,   "list"),
-    ID            = aggregate_values(ID,     "list"),
-    Parent        = aggregate_values(Parent, "list"),
-    mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
-    mean_identity = paste(unique(mean_identity), collapse = "; "),
+    name            = aggregate_values(name,   "list"),
+    ID              = aggregate_values(ID,     "list"),
+    Parent          = aggregate_values(Parent, "list"),
+    # Composite metrics propagated through the domain-validation reduction.
+    n_hits          = sum(n_hits),
+    max_bitscore    = max(max_bitscore),
+    sum_bitscore    = sum(sum_bitscore),
+    median_bitscore = stats::median(median_bitscore),
+    max_identity    = max(max_identity),
+    min_evalue      = min(min_evalue),
+    query_coverage  = pmin(1, sum(query_coverage)),
   ) %>%
   
   # Step 7: Clean up and order result
