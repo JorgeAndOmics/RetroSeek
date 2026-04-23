@@ -16,6 +16,23 @@ suppressMessages({
   library(rtracklayer)    # Reading/writing genome annotation files (e.g., GFF, BED)
 })
 
+# Shared aggregation helpers — aggregate_values() and make_tiebreaker_picker().
+# Sourced from a sibling file so testthat can exercise them in isolation
+# without booting the full pipeline. The script dir is resolved robustly
+# so it works both when sourced interactively and when invoked via Rscript.
+.resolve_script_dir <- function() {
+  # 1. Interactive: sys.frame()$ofile is set by source().
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  # 2. Rscript: --file=... argument carries the path.
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  # 3. Fallback: Snakemake typically runs with CWD = workflow/.
+  "scripts"
+}
+source(file.path(.resolve_script_dir(), "range_aggregation_strategies.R"))
+
 
 # -------------------------------
 # 2. PARSE COMMAND-LINE ARGUMENTS
@@ -57,6 +74,27 @@ identity_threshold <- as.numeric(config$parameters$identity_threshold) %||% 0
 ltr_resize         <- as.numeric(config$parameters$ltr_resize) %||% 0
 merge_options      <- config$parameters$merge_options %||% "virus"
 main_probes        <- config$parameters$main_probes
+
+# -----------------------------
+# 3B. AGGREGATION STRATEGIES
+# -----------------------------
+# When overlapping ranges are collapsed by plyranges::reduce_ranges_directed,
+# their metadata (virus / label / probe / species) must be reduced to a single
+# value per merged range. aggregate_values() dispatches by strategy name; see
+# docs/configuration.md and docs/adr/ADR-002 for the rationale.
+#
+# Vocabulary: list | concatenate | best | majority | first | strict
+agg <- config$parameters$aggregation %||% list()
+agg_virus            <- agg$virus            %||% "list"
+agg_label            <- agg$label            %||% "list"
+agg_probe            <- agg$probe            %||% "list"
+agg_species          <- agg$species          %||% "first"
+agg_best_tiebreaker  <- agg$best_tiebreaker  %||% "bitscore"
+agg_concat_separator <- agg$concat_separator %||% "; "
+agg_strict_marker    <- agg$strict_marker    %||% "ambiguous"
+
+# Bind the closure once at startup from config; reused at every call site.
+pick_tiebreaker <- make_tiebreaker_picker(agg_best_tiebreaker)
 
 # -----------------------------
 # 4. DETERMINE FILE TYPE
@@ -121,9 +159,15 @@ gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
   gap_val <- unique(sub_gr$min_gapwidth)
   sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
     min.gapwidth = gap_val,
-    virus    = as.character(unique(virus)),
-    species  = as.character(unique(species)),
-    label   = as.character(unique(label)),
+    virus    = aggregate_values(virus,   agg_virus,
+                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    species  = aggregate_values(species, agg_species,
+                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    label    = aggregate_values(label,   agg_label,
+                                tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                separator = agg_concat_separator, strict_marker = agg_strict_marker),
     bitscore = max(bitscore),
     identity = max(identity)
   )
@@ -134,8 +178,12 @@ if (merge_options == "label") {
     gap_val <- unique(sub_gr$min_gapwidth)
     sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
       min.gapwidth = gap_val,
-      virus    = paste(unique(virus), collapse = "; "),
-      species  = as.character(unique(species)),
+      virus    = aggregate_values(virus,   agg_virus,
+                                  tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                  separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      species  = aggregate_values(species, agg_species,
+                                  tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                  separator = agg_concat_separator, strict_marker = agg_strict_marker),
       bitscore = max(bitscore),
       identity = max(identity)
     )
@@ -158,12 +206,18 @@ reducing.gr <- function(gr) {
   gr %>%
     group_by(probe) %>%
     reduce_ranges_directed(
-      species        = paste(unique(species), collapse = "; "),
-      virus          = paste(sort(unique(virus)), collapse = "; "),
-      label          = paste(sort(unique(label)), collapse = "; "),
-      mean_bitscore  = if (length(bitscore) > 1) mean(bitscore) else bitscore,
-      mean_identity  = if (length(identity) > 1) mean(identity) else identity,
-      type           = "proviral_sequence"
+      species       = aggregate_values(species, agg_species,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      virus         = aggregate_values(virus,   agg_virus,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      label         = aggregate_values(label,   agg_label,
+                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity),
+                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
+      mean_bitscore = if (length(bitscore) > 1) mean(bitscore) else bitscore,
+      mean_identity = if (length(identity) > 1) mean(identity) else identity,
+      type          = "proviral_sequence"
     ) %>%
     arrange(.by_group = start)
 }
@@ -507,15 +561,27 @@ domain_valid_hits_reduced <- gr %>%
   # Step 5: Group by probe for reduction
   group_by(probe.ltr_valid) %>%
   
-  # Step 6: Reduce overlapping domains, aggregating relevant fields
+  # Step 6: Reduce overlapping domains, aggregating relevant fields via the
+  # configured per-field strategies. Tiebreaker uses mean_bitscore / mean_identity
+  # (pre-reduce values carried in from the upstream reducing.gr step) since the
+  # raw per-hit bitscore/identity aren't in scope here.
   reduce_ranges_directed(
-    probe         = paste(unique(probe.ltr_valid), collapse = "; "),
-    species       = paste(unique(species.gr), collapse = "; "),
-    virus         = paste(sort(unique(virus.gr)), collapse = "; "),
-    label        = paste(sort(unique(label.gr)), collapse = "; "),
-    name          = paste(sort(unique(name)), collapse = "; "),
-    ID            = paste(sort(unique(ID)), collapse = "; "),
-    Parent        = paste(unique(Parent), collapse = "; "),
+    probe         = aggregate_values(probe.ltr_valid, agg_probe,
+                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
+                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    species       = aggregate_values(species.gr,      agg_species,
+                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
+                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    virus         = aggregate_values(virus.gr,        agg_virus,
+                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
+                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    label         = aggregate_values(label.gr,        agg_label,
+                                     tiebreaker = pick_tiebreaker(bitscore = mean_bitscore, identity = mean_identity),
+                                     separator = agg_concat_separator, strict_marker = agg_strict_marker),
+    # `name`, `ID`, `Parent` are LTRdigest-specific — always list, lossless.
+    name          = aggregate_values(name,   "list"),
+    ID            = aggregate_values(ID,     "list"),
+    Parent        = aggregate_values(Parent, "list"),
     mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
     mean_identity = paste(unique(mean_identity), collapse = "; "),
   ) %>%

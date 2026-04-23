@@ -37,7 +37,7 @@ test-py: ## pytest
 	pytest
 
 test-r: ## R testthat suite
-	Rscript -e 'testthat::test_dir("workflow/tests")'
+	Rscript -e 'testthat::test_dir("workflow/tests/testthat")'
 
 test-snakemake: ## Dry-run the Snakemake DAG against tests/fixtures
 	snakemake --configfile data/config/config.yaml -n --cores 1
