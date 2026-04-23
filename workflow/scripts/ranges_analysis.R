@@ -430,26 +430,33 @@ if (length(solo_ltr) > 0) {
 # Step 1: Keep only LTRs that belong to full ERVs
 ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
 
-# Step 2: Join strand/start from parent ERVs for orientation
+# Step 2: Join strand + both coordinates from parent ERVs for orientation.
+# `end_erv` was missing in the pre-refactor code, which made correct
+# negative-strand labelling impossible (see step 4).
 erv_meta <- data.frame(
-  ID = mcols(ervs)$ID,
+  ID     = mcols(ervs)$ID,
   strand = as.character(strand(ervs)),
-  start = start(ervs)
+  start  = start(ervs),
+  end    = end(ervs)
 )
 
-# Step 3: Add orientation and relative position info
+# Step 3: Add orientation and relative position info.
 mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
-mcols(ltr_flanking)$start_erv <- erv_meta$start[match(ltr_flanking$ParentID, erv_meta$ID)]
+mcols(ltr_flanking)$start_erv  <- erv_meta$start [match(ltr_flanking$ParentID, erv_meta$ID)]
+mcols(ltr_flanking)$end_erv    <- erv_meta$end   [match(ltr_flanking$ParentID, erv_meta$ID)]
 
-# Step 4: Label LTR side (left/right) heuristically
+# Step 4: Label LTR position as "left" (the biologically-5' LTR) or "right".
+# Strand-aware: on the + strand, biologically-5' is the lower-coordinate LTR
+# (start ≤ erv_start + margin). On the − strand, the gene reads in the opposite
+# direction, so biologically-5' is the HIGHER-coordinate LTR (end ≥ erv_end -
+# margin). The pre-refactor code used start coordinates on both strands, which
+# always labelled every minus-strand LTR "left" since LTR starts are always
+# ≥ erv_start.
+.ltr_flank_margin <- as.numeric(config$parameters$ltr_flank_margin %||% 0)
 ltr_flanking$LTR_side <- ifelse(
-  (ltr_flanking$strand_erv == "+" & start(ltr_flanking) <= ltr_flanking$start_erv + config$parameters$ltr_flank_margin),
-  "left",
-  ifelse(
-    (ltr_flanking$strand_erv == "-" & start(ltr_flanking) >= ltr_flanking$start_erv - config$parameters$ltr_flank_margin),
-    "left",
-    "right"
-  )
+  ltr_flanking$strand_erv == "+",
+  ifelse(start(ltr_flanking) <= ltr_flanking$start_erv + .ltr_flank_margin, "left", "right"),
+  ifelse(end(ltr_flanking)   >= ltr_flanking$end_erv   - .ltr_flank_margin, "left", "right")
 )
 
 # Step 5: Assign ID based on ERV and LTR side
