@@ -322,11 +322,15 @@ rule species_segmenter:
 
 rule ranges_analysis_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES_POST),
-        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                                 genome=SPECIES_POST),
-        ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=SPECIES_POST)
+        # Per-genome scoping (A4): each invocation of this rule needs only
+        # one species's fasta, segmented parquet, and ltrdigest GFF3 — the R
+        # script reads exactly those three per run. The pre-refactor
+        # expand(...) across SPECIES_POST blocked per-species parallelism
+        # and demanded every species' files before ANY genome's ranges-analysis
+        # could run.
+        original_fasta    = os.path.join(defaults.PATH_DICT['SPECIES_DB'],           '{genome}.fa'),
+        species_segmented = os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],'{genome}.parquet'),
+        ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3')
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
