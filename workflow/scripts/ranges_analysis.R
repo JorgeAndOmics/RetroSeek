@@ -96,6 +96,33 @@ agg_strict_marker    <- agg$strict_marker    %||% "ambiguous"
 # Bind the closure once at startup from config; reused at every call site.
 pick_tiebreaker <- make_tiebreaker_picker(agg_best_tiebreaker)
 
+#' Classify a probe (scalar or CharacterList) as main / accessory / mixed.
+#'
+#' Called per-row on a reduced GRanges' probe column. Handles all three
+#' aggregation output shapes:
+#'   - atomic character scalar        (best / first / strict / majority / concatenate)
+#'   - CharacterList of length 1      (list strategy — typical case)
+#'   - delimited string "POL; GAG"    (concatenate strategy — legacy)
+#'
+#' @param probe_col The probe mcols column from a GRanges.
+#' @param main_set  Character vector of probe names classified as main.
+#' @param separator Separator used when probe_col is a concatenated string.
+classify_probe_category <- function(probe_col, main_set, separator = "; ") {
+  vapply(seq_along(probe_col), function(i) {
+    probes <- if (inherits(probe_col, "CharacterList")) {
+      as.character(probe_col[[i]])
+    } else {
+      strsplit(as.character(probe_col[[i]]), separator, fixed = TRUE)[[1]]
+    }
+    probes <- probes[nzchar(probes)]
+    if (length(probes) == 0L) return(NA_character_)
+    in_main <- probes %in% main_set
+    if (all(in_main))   return("main")
+    if (!any(in_main))  return("accessory")
+    "mixed"
+  }, character(1))
+}
+
 # -----------------------------
 # 4. DETERMINE FILE TYPE
 # -----------------------------
@@ -641,6 +668,25 @@ track_exporter <- function(track, path) {
     writeLines("##gff-version 3", con = path)
   }
 }
+
+# Attach probe_category (main | accessory | mixed) to every probe-bearing
+# track before export. "mixed" only arises when a merged range's probe
+# contributors span both categories — impossible under best/first/strict
+# aggregation strategies, possible under list/concatenate/majority.
+attach_probe_category <- function(track) {
+  if (length(track) == 0L || !"probe" %in% names(mcols(track))) return(track)
+  mcols(track)$probe_category <- classify_probe_category(
+    mcols(track)$probe, main_set = main_probes, separator = agg_concat_separator
+  )
+  track
+}
+
+gr_virus                 <- attach_probe_category(gr_virus)
+named_reduced_gr         <- attach_probe_category(named_reduced_gr)
+ltr_valid_hits           <- attach_probe_category(ltr_valid_hits)
+ltr_valid_hits_reduced   <- attach_probe_category(ltr_valid_hits_reduced)
+domain_valid_hits        <- attach_probe_category(domain_valid_hits)
+domain_valid_hits_reduced <- attach_probe_category(domain_valid_hits_reduced)
 
 track_exporter(gr_virus,               args$original_ranges)
 track_exporter(named_reduced_gr,       args$original_ranges_reduced)
