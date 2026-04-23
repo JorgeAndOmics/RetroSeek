@@ -101,6 +101,14 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--solo-ltr-detection',
+        action='store_true',
+        help='Run LTR_retriever over LTRharvest output (pre-filtered by valid_ranges), '
+             'annotate the resulting solo LTRs with probe labels from RetroSeek, and '
+             'compute per-family solo/intact ratios.'
+    )
+
+    parser.add_argument(
         '-skp',
         '--skip_validation',
         action='store_true',
@@ -160,6 +168,9 @@ if __name__ == '__main__':
 
     if args.pair_detection:
         main_cmd.append('--pair-detection')
+
+    if args.solo_ltr_detection:
+        main_cmd.append('--solo-ltr-detection')
 
     if unknown:
         main_cmd.extend(unknown)
