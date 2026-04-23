@@ -330,7 +330,11 @@ rule ranges_analysis_setup:
         # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
         # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-        plot_dataframe=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet')
+        plot_dataframe=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+        manifest=os.path.join(defaults.PATH_DICT['TABLE_MANIFEST_DIR'],'{genome}.yaml'),
+        original_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.bed'),
+        candidate_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.bed'),
+        valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
@@ -345,6 +349,7 @@ rule ranges_analysis_setup:
         solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
+        manifest_dir=defaults.PATH_DICT['TABLE_MANIFEST_DIR'],
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
     shell:
@@ -364,7 +369,8 @@ rule ranges_analysis_setup:
         --solo_ltr_ranges {params.solo_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}.csv \
-        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet
+        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet \
+        --manifest {params.manifest_dir:q}/{wildcards.genome:q}.yaml
         '''
 
 

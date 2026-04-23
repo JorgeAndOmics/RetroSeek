@@ -55,8 +55,41 @@ parser$add_argument("--solo_ltr_ranges", required=FALSE, help="GFF3 output: solo
 parser$add_argument("--flanking_ltr_ranges", required=FALSE, help="GFF3 output: flanking LTRs")
 parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
 parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for plotting")
+parser$add_argument("--manifest", required=FALSE, help="YAML manifest of inputs, config, counts, outputs, tool versions")
 
 args <- parser$parse_args()
+
+# -----------------------------
+# 2B. PIPELINE INSTRUMENTATION
+# -----------------------------
+# Per-section timing + running record of counts for the manifest emission at
+# the end of the run. Minimal overhead; informative in logs.
+.pipeline_t0 <- Sys.time()
+.pipeline_stages <- list()
+log_section <- function(name) {
+  elapsed <- as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs"))
+  message(sprintf("[%6.2fs] ▶ %s", elapsed, name))
+}
+record_count <- function(key, value) {
+  .pipeline_stages[[key]] <<- value
+}
+
+# Short generator version string — best-effort git short SHA, else "unknown".
+.generator_version <- tryCatch(
+  suppressWarnings(
+    system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE, stderr = FALSE)
+  ),
+  error = function(e) "unknown"
+)
+.generator_version <- if (length(.generator_version) == 1L && nzchar(.generator_version))
+  paste0("RetroSeek/", .generator_version) else "RetroSeek/unknown"
+
+# File-content hashes (md5 via stdlib) used in the manifest — enables
+# reproducibility verification without pulling in the `digest` package.
+.file_md5 <- function(path) {
+  if (is.null(path) || !file.exists(path)) return(NA_character_)
+  tryCatch(unname(tools::md5sum(path)), error = function(e) NA_character_)
+}
 
 # Print which tBLASTn file is being processed
 message(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
@@ -132,14 +165,18 @@ is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 # -----------------------------
 # 5. LOAD FASTA AND CHR LENGTHS
 # -----------------------------
+log_section("Loading FASTA and chromosome lengths")
 fa_file <- Biostrings::readDNAStringSet(args$fasta)
 chrom_lengths <- setNames(width(fa_file), names(fa_file))
 
 # -----------------------------
 # 6. LOAD INPUT FILES
 # -----------------------------
+log_section("Loading BLAST parquet and LTRdigest GFF3")
 data <- arrow::read_parquet(args$blast)
 ltr_data <- rtracklayer::import(args$ltrdigest, format = "gff3")
+record_count("raw_blast_hits", nrow(data))
+record_count("ltrdigest_features", length(ltr_data))
 
 # -----------------------------
 # 6B. PROBE METADATA (for query_coverage calculation)
@@ -176,11 +213,15 @@ mcols(gr)$query_end    <- data$hsp_query_end
 # -----------------------------
 # 8. FILTER LOW-QUALITY RANGES
 # -----------------------------
+log_section("Filtering low-quality hits")
+.pre_filter_n <- length(gr)
 gr <- gr %>% filter(
   width(.) > ifelse(!is.na(probe_min_length[as.character(probe)]), probe_min_length[as.character(probe)], 0),
   bitscore > bitscore_threshold,
   identity > identity_threshold
 )
+record_count("filtered_blast_hits", length(gr))
+message(sprintf("   %d of %d hits kept", length(gr), .pre_filter_n))
 
 # -----------------------------
 # 9. ADD SEQUENCE METADATA
@@ -191,6 +232,7 @@ seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
 # -----------------------------
 # 10. REDUCE BY PROBE + GAP WIDTH
 # -----------------------------
+log_section("Reducing by probe (+ virus / label) via plyranges")
 gap_vals <- ifelse(!is.na(probe_min_length[as.character(gr$probe)]), probe_min_length[as.character(gr$probe)], 0)
 mcols(gr)$min_gapwidth <- gap_vals
 gr_list <- split(gr, ~ probe)
@@ -255,6 +297,7 @@ if (merge_options == "label") {
 # -----------------------------
 # 11. GLOBAL REDUCTION ACROSS PROBES
 # -----------------------------
+log_section("Global reduction across probes")
 reducing.gr <- function(gr) {
   gr %>%
     group_by(probe) %>%
@@ -292,6 +335,7 @@ named_reduced_gr <- reduced_gr %>% group_by(probe) %>% mutate(ID = paste0(probe,
 # -----------------------------
 # 12. PROCESS LTR RETRO ELEMENTS
 # -----------------------------
+log_section("Processing LTR retrotransposons + domain assignment")
 ltr_retro <- ltr_data %>% filter(type == "repeat_region")
 flank_resize <- as.numeric(ltr_resize)
 ltr_retro <- ltr_retro %>% resize(width = width(ltr_retro) + flank_resize, fix = "center")
@@ -403,6 +447,7 @@ if (length(ltr_flanking) > 0) {
 # -----------------------------
 # 14. OVERLAP DETECTION: tBLASTn vs. LTRs
 # -----------------------------
+log_section("Overlap detection: tBLASTn vs LTRs")
 
 # Compute overlaps between tBLASTn hits and LTR retrotransposons
 ov.B2L <- findOverlaps(named_reduced_gr, ltr_retro)
@@ -544,6 +589,7 @@ plot_df <- plot_df %>%
 # -----------------------------
 # 20. IDENTIFY VALID tBLASTn HITS
 # -----------------------------
+log_section("Identifying valid (LTR-overlapping) tBLASTn hits")
 
 # Candidate hits are those overlapping LTR regions
 ltr_valid_hits <- gr_virus[queryHits(ov.B2L.virus)] %>% arrange(start)
@@ -553,6 +599,7 @@ ltr_valid_hits_reduced <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
 # -----------------------------
 # 21. OPTIONAL DOMAIN VALIDATION
 # -----------------------------
+log_section("Domain validation (join_overlap_inner_directed cascade)")
 
 domain_valid_hits <- gr_virus %>%
   
@@ -659,14 +706,52 @@ domain_valid_hits_reduced <- gr %>%
 # -----------------------------
 # 22. EXPORT OUTPUT FILES
 # -----------------------------
-# Export GRanges in GFF3 format. If empty GRanges, it will create a GFF3 file with only the header.
+log_section("Exporting tracks, plot dataframe, overlap matrix")
 
+# GFF3 exporter. Empty GRanges produce a header-only file to satisfy Snakemake.
+# Provenance line added so every output is traceable to a generator version.
 track_exporter <- function(track, path) {
   if (length(track) > 0) {
     rtracklayer::export(track, path, format = "gff3")
+    # Inject a ##source-version pragma on the second line so downstream
+    # consumers can identify the generator that produced this file.
+    src <- sprintf("##source-version %s (%s)",
+                   .generator_version, format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ"))
+    lines <- readLines(path, warn = FALSE)
+    writeLines(c(lines[1], src, lines[-1]), con = path)
   } else {
-    writeLines("##gff-version 3", con = path)
+    writeLines(c("##gff-version 3",
+                 sprintf("##source-version %s", .generator_version)), con = path)
   }
+}
+
+# BED6 export (name, score, strand) alongside every reduced GFF3. The reduced
+# tracks are the typical genome-browser input; BED is lighter and handled by
+# IGV / UCSC / JBrowse without configuration. Original (per-hit) tracks stay
+# GFF3-only — they're detail, not overview.
+bed_exporter <- function(track, path) {
+  if (length(track) == 0L) {
+    writeLines("", con = path)
+    return(invisible(NULL))
+  }
+  # Coerce the name column for BED — prefer ID, then probe, then seqnames.
+  mcols_names <- names(mcols(track))
+  name_col <- if ("ID" %in% mcols_names) as.character(mcols(track)$ID)
+              else if ("probe" %in% mcols_names) as.character(mcols(track)$probe)
+              else as.character(seqnames(track))
+  # Score field in BED6 is 0-1000; repurpose max_bitscore capped at 1000.
+  score_col <- if ("max_bitscore" %in% mcols_names)
+    pmin(1000L, as.integer(mcols(track)$max_bitscore)) else rep(0L, length(track))
+  bed <- data.frame(
+    chrom      = as.character(seqnames(track)),
+    chromStart = start(track) - 1L,  # BED is 0-based
+    chromEnd   = end(track),
+    name       = name_col,
+    score      = score_col,
+    strand     = as.character(strand(track))
+  )
+  write.table(bed, file = path, sep = "\t",
+              quote = FALSE, row.names = FALSE, col.names = FALSE)
 }
 
 # Attach probe_category (main | accessory | mixed) to every probe-bearing
@@ -688,23 +773,106 @@ ltr_valid_hits_reduced   <- attach_probe_category(ltr_valid_hits_reduced)
 domain_valid_hits        <- attach_probe_category(domain_valid_hits)
 domain_valid_hits_reduced <- attach_probe_category(domain_valid_hits_reduced)
 
-track_exporter(gr_virus,               args$original_ranges)
-track_exporter(named_reduced_gr,       args$original_ranges_reduced)
+track_exporter(gr_virus,                  args$original_ranges)
+track_exporter(named_reduced_gr,          args$original_ranges_reduced)
+bed_exporter(named_reduced_gr,            sub("\\.gff3$", ".bed", args$original_ranges_reduced))
 
-track_exporter(ltr_valid_hits,         args$candidate_ranges)
-track_exporter(ltr_valid_hits_reduced, args$candidate_ranges_reduced)
+track_exporter(ltr_valid_hits,            args$candidate_ranges)
+track_exporter(ltr_valid_hits_reduced,    args$candidate_ranges_reduced)
+bed_exporter(ltr_valid_hits_reduced,      sub("\\.gff3$", ".bed", args$candidate_ranges_reduced))
 
-track_exporter(domain_valid_hits,      args$valid_ranges)
+track_exporter(domain_valid_hits,         args$valid_ranges)
 track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
+bed_exporter(domain_valid_hits_reduced,   sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
 
 track_exporter(solo_ltr, args$solo_ltr_ranges)
 track_exporter(ltr_flanking, args$flanking_ltr_ranges)
 
-# Export plotting data as a single parquet per genome. The pre-refactor
-# three-file fanout (_main / _accessory / full) is collapsed into a
-# probe_type column on plot_df so downstream plotters filter rather than
-# glob by filename.
-arrow::write_parquet(plot_df, args$plot_dataframe)
+# Record final tallies for the manifest.
+record_count("reduced_original_ranges",  length(named_reduced_gr))
+record_count("candidate_ranges",         length(ltr_valid_hits))
+record_count("reduced_candidate_ranges", length(ltr_valid_hits_reduced))
+record_count("valid_ranges",             length(domain_valid_hits))
+record_count("reduced_valid_ranges",     length(domain_valid_hits_reduced))
+record_count("flanking_ltrs",            length(ltr_flanking))
 
-# Export overlap summary matrix
+# Export plotting data as a single parquet per genome. Provenance metadata is
+# attached to the parquet schema so downstream readers can trace back to the
+# generator + config + run timestamp.
+plot_df_table <- arrow::as_arrow_table(plot_df)
+plot_df_table$metadata <- list(
+  generator          = .generator_version,
+  run_timestamp_utc  = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ"),
+  config_file        = normalizePath(args$config, mustWork = FALSE),
+  config_md5         = .file_md5(args$config),
+  aggregation_probe  = agg_probe,
+  aggregation_virus  = agg_virus,
+  aggregation_label  = agg_label
+)
+arrow::write_parquet(plot_df_table, args$plot_dataframe)
+
+# Export overlap summary matrix.
 write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
+
+# -----------------------------
+# 23. MANIFEST EMISSION
+# -----------------------------
+# Writes a per-genome YAML manifest summarising inputs, config, stage counts,
+# outputs, and tool versions. Useful for downstream audit + bisecting which
+# run produced a given set of results.
+if (!is.null(args$manifest)) {
+  log_section("Writing manifest")
+  .manifest <- list(
+    generator = .generator_version,
+    run = list(
+      started_utc  = format(.pipeline_t0, "%Y-%m-%dT%H:%M:%SZ"),
+      ended_utc    = format(Sys.time(),   "%Y-%m-%dT%H:%M:%SZ"),
+      elapsed_seconds = round(as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs")), 2)
+    ),
+    inputs = list(
+      fasta      = list(path = args$fasta,     md5 = .file_md5(args$fasta)),
+      blast      = list(path = args$blast,     md5 = .file_md5(args$blast)),
+      ltrdigest  = list(path = args$ltrdigest, md5 = .file_md5(args$ltrdigest)),
+      probes     = list(path = args$probes,    md5 = .file_md5(args$probes)),
+      config     = list(path = args$config,    md5 = .file_md5(args$config))
+    ),
+    config_snapshot = list(
+      aggregation      = config$parameters$aggregation,
+      thresholds = list(
+        bitscore_threshold = bitscore_threshold,
+        identity_threshold = identity_threshold,
+        ltr_resize         = ltr_resize
+      ),
+      merge_option     = merge_options,
+      main_probes      = main_probes,
+      probe_min_length = as.list(probe_min_length)
+    ),
+    counts = .pipeline_stages,
+    outputs = list(
+      original_ranges             = args$original_ranges,
+      original_ranges_reduced     = args$original_ranges_reduced,
+      original_ranges_reduced_bed = sub("\\.gff3$", ".bed", args$original_ranges_reduced),
+      candidate_ranges            = args$candidate_ranges,
+      candidate_ranges_reduced    = args$candidate_ranges_reduced,
+      candidate_ranges_reduced_bed= sub("\\.gff3$", ".bed", args$candidate_ranges_reduced),
+      valid_ranges                = args$valid_ranges,
+      valid_ranges_reduced        = args$valid_ranges_reduced,
+      valid_ranges_reduced_bed    = sub("\\.gff3$", ".bed", args$valid_ranges_reduced),
+      flanking_ltr_ranges         = args$flanking_ltr_ranges,
+      overlap_matrix              = args$overlap_matrix,
+      plot_dataframe              = args$plot_dataframe
+    ),
+    r_versions = list(
+      R              = paste(R.version$major, R.version$minor, sep = "."),
+      GenomicRanges  = as.character(packageVersion("GenomicRanges")),
+      plyranges      = as.character(packageVersion("plyranges")),
+      rtracklayer    = as.character(packageVersion("rtracklayer")),
+      arrow          = as.character(packageVersion("arrow")),
+      Biostrings     = as.character(packageVersion("Biostrings"))
+    )
+  )
+  yaml::write_yaml(.manifest, args$manifest)
+}
+
+log_section(sprintf("Done — total runtime %.2fs",
+                    as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs"))))

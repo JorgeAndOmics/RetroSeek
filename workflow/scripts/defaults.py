@@ -67,6 +67,7 @@ PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'overla
 PATH_DICT['SEGMENTED_SPECIES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'segmented_species').resolve()
 PATH_DICT['PLOT_DATAFRAMES_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'plot_dataframes').resolve()
 PATH_DICT['TABLE_PAIR_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'probe_pairs').resolve()
+PATH_DICT['TABLE_MANIFEST_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'manifest').resolve()
 
 # === Results - Plots ===
 PATH_DICT['PLOT_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'plots').resolve()
