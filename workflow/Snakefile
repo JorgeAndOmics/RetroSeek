@@ -330,9 +330,7 @@ rule ranges_analysis_setup:
         # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
         # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-        plot_dataframes_full=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-        plot_dataframes_main=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet'),
-        plot_dataframes_accessory=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
+        plot_dataframe=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
@@ -390,15 +388,13 @@ rule ranges_analysis:
         #                         genome=SPECIES),
         overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
                               genome=SPECIES_POST),
-        plot_dataframes_full=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-                               genome=SPECIES_POST),
-        plot_dataframes_suffixed=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
-                                 genome=SPECIES_POST, suffix=['_main','_accessory'])
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+                               genome=SPECIES_POST)
 
 rule plot_generator_setup:
     input:
-        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
-                               genome=SPECIES_POST, suffix=['_main','_accessory'])
+        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+                               genome=SPECIES_POST)
     output:
         density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
