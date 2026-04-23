@@ -95,6 +95,21 @@ Separate block for solo-LTR probe-label propagation (produced by the LTR_retriev
 - **`strict`** — pick this when you want to flag ambiguity explicitly; useful for high-confidence result tables.
 - **`first`** — mostly for testing/comparison; rarely the right production choice.
 
+## `ltr_retriever`
+
+Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr.md) for the full mechanism (how LTR_retriever works end-to-end, what "family" means, how the pre-filter + label-propagation couplings with RetroSeek work, and the biology of solo LTRs) and [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md) for the pre-filter decision rationale.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `substitution_rate` | number ≥ 0 | `1.3e-8` | bp substitutions per site per year used by LTR_retriever for age estimation. Mammals: `1.3e-8`; plants: `7e-9`. Does not affect solo-LTR detection sensitivity — only age annotations. |
+| `min_ltr_similarity` | number 0–100 | `91` | LTR pair similarity floor (percent) for LTR_retriever's intact-ERV filter (`-miniden` flag). |
+| `threads_per_genome` | int ≥ 1 | `4` | CPU threads per-genome LTR_retriever invocation. |
+| `noanno` | bool | `true` | Skip LTR_retriever's internal TE-library annotation (`-noanno` flag). RetroSeek has its own probe-based classification. |
+| `restrict_to_retroviral` | bool | `true` | **Coupling A toggle.** Pre-filter LTRharvest SCN by intersecting with `valid_ranges.gff3` before LTR_retriever sees it. Guarantees LTR_retriever builds retroviral-only consensus families. Setting `false` runs LTR_retriever on the unfiltered LTRharvest output. |
+| `nearest_erv_max_distance` | int ≥ 0 | `10000` | Bp window for the solo-LTR → valid-ERV **nearest-ERV fallback** in Coupling B's label-propagation. Only used when the primary consensus-family path yields no labels for a given solo LTR. |
+
+Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
+
 ## `logging`
 
 `level_styles` and `field_styles` are passed through to `coloredlogs`. See `coloredlogs.install()` documentation for accepted style dicts. Keys: `color`, `bold`, `background`.

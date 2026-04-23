@@ -12,6 +12,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 |-------|-----------------------------------------------------------------------|----------|
 | 001   | [Single conda/mamba env instead of per-rule `--use-conda`](ADR-001-single-mamba-env.md) | Accepted |
 | 002   | [Configurable metadata aggregation strategies](ADR-002-aggregation-strategies.md) | Accepted |
+| 003   | [Retroviral-only pre-filter for LTR_retriever](ADR-003-ltr-retriever-pre-filter.md) | Accepted |
 
 ## When to write a new ADR
 

@@ -52,14 +52,16 @@ All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand
 **LTR discovery** — `ltr_harvester`, `ltr_digester` (depends on both LTR_harvest outputs and the Pfam HMM download).
 **BLAST search** — `probe_extractor`, `full_genome_blaster`, `blast_pkl2parquet`.
 **Integration & segmentation** — `species_segmenter`, `ranges_analysis`.
+**Solo-LTR detection** — `ltr_retriever_prefilter`, `ltr_retriever`, `solo_ltr_integrator`, `solo_ltr_detector` (aggregate). Runs LTR_retriever over LTRharvest output pre-filtered by `valid_ranges.gff3`; propagates RetroSeek probe labels onto discovered solo LTRs. See [`docs/solo_ltr.md`](solo_ltr.md) for the full mechanism and [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md) for the pre-filter rationale.
 **Downstream analyses** — `plot_generator`, `circle_plot_generator`, `hotspot_detector`, `pair_detector`.
 
 ## Outputs
 
-- `results/tracks/` — GFF3 per stage (`original`, `candidate`, `valid`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`), each with a `_reduced` variant (merged overlapping ranges).
-- `results/tables/` — overlap matrices, plot dataframes (Parquet), probe-pair tables, segmented species data.
+- `results/tracks/` — GFF3 per stage (`original`, `candidate`, `valid`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`, `ltr_retriever/`), each with a `_reduced` variant (merged overlapping ranges) where applicable. `solo_ltr/{genome}.gff3` carries probe_labels propagated from valid ERVs (see `docs/solo_ltr.md`).
+- `results/tables/` — overlap matrices, plot dataframes (Parquet), probe-pair tables, segmented species data, solo/intact ratios (`solo_intact_ratio/{genome}.csv` + `all_species.csv`).
 - `results/plots/` — density, raincloud, bar, Sankey, balloon, Circos-style PNG + PDF.
 - `results/hotspots/` — CSV + GFF3 + PDFs (histogram / density / heatmap).
+- `data/ltr_scn/` — LTRharvest screen-format intermediates (`{genome}.scn` + `{genome}.retroviral.scn`); consumed by LTR_retriever.
 
 ## Key configuration
 
