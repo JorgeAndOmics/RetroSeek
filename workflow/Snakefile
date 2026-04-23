@@ -484,6 +484,68 @@ rule ltr_retriever:
         )
 
 
+# Integrate LTR_retriever output with RetroSeek's valid_ranges (Coupling B).
+# Emits the final annotated solo-LTR GFF3 + per-genome solo/intact ratio CSV.
+rule solo_ltr_integrator_setup:
+    input:
+        nmtf         = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+        ltr_library  = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
+        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],   '{genome}.gff3')
+    output:
+        solo_ltr_gff3 = os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],          '{genome}.gff3'),
+        ratio_csv     = os.path.join(defaults.PATH_DICT['TABLE_SOLO_INTACT_DIR'], '{genome}.csv')
+    params:
+        nearest_distance = config['ltr_retriever'].get('nearest_erv_max_distance', 10000)
+    threads: 1
+    shell:
+        '''
+        python scripts/solo_ltr_integrator.py \
+            --nmtf-pass-list {input.nmtf:q} \
+            --ltr-library {input.ltr_library:q} \
+            --valid-ranges {input.valid_ranges:q} \
+            --genome {wildcards.genome:q} \
+            --output-gff3 {output.solo_ltr_gff3:q} \
+            --output-ratio-csv {output.ratio_csv:q} \
+            --nearest-erv-max-distance {params.nearest_distance}
+        '''
+
+
+# Aggregate per-genome ratio CSVs into all_species.csv via an inline pandas
+# concat. Tiny helper — not worth its own script.
+rule solo_intact_ratio_aggregate:
+    input:
+        per_genome = expand(
+            os.path.join(defaults.PATH_DICT['TABLE_SOLO_INTACT_DIR'], '{genome}.csv'),
+            genome=SPECIES_POST
+        )
+    output:
+        all_species = os.path.join(defaults.PATH_DICT['TABLE_SOLO_INTACT_DIR'], 'all_species.csv')
+    threads: 1
+    run:
+        import pandas as pd
+        frames = [pd.read_csv(p) for p in input.per_genome]
+        if frames:
+            combined = pd.concat(frames, ignore_index=True)
+        else:
+            combined = pd.DataFrame(
+                columns=['species', 'probe_family', 'label_mode',
+                         'intact_count', 'solo_count', 'total_integrations',
+                         'solo_to_intact_ratio', 'solo_fraction']
+            )
+        combined.to_csv(output.all_species, index=False)
+
+
+# Top-level aggregate — the CLI target. Demands every per-genome GFF3 + the
+# aggregate CSV, triggering the whole LTR_retriever chain transitively.
+rule solo_ltr_detector:
+    input:
+        solo_gff3 = expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'], '{genome}.gff3'),
+            genome=SPECIES_POST
+        ),
+        all_species = rules.solo_intact_ratio_aggregate.output.all_species
+
+
 rule plot_generator_setup:
     input:
         plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),

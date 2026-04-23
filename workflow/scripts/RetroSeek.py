@@ -181,6 +181,15 @@ def cli_entry() -> None:
     )
 
     parser.add_argument(
+        '--solo-ltr-detection',
+        action='store_true',
+        help='Solo-LTR detection via LTR_retriever; retroviral-only pre-filter '
+             'via valid_ranges; multi-label probe-label propagation; emits '
+             'solo_ltr/{genome}.gff3 + solo_intact_ratio/{genome}.csv + '
+             'solo_intact_ratio/all_species.csv.'
+    )
+
+    parser.add_argument(
         '--skip-validation', '-skp',
         action='store_true',
         help='Skip input validation.'
@@ -284,6 +293,12 @@ def cli_entry() -> None:
 
         if args.pair_detection:
             run_snakemake_rule('pair_detector',
+                               num_cores=defaults.NUM_CORES,
+                               display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                               snakemake_flags=unknown)
+
+        if args.solo_ltr_detection:
+            run_snakemake_rule('solo_ltr_detector',
                                num_cores=defaults.NUM_CORES,
                                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                                snakemake_flags=unknown)
