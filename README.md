@@ -1,189 +1,140 @@
-
-
 [![portfolio](https://img.shields.io/badge/my_portfolio-000?style=for-the-badge&logo=ko-fi&logoColor=white)](https://github.com/JorgeAndOmics?tab=repositories)
 [![linkedin](https://img.shields.io/badge/linkedin-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jorge-gonzalez-garcia/)
 
-
-
 ![Logo](https://i.postimg.cc/Vs3JLfVM/High-Resolution-Color-Logo-cropped.png)
-![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white) ![R](https://img.shields.io/badge/R-4.x-blue?logo=r&logoColor=white) ![Bioconductor](https://img.shields.io/badge/Bioconductor-R%20ecosystem-lightgrey?logo=r&logoColor=white) ![NCBI](https://img.shields.io/badge/NCBI-Entrez%20%26%20Datasets-lightblue) ![Bash](https://img.shields.io/badge/Bash-Scripting-green?logo=gnubash&logoColor=white)
+
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![R](https://img.shields.io/badge/R-4.3-blue?logo=r&logoColor=white)
+![Snakemake](https://img.shields.io/badge/Snakemake-8%2B-brightgreen)
+![Bioconductor](https://img.shields.io/badge/Bioconductor-R%20ecosystem-lightgrey?logo=r&logoColor=white)
+![NCBI](https://img.shields.io/badge/NCBI-Entrez%20%26%20Datasets-lightblue)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 # RetroSeek
 
-**RetroSeek** is an end-to-end computational pipeline designed to detect,
-categorize and annotate specified ERV integrations in genome assemblies. Built upon the Snakemake
-workflow management system, it is designed with a strong emphasis on parallelization, modularity,
-resilience, and reproducibility, enabling the efficient and scalable identification of an user-defined set
-of proviral sequences across an arbitrarily large number of host genomes in parallel.
+**RetroSeek** is an end-to-end Snakemake pipeline that detects, categorises, and annotates endogenous retroviral (ERV) integrations across arbitrarily many host genomes in parallel. It combines configurable homology search (BLAST+), *de novo* LTR discovery with domain profiling (GenomeTools + Pfam), and R-based range analysis, producing publication-ready tracks, tables, and figures.
 
-**RetroSeek** allows for the automated download, verification, indexing and database generation of the
-selected host genomes. Then, it leverages a configurable homology-based search via the **BLAST+**
-suite with *de novo* LTR search and HMM domain profiling and analysis via **GenomeTools**. This
-integrated strategy enables the identification of high confidence proviral sequence candidates by
-reconciling multiple evidence layers, ensuring robust consensus across host genomes.
+Built for reproducibility, resilience, and scalable execution on workstations, HPC clusters, and cloud environments.
+
+## Quick start
+
+```bash
+# 1. Clone
+git clone https://github.com/JorgeAndOmics/enERVate.git
+cd enERVate
+
+# 2. Create and activate the conda/mamba env (single env, all deps)
+make env
+conda activate retroseek
+
+# 3. Edit config and input
+#    - data/config/config.yaml         (pipeline parameters)
+#    - <your probe CSV>                (path goes into config.input.probe_csv)
+
+# 4. Run any stage via the CLI
+./RetroSeek --probe-extractor
+./RetroSeek --blast --cores all
+./RetroSeek --ranges-analysis --cores all --skip-validation
+```
+
+See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/architecture.md`](docs/architecture.md) for the pipeline design, and [`docs/development.md`](docs/development.md) for contributor setup.
 
 ## Features
 
-- Seamless data acquisition through automated genome downloads, database generation and serialised file handling.
+- Automated genome acquisition via NCBI Datasets, with BLAST database and GenomeTools suffix-array generation per genome.
+- Configurable homology-based search via BLAST+ and *de novo* LTR discovery via LTRharvest / LTRdigest, reconciled into high-confidence ERV candidate tracks.
+- Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (regioneR permutations), and probe-pair tables.
+- Publication-ready plots: density, raincloud, bar, Sankey, balloon, per-genome Circos-style visualisations.
+- Structured, colour-coded logging for audit.
+- Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
+- Intuitive CLI delegating to Snakemake — resume from checkpoints after interruption, compose with any Snakemake flag.
 
-- Highly configurable to support diverse experimental designs. Run arbitrary Snakemake commands on top of your queries.
+## Requirements
 
-- End-to-end automation for proviral sequence retrieval and parsing.
+- **Mamba** (recommended) or **Conda**. No other system deps — the env provides BLAST+, GenomeTools, NCBI Datasets, Python 3.10, R 4.3, Bioconductor, and all libraries.
+- A valid **email address for the NCBI Entrez API**, set under `execution.entrez_email` in `config.yaml` (required by NCBI ToS).
+- Optional: an [NCBI API key](https://support.nlm.nih.gov/kbArticle/?pn=KA-05317) for faster remote queries.
 
-- Scalable execution across any environment using Snakemake's dynamic workflow engine.
+## CLI
 
-- Rich, structured logging system to aid in auditing.
-
-- Modular, extensible codebase designed for easy integration, adaptation and reproducibility.
-
-- Intuitive command-line interface optimized for usability.
-
-- Extensive, richly annotated output files in FASTA, GFF3 and tabular formats.
-
-- Integrated, publication-ready reporting with comprehensive visual outputs.
-
-
-## Installation
-
-To set up and run RetroSeek, follow these steps:
-
-1. **Download RetroSeek**: Obtain the latest version from the [Releases](#) section.
-
-2. **Install Dependencies**: RetroSeek requires the following tools installed on your host system:
-   - [BLAST+ (version 2.12 or higher)](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html)
-   - [Genometools](https://genometools.org/)
-   - [NCBI Datasets](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/command-line-tools/download-and-install/)
-
-3. **Create Conda Environment**: After installing the dependencies, set up a new Conda environment using the provided `RetroSeek.yaml` file located in `data/config`:
-
-```bash
-conda env create -f data/config/RetroSeek.yaml
+```
+./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
 ```
 
-**Note**: Miniconda is recommended for optimal compatibility. However, you may use Mamba as a faster and more streamlined alternative for managing Conda environments.
+Stage flags (one per invocation, or chain stages by running again):
 
-4. **Configure RetroSeek**: Edit the `config.yaml` file located in `data/config` to match your specific research requirements and pipeline settings.
+| Flag                        | Stage                                                    |
+|-----------------------------|----------------------------------------------------------|
+| `--download-genomes`        | Download genomes via NCBI Datasets                       |
+| `--download-hmm`            | Fetch and verify the Pfam HMM database                   |
+| `--blast-dbs`               | Build BLAST nucleotide DBs per genome                    |
+| `--suffix-arrays`           | Build GenomeTools suffix arrays per genome               |
+| `--ltr-candidates`          | LTRharvest candidate discovery                           |
+| `--ltr-domains`             | LTRdigest domain annotation                              |
+| `--probe-extractor`         | Parse probe CSV and fetch probe sequences via Entrez     |
+| `--blast`                   | tBLASTn probes against each genome                       |
+| `--ranges-analysis`         | Integrate BLAST + LTR → GFF3 tracks + tables             |
+| `--generate-global-plots`   | Density / raincloud / bar / Sankey / balloon plots       |
+| `--generate-circle-plots`   | Per-genome Circos-style plots                            |
+| `--hotspot-detection`       | Permutation-based hotspot analysis                       |
+| `--pair-detection`          | Probe-pair (e.g. GAG–ENV) detection per species          |
+| `-skp`, `--skip-validation` | Skip pre-run validation (debug use)                      |
 
-5. **Prepare Input Data**: Update the input CSV file (default location: `data/tables`) with the proviral sequences you intend to search against genomic databases. A template file is provided for your convenience. Additionally, if you prefer not to have RetroSeek automatically download genome FASTA files, you can supply your own custom FASTA files. Use the species dictionary within `config.yaml` to map accession codes to descriptive names, as these will appear in output data and visualizations.
+Any additional arguments are forwarded to Snakemake (e.g., `--cores`, `--profile`, `--keep-going`, `--latency-wait`).
 
-6. **Execute RetroSeek**: RetroSeek automatically validates all input files (configuration, input CSV, proviral sequence accessions, FASTA files and dependencies) by default, prompting the user before initiating the pipeline run.
+## Examples
 
-
-
-    
-## Environment Variables
-
-To enhance performance when downloading data from NCBI, you may optionally provide an NCBI API key. This significantly increases the request rate limit for NCBI services, leading to faster downloads. Instructions for obtaining an API key can be found in the [NCBI documentation](https://support.nlm.nih.gov/kbArticle/?pn=KA-05317).
-
-When launching the pipeline, RetroSeek will prompt you to enter your API key unless input validation is explicitly skipped using `--skip_validation` or `-skp`. The token only needs to be provided once per session. Your API key is sensitive and should not be shared or exposed under any circumstances.
-
-Additionally, it is **mandatory** to provide a valid email address under the `entrez_email` field in your `config.yaml` file. This is required by NCBI’s Entrez API for responsible use and must be present for any remote queries.
-## Usage
-
-RetroSeek is executed from the command line, offering fine-grained control over each stage of the pipeline. Navigate to the project root and run:
-
-```bash
-./RetroSeek
-```
-
-### Command-Line Arguments
-
-- `--download_genomes`: Download genomes as specified in `config.yaml`. Skips already present files in the target directory.
-- `--download_hmm`: Retrieve and configure domain HMM databases.
-- `--suffix_arrays`: Generate suffix arrays for all genomes using GenomeTools.
-- `--ltr_candidates`: Detect LTR candidates via LTRHarvest.
-- `--ltr_domains`: Annotate LTR candidates with domain data using LTRDigest.
-- `--blast_dbs`: Create BLAST databases from genome FASTA files.
-- `--probe_extractor`: Parse the input CSV and extract proviral sequences using NCBI accession IDs.
-- `--blast`: Execute tBLASTn searches of input sequences against genome databases.
-- `--ranges_analysis`: Integrate BLAST and LTR results into annotated genomic ranges.
-- `--generate_global_plots`: Produce analytical plots summarizing key results.
-- `--generate_circle_plots`: Generate circular genome visualizations per species.
-- `--hotspot_detection`: Identify ERV hotspots within the genomes.
-- `--pair_detection`: Identify putative recombination events within the genomes.
-- `-skp`, `--skip_validation`: Bypass pre-run input and configuration validation checks.
-
-RetroSeek also supports execution of arbitrary Snakemake workflows to enhance adaptability across environments, including HPC clusters and cloud platforms. For advanced customization, refer to the [Snakemake documentation](https://snakemake.readthedocs.io).
-
-### Example Usage
-
-RetroSeek is designed for resilience and flexibility. In the event of a crash or interruption (e.g., blackout), the pipeline will resume from the most recent successful checkpoint, avoiding the need to reprocess completed steps.
-
-To generate genomic ranges ranked by confidence tiers using all available CPU cores and skip input validation:
+Generate BLAST databases across all available cores:
 
 ```bash
-./RetroSeek --ranges_analysis --cores all --skip_validation
+./RetroSeek --blast-dbs --cores all
 ```
 
-To generate BLAST databases for specified host genomes, using all cores and suppressing standard progress messages:
+LTR candidate discovery, four genomes at a time, resume-friendly:
 
 ```bash
-./RetroSeek --blast_dbs --cores all --quiet
+./RetroSeek --ltr-candidates --cores 4 --keep-going --latency-wait 60
 ```
 
-To extract probe sequences from the input CSV and prepare them for downstream BLAST analysis:
+Integrate BLAST + LTR evidence using an HPC profile:
 
 ```bash
-./RetroSeek --probe_extractor
+./RetroSeek --ranges-analysis --profile hpc_cluster --latency-wait 90
 ```
 
-To run only the LTR candidate discovery stage via LTRHarvest, four genomes at a time:
+## Documentation
 
-```bash
-./RetroSeek --ltr_candidates --cores 4 --keep-going --latency-wait 60
-```
-
-To generate genome-wide summary plots from previously computed results:
-
-```bash
-./RetroSeek --generate_global_plots --cores 2
-```
-
-To generate integrated genomic ranges with a custom Snakemake profile:
-
-```bash
-./RetroSeek --ranges_analysis --profile hpc_cluster --latency-wait 90
-```
-
-RetroSeek accepts any combination of Snakemake-compatible options to fine-tune performance and scheduling on a wide range of environments, from local development machines to cloud-based and high-performance compute clusters. RetroSeek will generate the optimal Directed Acyclic Graph (DAG) of operations to minimize execution time given the provided resources.
+- [`docs/architecture.md`](docs/architecture.md) — pipeline design, rule graph, data flow.
+- [`docs/usage.md`](docs/usage.md) — configuration reference and CLI deep-dive.
+- [`docs/development.md`](docs/development.md) — contributor guide: env, TDD, branch rules, commit style.
+- [`docs/adr/`](docs/adr/) — architectural decision records.
 
 ## Screenshots
 
-## Screenshots
-
-[![bar.png](data/images/bar.png)](images/bar.png)
-
-[![density.png](data/images/density.png)](images/density.png)
-
-[![balloon.png](data/images/balloon.png)](images/balloon.png)
-
-[![sankey_a.png](data/images/sankey_a.png)](images/sankey_a.png)
-
-[![genome.png](data/images/genome.png)](images/genome.png)
+![bar](data/images/bar.png)
+![density](data/images/density.png)
+![balloon](data/images/balloon.png)
+![sankey_a](data/images/sankey_a.png)
+![genome](data/images/genome.png)
 
 ## Acknowledgements
 
-[![TCD.jpg](data/images/TCD.jpg)](images/TCD.jpg)
+![TCD](data/images/TCD.jpg)
 
-- *Ní Leathlobhair* lab *@* Moyne
+Developed within the *Ní Leathlobhair* lab at Moyne Institute, Trinity College Dublin.
 
 ## Contributing
 
-Contributions are always welcome! Feel free to generate a pull request, or contact me at jgonzlez@tcd.ie for any questions!
-
+See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — contact `jgonzlez@tcd.ie`.
 
 ## License
 
-[MIT](https://choosealicense.com/licenses/mit/)
-
+[MIT](LICENSE)
 
 ## References
 
-Camacho, C., Coulouris, G., Avagyan, V., Ma, N., Papadopoulos, J., Bealer, K., & Madden, T. L. (2009). BLAST+: Architecture and applications. *BMC Bioinformatics, 10*, 421. https://doi.org/10.1186/1471-2105-10-421
-
-Gremme, G., Steinbiss, S., & Kurtz, S. (2013). GenomeTools: A comprehensive software library for efficient processing of structured genome annotations. *IEEE/ACM Transactions on Computational Biology and Bioinformatics, 10*(3), 645–656. https://doi.org/10.1109/TCBB.2013.68
-
-Sayers, E. W., Bolton, E. E., Brister, J. R., Canese, K., Chan, J., Comeau, D. C., ... & Ostell, J. (2022). Database resources of the National Center for Biotechnology Information. *Nucleic Acids Research, 50*(D1), D20–D26. https://doi.org/10.1093/nar/gkab1112  
-(*Reference for NCBI Datasets and API services*)
-
-Huber, W., Carey, V. J., Gentleman, R., Anders, S., Carlson, M., Carvalho, B. S., ... & Morgan, M. (2015). Orchestrating high-throughput genomic analysis with Bioconductor. *Nature Methods, 12*(2), 115–121. https://doi.org/10.1038/nmeth.3252
+- Camacho, C. *et al.* (2009). BLAST+: Architecture and applications. *BMC Bioinformatics, 10*, 421. https://doi.org/10.1186/1471-2105-10-421
+- Gremme, G., Steinbiss, S., & Kurtz, S. (2013). GenomeTools: A comprehensive software library for efficient processing of structured genome annotations. *IEEE/ACM TCBB, 10*(3), 645–656. https://doi.org/10.1109/TCBB.2013.68
+- Sayers, E. W. *et al.* (2022). Database resources of the NCBI. *Nucleic Acids Research, 50*(D1), D20–D26. https://doi.org/10.1093/nar/gkab1112
+- Huber, W. *et al.* (2015). Orchestrating high-throughput genomic analysis with Bioconductor. *Nature Methods, 12*(2), 115–121. https://doi.org/10.1038/nmeth.3252
+- Mölder, F. *et al.* (2021). Sustainable data analysis with Snakemake. *F1000Research, 10*, 33. https://doi.org/10.12688/f1000research.29032.2

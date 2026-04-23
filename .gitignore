@@ -9,9 +9,11 @@
 
 # ──────────────────────────────────────────────
 # Claude Code workspace (repo-local, never committed)
+# CLAUDE.md and everything under .claude/ are Claude-exclusive.
+# Only human-facing artifacts (docs/, README.md) are committed.
 # ──────────────────────────────────────────────
-.claude/memory/
-.claude/plans/
+/CLAUDE.md
+.claude/
 
 # ──────────────────────────────────────────────
 # Python
