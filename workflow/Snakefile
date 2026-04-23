@@ -466,7 +466,15 @@ rule circle_plot_generator:
 # TODO: SUFFIX PARSING
 rule hotspot_detector_setup:
     input:
-        tracks=rules.ranges_analysis.input
+        # Per-genome scoping (A5): previously this rule demanded
+        # rules.ranges_analysis.input — which expands across ALL species, so
+        # producing one genome's hotspots required every species's tracks.
+        # The hotspot_detector.R shell command below actually reads only
+        # {params.input_track_dir}/{wildcards.genome}.gff3 + {wildcards.genome}.fa.
+        # Declare those as inputs directly so Snakemake schedules the rule
+        # per-{genome} and per-species parallelism works.
+        fasta = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        track = os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3')
     output:
         hotspot_csv=os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),
         hotspot_histogram_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),
