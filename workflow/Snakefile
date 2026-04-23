@@ -207,20 +207,22 @@ rule ltr_digester:
                            genome=SPECIES, ext=['gff3'])
 
 
-# TODO: FIX INPUT IN PROBE_EXTRACTOR RULE
 rule probe_extractor:
+    input:
+        probe_csv=defaults.PROBE_CSV
     output:
         probe_pkl=os.path.join(defaults.PATH_DICT['PICKLE_DIR'], 'probe_dict.pkl'),
         probe_csv=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.csv'),
         probe_parquet=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.parquet')
     params:
-        table_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
+        table_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR'],
+        pickle_dir=defaults.PATH_DICT['PICKLE_DIR']
     threads:
         workflow.cores
     shell:
         '''
         python scripts/probe_extractor.py && \
-        python scripts/obj2dict.py --files probe_dict.pkl --output_file_name {params.table_dir}/probe_dict
+        python scripts/obj2dict.py --files {params.pickle_dir:q}/probe_dict.pkl --output_file_name {params.table_dir:q}/probe_dict
         '''
 
 
