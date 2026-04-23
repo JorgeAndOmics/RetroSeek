@@ -160,12 +160,16 @@ rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator.input
     output:
-        ltr_fasta = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
-        ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
-        ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3')
+        ltr_fasta       = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
+        ltr_gff3        = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
+        ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
+        # Screen-format (.scn) output — LTRharvest writes this to stdout by default.
+        # Needed as LTR_retriever's primary input format (-inharvest).
+        ltr_scn         = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}.scn')
     params:
         index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
         output_directory_path=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR']),
+        scn_directory_path=defaults.PATH_DICT['LTR_SCN_DIR'],
         optional_params=config['genome_tools'].get('ltrharvest_optional_parameters','')
     threads: config.get('rule_threads',1)
     shell:
@@ -176,7 +180,8 @@ rule ltr_harvester_setup:
         -index {params.index_directory_path:q}/{wildcards.genome:q}/{wildcards.genome:q} \
         -out {params.output_directory_path:q}/{wildcards.genome:q}.fa \
         -gff3 {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
-        {params.optional_params} && \
+        {params.optional_params} \
+        > {params.scn_directory_path:q}/{wildcards.genome:q}.scn && \
         gt gff3 -sort {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
         > {params.output_directory_path:q}/{wildcards.genome:q}_sorted.gff3
         '''
@@ -189,7 +194,9 @@ rule ltr_harvester:
                            ext=['fa', 'gff3']),
         ltr_sorted_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.{ext}'),
                                  genome=SPECIES,
-                                 ext=['gff3'])
+                                 ext=['gff3']),
+        ltr_scn   = expand(os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}.scn'),
+                           genome=SPECIES)
 
 
 rule ltr_digester_setup:
