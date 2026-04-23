@@ -503,4 +503,5 @@ rule pair_detector_setup:
 
 rule pair_detector:
     input:
-        pair_table=expand(os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'), genome=SPECIES_POST)
+        pair_table_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'), genome=SPECIES_POST),
+        pair_table_parquet=expand(os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.parquet'), genome=SPECIES_POST)
