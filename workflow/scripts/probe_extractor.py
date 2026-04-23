@@ -36,7 +36,6 @@ Usage:
 from colored_logging import colored_logging
 import pandas as pd
 import logging
-import os
 
 from RetroSeeker_class import RetroSeeker
 import seq_utils

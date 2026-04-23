@@ -33,9 +33,9 @@ Usage:
 # Imports and Logging Setup
 # =============================================================================
 import pandas as pd
-import os
 import logging
 import argparse
+from pathlib import Path
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
@@ -167,7 +167,7 @@ if __name__ == '__main__':
             input_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
             input_file_name=file
         )
-        logging.info(f'{os.path.basename(file).split(".")[0]}: {len(objct_dict)} objects retrieved')
+        logging.info(f'{Path(file).stem}: {len(objct_dict)} objects retrieved')
         all_objects.extend(objct_dict.values())
 
     logging.info(f'Total objects loaded: {len(all_objects)}')
