@@ -1,0 +1,147 @@
+# Bat-experimental end-to-end test config for RetroSeek.
+#
+# Used to exercise the full pipeline on real mammalian data (one bat species)
+# with a small curated probe set. To run:
+#
+#   1) mamba env create -f data/config/environment.yml   # once
+#   2) Back up current config:
+#        cp data/config/config.yaml /tmp/retroseek-config-backup.yaml
+#   3) Drop this config in:
+#        cp tests/fixtures/bat_test_config.yaml data/config/config.yaml
+#   4) Place a test probe CSV at /tmp/probes_test.csv (see
+#      tests/fixtures/ for a generator or use a subset of
+#      data/tables/probes_TRUE.csv with the canonical Label header).
+#   5) Run stages (expected wall-times on 2GB mammalian genome, 8 cores):
+#        snakemake probe_extractor      --cores 4   # ~5 s
+#        snakemake ltr_harvester        --cores 8   # ~45 min suffixerator + ~20 min ltrharvest
+#        snakemake ltr_digester         --cores 8   # ~30 min Pfam download + ~10 min ltrdigest
+#        snakemake full_genome_blaster  --cores 8   # ~60 min per probe/genome
+#        snakemake ranges_analysis      --cores 4   # ~2 min
+#        snakemake solo_ltr_detector    --cores 8   # ~30 min LTR_retriever + ~1 min integrator
+#
+# Or run it all under one target: `snakemake solo_ltr_detector --cores 8`.
+#
+# When done, restore the original config:
+#   cp /tmp/retroseek-config-backup.yaml data/config/config.yaml
+
+blast:
+  e_value: 0.01
+  optional_parameters: ''
+
+genome_tools:
+  suffix_array_parts: 10
+  suffixerator_optional_parameters: ''
+  ltrharvest_optional_parameters: ''
+  ltrdigest_optional_parameters: ''
+
+parameters:
+  identity_threshold: 0
+  bitscore_threshold: 50
+  ltr_resize: 0
+  ltr_flank_margin: 0
+  merge_option: 'virus'
+  hotspot_group_split: false
+  hotspot_window_size: 10000
+  hotspot_mask_size: 20
+  hotspot_mask_mismatch: 3
+  hotspot_permutations: 1
+  hotspot_pvalue_threshold: 0.05
+  probe_to_pair: 'ENV'
+  pair_max_gap: 300000
+  main_probes:
+    - 'POL'
+    - 'GAG'
+    - 'ENV'
+    - 'PRO'
+  probe_min_length:
+    GAG: 100
+    POL: 100
+    ENV: 100
+    PRO: 100
+
+  aggregation:
+    virus: "list"
+    label: "list"
+    probe: "list"
+    species: "first"
+    best_tiebreaker: "bitscore"
+    concat_separator: "; "
+    strict_marker: "ambiguous"
+
+  solo_ltr_aggregation:
+    probe: "list"
+    best_tiebreaker: "consensus_members"
+
+ltr_retriever:
+  substitution_rate: 1.3e-8
+  min_ltr_similarity: 91
+  threads_per_genome: 4
+  noanno: true
+  restrict_to_retroviral: true
+  nearest_erv_max_distance: 10000
+
+logging:
+  level_styles:
+    debug: { color: 'white' }
+    info: { color: 'cyan', bold: 'yes' }
+    warning: { color: 'yellow' }
+    error: { color: 'red', bold: 'yes' }
+    critical: { color: 'black', bold: 'yes', background: 'red' }
+  field_styles:
+    asctime: { color: 'green' }
+    hostname: { color: 'green' }
+    levelname: { color: 'green' }
+    name: { color: 'green' }
+    programname: { color: 'green' }
+    username: { color: 'green' }
+    process: { color: 'green' }
+    thread: { color: 'green' }
+
+plots:
+  dpi: 100
+  width: 10
+  height: 8
+  omit_lower_percent: 0.05
+  circle_plot_bitscore_threshold: 0
+
+execution:
+  num_cores: 8
+  use_species_dict: true
+  retrieval_time_lag: 0.3
+  max_retrieval_attempts: 3
+  max_threadpool_workers: 4
+  entrez_email: 'jgonzlez@tcd.ie'
+
+input:
+  probe_csv: '/tmp/probes_test.csv'
+
+display:
+  display_snakemake_info: false
+  display_requests_warning: false
+  display_operation_info: true
+
+root:
+  db_root_folder: '/mnt/v/databases/bat-experimental'
+  data_root_folder: '/tmp/retroseek-bat-test/data'
+  results_root_folder: '/tmp/retroseek-bat-test/results'
+  logs_root_folder: '/tmp/retroseek-bat-test/logs'
+
+domains:
+  POL:
+    - "ase"
+    - "RVT_1"
+    - "RVT_2"
+  GAG:
+    - "Gag"
+    - "gag"
+    - "GAG"
+    - "zf"
+  ENV:
+    - "coat"
+    - "FP"
+    - "HR1"
+  PRO:
+    - "PR15"
+
+species:
+  Antrozous_pallidus: "Antrozous pallidus"
