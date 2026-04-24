@@ -72,9 +72,7 @@ PATH_DICT['TABLE_SOLO_INTACT_DIR'] = (PATH_DICT['TABLE_OUTPUT_DIR'] / 'solo_inta
 # LTRharvest screen-format (.scn) intermediate — consumed by LTR_retriever.
 # Lives under /data (not /results) because it's a working format, not an output.
 PATH_DICT['LTR_SCN_DIR'] = (PATH_DICT['DATA_DIR'] / 'ltr_scn').resolve()
-# LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
-# consensus library — all the files LTR_retriever emits per genome).
-PATH_DICT['LTR_RETRIEVER_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltr_retriever').resolve()
+# LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
 
 # === Results - Plots ===
 PATH_DICT['PLOT_DIR'] = (PATH_DICT['RESULTS_DIR'] / 'plots').resolve()
@@ -91,6 +89,9 @@ PATH_DICT['TRACK_HOTSPOTS_DIR'] = (PATH_DICT['TRACK_DIR'] / 'hotspots').resolve(
 # === Results - LTR ===
 PATH_DICT['LTRHARVEST_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltrharvest').resolve()
 PATH_DICT['LTRDIGEST_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltrdigest').resolve()
+# LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
+# consensus library — all the files LTR_retriever emits per genome).
+PATH_DICT['LTR_RETRIEVER_DIR'] = (PATH_DICT['TRACK_DIR'] / 'ltr_retriever').resolve()
 PATH_DICT['SOLO_LTR_DIR'] = (PATH_DICT['TRACK_DIR'] / 'solo_ltr').resolve()
 PATH_DICT['FLANKING_LTR_DIR'] = (PATH_DICT['TRACK_DIR'] / 'flanking_ltr').resolve()
 

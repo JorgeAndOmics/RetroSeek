@@ -8,7 +8,11 @@ from scripts import defaults
 
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
-LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
+# Note: .ssp is NOT emitted by `gt suffixerator` in the genometools version
+# shipped with the conda env — empirically 8 files are produced, not 9. Older
+# versions apparently did produce .ssp. LTRharvest runs fine on the 8-file
+# index, so we omit .ssp here to keep Snakemake's output declarations honest.
+LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
 SPECIES = defaults.SPECIES
 
@@ -126,7 +130,8 @@ rule ltr_index_generator_setup:
         md5_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.md5'),
         prj_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.prj'),
         sds_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.sds'),
-        ssp_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.ssp'),
+        # Note: .ssp not declared — gt suffixerator in this env's genometools
+        # version does not emit it. See the comment on LTR_INDEX_EXT above.
         suf_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.PATH_DICT['SPECIES_DB'],

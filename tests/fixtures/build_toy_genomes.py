@@ -207,7 +207,15 @@ def build_species(spec: SpeciesSpec, rng: random.Random) -> list[SeqRecord]:
 
 
 def write_fasta(records: list[SeqRecord], destination: Path) -> int:
-    """Write records to a FASTA file. Returns bytes written."""
+    """Write records to a FASTA file, following RetroSeek's SPECIES_DB layout.
+
+    RetroSeek's convention (matching bat-experimental) is FASTA flat at
+    ``SPECIES_DB/{genome}.fa`` with per-genome subdirectories reserved for
+    tool-produced files (BLAST DB index, suffix-array index). Callers should
+    pass ``destination`` as the flat path.
+
+    Returns bytes written.
+    """
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w") as handle:
         SeqIO.write(records, handle, "fasta")
@@ -306,7 +314,8 @@ def main(argv: list[str] | None = None) -> int:
 
     manifest_rows: list[tuple[str, int, int, str]] = []
     for spec in specs:
-        fasta_path = dest / spec.name / f"{spec.name}.fa"
+        # Flat FASTA at dest/{name}.fa — matches RetroSeek SPECIES_DB layout.
+        fasta_path = dest / f"{spec.name}.fa"
         if fasta_path.exists() and not args.force:
             print(f"  skip {spec.name}: {fasta_path} exists (pass --force to overwrite)")
             continue
