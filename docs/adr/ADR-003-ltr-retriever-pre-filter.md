@@ -19,7 +19,7 @@ Two ways to integrate this signal with LTR_retriever were considered:
 
 ## Decision
 
-Use the **pre-filter** approach. A new script `workflow/scripts/ltr_retriever_prefilter.py` produces `data/ltr_scn/{genome}.retroviral.scn` by intersecting LTRharvest's `.scn` with `valid_ranges.gff3`, and LTR_retriever is invoked on this filtered SCN.
+Use the **pre-filter** approach. A new script `workflow/scripts/ltr_retriever_prefilter.py` produces `data/ltr_scn/{genome}_retroviral.scn` by intersecting LTRharvest's `.scn` with `valid_ranges.gff3`, and LTR_retriever is invoked on this filtered SCN. (The underscore-separator filename is deliberate: a dot separator — `{genome}.retroviral.scn` — collides with LTRharvest's own `{genome}.scn` output pattern under Snakemake wildcard matching, because `{genome}` would greedily absorb `Antrozous_pallidus.retroviral`.)
 
 Controlled by `config.ltr_retriever.restrict_to_retroviral` (default `true`). Setting `false` reverts to unfiltered behaviour for debugging or non-retroviral exploratory use.
 
