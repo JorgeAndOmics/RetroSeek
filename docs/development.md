@@ -100,8 +100,18 @@ Mentally walk through:
 
 - On `Experimental`? (`git branch --show-current`)
 - Tests updated first (TDD)?
-- Docs synchronised? ([`docs/architecture.md`](architecture.md), [`docs/usage.md`](usage.md), this file, [`docs/adr/`](adr/), [`README.md`](../README.md))
+- Docs synchronised? ([`docs/architecture.md`](architecture.md), [`docs/usage.md`](usage.md), [`docs/configuration.md`](configuration.md), [`docs/solo_ltr.md`](solo_ltr.md) if the LTR chain was touched, this file, [`docs/adr/`](adr/), [`README.md`](../README.md))
 - Conventional Commit message?
+
+## Snakemake patterns to know
+
+A few non-obvious patterns are used in [`workflow/Snakefile`](../workflow/Snakefile) that contributors should understand before editing rules:
+
+- **Checkpoint-gated aggregates.** `blast_pkl2parquet` is a Snakemake `checkpoint`, and the `species_with_hits(wildcards)` function at the top of the Snakefile reads its parquet at DAG-evaluation time. Aggregate rules that previously used a parse-time `SPECIES_POST` constant now use `lambda wildcards: expand(..., genome=species_with_hits(wildcards))`. This makes the DAG a pure function of config + inputs rather than of prior-run disk state. See [ADR-004](adr/ADR-004-species-post-checkpoint.md).
+
+- **Global `wildcard_constraints` on `{genome}`.** Pinned to the exact configured species list via `"|".join(re.escape(s) for s in SPECIES)` near the top of the Snakefile. Prevents the default `.+` regex from greedily absorbing suffixes like `_retroviral` into the wildcard and producing `AmbiguousRuleException` at runtime when two rules write into the same directory with overlapping filename patterns. When adding a new rule whose output shares a directory with another rule's output, prefer unambiguous filename prefixes *and* rely on the constraint — defense in depth.
+
+- **Trap-backed heartbeat on silent long-running rules.** `ltr_index_generator_setup` (suffixerator) and `ltr_harvester_setup` (ltrharvest) wrap their shell commands in a background subshell that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s, with `trap '... EXIT'` for cleanup. Adopt the same pattern for any new rule whose primary tool writes all output to stdout (and therefore leaves stderr silent). Do *not* add heartbeats to rules whose tool already emits chatty stderr (e.g. `gt ltrdigest -v`, anything using Python `logging` / `coloredlogs` / `tqdm`) — the cost is zero but the duplication is noise.
 
 ## Architectural decision records
 

@@ -43,9 +43,11 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 
 - Automated genome acquisition via NCBI Datasets, with BLAST database and GenomeTools suffix-array generation per genome.
 - Configurable homology-based search via BLAST+ and *de novo* LTR discovery via LTRharvest / LTRdigest, reconciled into high-confidence ERV candidate tracks.
+- **Solo-LTR detection via LTR_retriever**, pre-filtered to retroviral-only candidates by intersecting LTRharvest output with RetroSeek's `valid_ranges.gff3`. Solo LTRs inherit probe labels from their seed ERVs via a hybrid consensus-family + nearest-ERV fallback, and per-family solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (regioneR permutations), and probe-pair tables.
+- Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
 - Publication-ready plots: density, raincloud, bar, Sankey, balloon, per-genome Circos-style visualisations.
-- Structured, colour-coded logging for audit.
+- Structured, colour-coded logging for audit; heartbeat log lines for long-running silent tools (suffixerator, ltrharvest) so progress is observable on multi-hour mammalian runs.
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
 - Intuitive CLI delegating to Snakemake — resume from checkpoints after interruption, compose with any Snakemake flag.
 
@@ -78,6 +80,7 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--generate-circle-plots`   | Per-genome Circos-style plots                            |
 | `--hotspot-detection`       | Permutation-based hotspot analysis                       |
 | `--pair-detection`          | Probe-pair (e.g. GAG–ENV) detection per species          |
+| `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo-LTR probe-label propagation, solo/intact ratio tables |
 | `-skp`, `--skip-validation` | Skip pre-run validation (debug use)                      |
 
 Any additional arguments are forwarded to Snakemake (e.g., `--cores`, `--profile`, `--keep-going`, `--latency-wait`).
@@ -105,7 +108,9 @@ Integrate BLAST + LTR evidence using an HPC profile:
 ## Documentation
 
 - [`docs/architecture.md`](docs/architecture.md) — pipeline design, rule graph, data flow.
-- [`docs/usage.md`](docs/usage.md) — configuration reference and CLI deep-dive.
+- [`docs/usage.md`](docs/usage.md) — CLI reference and configuration overview.
+- [`docs/configuration.md`](docs/configuration.md) — field-by-field config reference.
+- [`docs/solo_ltr.md`](docs/solo_ltr.md) — how LTR_retriever works, how RetroSeek couples to it, and the biology of solo LTRs.
 - [`docs/development.md`](docs/development.md) — contributor guide: env, TDD, branch rules, commit style.
 - [`docs/adr/`](docs/adr/) — architectural decision records.
 
