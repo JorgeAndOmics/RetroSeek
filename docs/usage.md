@@ -17,7 +17,7 @@ The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.10, R 4.3, Bio
 ./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
 ```
 
-Exactly one **stage flag** selects which pipeline section runs. Any additional arguments are passed through to Snakemake.
+One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-detection --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
 
 ### Stage flags
 
@@ -36,6 +36,7 @@ Exactly one **stage flag** selects which pipeline section runs. Any additional a
 | `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF            |
 | `--hotspot-detection`       | `hotspot_detector`            | Original GFF3 tracks + FASTA            | Hotspot CSV + GFF3 + histogram/density PDFs  |
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
+| `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `valid_ranges.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
 | `-skp`, `--skip-validation` | —                             | —                                       | Bypass pre-run validation (debug only)       |
 
 ### Snakemake pass-through
@@ -62,8 +63,11 @@ Top-level sections (fields inside each section — see file for full list):
   - `probe_min_length` — per-probe minimum alignment length.
   - `main_probes` — probes subject to Pfam-domain validation.
   - `merge_option` — how overlapping ranges collapse (`virus` or `label`, strict enum).
+  - `aggregation` — per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
+  - `solo_ltr_aggregation` — separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - Hotspot settings: `hotspot_window_size`, `hotspot_permutations`, `hotspot_pvalue_threshold`, etc.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
+- **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `restrict_to_retroviral` (Coupling A toggle), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
 - **`logging`** — colour styles for console logging.
 - **`plots`** — DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
 - **`execution`** — parallelism and API politeness:
@@ -89,6 +93,12 @@ Probe name strings are **uppercased** on load; downstream comparisons (including
 ## Resuming after interruption
 
 Snakemake tracks rule completion. After a crash, re-running the same stage flag skips completed outputs and continues from the last checkpoint. No extra action needed.
+
+The pipeline also uses a true Snakemake **checkpoint** (`blast_pkl2parquet`) to defer downstream DAG evaluation until the BLAST stage has produced its parquet; rules that used to depend on a parse-time `SPECIES_POST` list now resolve their inputs via a runtime `species_with_hits(wildcards)` call against the checkpoint's output. See [ADR-004](adr/ADR-004-species-post-checkpoint.md).
+
+## Observability on long-running rules
+
+`gt suffixerator` and `gt ltrharvest` write their primary outputs to stdout (redirected to files) and emit nothing to stderr, so their Snakemake logs are silent for 30-90 min on mammalian genomes. RetroSeek wraps both rules in a trap-backed background heartbeat that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s. Useful for distinguishing a live suffixerator run from a wedged one during multi-hour executions. No configuration needed — the heartbeat is unconditional and zero-cost when rules are fast.
 
 ## Troubleshooting
 

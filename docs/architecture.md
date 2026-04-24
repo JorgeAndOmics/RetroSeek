@@ -69,6 +69,9 @@ All user-tunable parameters live in [`data/config/config.yaml`](../data/config/c
 
 Decisions captured under [`docs/adr/`](adr/):
 - ADR-001: single conda/mamba env vs per-rule `--use-conda`.
+- ADR-002: configurable metadata aggregation strategies across merged ranges.
+- ADR-003: retroviral-only pre-filter for LTR_retriever (Coupling A).
+- ADR-004: `SPECIES_POST` → Snakemake checkpoint + runtime `species_with_hits(wildcards)` resolver.
 
 ## Design principles
 
