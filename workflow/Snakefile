@@ -141,6 +141,11 @@ rule ltr_index_generator_setup:
     threads: config.get('rule_threads', 1)
     shell:
         """
+        ( while sleep 60; do \
+              printf '[heartbeat:ltr_index_generator:%s] still running at %dm elapsed\\n' \
+                  "{wildcards.genome}" $(( SECONDS / 60 )) >&2 ; \
+          done ) & HEARTBEAT_PID=$! ; \
+        trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT && \
         echo "Generating suffix array for {wildcards.genome:q}" && \
         gt suffixerator \
         -db {input.fa:q} \
@@ -175,6 +180,11 @@ rule ltr_harvester_setup:
     threads: config.get('rule_threads',1)
     shell:
         '''
+        ( while sleep 60; do \
+              printf '[heartbeat:ltr_harvester:%s] still running at %dm elapsed\\n' \
+                  "{wildcards.genome}" $(( SECONDS / 60 )) >&2 ; \
+          done ) & HEARTBEAT_PID=$! ; \
+        trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT && \
         TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
         gt ltrharvest \
         -seqids \
