@@ -1,5 +1,6 @@
 import os
 import math
+import re
 from pathlib import Path
 
 import pyarrow.parquet as pq
@@ -14,7 +15,17 @@ BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 # index, so we omit .ssp here to keep Snakemake's output declarations honest.
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
-SPECIES = defaults.SPECIES
+SPECIES = list(defaults.SPECIES)
+
+
+# Pin {genome} to the exact configured species list. Without this, Snakemake
+# defaults {genome} to the regex `.+`, which causes AmbiguousRuleException
+# whenever two rules write to the same directory with overlapping filename
+# patterns — e.g. ltr_harvester_setup ({genome}.scn) and
+# ltr_retriever_prefilter_setup ({genome}_retroviral.scn), where {genome}
+# would greedily absorb "Antrozous_pallidus_retroviral" for the first rule.
+wildcard_constraints:
+    genome = "|".join(re.escape(s) for s in SPECIES) if SPECIES else r"(?!x)x"
 
 
 def species_with_hits(wildcards):
