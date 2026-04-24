@@ -90,7 +90,7 @@ RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classificat
 - Stage 3's BLAST-back hits match retroviral consensuses.
 - Solo LTRs reported are guaranteed retroviral by construction.
 
-This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`: it reads the `.scn` file + `.des` file (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, and writes a filtered `.retroviral.scn` to `data/ltr_scn/{genome}.retroviral.scn`. The filter's overlap semantics are closed-interval, 0-indexed, same-chromosome.
+This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`: it reads the `.scn` file + `.des` file (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, and writes a filtered SCN to `data/ltr_scn/{genome}_retroviral.scn`. The filter's overlap semantics are closed-interval, 0-indexed, same-chromosome. (The filename uses an underscore separator — `_retroviral.scn` not `.retroviral.scn` — so the suffix is unambiguous with respect to LTRharvest's own `{genome}.scn` output, which would otherwise collide under Snakemake's wildcard resolution.)
 
 Controlled by `config.ltr_retriever.restrict_to_retroviral`. Defaults to `true`. Setting to `false` disables the pre-filter and runs LTR_retriever on the unfiltered LTRharvest output — useful only for debugging or for users who want non-retroviral solo LTRs too.
 
@@ -196,7 +196,7 @@ Expected outputs per genome:
 | Path | Content |
 |---|---|
 | `data/ltr_scn/{genome}.scn` | LTRharvest screen-format SCN (all candidates). |
-| `data/ltr_scn/{genome}.retroviral.scn` | SCN filtered to retroviral-confirmed candidates (Coupling A). |
+| `data/ltr_scn/{genome}_retroviral.scn` | SCN filtered to retroviral-confirmed candidates (Coupling A). |
 | `results/tracks/ltr_retriever/{genome}/{genome}.pass.list.gff3` | LTR_retriever-filtered intact ERVs. |
 | `results/tracks/ltr_retriever/{genome}/{genome}.nmtf.pass.list` | Solo + truncated LTRs. |
 | `results/tracks/ltr_retriever/{genome}/{genome}.LTRlib.fa` | Consensus library. |

@@ -39,7 +39,7 @@ valid_ranges.gff3
 
 Output
 ------
-retroviral.scn
+{genome}_retroviral.scn
     Same SCN format, retaining only rows whose paired-LTR coordinates
     overlap at least one valid_ranges.gff3 interval on the same
     chromosome. Header comments (lines starting with ``#``) are
@@ -63,7 +63,7 @@ Usage (CLI)
         --scn data/ltr_scn/{genome}.scn \\
         --des SPECIES_DB/{genome}/{genome}.des \\
         --valid-ranges results/tracks/valid/{genome}.gff3 \\
-        --output data/ltr_scn/{genome}.retroviral.scn
+        --output data/ltr_scn/{genome}_retroviral.scn
 """
 
 from __future__ import annotations
