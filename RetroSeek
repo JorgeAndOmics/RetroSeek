@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-skp',
-        '--skip_validation',
+        '--skip-validation',
         action='store_true',
         help='Skip input validation.'
     )
