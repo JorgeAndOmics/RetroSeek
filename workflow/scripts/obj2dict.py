@@ -68,6 +68,13 @@ def extract_attributes_from_object(obj) -> dict:
             :raises AttributeError: If the Object structure does not expose required attributes.
             :raises Exception: For any unexpected failure during data extraction.
     """
+    # Defensive accession cleanup: older pickles (pre-seq_utils-fix) stored
+    # the full BLAST hit_def ("CM138268.1 Molossus molossus chromosome 3,
+    # ...") as accession. Split on whitespace and keep the first token —
+    # idempotent for already-clean accessions. Keeps the parquet seqid
+    # column compatible with LTRdigest / GRanges seqnames downstream.
+    raw_accession = obj.accession or ''
+    clean_accession = raw_accession.split()[0] if raw_accession else raw_accession
     data: dict = {
         # Basic Object attributes
         'label': obj.label,
@@ -75,7 +82,7 @@ def extract_attributes_from_object(obj) -> dict:
         'abbreviation': obj.abbreviation,
         'species': obj.species,
         'probe': obj.probe,
-        'accession': obj.accession,
+        'accession': clean_accession,
         'identifier': obj.identifier,
         'strand': obj.strand,
     }

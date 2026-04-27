@@ -1,889 +1,205 @@
-# -------------------
-# DEPENDENCIES
-# -------------------
+# =============================================================================
+# ranges_analysis.R — orchestrator
+# =============================================================================
+# Phase-separated pipeline that integrates tBLASTn results with LTRdigest
+# annotations. The heavy lifting is in workflow/scripts/range_analysis/*.R;
+# this file only argument-parses, sources the modules, and wires the data
+# flow phase by phase. Each section is intentionally short so the high-level
+# data shape is visible at a glance.
+#
+# Phases:
+#   1. Load inputs (config, BLAST parquet, LTRdigest GFF3, probes, FASTA).
+#   2. Build the BLAST GRanges and apply quality / length filters.
+#   3. Reduce overlapping ranges per (probe x virus|label) -> composite metrics.
+#   4. Globally reduce per probe across virus|label groupings.
+#   5. Process LTRdigest into retrotransposons, domains-with-probes, and
+#      flanking LTRs.
+#   6. Identify candidate hits (LTR-overlapping) and valid hits (probe matches
+#      a Pfam-domain probe in the same retrotransposon).
+#   7. Build the per-row plot dataframe + attach probe_category to all tracks.
+#   8. Export GFF3 / BED6 / parquet / overlap matrix / manifest.
 
-# Warnings are not globally suppressed — that was hiding legitimate problems
-# (malformed config defaults, NA coercions in aggregation). Suppress narrowly
-# via suppressWarnings() at specific call sites where needed.
-
-# Suppress messages from loading libraries, so the console remains uncluttered.
 suppressMessages({
-  library(yaml)           # For reading YAML configuration file
-  library(arrow)          # Provides tools for reading and writing Parquet files
-  library(tidyverse)      # Collection of R packages for data manipulation and visualization
-  library(argparse)       # Command-line argument parsing
-  library(GenomicRanges)  # Genomic interval operations
-  library(plyranges)      # "Tidyverse"-style GRanges operations
-  library(rtracklayer)    # Reading/writing genome annotation files (e.g., GFF, BED)
+  library(argparse)
+  library(GenomicRanges)
+  library(plyranges)
+  library(dplyr)
 })
 
-# Shared aggregation helpers — aggregate_values() and make_tiebreaker_picker().
-# Sourced from a sibling file so testthat can exercise them in isolation
-# without booting the full pipeline. The script dir is resolved robustly
-# so it works both when sourced interactively and when invoked via Rscript.
+
+# ----------------------------------------------------------------------------
+# Locate sibling scripts + source modules
+# ----------------------------------------------------------------------------
 .resolve_script_dir <- function() {
-  # 1. Interactive: sys.frame()$ofile is set by source().
   ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
   if (!is.null(ofile)) return(dirname(ofile))
-  # 2. Rscript: --file=... argument carries the path.
   cmd_args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", cmd_args, value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
-  # 3. Fallback: Snakemake typically runs with CWD = workflow/.
   "scripts"
 }
-source(file.path(.resolve_script_dir(), "range_aggregation_strategies.R"))
+.script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "range_aggregation_strategies.R"))
+source(file.path(.script_dir, "range_analysis", "io.R"))
+source(file.path(.script_dir, "range_analysis", "granges_build.R"))
+source(file.path(.script_dir, "range_analysis", "filtering.R"))
+source(file.path(.script_dir, "range_analysis", "reductions.R"))
+source(file.path(.script_dir, "range_analysis", "validation.R"))
+source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
+source(file.path(.script_dir, "range_analysis", "exporters.R"))
 
 
-# -------------------------------
-# 2. PARSE COMMAND-LINE ARGUMENTS
-# -------------------------------
-parser <- ArgumentParser(description = 'Process tBLASTn and LTRdigest integration overlaps')
-
-# Define expected command-line arguments
-parser$add_argument("--fasta", required=TRUE, help="Genome FASTA input file")
-parser$add_argument("--blast", required=TRUE, help="tBLASTn Parquet input file")
-parser$add_argument("--ltrdigest", required=TRUE, help="LTRdigest GFF3 input file")
-parser$add_argument("--probes", required=TRUE, help="Probes metadata file (CSV)")
-parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
-parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original and merged hits")
-parser$add_argument("--original_ranges_reduced", required=TRUE, help="GFF3 output: original reduced and merged hits")
-parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits overlapping LTRs")
-parser$add_argument("--candidate_ranges_reduced", required=TRUE, help="GFF3 output: reduced hits overlapping LTRs")
-parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
-parser$add_argument("--valid_ranges_reduced", required=TRUE, help="GFF3 output: reduced domain-validated hits")
-parser$add_argument("--flanking_ltr_ranges", required=TRUE, help="GFF3 output: flanking LTRs (two per parent ERV — left and right on strand axis)")
-parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
-parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for plotting")
-parser$add_argument("--manifest", required=FALSE, help="YAML manifest of inputs, config, counts, outputs, tool versions")
-
+# ----------------------------------------------------------------------------
+# CLI
+# ----------------------------------------------------------------------------
+parser <- ArgumentParser(description = "Process tBLASTn and LTRdigest integration overlaps")
+parser$add_argument("--fasta",                    required = TRUE)
+parser$add_argument("--blast",                    required = TRUE)
+parser$add_argument("--ltrdigest",                required = TRUE)
+parser$add_argument("--probes",                   required = TRUE)
+parser$add_argument("--config",                   required = TRUE)
+parser$add_argument("--original_ranges",          required = TRUE)
+parser$add_argument("--original_ranges_reduced",  required = TRUE)
+parser$add_argument("--candidate_ranges",         required = TRUE)
+parser$add_argument("--candidate_ranges_reduced", required = TRUE)
+parser$add_argument("--valid_ranges",             required = TRUE)
+parser$add_argument("--valid_ranges_reduced",     required = TRUE)
+parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
+parser$add_argument("--overlap_matrix",           required = TRUE)
+parser$add_argument("--plot_dataframe",           required = TRUE)
+parser$add_argument("--manifest",                 required = FALSE)
 args <- parser$parse_args()
 
-# -----------------------------
-# 2B. PIPELINE INSTRUMENTATION
-# -----------------------------
-# Per-section timing + running record of counts for the manifest emission at
-# the end of the run. Minimal overhead; informative in logs.
-.pipeline_t0 <- Sys.time()
-.pipeline_stages <- list()
+
+# ----------------------------------------------------------------------------
+# Pipeline instrumentation
+# ----------------------------------------------------------------------------
+.t0 <- Sys.time()
 log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs"))
-  message(sprintf("[%6.2fs] ▶ %s", elapsed, name))
+  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
+  message(sprintf("[%6.2fs] > %s", elapsed, name))
 }
-record_count <- function(key, value) {
-  .pipeline_stages[[key]] <<- value
-}
+.counts <- list()
+record_count <- function(key, value) { .counts[[key]] <<- value }
 
-# Short generator version string — best-effort git short SHA, else "unknown".
-.generator_version <- tryCatch(
-  suppressWarnings(
-    system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE, stderr = FALSE)
-  ),
-  error = function(e) "unknown"
+message(paste0("Processing ranges for ",
+               tools::file_path_sans_ext(basename(args$blast)), "..."))
+
+
+# ----------------------------------------------------------------------------
+# Phase 1. Load inputs
+# ----------------------------------------------------------------------------
+log_section("Phase 1: loading config, FASTA, BLAST parquet, LTRdigest, probes")
+config        <- read_config(args$config)
+opts          <- read_pipeline_options(config)
+chrom_lengths <- load_chrom_lengths(args$fasta)
+blast_df      <- load_blast_parquet(args$blast)
+ltr_data      <- load_ltrdigest_gff3(args$ltrdigest)
+probes        <- load_probes(args$probes)
+record_count("raw_blast_hits",       nrow(blast_df))
+record_count("ltrdigest_features",   length(ltr_data))
+
+
+# ----------------------------------------------------------------------------
+# Phase 2. Build the BLAST GRanges + filter
+# ----------------------------------------------------------------------------
+log_section("Phase 2: building BLAST GRanges and applying filters")
+gr <- build_blast_gr(blast_df)
+.pre_n <- length(gr)
+gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
+gr <- attach_min_gapwidth(gr, opts$probe_min_length)
+record_count("filtered_blast_hits",  length(gr))
+message(sprintf("   %d of %d hits kept", length(gr), .pre_n))
+
+
+# ----------------------------------------------------------------------------
+# Phase 3. First reduction (per probe x virus | label)
+# ----------------------------------------------------------------------------
+log_section("Phase 3: first reduction (per probe x virus|label)")
+gr_virus <- reduce_first(gr, opts$merge_option, opts, probes$lengths)
+gr_virus <- attach_probe_id(gr_virus)
+record_count("first_reduced_ranges", length(gr_virus))
+
+
+# ----------------------------------------------------------------------------
+# Phase 4. Global reduction (per probe across groupings)
+# ----------------------------------------------------------------------------
+log_section("Phase 4: global reduction (per probe across groupings)")
+gr_global <- reduce_global(gr_virus, opts)
+gr_global <- attach_probe_id(gr_global)
+record_count("global_reduced_ranges", length(gr_global))
+
+
+# ----------------------------------------------------------------------------
+# Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
+# ----------------------------------------------------------------------------
+log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
+domain_map        <- build_domain_map(opts$domains)
+retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
+domains_w_probes  <- extract_domains_with_probes(ltr_data, domain_map)
+flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
+record_count("retrotransposons",      length(retrotransposons))
+record_count("domains_with_probes",   length(domains_w_probes))
+record_count("flanking_ltrs",         length(flanking_ltrs))
+
+
+# ----------------------------------------------------------------------------
+# Phase 6. Candidate + valid hits
+# ----------------------------------------------------------------------------
+log_section("Phase 6: identifying candidate + valid hits")
+candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
+candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
+valid_hits               <- find_valid_hits(candidate_hits,         retrotransposons,
+                                            domains_w_probes, opts$agg_concat_separator)
+valid_hits_reduced       <- find_valid_hits(candidate_hits_reduced, retrotransposons,
+                                            domains_w_probes, opts$agg_concat_separator)
+record_count("candidate_ranges",           length(candidate_hits))
+record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
+record_count("valid_ranges",               length(valid_hits))
+record_count("valid_ranges_reduced",       length(valid_hits_reduced))
+
+
+# ----------------------------------------------------------------------------
+# Phase 7. Plot dataframe + probe-category tagging
+# ----------------------------------------------------------------------------
+log_section("Phase 7: plot dataframe + probe_category tagging")
+plot_df <- build_plot_dataframe(
+  gr_virus, probes$df_sum, opts$main_probes,
+  opts$agg_virus, opts$agg_concat_separator
 )
-.generator_version <- if (length(.generator_version) == 1L && nzchar(.generator_version))
-  paste0("RetroSeek/", .generator_version) else "RetroSeek/unknown"
+gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
+gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
+candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_probes, opts$agg_concat_separator)
+candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
+valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
+valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
 
-# File-content hashes (md5 via stdlib) used in the manifest — enables
-# reproducibility verification without pulling in the `digest` package.
-.file_md5 <- function(path) {
-  if (is.null(path) || !file.exists(path)) return(NA_character_)
-  tryCatch(unname(tools::md5sum(path)), error = function(e) NA_character_)
-}
 
-# Print which tBLASTn file is being processed
-message(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
+# ----------------------------------------------------------------------------
+# Phase 8. Export tracks + tables + manifest
+# ----------------------------------------------------------------------------
+log_section("Phase 8: exporting tracks, BED6, parquet, manifest")
+gen_ver <- resolve_generator_version()
 
-# -----------------------------
-# 3. CONFIGURATION PARAMETERS
-# -----------------------------
-# Read YAML configuration file
-config <- yaml::read_yaml(args$config)
+track_exporter(gr_virus,               args$original_ranges,          gen_ver)
+track_exporter(gr_global,              args$original_ranges_reduced,  gen_ver)
+bed_exporter(  gr_global,              sub("\\.gff3$", ".bed", args$original_ranges_reduced))
 
-# Import thresholds and merging behavior from config.
-# Note on `%||%` ordering: rlang's null-coalescing operator only fires when
-# its LHS is NULL. `as.numeric(NULL)` returns `numeric(0)`, which is NOT NULL,
-# so `as.numeric(x) %||% 0` never substitutes the default. Apply %||% BEFORE
-# coercion so the default takes effect when the config key is absent.
-probe_min_length   <- unlist(config$parameters$probe_min_length)
-bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold %||% 0)
-identity_threshold <- as.numeric(config$parameters$identity_threshold %||% 0)
-ltr_resize         <- as.numeric(config$parameters$ltr_resize %||% 0)
-# Fix typo: the config key is `merge_option` (singular, matching the schema).
-# The pre-refactor code read `merge_options` (plural), so the fallback "virus"
-# always fired and the label-grouped reduction branch was unreachable.
-merge_options      <- config$parameters$merge_option %||% "virus"
-# main_probes is semantically a set — duplicates ignored in membership checks.
-main_probes        <- unique(config$parameters$main_probes)
+track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
+track_exporter(candidate_hits_reduced, args$candidate_ranges_reduced, gen_ver)
+bed_exporter(  candidate_hits_reduced, sub("\\.gff3$", ".bed", args$candidate_ranges_reduced))
 
-# -----------------------------
-# 3B. AGGREGATION STRATEGIES
-# -----------------------------
-# When overlapping ranges are collapsed by plyranges::reduce_ranges_directed,
-# their metadata (virus / label / probe / species) must be reduced to a single
-# value per merged range. aggregate_values() dispatches by strategy name; see
-# docs/configuration.md and docs/adr/ADR-002 for the rationale.
-#
-# Vocabulary: list | concatenate | best | majority | first | strict
-agg <- config$parameters$aggregation %||% list()
-agg_virus            <- agg$virus            %||% "list"
-agg_label            <- agg$label            %||% "list"
-agg_probe            <- agg$probe            %||% "list"
-agg_species          <- agg$species          %||% "first"
-agg_best_tiebreaker  <- agg$best_tiebreaker  %||% "bitscore"
-agg_concat_separator <- agg$concat_separator %||% "; "
-agg_strict_marker    <- agg$strict_marker    %||% "ambiguous"
+track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
+track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
+bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
 
-# Bind the closure once at startup from config; reused at every call site.
-pick_tiebreaker <- make_tiebreaker_picker(agg_best_tiebreaker)
+track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
-#' Classify a probe (scalar or CharacterList) as main / accessory / mixed.
-#'
-#' Called per-row on a reduced GRanges' probe column. Handles all three
-#' aggregation output shapes:
-#'   - atomic character scalar        (best / first / strict / majority / concatenate)
-#'   - CharacterList of length 1      (list strategy — typical case)
-#'   - delimited string "POL; GAG"    (concatenate strategy — legacy)
-#'
-#' @param probe_col The probe mcols column from a GRanges.
-#' @param main_set  Character vector of probe names classified as main.
-#' @param separator Separator used when probe_col is a concatenated string.
-classify_probe_category <- function(probe_col, main_set, separator = "; ") {
-  vapply(seq_along(probe_col), function(i) {
-    probes <- if (inherits(probe_col, "CharacterList")) {
-      as.character(probe_col[[i]])
-    } else {
-      strsplit(as.character(probe_col[[i]]), separator, fixed = TRUE)[[1]]
-    }
-    probes <- probes[nzchar(probes)]
-    if (length(probes) == 0L) return(NA_character_)
-    in_main <- probes %in% main_set
-    if (all(in_main))   return("main")
-    if (!any(in_main))  return("accessory")
-    "mixed"
-  }, character(1))
-}
+overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits, args$overlap_matrix)
+arrow::write_parquet(plot_df, args$plot_dataframe)
 
-# -----------------------------
-# 5. LOAD FASTA AND CHR LENGTHS
-# -----------------------------
-log_section("Loading FASTA and chromosome lengths")
-fa_file <- Biostrings::readDNAStringSet(args$fasta)
-chrom_lengths <- setNames(width(fa_file), names(fa_file))
-
-# -----------------------------
-# 6. LOAD INPUT FILES
-# -----------------------------
-log_section("Loading BLAST parquet and LTRdigest GFF3")
-data <- arrow::read_parquet(args$blast)
-ltr_data <- rtracklayer::import(args$ltrdigest, format = "gff3")
-record_count("raw_blast_hits", nrow(data))
-record_count("ltrdigest_features", length(ltr_data))
-
-# -----------------------------
-# 6B. PROBE METADATA (for query_coverage calculation)
-# -----------------------------
-# Read the probes CSV early so composite-metric computation (section 10+)
-# can look up probe amino-acid lengths for query_coverage.
-probe_df     <- readr::read_csv(args$probes, show_col_types = FALSE)
-probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
-probe_lengths <- setNames(nchar(probe_df$Probe), probe_df$Abbreviation)
-
-# -----------------------------
-# 7. BUILD GRanges OBJECT
-# -----------------------------
-gr <- GRanges(
-  seqnames = data$accession,
-  ranges   = IRanges(start = data$hsp_sbjct_start, end = data$hsp_sbjct_end),
-  strand   = data$strand
-)
-
-# Attach metadata to GRanges object. Additions beyond the pre-refactor set:
-# - evalue, align_length (for min_evalue + query_coverage composite metrics)
-# - query_start, query_end (reserved for future per-position coverage refinement)
-mcols(gr)$label        <- data$label
-mcols(gr)$virus        <- data$virus
-mcols(gr)$bitscore     <- data$hsp_bits
-mcols(gr)$identity     <- (data$hsp_identity / data$hsp_align_length) * 100
-mcols(gr)$species      <- data$species
-mcols(gr)$probe        <- data$probe
-mcols(gr)$evalue       <- data$hsp_evalue
-mcols(gr)$align_length <- data$hsp_align_length
-mcols(gr)$query_start  <- data$hsp_query_start
-mcols(gr)$query_end    <- data$hsp_query_end
-
-# -----------------------------
-# 8. FILTER LOW-QUALITY RANGES
-# -----------------------------
-log_section("Filtering low-quality hits")
-.pre_filter_n <- length(gr)
-gr <- gr %>% filter(
-  width(.) > ifelse(!is.na(probe_min_length[as.character(probe)]), probe_min_length[as.character(probe)], 0),
-  bitscore > bitscore_threshold,
-  identity > identity_threshold
-)
-record_count("filtered_blast_hits", length(gr))
-message(sprintf("   %d of %d hits kept", length(gr), .pre_filter_n))
-
-# -----------------------------
-# 9. ADD SEQUENCE METADATA
-# -----------------------------
-# Per-genome pipeline: every row of gr$species should be the same species.
-# An invariant — enforce it rather than silently picking gr$species[1].
-.species_values <- unique(gr$species)
-stopifnot("ranges_analysis: expected a single species per run, got multiple" =
-            length(.species_values) == 1L)
-seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = .species_values)
-seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
-
-# -----------------------------
-# 10. REDUCE BY PROBE + GAP WIDTH
-# -----------------------------
-log_section("Reducing by probe (+ virus / label) via plyranges")
-gap_vals <- ifelse(!is.na(probe_min_length[as.character(gr$probe)]), probe_min_length[as.character(gr$probe)], 0)
-mcols(gr)$min_gapwidth <- gap_vals
-gr_list <- split(gr, ~ probe)
-
-# Group-specific reduction using reduce_ranges_directed
-
-gr_list_reduced_virus <- lapply(gr_list, function(sub_gr) {
-  gap_val <- unique(sub_gr$min_gapwidth)
-  sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
-    min.gapwidth = gap_val,
-    virus           = aggregate_values(virus,   agg_virus,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    species         = aggregate_values(species, agg_species,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    label           = aggregate_values(label,   agg_label,
-                                       tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    # Composite metrics — replace mean_bitscore / mean_identity.
-    n_hits          = length(bitscore),
-    max_bitscore    = max(bitscore),
-    sum_bitscore    = sum(bitscore),
-    median_bitscore = stats::median(bitscore),
-    max_identity    = max(identity),
-    min_evalue      = min(evalue),
-    query_coverage  = pmin(1, sum(align_length) / probe_lengths[probe[1]])
-  )
-})
-
-if (merge_options == "label") {
-  gr_list_reduced_label <- lapply(gr_list, function(sub_gr) {
-    gap_val <- unique(sub_gr$min_gapwidth)
-    sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
-      min.gapwidth = gap_val,
-      virus           = aggregate_values(virus,   agg_virus,
-                                         tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
-                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      species         = aggregate_values(species, agg_species,
-                                         tiebreaker = pick_tiebreaker(bitscore = bitscore, identity = identity, align_length = align_length),
-                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      n_hits          = length(bitscore),
-      max_bitscore    = max(bitscore),
-      sum_bitscore    = sum(bitscore),
-      median_bitscore = stats::median(bitscore),
-      max_identity    = max(identity),
-      min_evalue      = min(evalue),
-      query_coverage  = pmin(1, sum(align_length) / probe_lengths[probe[1]])
-    )
-  })
-}
-
-# Combine all reduced probe groups
-gr_virus <- bind_ranges(gr_list_reduced_virus)
-
-if (merge_options == "label") {
-  gr <- bind_ranges(gr_list_reduced_label)
-} else {
-  gr <- gr_virus
-}
-
-# -----------------------------
-# 11. GLOBAL REDUCTION ACROSS PROBES
-# -----------------------------
-log_section("Global reduction across probes")
-reducing.gr <- function(gr) {
-  gr %>%
-    group_by(probe) %>%
-    reduce_ranges_directed(
-      species         = aggregate_values(species, agg_species,
-                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      virus           = aggregate_values(virus,   agg_virus,
-                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      label           = aggregate_values(label,   agg_label,
-                                         tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                         separator = agg_concat_separator, strict_marker = agg_strict_marker),
-      # Composite metrics — propagated from the upstream (gr_virus/gr_list)
-      # reduction. For globally-reduced ranges these are re-aggregated across
-      # contributing upstream reductions.
-      n_hits          = sum(n_hits),
-      max_bitscore    = max(max_bitscore),
-      sum_bitscore    = sum(sum_bitscore),
-      median_bitscore = stats::median(median_bitscore),
-      max_identity    = max(max_identity),
-      min_evalue      = min(min_evalue),
-      query_coverage  = pmin(1, sum(query_coverage)),
-      type            = "proviral_sequence"
-    ) %>%
-    arrange(start, .by_group = TRUE)
-}
-
-reduced_gr <- reducing.gr(gr)
-
-gr_virus <- gr_virus %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
-
-named_reduced_gr <- reduced_gr %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
-
-# -----------------------------
-# 12. PROCESS LTR RETRO ELEMENTS
-# -----------------------------
-log_section("Processing LTR retrotransposons + domain assignment")
-ltr_retro <- ltr_data %>% filter(type == "repeat_region")
-flank_resize <- as.numeric(ltr_resize)
-ltr_retro <- ltr_retro %>% resize(width = width(ltr_retro) + flank_resize, fix = "center")
-
-
-# ------------------------------------------
-# 13. PROCESS LTR PROTEIN DOMAINS FROM LTRDIGEST
-# ------------------------------------------
-# Step 1: Filter LTRdigest GFF3 entries to keep only those with a 'name' attribute.
-# These correspond to protein domains (e.g., RVT, Integrase, etc).
-# Remove metadata columns that are not required for downstream analysis.
-ltr_domain <- ltr_data %>%
-  filter(!is.na(name)) %>%  # Keep only rows that have a named domain
-  select(
-    -source, -phase,        # Remove unused GFF fields
-    -ID,                    # We will aggregate and reassign IDs later
-    -ltr_similarity,        # Remove LTR similarity metadata
-    -seq_number,            # Redundant field
-    -reading_frame          # Not needed for domain-level comparisons
-  )
-
-# Step 2: Create a domain-to-probe mapping dictionary.
-# Each probe in config$domains is a vector of regular expressions to look for; we collapse each into a single pattern string (x|y|z).
-# This creates a named character vector where each name is a probe and value is a regex pattern (POL: "rvt|integrase|aspartic").
-domain_map <- purrr::map_chr(config$domains, ~ paste(.x, collapse = "|"))
-
-# Step 3: Function to assign a 'probe' label to a given domain name.
-# It searches the domain name against all domain_map regex patterns.
-# If multiple probes match, it chooses the longest matching probe name (favoring specificity).
-assign_probe <- function(domain_name) {
-  matched_probe <- purrr::keep(names(domain_map), function(probe) {
-    grepl(domain_map[[probe]], domain_name, ignore.case = TRUE)
-  })
-  
-  if (length(matched_probe) > 0) {
-    # Prefer the most specific probe (longest name)
-    matched_probe[order(nchar(matched_probe), decreasing = TRUE)[1]]
-  } else {
-    # Return NA if no match is found
-    NA_character_
-  }
-}
-
-# Step 4: Apply the probe assignment function to each domain name.
-# This creates a new 'probe' column identifying which probe the domain matches.
-# Then we remove rows that couldn't be assigned to any probe (i.e., unrecognized domains).
-ltr_domain <- ltr_domain %>%
-  mutate(probe = purrr::map_chr(name, assign_probe)) %>%
-  filter(!is.na(probe))  # Retain only domains successfully mapped to a probe
-
-# -----------------------------
-# 13B. EXTRACT FLANKING LTRs FROM ERVs
-# -----------------------------
-# Solo-LTR production is handled by the LTR_retriever-based workstream, which
-# runs as a separate Snakemake rule feeding valid_ranges.gff3 back through
-# LTR_retriever's consensus-build + BLAST-back mechanism. The pre-refactor
-# `solo_ltr <- ltr_seqs[!ParentID %in% erv_ids]` was always empty because
-# LTRdigest output only contains LTRs that ARE children of full ERVs by
-# construction — see .claude/memory/gotchas.md #2a. Section removed here.
-
-# Step 1: Extract all LTR features and their Parent IDs.
-# rtracklayer::import already parses GFF3 Parent attributes into a
-# CharacterList (one element per row, each a character vector of parent IDs).
-ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
-ltr_seqs$ParentID <- vapply(mcols(ltr_seqs)$Parent,
-                            function(x) if (length(x) > 0L) as.character(x[[1]]) else NA_character_,
-                            character(1))
-
-# Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs).
-ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
-erv_ids <- unique(mcols(ervs)$ID)
-
-# Step 3: Keep only LTRs that belong to full ERVs — these are the flanks.
-ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
-
-# Step 2: Join strand + both coordinates from parent ERVs for orientation.
-# `end_erv` was missing in the pre-refactor code, which made correct
-# negative-strand labelling impossible (see step 4).
-erv_meta <- data.frame(
-  ID     = mcols(ervs)$ID,
-  strand = as.character(strand(ervs)),
-  start  = start(ervs),
-  end    = end(ervs)
-)
-
-# Step 3: Add orientation and relative position info.
-mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
-mcols(ltr_flanking)$start_erv  <- erv_meta$start [match(ltr_flanking$ParentID, erv_meta$ID)]
-mcols(ltr_flanking)$end_erv    <- erv_meta$end   [match(ltr_flanking$ParentID, erv_meta$ID)]
-
-# Step 4: Label LTR position as "left" (the biologically-5' LTR) or "right".
-# Strand-aware: on the + strand, biologically-5' is the lower-coordinate LTR
-# (start ≤ erv_start + margin). On the − strand, the gene reads in the opposite
-# direction, so biologically-5' is the HIGHER-coordinate LTR (end ≥ erv_end -
-# margin). The pre-refactor code used start coordinates on both strands, which
-# always labelled every minus-strand LTR "left" since LTR starts are always
-# ≥ erv_start.
-.ltr_flank_margin <- as.numeric(config$parameters$ltr_flank_margin %||% 0)
-ltr_flanking$LTR_side <- ifelse(
-  ltr_flanking$strand_erv == "+",
-  ifelse(start(ltr_flanking) <= ltr_flanking$start_erv + .ltr_flank_margin, "left", "right"),
-  ifelse(end(ltr_flanking)   >= ltr_flanking$end_erv   - .ltr_flank_margin, "left", "right")
-)
-
-# Step 5: Assign ID based on ERV and LTR side
-if (length(ltr_flanking) > 0) {
-  ltr_flanking$ID <- paste0("flankLTR_", ltr_flanking$ParentID, "_", ltr_flanking$LTR_side)
-} else {
-  ltr_flanking <- GRanges()   # Empty GRanges if no flanking LTRs
-}
-
-# -----------------------------
-# 14. OVERLAP DETECTION: tBLASTn vs. LTRs
-# -----------------------------
-log_section("Overlap detection: tBLASTn vs LTRs")
-
-# Compute overlaps between tBLASTn hits and LTR retrotransposons
-ov.B2L <- findOverlaps(named_reduced_gr, ltr_retro)
-ov.B2L.virus <- findOverlaps(gr_virus, ltr_retro)
-ov.L2B <- findOverlaps(ltr_retro, named_reduced_gr)
-
-# Extract overlapping/non-overlapping hits
-BonL       <- named_reduced_gr[unique(queryHits(ov.B2L))]    # tBLASTn hits overlapping LTRs
-BoutsideL  <- named_reduced_gr[-unique(queryHits(ov.B2L))]   # tBLASTn hits outside LTRs
-LonB       <- ltr_retro[unique(queryHits(ov.L2B))]           # LTRs overlapping tBLASTn hits
-LoutsideB  <- ltr_retro[-unique(queryHits(ov.L2B))]          # LTRs with no tBLASTn overlap
-
-# Compute percentages of overlap
-percent_BonL       <- round(length(BonL) / length(named_reduced_gr) * 100, 2)
-percent_BoutsideL  <- round(length(BoutsideL) / length(named_reduced_gr) * 100, 2)
-percent_LonB       <- round(length(LonB) / length(ltr_retro) * 100, 2)
-percent_LoutsideB  <- round(length(LoutsideB) / length(ltr_retro) * 100, 2)
-
-
-# -----------------------------
-# 15. OVERLAP SUMMARY TABLES
-# -----------------------------
-
-# Summary: tBLASTn intervals
-blast_overlap_df <- data.frame(
-  In   = length(BonL),
-  Out  = length(BoutsideL),
-  InP  = percent_BonL,
-  OutP = percent_BoutsideL,
-  row.names = "tBLASTn"
-)
-
-# Summary: LTR intervals
-ltr.full_overlap_df <- data.frame(
-  In   = length(LonB),
-  Out  = length(LoutsideB),
-  InP  = percent_LonB,
-  OutP = percent_LoutsideB,
-  row.names = "LTRdigest"
-)
-
-
-# -----------------------------
-# 16. PER-PROBE OVERLAP ANALYSIS
-# -----------------------------
-
-probe_overlap_calculator <- function(gr, ltr_retro) {
-  probes <- unique(gr$probe)
-  overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
-  rownames(overlap_df) <- probes
-  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
-  
-  for (pr in probes) {
-    gr_pr <- gr[gr$probe == pr]
-    ov <- findOverlaps(gr_pr, ltr_retro)
-    
-    in_hits <- gr_pr[unique(queryHits(ov))]
-    out_hits <- gr_pr[-unique(queryHits(ov))]
-    
-    overlap_df[pr, ] <- c(
-      length(in_hits),
-      length(out_hits),
-      round(length(in_hits) / length(gr_pr) * 100, 2),
-      round(length(out_hits) / length(gr_pr) * 100, 2)
-    )
-  }
-  
-  return(overlap_df)
-}
-
-probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_retro)
-
-
-# -----------------------------
-# 17. PER-LTR OVERLAP ANALYSIS PER PROBE
-# -----------------------------
-
-ltrdigest_overlap_calculator <- function(gr, ltr_retro) {
-  probes <- unique(gr$probe)
-  overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
-  rownames(overlap_df) <- paste0("LTR_", probes)
-  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
-  
-  for (pr in probes) {
-    gr_pr <- gr[gr$probe == pr]
-    ov <- findOverlaps(ltr_retro, gr_pr)
-    
-    in_hits <- ltr_retro[unique(queryHits(ov))]
-    out_hits <- ltr_retro[-unique(queryHits(ov))]
-    
-    overlap_df[paste0("LTR_", pr), ] <- c(
-      length(in_hits),
-      length(out_hits),
-      round(length(in_hits) / length(ltr_retro) * 100, 2),
-      round(length(out_hits) / length(ltr_retro) * 100, 2)
-    )
-  }
-  
-  return(overlap_df)
-}
-
-ltr_overlap_df <- ltrdigest_overlap_calculator(named_reduced_gr, ltr_retro)
-
-
-# -----------------------------
-# 18. COMBINE OVERLAP RESULTS
-# -----------------------------
-
-# Merge global and per-probe overlap dataframes
-overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
-
-
-# -----------------------------
-# 19. CONSTRUCT PLOTTING DATAFRAME
-# -----------------------------
-# probe_df / probe_df_sum are already loaded in section 6B for probe_lengths.
-
-# Prepare plot-friendly dataframe from reduced GRanges. Virus may arrive either
-# as a list-column (when agg_virus = "list" — the default, CharacterList in R)
-# or as a delimited string (other strategies). Handle both.
-plot_df <- as.data.frame(reduced_gr)
-plot_df <- if (is.list(plot_df$virus) && !is.character(plot_df$virus)) {
-  tidyr::unnest(plot_df, cols = virus)
-} else {
-  tidyr::separate_rows(plot_df, virus, sep = agg_concat_separator)
-}
-plot_df <- plot_df %>%
-  mutate(
-    label        = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
-    abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)],
-    # Tag each row with its probe category. Replaces the pre-refactor
-    # three-file fanout (plot_df_main / plot_df_accessory / full). Downstream
-    # plot2sort.R filters on this column instead of reading separate files.
-    probe_type   = if_else(probe %in% main_probes, "main", "accessory")
-  )
-
-
-
-# -----------------------------
-# 20. IDENTIFY VALID tBLASTn HITS
-# -----------------------------
-log_section("Identifying valid (LTR-overlapping) tBLASTn hits")
-
-# Candidate hits are those overlapping LTR regions
-ltr_valid_hits <- gr_virus[queryHits(ov.B2L.virus)] %>% arrange(start)
-ltr_valid_hits_reduced <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
-
-
-# -----------------------------
-# 21. OPTIONAL DOMAIN VALIDATION
-# -----------------------------
-log_section("Domain validation (join_overlap_inner_directed cascade)")
-
-domain_valid_hits <- gr_virus %>%
-  
-  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
-  join_overlap_inner_directed(
-    ltr_valid_hits,
-    suffix = c(".gr", ".ltr_valid")
-  ) %>%
-  
-  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
-  filter(probe.gr == probe.ltr_valid) %>%
-  mutate(probe = probe.gr) %>%
-  
-  # Step 3: Overlap the result with LTR domains (strand-aware again)
-  join_overlap_inner_directed(
-    ltr_domain,
-    suffix = c(".merged", ".ltr_domain")
-  ) %>%
-  
-  # Step 4: Filter only cases where probe labels match again
-  filter(probe.merged == probe.ltr_domain) %>%
-  mutate(Parent = as.character(Parent)) %>%
-  
-  # Step 5: Clean up and order result
-  mutate(
-    probe         = probe.merged,
-    species       = species.gr,
-    virus         = virus.gr,
-    label         = label.gr,
-    name          = name,
-    Parent        = Parent,
-    ID            = ID.gr,
-    bitscore = bitscore.gr,
-    identity = identity.gr
-  ) %>%
-  select(
-    probe, species, virus, label,
-    name, ID, Parent,
-    bitscore, identity
-  ) %>%
-  arrange(start)
-
-
-domain_valid_hits_reduced <- gr %>%
-  
-  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
-  join_overlap_inner_directed(
-    ltr_valid_hits_reduced,
-    suffix = c(".gr", ".ltr_valid")
-  ) %>%
-  
-  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
-  filter(probe.gr == probe.ltr_valid) %>%
-  mutate(probe = probe.gr) %>%
-  
-  # Step 3: Overlap the result with LTR domains (strand-aware again)
-  join_overlap_inner_directed(
-    ltr_domain,
-    suffix = c(".merged", ".ltr_domain")
-  ) %>%
-  
-  # Step 4: Filter only cases where probe labels match again
-  filter(probe.merged == probe.ltr_domain) %>%
-  mutate(Parent = as.character(Parent)) %>%
-  
-  # Step 5: Group by probe for reduction
-  group_by(probe.ltr_valid) %>%
-  
-  # Step 6: Reduce overlapping domains, aggregating relevant fields via the
-  # configured per-field strategies. Tiebreaker uses max_bitscore / max_identity
-  # (carried in from upstream reducing.gr — per-hit values aren't in scope here).
-  reduce_ranges_directed(
-    probe           = aggregate_values(probe.ltr_valid, agg_probe,
-                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    species         = aggregate_values(species.gr,      agg_species,
-                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    virus           = aggregate_values(virus.gr,        agg_virus,
-                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    label           = aggregate_values(label.gr,        agg_label,
-                                       tiebreaker = pick_tiebreaker(bitscore = max_bitscore, identity = max_identity),
-                                       separator = agg_concat_separator, strict_marker = agg_strict_marker),
-    # `name`, `ID`, `Parent` are LTRdigest-specific — always list, lossless.
-    name            = aggregate_values(name,   "list"),
-    ID              = aggregate_values(ID,     "list"),
-    Parent          = aggregate_values(Parent, "list"),
-    # Composite metrics propagated through the domain-validation reduction.
-    n_hits          = sum(n_hits),
-    max_bitscore    = max(max_bitscore),
-    sum_bitscore    = sum(sum_bitscore),
-    median_bitscore = stats::median(median_bitscore),
-    max_identity    = max(max_identity),
-    min_evalue      = min(min_evalue),
-    query_coverage  = pmin(1, sum(query_coverage)),
-  ) %>%
-  
-  # Step 7: Clean up and order result
-  select(-probe.ltr_valid) %>%
-  arrange(start, .by_group = TRUE)
-
-
-# -----------------------------
-# 22. EXPORT OUTPUT FILES
-# -----------------------------
-log_section("Exporting tracks, plot dataframe, overlap matrix")
-
-# GFF3 exporter. Empty GRanges produce a header-only file to satisfy Snakemake.
-# Provenance line added so every output is traceable to a generator version.
-track_exporter <- function(track, path) {
-  if (length(track) > 0) {
-    rtracklayer::export(track, path, format = "gff3")
-    # Inject a ##source-version pragma on the second line so downstream
-    # consumers can identify the generator that produced this file.
-    src <- sprintf("##source-version %s (%s)",
-                   .generator_version, format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ"))
-    lines <- readLines(path, warn = FALSE)
-    writeLines(c(lines[1], src, lines[-1]), con = path)
-  } else {
-    writeLines(c("##gff-version 3",
-                 sprintf("##source-version %s", .generator_version)), con = path)
-  }
-}
-
-# BED6 export (name, score, strand) alongside every reduced GFF3. The reduced
-# tracks are the typical genome-browser input; BED is lighter and handled by
-# IGV / UCSC / JBrowse without configuration. Original (per-hit) tracks stay
-# GFF3-only — they're detail, not overview.
-bed_exporter <- function(track, path) {
-  if (length(track) == 0L) {
-    writeLines("", con = path)
-    return(invisible(NULL))
-  }
-  # Coerce the name column for BED — prefer ID, then probe, then seqnames.
-  mcols_names <- names(mcols(track))
-  name_col <- if ("ID" %in% mcols_names) as.character(mcols(track)$ID)
-              else if ("probe" %in% mcols_names) as.character(mcols(track)$probe)
-              else as.character(seqnames(track))
-  # Score field in BED6 is 0-1000; repurpose max_bitscore capped at 1000.
-  score_col <- if ("max_bitscore" %in% mcols_names)
-    pmin(1000L, as.integer(mcols(track)$max_bitscore)) else rep(0L, length(track))
-  bed <- data.frame(
-    chrom      = as.character(seqnames(track)),
-    chromStart = start(track) - 1L,  # BED is 0-based
-    chromEnd   = end(track),
-    name       = name_col,
-    score      = score_col,
-    strand     = as.character(strand(track))
-  )
-  write.table(bed, file = path, sep = "\t",
-              quote = FALSE, row.names = FALSE, col.names = FALSE)
-}
-
-# Attach probe_category (main | accessory | mixed) to every probe-bearing
-# track before export. "mixed" only arises when a merged range's probe
-# contributors span both categories — impossible under best/first/strict
-# aggregation strategies, possible under list/concatenate/majority.
-attach_probe_category <- function(track) {
-  if (length(track) == 0L || !"probe" %in% names(mcols(track))) return(track)
-  mcols(track)$probe_category <- classify_probe_category(
-    mcols(track)$probe, main_set = main_probes, separator = agg_concat_separator
-  )
-  track
-}
-
-gr_virus                 <- attach_probe_category(gr_virus)
-named_reduced_gr         <- attach_probe_category(named_reduced_gr)
-ltr_valid_hits           <- attach_probe_category(ltr_valid_hits)
-ltr_valid_hits_reduced   <- attach_probe_category(ltr_valid_hits_reduced)
-domain_valid_hits        <- attach_probe_category(domain_valid_hits)
-domain_valid_hits_reduced <- attach_probe_category(domain_valid_hits_reduced)
-
-track_exporter(gr_virus,                  args$original_ranges)
-track_exporter(named_reduced_gr,          args$original_ranges_reduced)
-bed_exporter(named_reduced_gr,            sub("\\.gff3$", ".bed", args$original_ranges_reduced))
-
-track_exporter(ltr_valid_hits,            args$candidate_ranges)
-track_exporter(ltr_valid_hits_reduced,    args$candidate_ranges_reduced)
-bed_exporter(ltr_valid_hits_reduced,      sub("\\.gff3$", ".bed", args$candidate_ranges_reduced))
-
-track_exporter(domain_valid_hits,         args$valid_ranges)
-track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
-bed_exporter(domain_valid_hits_reduced,   sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
-
-track_exporter(ltr_flanking, args$flanking_ltr_ranges)
-
-# Record final tallies for the manifest.
-record_count("reduced_original_ranges",  length(named_reduced_gr))
-record_count("candidate_ranges",         length(ltr_valid_hits))
-record_count("reduced_candidate_ranges", length(ltr_valid_hits_reduced))
-record_count("valid_ranges",             length(domain_valid_hits))
-record_count("reduced_valid_ranges",     length(domain_valid_hits_reduced))
-record_count("flanking_ltrs",            length(ltr_flanking))
-
-# Export plotting data as a single parquet per genome. Provenance metadata is
-# attached to the parquet schema so downstream readers can trace back to the
-# generator + config + run timestamp.
-plot_df_table <- arrow::as_arrow_table(plot_df)
-plot_df_table$metadata <- list(
-  generator          = .generator_version,
-  run_timestamp_utc  = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ"),
-  config_file        = normalizePath(args$config, mustWork = FALSE),
-  config_md5         = .file_md5(args$config),
-  aggregation_probe  = agg_probe,
-  aggregation_virus  = agg_virus,
-  aggregation_label  = agg_label
-)
-arrow::write_parquet(plot_df_table, args$plot_dataframe)
-
-# Export overlap summary matrix.
-write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
-
-# -----------------------------
-# 23. MANIFEST EMISSION
-# -----------------------------
-# Writes a per-genome YAML manifest summarising inputs, config, stage counts,
-# outputs, and tool versions. Useful for downstream audit + bisecting which
-# run produced a given set of results.
 if (!is.null(args$manifest)) {
-  log_section("Writing manifest")
-  .manifest <- list(
-    generator = .generator_version,
-    run = list(
-      started_utc  = format(.pipeline_t0, "%Y-%m-%dT%H:%M:%SZ"),
-      ended_utc    = format(Sys.time(),   "%Y-%m-%dT%H:%M:%SZ"),
-      elapsed_seconds = round(as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs")), 2)
-    ),
-    inputs = list(
-      fasta     = list(path = args$fasta,     md5 = .file_md5(args$fasta)),
-      blast     = list(path = args$blast,     md5 = .file_md5(args$blast)),
-      ltrdigest = list(path = args$ltrdigest, md5 = .file_md5(args$ltrdigest)),
-      probes    = list(path = args$probes,    md5 = .file_md5(args$probes)),
-      config    = list(path = args$config,    md5 = .file_md5(args$config))
-    ),
-    config_snapshot = list(
-      aggregation      = config$parameters$aggregation,
-      thresholds = list(
-        bitscore_threshold = bitscore_threshold,
-        identity_threshold = identity_threshold,
-        ltr_resize         = ltr_resize
-      ),
-      merge_option     = merge_options,
-      main_probes      = main_probes,
-      probe_min_length = as.list(probe_min_length)
-    ),
-    counts = .pipeline_stages,
-    outputs = list(
-      original_ranges             = args$original_ranges,
-      original_ranges_reduced     = args$original_ranges_reduced,
-      original_ranges_reduced_bed = sub("\\.gff3$", ".bed", args$original_ranges_reduced),
-      candidate_ranges            = args$candidate_ranges,
-      candidate_ranges_reduced    = args$candidate_ranges_reduced,
-      candidate_ranges_reduced_bed= sub("\\.gff3$", ".bed", args$candidate_ranges_reduced),
-      valid_ranges                = args$valid_ranges,
-      valid_ranges_reduced        = args$valid_ranges_reduced,
-      valid_ranges_reduced_bed    = sub("\\.gff3$", ".bed", args$valid_ranges_reduced),
-      flanking_ltr_ranges         = args$flanking_ltr_ranges,
-      # Solo-LTR production is emitted by the LTR_retriever-based workstream,
-      # not ranges_analysis. Not listed here.
-      overlap_matrix              = args$overlap_matrix,
-      plot_dataframe              = args$plot_dataframe
-    ),
-    r_versions = list(
-      R              = paste(R.version$major, R.version$minor, sep = "."),
-      GenomicRanges  = as.character(packageVersion("GenomicRanges")),
-      plyranges      = as.character(packageVersion("plyranges")),
-      rtracklayer    = as.character(packageVersion("rtracklayer")),
-      arrow          = as.character(packageVersion("arrow")),
-      Biostrings     = as.character(packageVersion("Biostrings"))
-    )
-  )
-  yaml::write_yaml(.manifest, args$manifest)
+  emit_manifest(args, .counts, gen_ver, opts, args$manifest)
 }
 
-log_section(sprintf("Done — total runtime %.2fs",
-                    as.numeric(difftime(Sys.time(), .pipeline_t0, units = "secs"))))
+log_section("Done")

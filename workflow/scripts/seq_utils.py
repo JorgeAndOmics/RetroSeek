@@ -155,8 +155,15 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
                     logging.warning('No alignments found.')
                     continue
                 for hsp in alignment.hsps:
-                    # Use alignment.hit_def
-                    accession_id = alignment.hit_def
+                    # FASTA-header convention: the first whitespace-separated
+                    # token of hit_def is the accession (e.g. "CM138268.1");
+                    # the rest is the description ("Molossus molossus chr 3,
+                    # whole genome shotgun sequence"). Storing only the
+                    # accession keeps the seqid identical to how LTRdigest /
+                    # rtracklayer / GRanges represent it, so downstream
+                    # findOverlaps matches without needing per-stage stripping.
+                    raw_hit_def = alignment.hit_def or ''
+                    accession_id = raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
                     random_string = utils.random_string_generator(6)
 
                     new_instance = RetroSeeker(

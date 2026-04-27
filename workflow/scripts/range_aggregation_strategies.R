@@ -37,6 +37,19 @@ aggregate_values <- function(values, strategy,
                              tiebreaker    = NULL,
                              separator     = "; ",
                              strict_marker = "ambiguous") {
+  # plyranges' reduce_ranges_directed presents grouped metadata columns as
+  # CompressedAtomicList objects, one top-level element per merged range,
+  # each element being the per-row vector of contributing values. The
+  # required output is a single aggregated value per merged range — i.e.
+  # a vector of length(values), or a CharacterList of length(values) for
+  # the `list` strategy. Calling as.character() on a multi-row AtomicList
+  # element fails ("top-level elements of length <= 1"), so we must apply
+  # the strategy element-wise.
+  if (inherits(values, c("AtomicList", "List"))) {
+    return(.aggregate_values_listwise(values, strategy, tiebreaker,
+                                      separator, strict_marker))
+  }
+  # Atomic-vector path (unit tests, single-group calls): apply globally.
   values_chr <- as.character(values)
   uniq <- unique(values_chr)
   switch(
@@ -54,6 +67,44 @@ aggregate_values <- function(values, strategy,
     strict      = if (length(uniq) == 1L) uniq else strict_marker,
     stop("Unknown aggregation strategy: ", strategy)
   )
+}
+
+
+# Element-wise variant for AtomicList input. Returns a vector / CharacterList
+# of length(values) so plyranges can attach the column to the per-merged-range
+# output GRanges of reduce_ranges_directed.
+.aggregate_values_listwise <- function(values, strategy, tiebreaker,
+                                       separator, strict_marker) {
+  n <- length(values)
+  if (strategy == "list") {
+    return(IRanges::CharacterList(lapply(seq_len(n), function(i) {
+      unique(as.character(values[[i]]))
+    })))
+  }
+  vapply(seq_len(n), function(i) {
+    elem <- as.character(values[[i]])
+    if (length(elem) == 0L) return(NA_character_)
+    uniq <- unique(elem)
+    switch(
+      strategy,
+      concatenate = paste(sort(uniq), collapse = separator),
+      best        = {
+        if (is.null(tiebreaker)) {
+          stop("aggregate_values(strategy='best') requires a tiebreaker vector.")
+        }
+        tb_i <- if (inherits(tiebreaker, c("AtomicList", "List"))) {
+          tiebreaker[[i]]
+        } else {
+          tiebreaker
+        }
+        elem[which.max(tb_i)][1]
+      },
+      majority    = names(sort(table(elem), decreasing = TRUE))[1],
+      first       = sort(uniq)[1],
+      strict      = if (length(uniq) == 1L) uniq else strict_marker,
+      stop("Unknown aggregation strategy: ", strategy)
+    )
+  }, character(1))
 }
 
 
