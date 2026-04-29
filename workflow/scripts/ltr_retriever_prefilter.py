@@ -92,14 +92,30 @@ def _parse_des(des_path: Path) -> list[str]:
     """
     if not des_path.exists():
         raise FileNotFoundError(f"LTRharvest descriptor file not found: {des_path}")
+    # gt suffixerator's `.des` is mostly text (one FASTA header per `\n`-
+    # delimited line) but ends with a binary 0xFF-padded trailer. Reading
+    # it as text crashes UTF-8 decoding mid-stream. Open binary, split on
+    # `\n`, decode each line leniently, and stop when we hit non-printable
+    # content (the trailer's 0xFF bytes are a reliable end-of-data sentinel).
     names: list[str] = []
-    with des_path.open() as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line:
-                continue
-            # Keep only the first token — matches LTRharvest -seqids behaviour.
-            names.append(line.split()[0])
+    with des_path.open("rb") as handle:
+        raw_bytes = handle.read()
+    for raw_line in raw_bytes.split(b"\n"):
+        if not raw_line:
+            continue
+        # Trailer detection: a line that is all 0xFF (or starts with 0xFF) is
+        # the binary padding, not a chromosome name.
+        if raw_line[0] == 0xFF:
+            break
+        try:
+            line = raw_line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            # Mixed-codec garbage — treat as end of textual content.
+            break
+        if not line:
+            continue
+        # Keep only the first token — matches LTRharvest -seqids behaviour.
+        names.append(line.split()[0])
     return names
 
 
