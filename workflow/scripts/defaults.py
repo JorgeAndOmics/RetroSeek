@@ -17,11 +17,28 @@ Usage:
     This script is intended to be imported as a module and not run directly.
 """
 
+import os
 from pathlib import Path
 
 import yaml
 
-CONFIG_FILE = Path(__file__).parents[2] / "data" / "config" / "config.yaml"
+# Config-file resolution:
+#   1. ``RETROSEEK_CONFIG`` env var, if set (absolute path or relative to repo root).
+#   2. ``data/config/config.yaml`` (the committed default; portable repo-relative paths).
+#
+# Why an env var rather than a CLI flag: ``defaults.py`` is imported at
+# Snakemake parse time, before any rule body or shell expansion runs.
+# Snakemake's ``--configfile`` only affects ``config[...]`` lookups inside
+# the Snakefile; it cannot override which file ``defaults.py`` reads.
+# The env var lets ``./RetroSeek --configfile`` (or a manual snakemake
+# invocation) declare the config before the import side effects fire.
+_REPO_ROOT_FOR_CONFIG = Path(__file__).resolve().parents[2]
+_env_config = os.environ.get("RETROSEEK_CONFIG")
+if _env_config:
+    _candidate = Path(_env_config)
+    CONFIG_FILE = _candidate if _candidate.is_absolute() else _REPO_ROOT_FOR_CONFIG / _candidate
+else:
+    CONFIG_FILE = _REPO_ROOT_FOR_CONFIG / "data" / "config" / "config.yaml"
 
 with CONFIG_FILE.open() as f:
     config = yaml.safe_load(f)
