@@ -111,7 +111,7 @@ def fixtures_dir() -> Path:
 def isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Run the test in a clean, temporary working directory."""
     monkeypatch.chdir(tmp_path)
-    yield tmp_path
+    return tmp_path
 
 
 @pytest.fixture

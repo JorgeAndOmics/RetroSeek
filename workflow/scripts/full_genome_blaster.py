@@ -24,40 +24,40 @@ Usage:
     Run from the command line:
         python full_genome_blaster.py --genome MyGenomeName [--num_threads 2]
 """
+
 # TODO: Export empty objects/tables in case of no BLAST hits
 # =============================================================================
 # Imports and Logging Setup
 # =============================================================================
 import argparse
-import logging
 
-from colored_logging import colored_logging
+import defaults
 import seq_utils
 import utils
-import defaults
+from colored_logging import colored_logging
 
 # =============================================================================
 # 1. Main Execution Block
 # =============================================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Initialize logging
-    colored_logging(log_file_name='full_genome_blaster.txt')
+    colored_logging(log_file_name="full_genome_blaster.txt")
 
     # -------------------------------------------------------------------------
     # 1.1 Argument Parsing
     # -------------------------------------------------------------------------
-    parser = argparse.ArgumentParser(description='Performs tBLASTn on a genome.')
+    parser = argparse.ArgumentParser(description="Performs tBLASTn on a genome.")
     parser.add_argument(
-        '--genome',
+        "--genome",
         type=str,
         required=True,
-        help='The name of the genome to perform tBLASTn on.'
+        help="The name of the genome to perform tBLASTn on.",
     )
     parser.add_argument(
-        '--num_threads',
+        "--num_threads",
         type=int,
         default=defaults.MAX_THREADPOOL_WORKERS,
-        help='The number of threads to use for tBLASTn (default from config).'
+        help="The number of threads to use for tBLASTn (default from config).",
     )
     args = parser.parse_args()
 
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     # 1.2 Load Probe Dictionary
     # -------------------------------------------------------------------------
     probe_dict: dict[str, object] = utils.unpickler(
-        input_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
-        input_file_name='probe_dict.pkl'
+        input_directory_path=defaults.PATH_DICT["PICKLE_DIR"],
+        input_file_name="probe_dict.pkl",
     )
 
     # -------------------------------------------------------------------------
@@ -77,11 +77,11 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     tblastn_results: dict[str, object] = seq_utils.blast_retriever(
         object_dict=probe_dict,
-        command='tblastn',
+        command="tblastn",
         genome=genome,
-        input_database_path=defaults.PATH_DICT['SPECIES_DB'],
+        input_database_path=defaults.PATH_DICT["SPECIES_DB"],
         num_threads=num_threads,
-        display_full_info=False
+        display_full_info=False,
     )
 
     # -------------------------------------------------------------------------
@@ -89,6 +89,6 @@ if __name__ == '__main__':
     # -------------------------------------------------------------------------
     utils.pickler(
         data=tblastn_results,
-        output_directory_path=defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],
-        output_file_name=f'{genome}.pkl'
+        output_directory_path=defaults.PATH_DICT["TBLASTN_PICKLE_DIR"],
+        output_file_name=f"{genome}.pkl",
     )

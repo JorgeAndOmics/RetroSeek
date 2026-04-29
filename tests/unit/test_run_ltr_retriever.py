@@ -169,7 +169,7 @@ def test_finalise_outputs_raises_on_missing_expected_file(tmp_path: Path) -> Non
     (tmp_path / f"{genome_name}.fa.mod.pass.list.gff3").write_text("x")
     (tmp_path / f"{genome_name}.fa.mod.LTRlib.fa").write_text("x")
 
-    with pytest.raises(RuntimeError, match="nmtf.pass.list"):
+    with pytest.raises(RuntimeError, match=r"nmtf\.pass\.list"):
         finalise_outputs(tmp_path, genome_name)
 
 
@@ -211,18 +211,29 @@ def test_main_end_to_end_with_fake_binary(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--genome-fa", str(genome),
-            "--retroviral-scn", str(scn_retroviral),
-            "--full-scn", str(scn_full),
-            "--source-scn-mode", "retroviral",
-            "--workdir", str(workdir),
-            "--genome-name", "Toyus",
-            "--substitution-rate", "1.3e-8",
-            "--min-similarity", "91",
-            "--threads", "1",
+            "--genome-fa",
+            str(genome),
+            "--retroviral-scn",
+            str(scn_retroviral),
+            "--full-scn",
+            str(scn_full),
+            "--source-scn-mode",
+            "retroviral",
+            "--workdir",
+            str(workdir),
+            "--genome-name",
+            "Toyus",
+            "--substitution-rate",
+            "1.3e-8",
+            "--min-similarity",
+            "91",
+            "--threads",
+            "1",
             "--noanno",
-            "--log-file", str(log),
-            "--ltr-retriever-binary", str(shim),
+            "--log-file",
+            str(log),
+            "--ltr-retriever-binary",
+            str(shim),
         ]
     )
 
@@ -244,17 +255,28 @@ def test_main_returns_nonzero_when_binary_fails(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--genome-fa", str(genome),
-            "--retroviral-scn", str(scn_full),
-            "--full-scn", str(scn_full),
-            "--source-scn-mode", "retroviral",
-            "--workdir", str(workdir),
-            "--genome-name", "Toyus",
-            "--substitution-rate", "1.3e-8",
-            "--min-similarity", "91",
-            "--threads", "1",
-            "--log-file", str(log),
-            "--ltr-retriever-binary", str(shim),
+            "--genome-fa",
+            str(genome),
+            "--retroviral-scn",
+            str(scn_full),
+            "--full-scn",
+            str(scn_full),
+            "--source-scn-mode",
+            "retroviral",
+            "--workdir",
+            str(workdir),
+            "--genome-name",
+            "Toyus",
+            "--substitution-rate",
+            "1.3e-8",
+            "--min-similarity",
+            "91",
+            "--threads",
+            "1",
+            "--log-file",
+            str(log),
+            "--ltr-retriever-binary",
+            str(shim),
         ]
     )
     assert rc == 3

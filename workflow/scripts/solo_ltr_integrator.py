@@ -97,8 +97,8 @@ class ValidRange:
     """One retroviral-confirmed ERV from valid_ranges.gff3."""
 
     chrom: str
-    start: int   # 0-indexed inclusive
-    end: int     # 0-indexed inclusive (GFF3 5th field is 1-indexed closed; we normalise)
+    start: int  # 0-indexed inclusive
+    end: int  # 0-indexed inclusive (GFF3 5th field is 1-indexed closed; we normalise)
     probes: list[str] = field(default_factory=list)
     erv_id: str = ""
 
@@ -125,7 +125,7 @@ class SoloLTR:
     """One solo LTR from LTR_retriever nmtf.pass.list with annotations."""
 
     chrom: str
-    start: int   # 1-indexed (kept as emitted — we convert at GFF3 write time only)
+    start: int  # 1-indexed (kept as emitted — we convert at GFF3 write time only)
     end: int
     strand: str = "."
     family: str | None = None
@@ -447,8 +447,13 @@ def compute_solo_intact_ratio(
 
     Rows with zero intact count get ``solo_to_intact_ratio = NaN``.
     """
-    def _bump(bucket: dict[tuple[str, str], dict[str, int]], key: tuple[str, str],
-              field_name: str, amount: int = 1) -> None:
+
+    def _bump(
+        bucket: dict[tuple[str, str], dict[str, int]],
+        key: tuple[str, str],
+        field_name: str,
+        amount: int = 1,
+    ) -> None:
         if key not in bucket:
             bucket[key] = {"solo_count": 0, "intact_count": 0}
         bucket[key][field_name] += amount
@@ -494,20 +499,44 @@ def compute_solo_intact_ratio(
 def main(argv: list[str] | None = None) -> int:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--nmtf-pass-list", type=Path, required=True,
-                        help="LTR_retriever .nmtf.pass.list (solo + truncated LTRs).")
-    parser.add_argument("--ltr-library", type=Path, required=True,
-                        help="LTR_retriever .LTRlib.fa (consensus library with source-ERV headers).")
-    parser.add_argument("--valid-ranges", type=Path, required=True,
-                        help="RetroSeek valid_ranges.gff3.")
-    parser.add_argument("--genome", required=True,
-                        help="Genome / species identifier (used in ratio CSV species column).")
-    parser.add_argument("--output-gff3", type=Path, required=True,
-                        help="Output path for annotated solo-LTR GFF3.")
-    parser.add_argument("--output-ratio-csv", type=Path, required=True,
-                        help="Output path for per-genome solo/intact ratio CSV.")
-    parser.add_argument("--nearest-erv-max-distance", type=int, default=10000,
-                        help="bp window for the nearest-ERV fallback label propagation.")
+    parser.add_argument(
+        "--nmtf-pass-list",
+        type=Path,
+        required=True,
+        help="LTR_retriever .nmtf.pass.list (solo + truncated LTRs).",
+    )
+    parser.add_argument(
+        "--ltr-library",
+        type=Path,
+        required=True,
+        help="LTR_retriever .LTRlib.fa (consensus library with source-ERV headers).",
+    )
+    parser.add_argument(
+        "--valid-ranges", type=Path, required=True, help="RetroSeek valid_ranges.gff3."
+    )
+    parser.add_argument(
+        "--genome",
+        required=True,
+        help="Genome / species identifier (used in ratio CSV species column).",
+    )
+    parser.add_argument(
+        "--output-gff3",
+        type=Path,
+        required=True,
+        help="Output path for annotated solo-LTR GFF3.",
+    )
+    parser.add_argument(
+        "--output-ratio-csv",
+        type=Path,
+        required=True,
+        help="Output path for per-genome solo/intact ratio CSV.",
+    )
+    parser.add_argument(
+        "--nearest-erv-max-distance",
+        type=int,
+        default=10000,
+        help="bp window for the nearest-ERV fallback label propagation.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -518,7 +547,9 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.info(
         "Loaded %d valid ranges, %d consensus families, %d candidate solo LTRs",
-        len(valid_ranges), len(family_to_sources), len(solos),
+        len(valid_ranges),
+        len(family_to_sources),
+        len(solos),
     )
 
     propagate_labels(
@@ -533,7 +564,9 @@ def main(argv: list[str] | None = None) -> int:
     n_none = sum(1 for s in solos if s.label_source == "none")
     logging.info(
         "Label propagation — family: %d, nearest_erv: %d, unresolved: %d",
-        n_family, n_nearest, n_none,
+        n_family,
+        n_nearest,
+        n_none,
     )
 
     write_solo_ltr_gff3(solos, args.output_gff3)
