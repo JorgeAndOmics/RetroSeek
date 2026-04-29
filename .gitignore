@@ -65,6 +65,11 @@ data/tmp/*
 !data/tmp/
 
 # ──────────────────────────────────────────────
+# Local config overrides (per-machine; see data/config/config.example.yaml)
+# ──────────────────────────────────────────────
+data/config/config.local.yaml
+
+# ──────────────────────────────────────────────
 # Misc
 # ──────────────────────────────────────────────
 *.pptx

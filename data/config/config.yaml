@@ -109,10 +109,16 @@ execution:
   max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
 
-# TODO: REORGANIZE ALL PATHS TO BE CLOSER TO ROOT PATHS, AND ADJUST SCHEMA ACCORDINGLY
+# Paths default to repo-relative locations so a fresh clone runs portably
+# (CI, fixture-based tests, toy-genome smoke runs). For production runs
+# pointing at large external storage, copy this file to
+# `data/config/config.local.yaml` (gitignored) and override the four
+# `root` entries — then invoke RetroSeek with
+# `--configfile data/config/config.local.yaml`. See `data/config/config.example.yaml`
+# for an annotated template.
 
 input:
-  probe_csv: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data/tables/probes_TRUE.csv'
+  probe_csv: 'data/tables/probes.csv'
 
 display:
   display_snakemake_info: false
@@ -120,10 +126,10 @@ display:
   display_operation_info: true
 
 root:
-  db_root_folder: '/mnt/c/Users/Administrator/Documents/Databases/bat103/bat103-fasta'    # Root folder for databases
-  data_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data'
-  results_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/results'
-  logs_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/logs'
+  db_root_folder: 'data/species'                 # SPECIES_DB — genome FASTAs, BLAST DBs, suffix arrays
+  data_root_folder: 'data'                       # working intermediates (pickles, parquets, ltr_scn)
+  results_root_folder: 'results'                 # tracks, tables, plots, hotspots
+  logs_root_folder: 'logs'                       # per-rule run logs
 
 domains:
   POL:
