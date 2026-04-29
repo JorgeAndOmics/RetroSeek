@@ -77,6 +77,39 @@ rule genome_downloader:
         species=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES)
 
 
+# Canonicalise hand-supplied genome FASTAs that arrived with non-`.fa`
+# extensions (.fna from NCBI Datasets, .fasta from manual download, .ffn
+# from older GenBank exports). The script symlinks `{genome}.fa` to the
+# selected source so every downstream rule's `.fa` input contract holds
+# regardless of upstream filename. Idempotent — a real `{genome}.fa`
+# already in place is left untouched. Refuses on multi-extension
+# ambiguity (see workflow/scripts/genome_fasta_normalizer.py docstring).
+#
+# Ruleorder below pins this rule to win over `genome_downloader_setup`
+# when both can produce the same `{genome}.fa` output: if a user has a
+# local FASTA, no NCBI download fires; if not, the downloader produces
+# `.fa` directly and the normalizer is a no-op via its real-file path.
+rule genome_fasta_normalizer_setup:
+    output:
+        canonical_fa = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'genome_fasta_normalizer', '{genome}.log')
+    params:
+        species_dir = defaults.PATH_DICT['SPECIES_DB']
+    threads: 1
+    shell:
+        '''
+        python scripts/genome_fasta_normalizer.py \
+            --genome-name {wildcards.genome:q} \
+            --species-dir {params.species_dir:q} \
+            --output {output.canonical_fa:q} \
+            2> {log:q}
+        '''
+
+
+ruleorder: genome_fasta_normalizer_setup > genome_downloader_setup
+
+
 rule pfam_hmm_downloader:
     output:
         md5=os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'md5sum.txt'),
@@ -116,8 +149,6 @@ rule blast_db_generator_setup:
         workflow.cores         # Faster download, not conflicts
     shell:
         """
-        find . -maxdepth 1 -type f \( -iname '*.fasta' -o -iname '*.fna' -o -iname '*.fas' -o -iname '*.FASTA' \) \
-        | parallel 'mv {{}} "{{.}}.fa"' && \
         makeblastdb -in {input.fa:q} -dbtype nucl {params.optional_params} \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """

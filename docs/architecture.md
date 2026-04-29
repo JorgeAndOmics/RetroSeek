@@ -73,6 +73,7 @@ Decisions captured under [`docs/adr/`](adr/):
 - ADR-003: retroviral-only pre-filter for LTR_retriever (Coupling A).
 - ADR-004: `SPECIES_POST` → Snakemake checkpoint + runtime `species_with_hits(wildcards)` resolver.
 - ADR-005: wrap LTR_retriever invocation in a Python runner script (`workflow/scripts/run_ltr_retriever.py`) for testability + log capture + fail-loud behaviour.
+- ADR-006: canonicalise genome FASTA filenames to `.fa` via symlink (handles `.fna`/`.fasta`/`.ffn` inputs) — owned by `genome_fasta_normalizer_setup`.
 
 ## Design principles
 

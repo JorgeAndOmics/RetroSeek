@@ -53,13 +53,22 @@ def test_existing_rule_present(project_root: Path, rule_name: str) -> None:
     assert rule_name in rules, f"rule {rule_name!r} missing from Snakefile"
 
 
-@pytest.mark.xfail(
-    reason="genome_fasta_normalizer_setup lands in Phase 4",
-    strict=True,
-)
 def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
-    """Phase 4 must add ``genome_fasta_normalizer_setup``."""
+    """``genome_fasta_normalizer_setup`` rule must be in the workflow."""
     assert "genome_fasta_normalizer_setup" in _all_rules(project_root)
+
+
+def test_ruleorder_normalizer_wins_over_downloader(project_root: Path) -> None:
+    """The normalizer must take precedence when both can produce {genome}.fa."""
+    text = _read_snakefile(project_root)
+    assert "ruleorder: genome_fasta_normalizer_setup > genome_downloader_setup" in text
+
+
+def test_blast_db_generator_no_longer_renames_inline(project_root: Path) -> None:
+    """The inline `find / parallel mv` workaround must be gone — normalizer owns it."""
+    text = _read_snakefile(project_root)
+    assert "parallel 'mv" not in text
+    assert "-iname '*.fna'" not in text
 
 
 # ---------------------------------------------------------------------

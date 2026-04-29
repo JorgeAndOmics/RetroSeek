@@ -126,6 +126,14 @@ PROBE_CSV = Path(config['input'].get('probe_csv')).resolve()
 SPECIES_DICT: dict = config.get('species', {})
 
 if not USE_SPECIES_DICT:
-    SPECIES: list = [(f.name.split('.fa')[0]).strip() for f in PATH_DICT['SPECIES_DB'].iterdir() if f.suffix == '.fa']
+    # Discover genomes by scanning SPECIES_DB. Accept any of the FASTA
+    # extension variants the genome_fasta_normalizer rule canonicalises
+    # to .fa — otherwise a fresh machine with only .fna files would see
+    # SPECIES = [] before the normalizer ever runs.
+    _FASTA_EXTS = {'.fa', '.fna', '.fasta', '.ffn'}
+    SPECIES: list = sorted({
+        f.stem for f in PATH_DICT['SPECIES_DB'].iterdir()
+        if f.suffix in _FASTA_EXTS
+    })
 else:
     SPECIES: list = SPECIES_DICT.keys()
