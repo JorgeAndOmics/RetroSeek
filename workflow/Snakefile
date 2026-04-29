@@ -504,7 +504,17 @@ rule ltr_retriever_setup:
             -u {params.substitution_rate} \
             -miniden {params.min_similarity} \
             -threads {threads} \
-            {params.noanno}
+            {params.noanno} && \
+        # LTR_retriever writes its outputs under <basename(genome_fa)>.mod.* —
+        # i.e. the input FASTA gets a `.fa.mod.` prefix because LTR_retriever
+        # internally produces a "modified" sanitised copy of the genome before
+        # processing. Rename the three files our rule declares as outputs to
+        # the simpler {{genome}}.X form expected by solo_ltr_integrator.py.
+        for ext in pass.list.gff3 nmtf.pass.list LTRlib.fa; do \
+            if [ -f {wildcards.genome:q}.fa.mod.$ext ]; then \
+                mv {wildcards.genome:q}.fa.mod.$ext {wildcards.genome:q}.$ext ; \
+            fi ; \
+        done
         '''
 
 
