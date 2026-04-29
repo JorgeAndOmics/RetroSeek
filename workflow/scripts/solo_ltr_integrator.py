@@ -88,6 +88,8 @@ from pathlib import Path
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 
 # ------------------------------------------------------------------
 # Data classes
@@ -297,8 +299,8 @@ def _valid_by_chrom(ranges: list[ValidRange]) -> dict[str, list[ValidRange]]:
     out: dict[str, list[ValidRange]] = defaultdict(list)
     for r in ranges:
         out[r.chrom].append(r)
-    for chrom in out:
-        out[chrom].sort(key=lambda r: r.start)
+    for chrom_ranges in out.values():
+        chrom_ranges.sort(key=lambda r: r.start)
     return dict(out)
 
 
@@ -325,11 +327,7 @@ def _resolve_source_ervs_to_valid_ranges(
     # align, we resolve cleanly. Otherwise return empty and let the
     # fallback handle it.
     id_to_range = {r.erv_id: r for r in valid_ranges if r.erv_id}
-    resolved: list[ValidRange] = []
-    for sid in source_ids:
-        if sid in id_to_range:
-            resolved.append(id_to_range[sid])
-    return resolved
+    return [id_to_range[sid] for sid in source_ids if sid in id_to_range]
 
 
 def _nearest_valid_erv(
@@ -545,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     family_to_sources = parse_ltr_library_headers(args.ltr_library)
     solos = parse_nmtf_pass_list(args.nmtf_pass_list)
 
-    logging.info(
+    logger.info(
         "Loaded %d valid ranges, %d consensus families, %d candidate solo LTRs",
         len(valid_ranges),
         len(family_to_sources),
@@ -562,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
     n_family = sum(1 for s in solos if s.label_source == "family")
     n_nearest = sum(1 for s in solos if s.label_source == "nearest_erv")
     n_none = sum(1 for s in solos if s.label_source == "none")
-    logging.info(
+    logger.info(
         "Label propagation — family: %d, nearest_erv: %d, unresolved: %d",
         n_family,
         n_nearest,

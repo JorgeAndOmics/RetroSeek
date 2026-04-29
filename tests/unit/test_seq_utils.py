@@ -1,3 +1,7 @@
+# ruff: noqa: PLC0415
+# Per-test imports of `seq_utils` are deliberate (conftest defaults
+# stub must take effect first).
+
 """Unit tests for seq_utils.
 
 Focus: the Entrez kwargs that ``gb_fetcher`` builds are free of the

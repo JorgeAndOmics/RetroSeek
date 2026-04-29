@@ -1,3 +1,9 @@
+# ruff: noqa: PLC0415
+# Per-test imports of `validator` are deliberate: the conftest defaults
+# stub must take effect before the module under test is imported, and
+# every test then triggers a fresh import to avoid sharing global state
+# between cases.
+
 """Unit tests for validator.py.
 
 Covers two prior defects:
@@ -87,8 +93,9 @@ class TestNoSelfImport:
 
         source = importlib.util.find_spec("validator")
         assert source is not None, "validator module should be findable on sys.path"
-        with open(source.origin, encoding="utf-8") as handle:
-            text = handle.read()
+        from pathlib import Path
+
+        text = Path(source.origin).read_text(encoding="utf-8")
         lines = [line.strip() for line in text.splitlines()]
         assert "import validator" not in lines, (
             "validator.py should not import itself — remove the dead import"

@@ -20,6 +20,8 @@ from typing import Any
 
 import dill
 
+logger = logging.getLogger(__name__)
+
 
 def pickler(
     data: Any, output_directory_path: str | Path, output_file_name: str
@@ -70,7 +72,7 @@ def unpickler(input_directory_path: str | Path, input_file_name: str) -> Any:
         with file_path.open("rb") as handle:
             return dill.load(handle)
     except Exception as exc:
-        logging.error(f"Failed to unpickle {file_path}")
+        logger.error(f"Failed to unpickle {file_path}")
         raise Exception(f"Failed to unpickle {file_path}") from exc
 
 
@@ -100,7 +102,7 @@ def directory_content_eraser(directory_path: str | Path) -> None:
     recursive wipe. Individual ``unlink`` failures are logged at
     WARNING and do not abort the sweep.
     """
-    logging.debug("Cleaning up temporal files...")
+    logger.debug("Cleaning up temporal files...")
 
     directory = Path(directory_path)
     for entry in directory.iterdir():
@@ -108,7 +110,7 @@ def directory_content_eraser(directory_path: str | Path) -> None:
             try:
                 entry.unlink()
             except Exception as exc:
-                logging.warning(f"Failed to delete {entry}: {exc}")
+                logger.warning(f"Failed to delete {entry}: {exc}")
 
 
 def incomplete_dict_cleaner(object_dict: dict) -> dict:
@@ -117,7 +119,7 @@ def incomplete_dict_cleaner(object_dict: dict) -> dict:
     Used to purge records that lack a GenBank / alignment / HSP payload
     after remote enrichment.
     """
-    logging.debug("Cleaning up incomplete objects...")
+    logger.debug("Cleaning up incomplete objects...")
 
     return {key: value for key, value in object_dict.items() if value.is_complete()}
 

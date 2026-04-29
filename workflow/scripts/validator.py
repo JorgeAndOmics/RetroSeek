@@ -16,6 +16,8 @@ from Bio import Entrez, SeqIO
 import defaults
 from colored_logging import colored_logging
 
+logger = logging.getLogger(__name__)
+
 # -----------------------------
 # YAML VALIDATION
 # -----------------------------
@@ -41,13 +43,13 @@ def yaml_validator(yaml_file: str, yaml_schema: str) -> bool:
         schema = yamale.make_schema(yaml_schema)
         data = yamale.make_data(yaml_file)
         yamale.validate(schema, data)
-        logging.info("YAML configuration file is valid.")
+        logger.info("YAML configuration file is valid.")
         return True
 
     except yamale.YamaleError as e:
         for results in e.results:
             for error in results.errors:
-                logging.warning(f"Configuration error: {error}")
+                logger.warning(f"Configuration error: {error}")
         return False
 
 
@@ -73,7 +75,7 @@ def csv_validator(csv_file: str) -> bool:
 
     def check_ncbi(series: pd.Series) -> pd.Series:
         """Check if accession IDs exist in the NCBI protein database."""
-        logging.debug("Checking NCBI entries...")
+        logger.debug("Checking NCBI entries...")
 
         def ncbi_exists(acc: str) -> bool:
             time.sleep(0.3)
@@ -103,11 +105,11 @@ def csv_validator(csv_file: str) -> bool:
         )
 
         schema.validate(df)
-        logging.info("CSV input file is valid.")
+        logger.info("CSV input file is valid.")
         return True
 
     except (pa.errors.SchemaError, FileNotFoundError, KeyError) as e:
-        logging.warning(f"CSV input error: {e}")
+        logger.warning(f"CSV input error: {e}")
         return False
 
 
@@ -131,25 +133,25 @@ def fasta_validator(fasta_file: str) -> bool:
         True if valid, False otherwise.
     """
     if not Path(fasta_file).exists():
-        logging.warning(f"FASTA file does not exist: {fasta_file}")
+        logger.warning(f"FASTA file does not exist: {fasta_file}")
         return False
 
     try:
         records = list(SeqIO.parse(fasta_file, "fasta"))
         if not records:
-            logging.warning("FASTA file is empty or has no valid records.")
+            logger.warning("FASTA file is empty or has no valid records.")
             return False
 
         for i, record in enumerate(records):
             if not record.id:
-                logging.warning(f"Record {i + 1} is missing a header.")
+                logger.warning(f"Record {i + 1} is missing a header.")
                 return False
 
-        logging.info(f"FASTA file {fasta_file} is valid.")
+        logger.info(f"FASTA file {fasta_file} is valid.")
         return True
 
     except Exception as e:
-        logging.warning(f"Error parsing FASTA: {e}")
+        logger.warning(f"Error parsing FASTA: {e}")
         return False
 
 
@@ -206,16 +208,16 @@ def validate_ncbi_key() -> None:
     Prompts the user to enter one if not present.
     """
     if "NCBI_API_KEY" not in os.environ:
-        logging.warning(
+        logger.warning(
             'No NCBI API key found. You can set it with: export NCBI_API_KEY="your_api_key".'
         )
         if api_key := input("Enter your NCBI API key [Leave empty to skip]: ") or None:
             os.environ["NCBI_API_KEY"] = api_key
-            logging.info("NCBI API key set in environment variables.")
+            logger.info("NCBI API key set in environment variables.")
         else:
-            logging.warning("No NCBI API key provided. Expect slower NCBI retrievals.")
+            logger.warning("No NCBI API key provided. Expect slower NCBI retrievals.")
     else:
-        logging.info("NCBI API key is set in the environment variables.")
+        logger.info("NCBI API key is set in the environment variables.")
 
 
 # -----------------------------
@@ -237,7 +239,7 @@ def main_validator(fasta_files: list[str] | None) -> bool:
     bool
         True if all checks pass, False otherwise.
     """
-    logging.debug("Starting input validation process...")
+    logger.debug("Starting input validation process...")
 
     yaml_ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
@@ -279,24 +281,24 @@ def green_light(all_valid: bool) -> bool:
         True if user wants to proceed, False otherwise.
     """
     if not all_valid:
-        logging.warning(
+        logger.warning(
             f"Settings validation failed. Check logs at {defaults.PATH_DICT['LOG_DIR']}."
         )
         return False
 
-    logging.info("All systems green, ready to rock.")
+    logger.info("All systems green, ready to rock.")
     time.sleep(0.1)
 
     proceed = input("Proceed [Y/n]: ") or "Y"
     if proceed.upper() == "Y":
-        logging.info(
+        logger.info(
             "RetroSeek started. Depending on your system, this may take some time."
         )
         return True
     if proceed.upper() == "N":
-        logging.warning("Workflow aborted by user.")
+        logger.warning("Workflow aborted by user.")
         return False
-    logging.warning("Invalid input. Please try again.")
+    logger.warning("Invalid input. Please try again.")
     return green_light(all_valid)
 
 
