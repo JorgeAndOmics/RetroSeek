@@ -105,7 +105,7 @@ Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr
 | `min_ltr_similarity` | number 0–100 | `91` | LTR pair similarity floor (percent) for LTR_retriever's intact-ERV filter (`-miniden` flag). |
 | `threads_per_genome` | int ≥ 1 | `4` | CPU threads per-genome LTR_retriever invocation. |
 | `noanno` | bool | `true` | Skip LTR_retriever's internal TE-library annotation (`-noanno` flag). RetroSeek has its own probe-based classification. |
-| `restrict_to_retroviral` | bool | `true` | **Coupling A toggle.** Pre-filter LTRharvest SCN by intersecting with `valid_ranges.gff3` before LTR_retriever sees it. Guarantees LTR_retriever builds retroviral-only consensus families. Setting `false` runs LTR_retriever on the unfiltered LTRharvest output. |
+| `source_scn` | str (`retroviral` \| `full`) | `retroviral` | **Coupling A toggle.** Picks which SCN feeds LTR_retriever. `retroviral` (default) uses the prefilter-restricted SCN — rows overlapping `valid_ranges.gff3` — guaranteeing retroviral-only consensus families. `full` uses the unfiltered LTRharvest passthrough, useful for debugging or non-retroviral exploration. The prefilter rule always materialises both SCN files in `data/ltr_scn/` regardless of this setting. |
 | `nearest_erv_max_distance` | int ≥ 0 | `10000` | Bp window for the solo-LTR → valid-ERV **nearest-ERV fallback** in Coupling B's label-propagation. Only used when the primary consensus-family path yields no labels for a given solo LTR. |
 
 Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.

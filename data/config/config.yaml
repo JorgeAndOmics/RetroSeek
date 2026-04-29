@@ -70,7 +70,11 @@ ltr_retriever:
   min_ltr_similarity: 91            # LTR_retriever -miniden (%); LTR-pair similarity floor for intact ERVs
   threads_per_genome: 4             # LTR_retriever -threads per-genome invocation
   noanno: true                      # skip LTR_retriever's internal TE annotation (RetroSeek has its own via probes)
-  restrict_to_retroviral: true      # Coupling A: pre-filter LTRharvest SCN by valid_ranges.gff3 before handing to LTR_retriever
+  # Which SCN feeds LTR_retriever (Coupling A toggle):
+  #   retroviral — prefilter-restricted SCN (default; rows overlapping valid_ranges.gff3).
+  #   full       — unfiltered LTRharvest SCN (debugging / non-retroviral exploration).
+  # Both files are always materialised in data/ltr_scn/; this picks the consumer.
+  source_scn: retroviral
   nearest_erv_max_distance: 10000   # bp window for the solo-LTR → valid ERV nearest-ERV label-propagation fallback
 
 logging:

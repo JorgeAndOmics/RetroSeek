@@ -97,22 +97,14 @@ def test_prefilter_rule_declares_both_retroviral_and_full_outputs(
     assert "{genome}_full.scn" in text
 
 
-@pytest.mark.xfail(
-    reason="run_ltr_retriever.py wrapper lands in Phase 3",
-    strict=True,
-)
 def test_ltr_retriever_setup_invokes_runner_script(project_root: Path) -> None:
-    """Phase 3 collapses the inline LTR_retriever shell into a runner script."""
+    """Phase 3: the inline LTR_retriever shell collapses into a runner script call."""
     text = _read_snakefile(project_root)
     assert "run_ltr_retriever.py" in text
 
 
-@pytest.mark.xfail(
-    reason="config field renamed to source_scn in Phase 5",
-    strict=True,
-)
 def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
-    """Phase 5 replaces ``restrict_to_retroviral`` with ``source_scn``."""
+    """``restrict_to_retroviral`` replaced with ``source_scn``."""
     text = (project_root / "data" / "config" / "config.yaml").read_text()
     assert "source_scn:" in text
     assert "restrict_to_retroviral" not in text
