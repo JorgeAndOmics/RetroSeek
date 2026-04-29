@@ -1,3 +1,17 @@
+# Source of truth for the RetroSeek dev + runtime environment.
+#
+# Discipline: every new `import` in workflow/scripts/*.py or tests/, and
+# every new R `library(...)` in workflow/scripts/*.R or
+# workflow/tests/testthat/*.R, must have its corresponding conda package
+# added to this file in the SAME commit. Keep the section comments below
+# accurate so contributors can find where a new dep belongs at a glance.
+#
+# Standard workflows:
+#   make env         # first-time creation (calls mamba env create)
+#   make env-update  # in-place sync after editing this file
+#   conda activate retroseek
+#   make check       # full lint + format-check + typecheck + tests
+
 name: retroseek
 channels:
   - conda-forge
@@ -5,7 +19,11 @@ channels:
   - nodefaults
 dependencies:
   # ── runtime ──────────────────────────────────────────────
-  - python=3.10
+  # Python is pinned to 3.11 (lower bound for snakemake>=8). Source code
+  # remains 3.10-syntax-compatible — ruff/mypy targets in pyproject.toml
+  # are py310 so we don't accidentally adopt newer syntax that would
+  # break someone running an older interpreter manually.
+  - python=3.11
   - snakemake>=8
   - snakemake-wrapper-utils
 
