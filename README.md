@@ -27,13 +27,18 @@ cd enERVate
 make env
 conda activate retroseek
 
-# 3. Edit config and input
-#    - data/config/config.yaml         (pipeline parameters)
-#    - <your probe CSV>                (path goes into config.input.probe_csv)
+# 3. Configure
+#    The defaults in data/config/config.yaml use repo-relative paths
+#    (data/, results/, logs/) so the toy-genome smoke run works out of
+#    the box. For production runs pointing at external storage:
+cp data/config/config.example.yaml data/config/config.local.yaml
+#    Edit data/config/config.local.yaml — set the four `root` paths and
+#    `input.probe_csv` to your data, then pass --configfile to RetroSeek.
+#    config.local.yaml is gitignored.
 
 # 4. Run any stage via the CLI
 ./RetroSeek --probe-extractor
-./RetroSeek --blast --cores all
+./RetroSeek --blast --cores all --configfile data/config/config.local.yaml
 ./RetroSeek --ranges-analysis --cores all --skip-validation
 ```
 

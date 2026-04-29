@@ -33,15 +33,29 @@ PROBE_MIN_LENGTH = config['parameters']['probe_min_length']
 LEVEL_STYLES = config['logging']['level_styles']
 FIELD_STYLES = config['logging']['field_styles']
 
+# Anchor relative paths against the repo root so a fresh-clone run
+# from any working directory still resolves the same way.
+# `parents[2]` walks: defaults.py → scripts → workflow → repo root.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _anchor(value: str | Path, fallback: str | Path) -> Path:
+    """Resolve a config path: absolute paths win, relative anchor at repo root."""
+    raw = Path(value if value is not None else fallback)
+    if raw.is_absolute():
+        return raw.resolve()
+    return (_REPO_ROOT / raw).resolve()
+
+
 # Directories
 PATH_DICT = {
-    'ROOT': Path(config['root'].get('db_root_folder', '..')).resolve()
+    'ROOT': _anchor(config['root'].get('db_root_folder'), 'data/species')
 }
 
 # === Root Directories ===
-PATH_DICT['DATA_DIR'] = Path(config['root'].get('data_root_folder', PATH_DICT['ROOT'] / 'data')).resolve()
-PATH_DICT['RESULTS_DIR'] = Path(config['root'].get('results_root_folder', PATH_DICT['ROOT'] / 'results')).resolve()
-PATH_DICT['LOG_DIR'] = Path(config['root'].get('logs_root_folder', PATH_DICT['ROOT'] / 'logs')).resolve()
+PATH_DICT['DATA_DIR'] = _anchor(config['root'].get('data_root_folder'), 'data')
+PATH_DICT['RESULTS_DIR'] = _anchor(config['root'].get('results_root_folder'), 'results')
+PATH_DICT['LOG_DIR'] = _anchor(config['root'].get('logs_root_folder'), 'logs')
 PATH_DICT['WORKFLOW_DIR'] = Path(__file__).parent
 
 # === Workflow Directories ===
@@ -120,7 +134,7 @@ DISPLAY_REQUESTS_WARNING: bool = config['display'].get('display_requests_warning
 DISPLAY_OPERATION_INFO: bool = config['display'].get('display_operation_info', False)
 
 # INPUT
-PROBE_CSV = Path(config['input'].get('probe_csv')).resolve()
+PROBE_CSV = _anchor(config['input'].get('probe_csv'), 'data/tables/probes.csv')
 
 # Genomes
 SPECIES_DICT: dict = config.get('species', {})

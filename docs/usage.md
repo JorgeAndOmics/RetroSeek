@@ -52,6 +52,18 @@ Any argument not recognised as a stage flag is forwarded. Common examples:
 
 ## Configuration
 
+### Local overrides for production paths
+
+`data/config/config.yaml` ships with **repo-relative defaults** (`data/`, `results/`, `logs/`) so a fresh clone runs portably and the toy-genome smoke tests work out of the box. For production runs pointing at external storage:
+
+```bash
+cp data/config/config.example.yaml data/config/config.local.yaml
+# edit data/config/config.local.yaml — set the four `root` paths and input.probe_csv
+./RetroSeek --probe-extractor --configfile data/config/config.local.yaml
+```
+
+`config.local.yaml` is in `.gitignore`. Snakemake's `--configfile` merges its keys over `config.yaml`'s defaults, so the override file only needs the fields you're changing (typically `input.probe_csv` + the four `root` entries + `execution.entrez_email`). Absolute paths in the local config are honoured as-is; relative paths are anchored against the repo root.
+
 ### Pipeline config — [`data/config/config.yaml`](../data/config/config.yaml)
 
 Top-level sections (fields inside each section — see file for full list):
