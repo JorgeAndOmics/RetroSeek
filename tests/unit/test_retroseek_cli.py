@@ -16,7 +16,6 @@ Focus on ``run_snakemake_rule`` — a thin wrapper that shells out to the
 from __future__ import annotations
 
 import logging
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -68,8 +67,10 @@ class TestRunSnakemakeRule:
         from RetroSeek import run_snakemake_rule
 
         completed = MagicMock(returncode=2, stderr=None)
-        with patch("RetroSeek.subprocess.run", return_value=completed), \
-             pytest.raises(SystemExit) as excinfo:
+        with (
+            patch("RetroSeek.subprocess.run", return_value=completed),
+            pytest.raises(SystemExit) as excinfo,
+        ):
             run_snakemake_rule(rule="ltr_digester", num_cores=1, display_info=True)
         assert excinfo.value.code == 2
 
@@ -86,14 +87,18 @@ class TestRunSnakemakeRule:
         from RetroSeek import run_snakemake_rule
 
         completed = MagicMock(returncode=3, stderr=None)
-        with caplog.at_level(logging.ERROR), \
-             patch("RetroSeek.subprocess.run", return_value=completed), \
-             pytest.raises(SystemExit):
+        with (
+            caplog.at_level(logging.ERROR),
+            patch("RetroSeek.subprocess.run", return_value=completed),
+            pytest.raises(SystemExit),
+        ):
             run_snakemake_rule(rule="ranges_analysis", num_cores=1, display_info=True)
 
         # We expect at least one ERROR record mentioning the rule name or
         # exit code. We do NOT want ``None`` to appear as a bare log line.
-        error_messages = [rec.getMessage() for rec in caplog.records if rec.levelno == logging.ERROR]
+        error_messages = [
+            rec.getMessage() for rec in caplog.records if rec.levelno == logging.ERROR
+        ]
         assert error_messages, "expected at least one ERROR log on failure"
         assert any("ranges_analysis" in m for m in error_messages), (
             f"expected the failed rule name in error messages, got: {error_messages}"
@@ -112,9 +117,13 @@ class TestRunSnakemakeRule:
         """
         from RetroSeek import run_snakemake_rule
 
-        with caplog.at_level(logging.ERROR), \
-             patch("RetroSeek.subprocess.run", side_effect=FileNotFoundError("snakemake")), \
-             pytest.raises(SystemExit) as excinfo:
+        with (
+            caplog.at_level(logging.ERROR),
+            patch(
+                "RetroSeek.subprocess.run", side_effect=FileNotFoundError("snakemake")
+            ),
+            pytest.raises(SystemExit) as excinfo,
+        ):
             run_snakemake_rule(rule="pair_detector", num_cores=1, display_info=True)
         assert excinfo.value.code == 1
         joined = " ".join(rec.getMessage() for rec in caplog.records)

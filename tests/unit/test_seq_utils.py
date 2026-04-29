@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from RetroSeeker_class import RetroSeeker
 
 
@@ -58,8 +56,10 @@ class TestGbFetcherKwargs:
         fake_handle.__exit__ = MagicMock(return_value=False)
         fake_handle.read = MagicMock(return_value="LOCUS dummy")
 
-        with patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch, \
-             patch.object(instance, "set_genbank"):
+        with (
+            patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch,
+            patch.object(instance, "set_genbank"),
+        ):
             gb_fetcher(instance=instance, online_database="nuccore")
 
         assert efetch.called, "gb_fetcher should have called Entrez.efetch"
@@ -94,8 +94,10 @@ class TestGbFetcherKwargs:
         fake_handle.__exit__ = MagicMock(return_value=False)
         fake_handle.read = MagicMock(return_value="LOCUS dummy")
 
-        with patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch, \
-             patch.object(rs, "set_genbank"):
+        with (
+            patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch,
+            patch.object(rs, "set_genbank"),
+        ):
             gb_fetcher(instance=rs, online_database="nuccore")
 
         kwargs = efetch.call_args.kwargs
@@ -113,8 +115,10 @@ class TestGbFetcherKwargs:
         fake_handle.__exit__ = MagicMock(return_value=False)
         fake_handle.read = MagicMock(return_value="LOCUS dummy")
 
-        with patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch, \
-             patch.object(instance, "set_genbank"):
+        with (
+            patch("seq_utils.Entrez.efetch", return_value=fake_handle) as efetch,
+            patch.object(instance, "set_genbank"),
+        ):
             gb_fetcher(instance=instance, online_database="nuccore")
 
         assert efetch.call_args.kwargs["seq_start"] == 1
@@ -144,8 +148,10 @@ class TestGbFetcherNoUndefinedNameError:
         fake_handle.__exit__ = MagicMock(return_value=False)
         fake_handle.read = MagicMock(return_value="LOCUS dummy")
 
-        with patch("seq_utils.Entrez.efetch", return_value=fake_handle), \
-             patch.object(instance, "set_genbank"):
+        with (
+            patch("seq_utils.Entrez.efetch", return_value=fake_handle),
+            patch.object(instance, "set_genbank"),
+        ):
             result = gb_fetcher(instance=instance, online_database="nuccore")
 
         # Successful path returns the (mutated) instance.

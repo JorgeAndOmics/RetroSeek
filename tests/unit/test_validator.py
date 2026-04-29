@@ -17,8 +17,6 @@ from __future__ import annotations
 import importlib
 from unittest.mock import patch
 
-import pytest
-
 
 class TestGreenLight:
     """Interactive confirmation behaviour."""
@@ -86,7 +84,6 @@ class TestNoSelfImport:
 
     def test_module_has_no_self_import(self) -> None:
         """Regression guard: ``import validator`` shouldn't live inside validator.py."""
-        import validator as v
 
         source = importlib.util.find_spec("validator")
         assert source is not None, "validator module should be findable on sys.path"

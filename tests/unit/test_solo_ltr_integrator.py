@@ -18,7 +18,7 @@ import pytest
 # always has it).
 pytest.importorskip("pandas")
 
-from solo_ltr_integrator import (  # noqa: E402  (import after importorskip)
+from solo_ltr_integrator import (
     SoloLTR,
     ValidRange,
     _parse_coord_column,
@@ -125,9 +125,7 @@ def test_parse_coord_column_rejects_unparseable() -> None:
 def test_parse_nmtf_pass_list_extracts_coords_and_family(tmp_path: Path) -> None:
     nmtf = tmp_path / "tiny.nmtf.pass.list"
     nmtf.write_text(
-        "# header\n"
-        "chr1:100..500+ family1 95.0\n"
-        "chr1:1000..1500- family2 88.0\n"
+        "# header\nchr1:100..500+ family1 95.0\nchr1:1000..1500- family2 88.0\n"
     )
     solos = parse_nmtf_pass_list(nmtf)
     assert len(solos) == 2
@@ -189,7 +187,9 @@ def test_compute_solo_intact_ratio_exclusive_vs_shared_modes() -> None:
     """Single-label rows go to ``exclusive``; multi-label to ``shared``."""
     valid = [
         ValidRange(chrom="chr1", start=0, end=100, probes=["ENV"], erv_id="e1"),
-        ValidRange(chrom="chr1", start=200, end=300, probes=["ENV", "GAG"], erv_id="e2"),
+        ValidRange(
+            chrom="chr1", start=200, end=300, probes=["ENV", "GAG"], erv_id="e2"
+        ),
     ]
     solos = [SoloLTR(chrom="chr1", start=10, end=20, probe_labels=["ENV"])]
 

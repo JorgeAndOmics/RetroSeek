@@ -19,6 +19,7 @@ from ltr_retriever_prefilter import (
     _parse_valid_ranges,
     prefilter_scn,
 )
+from ltr_retriever_prefilter import main as prefilter_main
 
 
 # ---------------------------------------------------------------------
@@ -66,7 +67,9 @@ def test_parse_des_missing_file_raises(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------
 # _parse_valid_ranges
 # ---------------------------------------------------------------------
-def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(tmp_path: Path) -> None:
+def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(
+    tmp_path: Path,
+) -> None:
     """GFF3 1-indexed closed → returned as 0-indexed (start - 1, end unchanged).
 
     Single row at GFF3 [100, 200] inclusive should become [99, 200] in
@@ -75,8 +78,7 @@ def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(tmp_path: Path)
     """
     gff = tmp_path / "valid.gff3"
     gff.write_text(
-        "##gff-version 3\n"
-        "chr1\tRetroSeek\tERV\t100\t200\t.\t+\t.\tID=erv1\n"
+        "##gff-version 3\nchr1\tRetroSeek\tERV\t100\t200\t.\t+\t.\tID=erv1\n"
     )
     intervals = _parse_valid_ranges(gff)
     assert intervals == {"chr1": [(99, 200)]}
@@ -196,8 +198,16 @@ def test_prefilter_writes_both_retroviral_and_full_outputs(tmp_path: Path) -> No
 
     assert retroviral.is_file()
     assert full.is_file()
-    retroviral_data = [line for line in retroviral.read_text().splitlines() if not line.startswith("#") and line.strip()]
-    full_data = [line for line in full.read_text().splitlines() if not line.startswith("#") and line.strip()]
+    retroviral_data = [
+        line
+        for line in retroviral.read_text().splitlines()
+        if not line.startswith("#") and line.strip()
+    ]
+    full_data = [
+        line
+        for line in full.read_text().splitlines()
+        if not line.startswith("#") and line.strip()
+    ]
     assert len(retroviral_data) == 1
     assert len(full_data) == 3
     assert set(retroviral_data).issubset(set(full_data))
@@ -247,19 +257,22 @@ def test_prefilter_returns_three_counts_tuple(tmp_path: Path) -> None:
 
 def test_prefilter_main_cli_accepts_dual_output_flags(tmp_path: Path) -> None:
     """``--output-retroviral`` and ``--output-full`` are both required CLI args."""
-    from ltr_retriever_prefilter import main as prefilter_main
-
     scn, des, gff = _write_tiny_fixture(tmp_path)
     retroviral = tmp_path / "cli_retroviral.scn"
     full = tmp_path / "cli_full.scn"
 
     rc = prefilter_main(
         [
-            "--scn", str(scn),
-            "--des", str(des),
-            "--valid-ranges", str(gff),
-            "--output-retroviral", str(retroviral),
-            "--output-full", str(full),
+            "--scn",
+            str(scn),
+            "--des",
+            str(des),
+            "--valid-ranges",
+            str(gff),
+            "--output-retroviral",
+            str(retroviral),
+            "--output-full",
+            str(full),
         ]
     )
     assert rc == 0

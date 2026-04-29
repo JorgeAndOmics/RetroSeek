@@ -103,11 +103,11 @@ class TestIncompleteDictCleaner:
 
     def test_keeps_complete_drops_incomplete(self) -> None:
         """Only records where ``is_complete()`` is truthy survive."""
-        complete = MagicMock(); complete.is_complete.return_value = True
-        incomplete = MagicMock(); incomplete.is_complete.return_value = False
-        result = utils.incomplete_dict_cleaner(
-            {"keep": complete, "drop": incomplete}
-        )
+        complete = MagicMock()
+        complete.is_complete.return_value = True
+        incomplete = MagicMock()
+        incomplete.is_complete.return_value = False
+        result = utils.incomplete_dict_cleaner({"keep": complete, "drop": incomplete})
         assert "keep" in result
         assert "drop" not in result
 

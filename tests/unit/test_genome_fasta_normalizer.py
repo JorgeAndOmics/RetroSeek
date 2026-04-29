@@ -71,7 +71,7 @@ def test_pick_canonical_source_refuses_on_ambiguous_pair(tmp_path: Path) -> None
     """
     _write_fasta(tmp_path / "Toyus.fna")
     _write_fasta(tmp_path / "Toyus.fasta")
-    with pytest.raises(RuntimeError, match="ambiguous|multiple"):
+    with pytest.raises(RuntimeError, match=r"ambiguous|multiple"):
         pick_canonical_source(tmp_path, "Toyus")
 
 
@@ -129,7 +129,8 @@ def test_normalize_when_fa_is_already_a_real_file(tmp_path: Path) -> None:
 
     normalize(tmp_path, "Toyus", real)
 
-    assert real.is_file() and not real.is_symlink()
+    assert real.is_file()
+    assert not real.is_symlink()
     assert real.read_bytes() == original_bytes
 
 

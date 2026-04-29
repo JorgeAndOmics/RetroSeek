@@ -72,6 +72,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 def _parse_des(des_path: Path) -> list[str]:
     """Return the list of chromosome names indexed by LTRharvest seq-nr.
@@ -145,8 +147,8 @@ def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
                 continue
             intervals[seqid].append((start, end))
     # Sort per-chromosome so overlap checks can short-circuit.
-    for seqid in intervals:
-        intervals[seqid].sort()
+    for chrom_intervals in intervals.values():
+        chrom_intervals.sort()
     return dict(intervals)
 
 
@@ -155,9 +157,7 @@ def _intervals_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bo
     return a_start <= b_end and a_end >= b_start
 
 
-def _any_overlap(
-    start: int, end: int, intervals: list[tuple[int, int]] | None
-) -> bool:
+def _any_overlap(start: int, end: int, intervals: list[tuple[int, int]] | None) -> bool:
     """Return True if ``[start, end]`` overlaps any interval in the sorted list."""
     if not intervals:
         return False
@@ -246,7 +246,9 @@ def prefilter_scn(
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--scn", type=Path, required=True, help="Input LTRharvest SCN file.")
+    parser.add_argument(
+        "--scn", type=Path, required=True, help="Input LTRharvest SCN file."
+    )
     parser.add_argument(
         "--des",
         type=Path,
@@ -274,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    logging.info("Pre-filtering SCN %s against %s", args.scn, args.valid_ranges)
+    logger.info("Pre-filtering SCN %s against %s", args.scn, args.valid_ranges)
 
     rows_in, rows_kept_retroviral, rows_kept_full = prefilter_scn(
         scn_path=args.scn,
@@ -284,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         full_output_path=args.output_full,
     )
     pct_retroviral = (100.0 * rows_kept_retroviral / rows_in) if rows_in else 0.0
-    logging.info(
+    logger.info(
         "Retained %d of %d SCN rows (%.1f%%) for retroviral; "
         "wrote %d rows to full output",
         rows_kept_retroviral,

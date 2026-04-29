@@ -44,6 +44,8 @@ import logging
 import sys
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 EXT_PREFERENCE: tuple[str, ...] = ("fa", "fna", "fasta", "ffn")
 
 
@@ -150,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     canonical = normalize(args.species_dir, args.genome_name, args.output)
-    logging.info("Canonical FASTA for %s: %s", args.genome_name, canonical)
+    logger.info("Canonical FASTA for %s: %s", args.genome_name, canonical)
     return 0
 
 

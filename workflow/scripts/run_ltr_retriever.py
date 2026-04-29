@@ -40,6 +40,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 EXPECTED_OUTPUT_EXTS: tuple[str, ...] = (
     "pass.list.gff3",
     "nmtf.pass.list",
@@ -139,11 +141,16 @@ def _build_command(
     """Construct the LTR_retriever argv list."""
     cmd = [
         str(params.binary),
-        "-genome", staged.genome_fa_link.name,
-        "-inharvest", staged.scn_link.name,
-        "-u", str(params.substitution_rate),
-        "-miniden", str(params.min_similarity),
-        "-threads", str(params.threads),
+        "-genome",
+        staged.genome_fa_link.name,
+        "-inharvest",
+        staged.scn_link.name,
+        "-u",
+        str(params.substitution_rate),
+        "-miniden",
+        str(params.min_similarity),
+        "-threads",
+        str(params.threads),
     ]
     if params.noanno:
         cmd.append("-noanno")
@@ -166,7 +173,7 @@ def run_binary(
         log.write(f"# LTR_retriever runner\n# cmd: {' '.join(cmd)}\n")
         log.write(f"# cwd: {staged.workdir}\n\n")
         log.flush()
-        proc = subprocess.run(  # noqa: S603 — args are constructed from validated paths
+        proc = subprocess.run(
             cmd,
             cwd=staged.workdir,
             capture_output=True,
@@ -273,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     staged = stage_workdir(args.workdir, args.genome_fa, scn, args.genome_name)
-    logging.info(
+    logger.info(
         "LTR_retriever: genome=%s scn=%s mode=%s workdir=%s",
         args.genome_fa.name,
         scn.name,
@@ -282,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     rc = run_binary(staged, params, args.log_file)
     if rc != 0:
-        logging.error("LTR_retriever exited %d; see %s", rc, args.log_file)
+        logger.error("LTR_retriever exited %d; see %s", rc, args.log_file)
         return rc
 
     finalise_outputs(staged.workdir, args.genome_name)

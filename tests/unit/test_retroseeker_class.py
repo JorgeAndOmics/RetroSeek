@@ -14,8 +14,6 @@ These tests pin down the invariants the class is supposed to uphold:
 
 from __future__ import annotations
 
-import pytest
-
 # ``conftest.py`` puts ``workflow/scripts`` on sys.path and stubs ``defaults``
 # before this import runs, so the real RetroSeeker_class can be imported
 # without triggering defaults.py's filesystem side effects.
@@ -97,7 +95,15 @@ class TestRetroSeekerRepr:
         """``__repr__`` returns a comma-joined summary of core attributes."""
         rs = _make(identifier="rep01", label="repr_lbl")
         text = repr(rs)
-        for token in ["repr_lbl", "toy_virus", "TOY", "Toyus_simplex", "GAG", "TOY_001", "rep01"]:
+        for token in [
+            "repr_lbl",
+            "toy_virus",
+            "TOY",
+            "Toyus_simplex",
+            "GAG",
+            "TOY_001",
+            "rep01",
+        ]:
             assert token in text, f"expected {token!r} in repr, got {text!r}"
 
 

@@ -21,7 +21,9 @@ from typing import Any
 import dill
 
 
-def pickler(data: Any, output_directory_path: str | Path, output_file_name: str) -> None:
+def pickler(
+    data: Any, output_directory_path: str | Path, output_file_name: str
+) -> None:
     """Write ``data`` to ``<output_directory_path>/<output_file_name>`` via dill.
 
     The directory is expected to exist; the function does not create it.

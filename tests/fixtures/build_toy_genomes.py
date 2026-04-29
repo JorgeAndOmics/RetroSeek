@@ -34,9 +34,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio import SeqIO
 
 # Real short retroviral ORF fragments (amino acid strings).
 # Sources: trimmed fragments of published MLV, HERV-K, HIV-1 proteins —
@@ -64,10 +64,26 @@ PROBE_PROTEINS: dict[str, str] = {
 
 # Back-translation table: pick one codon per AA. Deterministic.
 AA_TO_CODON: dict[str, str] = {
-    "A": "GCT", "R": "CGT", "N": "AAT", "D": "GAT", "C": "TGT",
-    "Q": "CAA", "E": "GAA", "G": "GGT", "H": "CAT", "I": "ATT",
-    "L": "CTT", "K": "AAA", "M": "ATG", "F": "TTT", "P": "CCT",
-    "S": "TCT", "T": "ACT", "W": "TGG", "Y": "TAT", "V": "GTT",
+    "A": "GCT",
+    "R": "CGT",
+    "N": "AAT",
+    "D": "GAT",
+    "C": "TGT",
+    "Q": "CAA",
+    "E": "GAA",
+    "G": "GGT",
+    "H": "CAT",
+    "I": "ATT",
+    "L": "CTT",
+    "K": "AAA",
+    "M": "ATG",
+    "F": "TTT",
+    "P": "CCT",
+    "S": "TCT",
+    "T": "ACT",
+    "W": "TGG",
+    "Y": "TAT",
+    "V": "GTT",
     "*": "TAA",
 }
 
@@ -167,13 +183,13 @@ def build_scaffold(
 class SpeciesSpec:
     """Top-level plan for one toy species."""
 
-    name: str                       # Folder / FASTA stem. Snake_case.
-    scaffold_count: int             # How many chromosomes/scaffolds.
-    scaffold_length: int            # bp per scaffold (approximate).
-    ervs_per_scaffold: int          # Number of planted ERVs per scaffold.
-    ltr_length: int                 # bp per LTR (direct repeat).
-    probe_order: list[str]          # Probes (keys of PROBE_PROTEINS) per ERV.
-    padding_per_gap: int            # bp of random filler between ORFs.
+    name: str  # Folder / FASTA stem. Snake_case.
+    scaffold_count: int  # How many chromosomes/scaffolds.
+    scaffold_length: int  # bp per scaffold (approximate).
+    ervs_per_scaffold: int  # Number of planted ERVs per scaffold.
+    ltr_length: int  # bp per LTR (direct repeat).
+    probe_order: list[str]  # Probes (keys of PROBE_PROTEINS) per ERV.
+    padding_per_gap: int  # bp of random filler between ORFs.
 
 
 def build_species(spec: SpeciesSpec, rng: random.Random) -> list[SeqRecord]:
@@ -236,11 +252,11 @@ def write_probe_csv(destination: Path) -> None:
         for probe, protein in PROBE_PROTEINS.items():
             writer.writerow(
                 [
-                    f"Toy_{probe}",                   # Label
-                    f"Toy retrovirus {probe}",        # Name
-                    probe,                            # Abbreviation
-                    protein,                          # Probe AA sequence
-                    f"TOY_{probe}_001",               # Accession (synthetic)
+                    f"Toy_{probe}",  # Label
+                    f"Toy retrovirus {probe}",  # Name
+                    probe,  # Abbreviation
+                    protein,  # Probe AA sequence
+                    f"TOY_{probe}_001",  # Accession (synthetic)
                 ]
             )
 
@@ -317,7 +333,9 @@ def main(argv: list[str] | None = None) -> int:
         # Flat FASTA at dest/{name}.fa — matches RetroSeek SPECIES_DB layout.
         fasta_path = dest / f"{spec.name}.fa"
         if fasta_path.exists() and not args.force:
-            print(f"  skip {spec.name}: {fasta_path} exists (pass --force to overwrite)")
+            print(
+                f"  skip {spec.name}: {fasta_path} exists (pass --force to overwrite)"
+            )
             continue
         records = build_species(spec, rng)
         size = write_fasta(records, fasta_path)
