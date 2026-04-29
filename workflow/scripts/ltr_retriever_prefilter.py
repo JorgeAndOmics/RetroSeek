@@ -1,12 +1,24 @@
 """Pre-filter LTRharvest SCN output by intersecting with valid_ranges.gff3.
 
-This is *Coupling A* of the LTR_retriever integration: we constrain
-LTR_retriever's candidate pool to retroviral-confirmed ERVs (the ones
-RetroSeek's ``ranges_analysis`` step already validated via domain
-matching) before LTR_retriever sees them. LTR_retriever's subsequent
-family-building and BLAST-back passes are therefore retroviral-specific
-by construction, and the solo LTRs it ultimately discovers are
-guaranteed retroviral.
+This is *Coupling A* of the LTR_retriever integration. RetroSeek's
+``ranges_analysis`` step has already validated a subset of LTRharvest
+candidates as retroviral by domain matching; this script writes two SCN
+files from a single read pass:
+
+* ``{genome}_retroviral.scn`` — the rows whose paired-LTR coordinates
+  overlap a valid_ranges interval on the same chromosome. This is the
+  default LTR_retriever input under ``config.ltr_retriever.source_scn:
+  retroviral``: LTR_retriever's family-building and BLAST-back passes
+  see only retroviral-confirmed candidates, so the solo LTRs it
+  discovers are guaranteed retroviral.
+* ``{genome}_full.scn`` — every well-formed row from the source SCN,
+  comments included, byte-equivalent to the source modulo malformed
+  rows. This is the LTR_retriever input under
+  ``config.ltr_retriever.source_scn: full``, useful for non-retroviral
+  exploration or cross-validation against the retroviral output.
+
+Both files always materialise; the runtime decision lives one rule
+downstream in ``run_ltr_retriever.py``.
 
 Input files
 -----------
@@ -19,10 +31,7 @@ LTRharvest SCN
         s(ret) e(ret) l(ret) s(lLTR) e(lLTR) l(lLTR) s(rLTR) e(rLTR) l(rLTR) sim(LTRs) seq-nr
 
     The ``seq-nr`` column is the LTRharvest-internal sequence index (0,
-    1, 2, ...) into the input FASTA, NOT a chromosome name. We must
-    map ``seq-nr`` back to chromosome names using the ``.des`` file
-    produced by ``gt suffixerator`` (one chromosome name per line, in
-    the order LTRharvest indexes them).
+    1, 2, ...) into the input FASTA, NOT a chromosome name.
 
 ``.des`` file
     Companion to the suffix-array index. Line ``N`` (0-indexed) holds
@@ -33,27 +42,15 @@ LTRharvest SCN
 valid_ranges.gff3
     RetroSeek's domain-validated retroviral ERV track — output of
     ``ranges_analysis_setup``. Standard GFF3: comment lines start with
-    ``#``, data rows have 9 tab-separated fields. We use the first
-    (seqid / chromosome), fourth (start, 1-indexed inclusive) and
-    fifth (end, 1-indexed inclusive) fields.
-
-Output
-------
-{genome}_retroviral.scn
-    Same SCN format, retaining only rows whose paired-LTR coordinates
-    overlap at least one valid_ranges.gff3 interval on the same
-    chromosome. Header comments (lines starting with ``#``) are
-    preserved verbatim so LTR_retriever's parser sees a well-formed
-    SCN.
+    ``#``, data rows have 9 tab-separated fields.
 
 Coordinate systems
 ------------------
-LTRharvest SCN ``s(ret)`` / ``e(ret)`` are 0-indexed closed intervals
-on the ungapped subject sequence. GFF3 uses 1-indexed closed intervals.
-For the overlap check we normalise GFF3 to 0-indexed half-open (BED-
-style) via ``start - 1`` on the left end; the SCN's values are left as
-0-indexed closed. Two intervals overlap iff
-``a_start <= b_end`` AND ``a_end >= b_start``.
+LTRharvest SCN ``s(ret)`` / ``e(ret)`` are 0-indexed closed intervals.
+GFF3 uses 1-indexed closed intervals. The overlap check normalises
+GFF3 to 0-indexed closed via ``start - 1``; the SCN values are left
+as-is. Two intervals overlap iff ``a_start <= b_end`` AND
+``a_end >= b_start``.
 
 Usage (CLI)
 -----------
@@ -63,7 +60,8 @@ Usage (CLI)
         --scn data/ltr_scn/{genome}.scn \\
         --des SPECIES_DB/{genome}/{genome}.des \\
         --valid-ranges results/tracks/valid/{genome}.gff3 \\
-        --output data/ltr_scn/{genome}_retroviral.scn
+        --output-retroviral data/ltr_scn/{genome}_retroviral.scn \\
+        --output-full       data/ltr_scn/{genome}_full.scn
 """
 
 from __future__ import annotations
@@ -176,28 +174,47 @@ def prefilter_scn(
     scn_path: Path,
     des_path: Path,
     valid_ranges_path: Path,
-    output_path: Path,
-) -> tuple[int, int]:
-    """Filter SCN rows to retroviral-only, write to ``output_path``.
+    retroviral_output_path: Path,
+    full_output_path: Path,
+) -> tuple[int, int, int]:
+    """Filter SCN rows in a single pass; write retroviral + full SCN files.
+
+    Comments (``#``-prefixed) and blank lines are written verbatim to
+    both outputs so LTR_retriever's parser sees a well-formed SCN
+    regardless of which path is selected downstream.
+
+    Each well-formed data row is always written to ``full_output_path``;
+    it is *also* written to ``retroviral_output_path`` iff its paired-LTR
+    coordinates overlap a valid_ranges interval on the same chromosome.
 
     Returns
     -------
-    tuple[int, int]
-        ``(rows_in, rows_kept)`` — the input and retained row counts,
-        excluding comment lines.
+    tuple[int, int, int]
+        ``(rows_in, rows_kept_retroviral, rows_kept_full)`` — input row
+        count, the count retained by the retroviral filter, and the
+        count emitted to the full output. ``rows_kept_full`` equals
+        ``rows_in`` modulo malformed rows.
     """
     chrom_names = _parse_des(des_path)
     valid_intervals = _parse_valid_ranges(valid_ranges_path)
 
     rows_in = 0
-    rows_kept = 0
+    rows_kept_retroviral = 0
+    rows_kept_full = 0
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with scn_path.open() as fin, output_path.open("w") as fout:
+    retroviral_output_path.parent.mkdir(parents=True, exist_ok=True)
+    full_output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with (
+        scn_path.open() as fin,
+        retroviral_output_path.open("w") as fout_retroviral,
+        full_output_path.open("w") as fout_full,
+    ):
         for raw in fin:
             # Preserve SCN header comment lines verbatim — LTR_retriever parses them.
             if raw.startswith("#") or not raw.strip():
-                fout.write(raw)
+                fout_retroviral.write(raw)
+                fout_full.write(raw)
                 continue
             parts = raw.split()
             if len(parts) < 11:
@@ -210,15 +227,20 @@ def prefilter_scn(
                 seq_nr = int(parts[10])
             except ValueError:
                 continue
+            # Always emit to the full file — that's the load-bearing
+            # contract for ``source_scn: full`` mode.
+            fout_full.write(raw)
+            rows_kept_full += 1
             if not 0 <= seq_nr < len(chrom_names):
-                # seq_nr references a chromosome we don't know about — skip.
+                # seq_nr references a chromosome we don't know about — drop
+                # from retroviral but it's already in full.
                 continue
             chrom = chrom_names[seq_nr]
             if _any_overlap(ret_start, ret_end, valid_intervals.get(chrom)):
-                fout.write(raw)
-                rows_kept += 1
+                fout_retroviral.write(raw)
+                rows_kept_retroviral += 1
 
-    return rows_in, rows_kept
+    return rows_in, rows_kept_retroviral, rows_kept_full
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -238,27 +260,37 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to valid_ranges.gff3 from ranges_analysis_setup.",
     )
     parser.add_argument(
-        "--output",
+        "--output-retroviral",
         type=Path,
         required=True,
-        help="Output path for the retroviral-only SCN.",
+        help="Output path for the retroviral-restricted SCN (Coupling A).",
+    )
+    parser.add_argument(
+        "--output-full",
+        type=Path,
+        required=True,
+        help="Output path for the full unfiltered SCN (passthrough copy).",
     )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     logging.info("Pre-filtering SCN %s against %s", args.scn, args.valid_ranges)
 
-    rows_in, rows_kept = prefilter_scn(
+    rows_in, rows_kept_retroviral, rows_kept_full = prefilter_scn(
         scn_path=args.scn,
         des_path=args.des,
         valid_ranges_path=args.valid_ranges,
-        output_path=args.output,
+        retroviral_output_path=args.output_retroviral,
+        full_output_path=args.output_full,
     )
+    pct_retroviral = (100.0 * rows_kept_retroviral / rows_in) if rows_in else 0.0
     logging.info(
-        "Retained %d of %d SCN rows (%.1f%%) overlapping valid retroviral ranges",
-        rows_kept,
+        "Retained %d of %d SCN rows (%.1f%%) for retroviral; "
+        "wrote %d rows to full output",
+        rows_kept_retroviral,
         rows_in,
-        (100.0 * rows_kept / rows_in) if rows_in else 0.0,
+        pct_retroviral,
+        rows_kept_full,
     )
 
     return 0

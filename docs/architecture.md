@@ -61,7 +61,7 @@ All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand
 - `results/tables/` — overlap matrices, plot dataframes (Parquet), probe-pair tables, segmented species data, solo/intact ratios (`solo_intact_ratio/{genome}.csv` + `all_species.csv`).
 - `results/plots/` — density, raincloud, bar, Sankey, balloon, Circos-style PNG + PDF.
 - `results/hotspots/` — CSV + GFF3 + PDFs (histogram / density / heatmap).
-- `data/ltr_scn/` — LTRharvest screen-format intermediates (`{genome}.scn` + `{genome}_retroviral.scn`); consumed by LTR_retriever.
+- `data/ltr_scn/` — LTRharvest screen-format intermediates: `{genome}.scn` (raw LTRharvest output) plus `{genome}_retroviral.scn` (Coupling-A filtered) and `{genome}_full.scn` (byte-equal passthrough). The prefilter rule emits both filtered files from one read pass; one of them feeds LTR_retriever.
 
 ## Key configuration
 
