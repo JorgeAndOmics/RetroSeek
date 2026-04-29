@@ -1,5 +1,4 @@
-"""
-RetroSeeker_class.py
+"""RetroSeeker_class.py — sequence alignment + GenBank record holder.
 
 This module provides the core functionality for executing BLAST queries against local databases,
 parsing the results, and retrieving corresponding GenBank records. It defines a structured RetroSeeker
@@ -8,10 +7,17 @@ dataclass for holding sequence alignment information.
 Used as part of a larger pipeline for identifying endogenous viral elements (ERVs), this module
 supports reproducible, scalable, and programmatic BLAST processing and metadata enrichment.
 
+The ``HSP`` (high-scoring pair) acronym is upper-case throughout this
+file because it mirrors BioPython's ``Bio.Blast.Record.HSP`` class
+naming. Renaming would diverge the API from the upstream library every
+caller is reading. The N802/N803 ruff rules are silenced module-wide
+for that reason.
 
 Classes:
 - RetroSeeker: stores alignment, HSP, sequence, and metadata for each result.
 """
+
+# ruff: noqa: N802, N803
 
 import logging
 import tempfile
@@ -22,6 +28,8 @@ from typing import Any
 from Bio import SeqIO
 
 import defaults
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -120,10 +128,9 @@ class RetroSeeker:
         try:
             with StringIO() as handle:
                 SeqIO.write(genbank_record, handle, "fasta")
-                fasta = handle.getvalue()
-            return fasta
+                return handle.getvalue()
         except Exception as e:
-            logging.warning(f"Could not extract fasta: {e}")
+            logger.warning(f"Could not extract fasta: {e}")
             return None
 
     @staticmethod
@@ -147,10 +154,9 @@ class RetroSeeker:
                         f"{genbank_record.id}\t{feature.type}\t{feature.location}\n"
                     )
                     handle.write(gff_line)
-                gff = handle.getvalue()
-            return gff
+                return handle.getvalue()
         except Exception as e:
-            logging.warning(f"Could not extract gff: {e}")
+            logger.warning(f"Could not extract gff: {e}")
             return None
 
     @staticmethod
@@ -182,7 +188,7 @@ class RetroSeeker:
                     return "-"
 
         except Exception as e:
-            logging.warning(f"Could not extract strand: {e}")
+            logger.warning(f"Could not extract strand: {e}")
             return None
 
     @staticmethod
@@ -234,7 +240,7 @@ class RetroSeeker:
         try:
             return self.alignment
         except Exception as e:
-            logging.warning(f"Could not retrieve alignment: {e}")
+            logger.warning(f"Could not retrieve alignment: {e}")
 
     def set_alignment(self, alignment_object: object) -> None:
         """
@@ -259,7 +265,7 @@ class RetroSeeker:
         try:
             return self.HSP
         except Exception as e:
-            logging.warning(f"Could not retrieve HSP: {e}")
+            logger.warning(f"Could not retrieve HSP: {e}")
 
     def set_HSP(self, HSP_object: object) -> None:
         """
@@ -306,10 +312,10 @@ class RetroSeeker:
                 return self.genbank
 
             except Exception as e:
-                logging.warning(f"Could not retrieve genbank: {e}")
+                logger.warning(f"Could not retrieve genbank: {e}")
 
         else:
-            logging.warning("Genbank not set. Could not retrieve genbank.")
+            logger.warning("Genbank not set. Could not retrieve genbank.")
             return None
 
     def set_genbank(self, genbank_obj: str) -> None:
@@ -328,7 +334,7 @@ class RetroSeeker:
             self.fasta = self.extract_fasta_from_genbank(self.genbank)
             self.gff = self.extract_gff_from_genbank(self.genbank)
         except Exception as e:
-            logging.warning(f"Could not set genbank: {e}")
+            logger.warning(f"Could not set genbank: {e}")
 
     def get_fasta(self, output_type=None):
         """
@@ -354,9 +360,9 @@ class RetroSeeker:
                 return self.fasta
 
             except Exception as e:
-                logging.warning(f"Could not retrieve fasta: {e}")
+                logger.warning(f"Could not retrieve fasta: {e}")
         else:
-            logging.warning("Genbank not set. Could not retrieve fasta.")
+            logger.warning("Genbank not set. Could not retrieve fasta.")
             return None
 
     def get_gff(self):
@@ -373,9 +379,9 @@ class RetroSeeker:
             try:
                 return self.gff
             except Exception as e:
-                logging.warning(f"Could not retrieve gff: {e}")
+                logger.warning(f"Could not retrieve gff: {e}")
         else:
-            logging.warning("Genbank not set. Could not retrieve gff.")
+            logger.warning("Genbank not set. Could not retrieve gff.")
             return None
 
     # Display methods and Verifier methods

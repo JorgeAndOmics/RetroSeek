@@ -23,7 +23,7 @@ import yaml
 
 CONFIG_FILE = Path(__file__).parents[2] / "data" / "config" / "config.yaml"
 
-with open(CONFIG_FILE) as f:
+with CONFIG_FILE.open() as f:
     config = yaml.safe_load(f)
 
 # BLAST

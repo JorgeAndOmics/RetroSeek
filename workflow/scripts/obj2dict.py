@@ -45,6 +45,8 @@ import defaults
 import utils
 from colored_logging import colored_logging
 
+logger = logging.getLogger(__name__)
+
 
 # =============================================================================
 # 1. Attribute Extraction Function
@@ -177,10 +179,10 @@ if __name__ == "__main__":
         objct_dict = utils.unpickler(
             input_directory_path=defaults.PATH_DICT["PICKLE_DIR"], input_file_name=file
         )
-        logging.info(f"{Path(file).stem}: {len(objct_dict)} objects retrieved")
+        logger.info(f"{Path(file).stem}: {len(objct_dict)} objects retrieved")
         all_objects.extend(objct_dict.values())
 
-    logging.info(f"Total objects loaded: {len(all_objects)}")
+    logger.info(f"Total objects loaded: {len(all_objects)}")
 
     # -------------------------------------------------------------------------
     # 2.3 Group Objects by Species
@@ -189,7 +191,7 @@ if __name__ == "__main__":
     for obj in all_objects:
         species_objects[obj.species].append(obj)
 
-    logging.info(f"Objects grouped into {len(species_objects)} species")
+    logger.info(f"Objects grouped into {len(species_objects)} species")
 
     # -------------------------------------------------------------------------
     # 2.4 Process Each Species Sequentially and Build DataFrames
@@ -197,33 +199,30 @@ if __name__ == "__main__":
     species_dataframes: dict = {}
 
     for species, objects in species_objects.items():
-        logging.info(f"Processing species: {species} ({len(objects)} objects)")
+        logger.info(f"Processing species: {species} ({len(objects)} objects)")
 
         results: list[dict] = []
-        with tqdm(total=len(objects), desc=f"Processing {species}") as pbar:
-            with ThreadPoolExecutor(
-                max_workers=defaults.MAX_THREADPOOL_WORKERS
-            ) as executor:
-                futures = [
-                    executor.submit(extract_attributes_from_object, obj)
-                    for obj in objects
-                ]
-                for future in as_completed(futures):
-                    results.append(future.result())
-                    pbar.update()
+        with (
+            tqdm(total=len(objects), desc=f"Processing {species}") as pbar,
+            ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor,
+        ):
+            futures = [
+                executor.submit(extract_attributes_from_object, obj) for obj in objects
+            ]
+            for future in as_completed(futures):
+                results.append(future.result())
+                pbar.update()
 
         species_df = pd.DataFrame(results)
         species_dataframes[species] = species_df
-        logging.info(
-            f"Species {species}: DataFrame created with {len(species_df)} rows"
-        )
+        logger.info(f"Species {species}: DataFrame created with {len(species_df)} rows")
 
     # -------------------------------------------------------------------------
     # 2.5 Concatenate All Species DataFrames
     # -------------------------------------------------------------------------
-    logging.info("Concatenating all species DataFrames...")
+    logger.info("Concatenating all species DataFrames...")
     df = pd.concat(species_dataframes.values(), ignore_index=True)
-    logging.info(
+    logger.info(
         f"Final DataFrame: {len(df)} total rows from {len(species_dataframes)} species"
     )
 
@@ -234,7 +233,7 @@ if __name__ == "__main__":
     output_parquet_path = f"{args.output_file_name}.parquet"
 
     df.to_csv(output_csv_path, index=False)
-    logging.info(f"CSV saved to: {output_csv_path}")
+    logger.info(f"CSV saved to: {output_csv_path}")
 
     df.to_parquet(output_parquet_path, index=False)
-    logging.info(f"Parquet saved to: {output_parquet_path}")
+    logger.info(f"Parquet saved to: {output_parquet_path}")

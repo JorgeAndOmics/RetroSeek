@@ -36,6 +36,8 @@ import defaults
 import utils
 from RetroSeeker_class import RetroSeeker
 
+logger = logging.getLogger(__name__)
+
 
 def species_divider(object_dict: dict) -> dict:
     """
@@ -105,17 +107,19 @@ def blaster(
             str(num_threads),
         ]
 
-        result = subprocess.run(blast_command, capture_output=True, text=True)
+        result = subprocess.run(
+            blast_command, capture_output=True, text=True, check=False
+        )
         blast_output = result.stdout
         if blast_output.strip():
             return blast_output
 
-        logging.error(
+        logger.error(
             f"BLAST (outfmt=11) output is empty for {instance.probe} against {subject}:\n{result.stderr}"
         )
         return None
     except Exception as e:
-        logging.error(f"An error occurred while running {command}: {e!s}")
+        logger.error(f"An error occurred while running {command}: {e!s}")
         return None
 
 
@@ -149,9 +153,11 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
 
         # Convert ASN.1 to XML
         xml_command = ["blast_formatter", "-archive", tmp_asn_path, "-outfmt", "5"]
-        xml_result = subprocess.run(xml_command, capture_output=True, text=True)
+        xml_result = subprocess.run(
+            xml_command, capture_output=True, text=True, check=False
+        )
         if xml_result.returncode != 0:
-            logging.error(f"Error converting ASN to XML: {xml_result.stderr}")
+            logger.error(f"Error converting ASN to XML: {xml_result.stderr}")
             return None
 
         xml_string = xml_result.stdout
@@ -161,7 +167,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
         for record in NCBIXML.parse(xml_handle):
             for alignment in record.alignments:
                 if not record.alignments:
-                    logging.warning("No alignments found.")
+                    logger.warning("No alignments found.")
                     continue
                 for hsp in alignment.hsps:
                     # FASTA-header convention: the first whitespace-separated
@@ -232,12 +238,12 @@ def _blast_task(
             num_threads=num_threads,
         ):
             return blaster_parser(blast_result, instance, subject)
-        logging.warning(
+        logger.warning(
             f"Could not parse sequences for {instance.probe}, {instance.virus} against {subject}"
         )
         return None
     except Exception as e:
-        logging.error(
+        logger.error(
             f"Error in BLAST task for {instance.probe}, {instance.virus} against {subject}: {e}"
         )
         return None
@@ -270,7 +276,7 @@ def blast_executor(
     full_parsed_results = {}
 
     with tqdm(total=len(object_dict), desc=f"Processing {genome}...") as object_bar:
-        for key, value in object_dict.items():
+        for value in object_dict.values():
             if result := _blast_task(
                 instance=value,
                 command=command,
@@ -281,14 +287,14 @@ def blast_executor(
                 full_parsed_results |= result
                 if display_full_info:
                     key_identifier = f"{value.accession}-{value.identifier}"
-                    logging.info(
+                    logger.info(
                         f"Added {key_identifier} to Blast Dictionary\n{value.display_info()}"
                     )
 
             object_bar.update(1)
 
     if not full_parsed_results:
-        logging.critical("BLAST results are empty. Exiting.")
+        logger.critical("BLAST results are empty. Exiting.")
         return None
 
     return full_parsed_results
@@ -384,12 +390,12 @@ def gb_fetcher(
         if _attempt < max_attempts:
             time.sleep(2**_attempt)
             if display_warning:
-                logging.warning(
+                logger.warning(
                     f"While fetching the genbank record: {e!s}. Retrying... (attempt {_attempt + 1})"
                 )
             return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
         if display_warning:
-            logging.error(
+            logger.error(
                 f"Failed to fetch the GenBank record after {max_attempts} attempts."
             )
         return instance
@@ -424,7 +430,7 @@ def gb_executor(
     full_retrieved_results = {}
 
     with tqdm(total=len(object_dict), desc="Fetching GenBank sequences") as object_bar:
-        for key, value in object_dict.items():
+        for value in object_dict.values():
             if result := gb_fetcher(
                 instance=value,
                 online_database=online_database,
@@ -434,13 +440,13 @@ def gb_executor(
                 key_identifier = f"{value.accession}-{value.identifier}"
                 full_retrieved_results[key_identifier] = result
                 if display_full_info:
-                    logging.info(
+                    logger.info(
                         f"Added {key_identifier} to GenBank Dictionary\n{result.display_info()}"
                     )
             object_bar.update(1)
 
     if not full_retrieved_results:
-        logging.critical("No fetched GenBank results. Exiting.")
+        logger.critical("No fetched GenBank results. Exiting.")
         return None
 
     return full_retrieved_results

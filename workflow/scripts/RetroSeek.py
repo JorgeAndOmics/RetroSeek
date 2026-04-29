@@ -13,6 +13,8 @@ import colored_logging
 import defaults
 from validator import validation_run
 
+logger = logging.getLogger(__name__)
+
 # -----------------------------
 # FASTA EXTENSION STANDARDIZATION
 # -----------------------------
@@ -32,7 +34,7 @@ def standardize_fasta_extensions(fasta_dir_path: str) -> None:
     for file in Path(fasta_dir_path).iterdir():
         if file.is_file() and pattern.search(file.name):
             new_name: str = file.with_name(f"{file.stem}.fa")
-            logging.debug(f"Renaming: {file.name} -> {new_name.name}")
+            logger.debug(f"Renaming: {file.name} -> {new_name.name}")
             file.rename(new_name)
 
 
@@ -42,7 +44,10 @@ def standardize_fasta_extensions(fasta_dir_path: str) -> None:
 
 
 def run_snakemake_rule(
-    rule: str, num_cores: int, display_info: bool, snakemake_flags: list[str] = None
+    rule: str,
+    num_cores: int,
+    display_info: bool,
+    snakemake_flags: list[str] | None = None,
 ) -> None:
     """
     Execute a Snakemake rule with specified options.
@@ -72,13 +77,13 @@ def run_snakemake_rule(
         shell_cmd.append("-q")
 
     try:
-        result = subprocess.run(shell_cmd)
+        result = subprocess.run(shell_cmd, check=False)
     except (FileNotFoundError, OSError) as exc:
-        logging.error(f"Failed to invoke snakemake for rule '{rule}': {exc}")
+        logger.error(f"Failed to invoke snakemake for rule '{rule}': {exc}")
         sys.exit(1)
 
     if result.returncode != 0:
-        logging.error(
+        logger.error(
             f"Snakemake rule '{rule}' failed with exit code {result.returncode}. "
             f"See snakemake output above for details."
         )
@@ -90,7 +95,7 @@ def run_snakemake_rule(
 # -----------------------------
 
 
-def cli_entry() -> None:
+def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     """
     Main entrypoint for RetroSeek CLI.
 
@@ -330,7 +335,7 @@ def cli_entry() -> None:
     else:
         sys.exit(1)
 
-    logging.info("Finished execution.")
+    logger.info("Finished execution.")
 
 
 # -----------------------------

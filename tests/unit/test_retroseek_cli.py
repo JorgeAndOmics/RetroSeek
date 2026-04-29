@@ -1,3 +1,7 @@
+# ruff: noqa: PLC0415
+# Per-test imports of the module under test are deliberate (conftest
+# defaults stub must take effect first).
+
 """Unit tests for the ``RetroSeek.py`` CLI wrapper around Snakemake.
 
 Focus on ``run_snakemake_rule`` — a thin wrapper that shells out to the
@@ -34,7 +38,8 @@ class TestRunSnakemakeRule:
         run.assert_called_once()
         cmd = run.call_args.args[0]
         assert cmd[:2] == ["snakemake", "probe_extractor"]
-        assert "--cores" in cmd and "2" in cmd
+        assert "--cores" in cmd
+        assert "2" in cmd
         assert "--rerun-incomplete" in cmd
 
     def test_quiet_flag_appended_when_display_info_false(self) -> None:
