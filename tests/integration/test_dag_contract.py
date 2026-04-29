@@ -88,14 +88,10 @@ def test_genome_wildcard_constraint_pinned_to_species_list(
 # ---------------------------------------------------------------------
 # Phase-2/3 contract checks (xfail until those phases land)
 # ---------------------------------------------------------------------
-@pytest.mark.xfail(
-    reason="dual-output prefilter + source_scn routing land in Phase 2/3",
-    strict=True,
-)
 def test_prefilter_rule_declares_both_retroviral_and_full_outputs(
     project_root: Path,
 ) -> None:
-    """Phase 2 makes the prefilter rule emit both ``_retroviral`` and ``_full`` SCNs."""
+    """Phase 2: the prefilter rule emits both ``_retroviral`` and ``_full`` SCNs."""
     text = _read_snakefile(project_root)
     assert "{genome}_retroviral.scn" in text
     assert "{genome}_full.scn" in text

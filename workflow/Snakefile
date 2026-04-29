@@ -456,7 +456,10 @@ rule ltr_retriever_prefilter_setup:
         des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
         valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3')
     output:
-        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn')
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
+        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever_prefilter', '{genome}.log')
     threads: 1
     shell:
         '''
@@ -464,7 +467,9 @@ rule ltr_retriever_prefilter_setup:
             --scn {input.scn:q} \
             --des {input.des:q} \
             --valid-ranges {input.valid_ranges:q} \
-            --output {output.retroviral_scn:q}
+            --output-retroviral {output.retroviral_scn:q} \
+            --output-full {output.full_scn:q} \
+            2> {log:q}
         '''
 
 
@@ -472,6 +477,10 @@ rule ltr_retriever_prefilter:
     input:
         retroviral_scn = lambda wildcards: expand(
             os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
+            genome=species_with_hits(wildcards)
+        ),
+        full_scn = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn'),
             genome=species_with_hits(wildcards)
         )
 

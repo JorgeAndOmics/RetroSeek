@@ -156,7 +156,13 @@ def test_any_overlap_short_circuits_when_start_exceeds_end() -> None:
 
 
 # ---------------------------------------------------------------------
-# prefilter_scn (current single-output contract; Phase 2 will extend)
+# prefilter_scn — dual-output contract
+#
+# The prefilter writes both the retroviral-restricted SCN (Coupling A,
+# default consumer for LTR_retriever) AND the unfiltered ``_full.scn``
+# from a single read pass. Which one feeds LTR_retriever is a runtime
+# decision driven by ``config.ltr_retriever.source_scn``, but both are
+# always materialised so a user can inspect either at will.
 # ---------------------------------------------------------------------
 def _write_tiny_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     """Build a tiny SCN + .des + valid_ranges trio for prefilter tests."""
@@ -175,33 +181,87 @@ def _write_tiny_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     gff = tmp_path / "tiny_valid.gff3"
     gff.write_text(
         "chr1\tRetroSeek\tERV\t101\t501\t.\t+\t.\tID=erv1\n"
-        # No row for chr2 → seq-nr=1 candidate must be filtered out.
+        # No row for chr2 → seq-nr=1 candidate is in full but not retroviral.
     )
     return scn, des, gff
 
 
-def test_prefilter_scn_keeps_only_overlapping_rows(tmp_path: Path) -> None:
+def test_prefilter_writes_both_retroviral_and_full_outputs(tmp_path: Path) -> None:
+    """Single invocation produces both files; retroviral ⊂ full (data rows)."""
     scn, des, gff = _write_tiny_fixture(tmp_path)
-    out = tmp_path / "out.scn"
-    rows_in, rows_kept = prefilter_scn(scn, des, gff, out)
-    assert rows_in == 3
-    assert rows_kept == 1
+    retroviral = tmp_path / "tiny_retroviral.scn"
+    full = tmp_path / "tiny_full.scn"
+
+    prefilter_scn(scn, des, gff, retroviral, full)
+
+    assert retroviral.is_file()
+    assert full.is_file()
+    retroviral_data = [line for line in retroviral.read_text().splitlines() if not line.startswith("#") and line.strip()]
+    full_data = [line for line in full.read_text().splitlines() if not line.startswith("#") and line.strip()]
+    assert len(retroviral_data) == 1
+    assert len(full_data) == 3
+    assert set(retroviral_data).issubset(set(full_data))
 
 
-def test_prefilter_scn_preserves_header_comments(tmp_path: Path) -> None:
+def test_prefilter_full_output_byte_equivalent_to_input(tmp_path: Path) -> None:
+    """Without malformed rows, ``_full.scn`` is byte-equal to the source SCN.
+
+    This is the load-bearing invariant for ``source_scn: full`` mode:
+    LTR_retriever fed the full SCN must see exactly what LTRharvest
+    emitted, including comments. Locks against any future regression
+    where the prefilter accidentally rewrites or reformats data rows.
+    """
     scn, des, gff = _write_tiny_fixture(tmp_path)
-    out = tmp_path / "out.scn"
-    prefilter_scn(scn, des, gff, out)
-    output_text = out.read_text()
-    assert "# LTR_FINDER args=..." in output_text
-    assert "# s(ret) e(ret)" in output_text
+    retroviral = tmp_path / "out_retroviral.scn"
+    full = tmp_path / "out_full.scn"
+
+    prefilter_scn(scn, des, gff, retroviral, full)
+
+    assert full.read_bytes() == scn.read_bytes()
 
 
-def test_prefilter_scn_returns_correct_counts(tmp_path: Path) -> None:
-    """Return tuple matches the (rows_in, rows_kept) contract."""
+def test_prefilter_preserves_header_comments_in_both_outputs(tmp_path: Path) -> None:
+    """Both SCN files preserve LTRharvest's header comments verbatim."""
     scn, des, gff = _write_tiny_fixture(tmp_path)
-    out = tmp_path / "out.scn"
-    result = prefilter_scn(scn, des, gff, out)
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert result == (3, 1)
+    retroviral = tmp_path / "r.scn"
+    full = tmp_path / "f.scn"
+    prefilter_scn(scn, des, gff, retroviral, full)
+    for output in (retroviral, full):
+        text = output.read_text()
+        assert "# LTR_FINDER args=..." in text
+        assert "# s(ret) e(ret)" in text
+
+
+def test_prefilter_returns_three_counts_tuple(tmp_path: Path) -> None:
+    """Return shape: ``(rows_in, rows_kept_retroviral, rows_kept_full)``.
+
+    ``rows_kept_full`` always equals ``rows_in`` modulo malformed rows
+    (both in this test are zero, so equality holds).
+    """
+    scn, des, gff = _write_tiny_fixture(tmp_path)
+    retroviral = tmp_path / "r.scn"
+    full = tmp_path / "f.scn"
+    result = prefilter_scn(scn, des, gff, retroviral, full)
+    assert result == (3, 1, 3)
+
+
+def test_prefilter_main_cli_accepts_dual_output_flags(tmp_path: Path) -> None:
+    """``--output-retroviral`` and ``--output-full`` are both required CLI args."""
+    from ltr_retriever_prefilter import main as prefilter_main
+
+    scn, des, gff = _write_tiny_fixture(tmp_path)
+    retroviral = tmp_path / "cli_retroviral.scn"
+    full = tmp_path / "cli_full.scn"
+
+    rc = prefilter_main(
+        [
+            "--scn", str(scn),
+            "--des", str(des),
+            "--valid-ranges", str(gff),
+            "--output-retroviral", str(retroviral),
+            "--output-full", str(full),
+        ]
+    )
+    assert rc == 0
+    assert retroviral.is_file()
+    assert full.is_file()

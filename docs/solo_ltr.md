@@ -90,9 +90,14 @@ RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classificat
 - Stage 3's BLAST-back hits match retroviral consensuses.
 - Solo LTRs reported are guaranteed retroviral by construction.
 
-This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`: it reads the `.scn` file + `.des` file (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, and writes a filtered SCN to `data/ltr_scn/{genome}_retroviral.scn`. The filter's overlap semantics are closed-interval, 0-indexed, same-chromosome. (The filename uses an underscore separator — `_retroviral.scn` not `.retroviral.scn` — so the suffix is unambiguous with respect to LTRharvest's own `{genome}.scn` output, which would otherwise collide under Snakemake's wildcard resolution.)
+This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`. From a single read pass over the input `.scn` + `.des` (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, the script emits **both** SCN files:
 
-Controlled by `config.ltr_retriever.restrict_to_retroviral`. Defaults to `true`. Setting to `false` disables the pre-filter and runs LTR_retriever on the unfiltered LTRharvest output — useful only for debugging or for users who want non-retroviral solo LTRs too.
+- `data/ltr_scn/{genome}_retroviral.scn` — rows whose `[s(ret), e(ret)]` overlaps a `valid_ranges` interval on the same chromosome. Closed-interval, 0-indexed semantics. This is the file LTR_retriever currently consumes.
+- `data/ltr_scn/{genome}_full.scn` — every well-formed source row, byte-equivalent to the LTRharvest stdout (modulo malformed rows). This is the unfiltered passthrough, kept on disk for inspection and as the backing file for the upcoming `source_scn: full` mode.
+
+Both files always materialise; which one drives LTR_retriever is becoming a runtime config decision (see `config.ltr_retriever.restrict_to_retroviral` today; an enum `source_scn: retroviral | full` lands in a follow-up). Keeping the full SCN on disk makes ad-hoc inspection trivial and supports side-by-side comparisons.
+
+The filename underscore separator (`_retroviral.scn`, `_full.scn`, not dotted forms) avoids a Snakemake wildcard-resolution collision with LTRharvest's own `{genome}.scn`.
 
 ### Coupling B — multi-label probe propagation
 
@@ -197,6 +202,7 @@ Expected outputs per genome:
 |---|---|
 | `data/ltr_scn/{genome}.scn` | LTRharvest screen-format SCN (all candidates). |
 | `data/ltr_scn/{genome}_retroviral.scn` | SCN filtered to retroviral-confirmed candidates (Coupling A). |
+| `data/ltr_scn/{genome}_full.scn` | SCN passthrough — byte-equal to LTRharvest stdout, kept for inspection. |
 | `results/tracks/ltr_retriever/{genome}/{genome}.pass.list.gff3` | LTR_retriever-filtered intact ERVs. |
 | `results/tracks/ltr_retriever/{genome}/{genome}.nmtf.pass.list` | Solo + truncated LTRs. |
 | `results/tracks/ltr_retriever/{genome}/{genome}.LTRlib.fa` | Consensus library. |
