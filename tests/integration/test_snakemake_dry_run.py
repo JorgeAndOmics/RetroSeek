@@ -16,7 +16,13 @@ import pytest
 
 @pytest.mark.integration
 def test_snakemake_dry_run_resolves_dag(project_root: Path) -> None:
-    """Snakemake should build the rule graph without attempting to execute."""
+    """Snakemake should build the rule graph without attempting to execute.
+
+    Snakemake 8 requires an explicit target (no implicit default rule);
+    we pass ``genome_downloader``, an aggregate rule that resolves over
+    all configured ``SPECIES`` and exercises the early DAG without
+    attempting any heavy work (since ``-n`` short-circuits execution).
+    """
     if shutil.which("snakemake") is None:
         pytest.skip("snakemake not installed; activate the conda env first")
 
@@ -30,6 +36,7 @@ def test_snakemake_dry_run_resolves_dag(project_root: Path) -> None:
             "-n",
             "--cores",
             "1",
+            "genome_downloader",
         ],
         cwd=project_root,
         capture_output=True,
