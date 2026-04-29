@@ -60,7 +60,7 @@ ltr_retriever_schema:
   min_ltr_similarity:       num(min=0, max=100)
   threads_per_genome:       int(min=1)
   noanno:                   bool()
-  restrict_to_retroviral:   bool()
+  source_scn:               str(matches='^(retroviral|full)$')
   nearest_erv_max_distance: int(min=0)
 
 

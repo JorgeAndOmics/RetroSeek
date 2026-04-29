@@ -77,7 +77,7 @@ ltr_retriever:
   min_ltr_similarity: 91
   threads_per_genome: 4
   noanno: true
-  restrict_to_retroviral: true
+  source_scn: retroviral
   nearest_erv_max_distance: 10000
 
 logging:

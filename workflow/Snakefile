@@ -492,38 +492,35 @@ rule ltr_retriever_prefilter:
 rule ltr_retriever_setup:
     input:
         genome_fa      = os.path.join(defaults.PATH_DICT['SPECIES_DB'],     '{genome}.fa'),
-        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_retroviral.scn')
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_retroviral.scn'),
+        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_full.scn')
     output:
         pass_list_gff3 = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
         nmtf_pass_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
         ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever', '{genome}.log')
     params:
         out_dir           = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}'),
+        source_scn_mode   = config['ltr_retriever'].get('source_scn', 'retroviral'),
         substitution_rate = config['ltr_retriever'].get('substitution_rate', 1.3e-8),
         min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91),
-        noanno            = '-noanno' if config['ltr_retriever'].get('noanno', True) else ''
+        noanno_flag       = '--noanno' if config['ltr_retriever'].get('noanno', True) else ''
     threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
     shell:
         '''
-        mkdir -p {params.out_dir:q} && \
-        cd {params.out_dir:q} && \
-        LTR_retriever \
-            -genome {input.genome_fa:q} \
-            -inharvest {input.retroviral_scn:q} \
-            -u {params.substitution_rate} \
-            -miniden {params.min_similarity} \
-            -threads {threads} \
-            {params.noanno} && \
-        # LTR_retriever writes its outputs under <basename(genome_fa)>.mod.* —
-        # i.e. the input FASTA gets a `.fa.mod.` prefix because LTR_retriever
-        # internally produces a "modified" sanitised copy of the genome before
-        # processing. Rename the three files our rule declares as outputs to
-        # the simpler {{genome}}.X form expected by solo_ltr_integrator.py.
-        for ext in pass.list.gff3 nmtf.pass.list LTRlib.fa; do \
-            if [ -f {wildcards.genome:q}.fa.mod.$ext ]; then \
-                mv {wildcards.genome:q}.fa.mod.$ext {wildcards.genome:q}.$ext ; \
-            fi ; \
-        done
+        python scripts/run_ltr_retriever.py \
+            --genome-fa {input.genome_fa:q} \
+            --retroviral-scn {input.retroviral_scn:q} \
+            --full-scn {input.full_scn:q} \
+            --source-scn-mode {params.source_scn_mode} \
+            --workdir {params.out_dir:q} \
+            --genome-name {wildcards.genome:q} \
+            --substitution-rate {params.substitution_rate} \
+            --min-similarity {params.min_similarity} \
+            --threads {threads} \
+            {params.noanno_flag} \
+            --log-file {log:q}
         '''
 
 

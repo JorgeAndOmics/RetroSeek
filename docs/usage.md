@@ -67,7 +67,7 @@ Top-level sections (fields inside each section — see file for full list):
   - `solo_ltr_aggregation` — separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - Hotspot settings: `hotspot_window_size`, `hotspot_permutations`, `hotspot_pvalue_threshold`, etc.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
-- **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `restrict_to_retroviral` (Coupling A toggle), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
+- **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
 - **`logging`** — colour styles for console logging.
 - **`plots`** — DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
 - **`execution`** — parallelism and API politeness:

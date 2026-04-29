@@ -21,7 +21,7 @@ Two ways to integrate this signal with LTR_retriever were considered:
 
 Use the **pre-filter** approach. A new script `workflow/scripts/ltr_retriever_prefilter.py` produces `data/ltr_scn/{genome}_retroviral.scn` by intersecting LTRharvest's `.scn` with `valid_ranges.gff3`, and LTR_retriever is invoked on this filtered SCN. (The underscore-separator filename is deliberate: a dot separator — `{genome}.retroviral.scn` — collides with LTRharvest's own `{genome}.scn` output pattern under Snakemake wildcard matching, because `{genome}` would greedily absorb `Antrozous_pallidus.retroviral`.)
 
-Controlled by `config.ltr_retriever.restrict_to_retroviral` (default `true`). Setting `false` reverts to unfiltered behaviour for debugging or non-retroviral exploratory use.
+Controlled by `config.ltr_retriever.source_scn` (`retroviral` | `full`, default `retroviral`). Setting `full` feeds the unfiltered LTRharvest SCN to LTR_retriever for debugging or non-retroviral exploratory use. (The original boolean `restrict_to_retroviral` was replaced by this enum during the LTR-Retriever audit — see [ADR-005](ADR-005-ltr-retriever-runner.md). The prefilter rule now always materialises both `_retroviral.scn` and `_full.scn` from a single read pass; the toggle picks which one feeds the runner.)
 
 ## Consequences
 
@@ -35,7 +35,7 @@ Controlled by `config.ltr_retriever.restrict_to_retroviral` (default `true`). Se
 **Negative:**
 
 - **Coupling on `ranges_analysis_setup` outputs.** Solo-LTR detection can't run until `valid_ranges.gff3` exists. Snakemake's DAG handles this correctly (it will run ranges_analysis first), but the dependency means solo-LTR detection is always a later-stage target.
-- **Non-retroviral solos are invisible by default.** Users who want all LTR-retrotransposon solos must set `restrict_to_retroviral: false` and then filter results themselves. This is the right default for RetroSeek's purpose but would be the wrong default for a general TE-annotation tool.
+- **Non-retroviral solos are invisible by default.** Users who want all LTR-retrotransposon solos must set `source_scn: full` and then filter results themselves. This is the right default for RetroSeek's purpose but would be the wrong default for a general TE-annotation tool.
 - **Sensitivity bounded by probe quality.** If RetroSeek's probe set misses a retroviral lineage entirely, LTR_retriever won't find that lineage's solo LTRs either, because no intact ERVs from that lineage make it into `valid_ranges.gff3`. This amplifies the importance of comprehensive probe design.
 
 **Neutral:**
@@ -66,7 +66,7 @@ Earlier plan: extract flanking LTRs from RetroSeek's valid ERVs ourselves, build
 ## Revisit trigger
 
 - LTR_retriever's output format changes in a backward-incompatible way that breaks our integrator's parser. Mitigation: the integrator already has a nearest-ERV fallback that continues to produce (weaker) labels in that case.
-- A user community emerges that needs non-retroviral LTR solos as a default — we'd flip `restrict_to_retroviral` to `false` and accept the broader output.
+- A user community emerges that needs non-retroviral LTR solos as a default — we'd switch `source_scn` to `full` and accept the broader output.
 - Performance bottleneck on large probe sets — unlikely; the pre-filter is O(candidates × valid_ranges_on_chrom), both usually < 10k.
 
 ## References
