@@ -98,7 +98,19 @@ plots:
   dpi: 300
   width: 15
   height: 12
-  omit_lower_percent: 0.05   # Percentage of lower count results to omit for Sankey plots. 0 to display all results.
+  # Density / raincloud x-axis scale. Bitscore distributions span ~3 orders of
+  # magnitude on real data; flip to log10 when the lower modes are crushed.
+  bitscore_x_scale: linear            # linear | log10
+  # Sankey long-tail handling. null = show every stratum (default). When set
+  # to a positive integer N, keep the top N strata per axis and fold the rest
+  # into a single labelled "Other (k)" stratum that records how many were
+  # collapsed. Combine with the count-based axis ordering for predictable
+  # placement of the bundle at the bottom of each axis.
+  sankey_top_n: null
+  sankey_other_label: 'Other'
+  # Waffle chart granularity. 1 = one square per range. Bump on huge inputs to
+  # keep the waffle legible (e.g. 10 = "1 square = 10 ranges").
+  waffle_unit_hits: 1
   circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
