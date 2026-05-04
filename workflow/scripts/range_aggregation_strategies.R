@@ -70,23 +70,35 @@ aggregate_values <- function(values, strategy,
 }
 
 
-# Element-wise variant for AtomicList input. Returns a vector / CharacterList
-# of length(values) so plyranges can attach the column to the per-merged-range
-# output GRanges of reduce_ranges_directed.
+# Element-wise variant for AtomicList input. Returns an atomic character
+# vector of length(values) so plyranges can attach the column to the
+# per-merged-range output GRanges of reduce_ranges_directed.
+#
+# IMPORTANT — why "list" is concatenated here:
+# plyranges (>=1.22) `summarize_rng` compresses list-columns via
+# `Reduce(S4Vectors::pc, ans[[i]])` followed by `as(., "CompressedList")`.
+# With a uniform-inner-length CharacterList of length n, that reducer
+# collapses to a single concatenated entry instead of preserving the per-
+# group structure (verified locally: a 5-element CharacterList of length-1
+# entries reduces to length 1, then `stopifnot(length == nr)` fires). To
+# avoid the broken path, "list" returns an atomic character with values
+# joined by `separator`. Downstream consumers that need a true CharacterList
+# can split on `separator` post-reduce — the GFF3 / parquet exporters in
+# this pipeline already treat it as a flat string.
+#
+# When `aggregate_values` is called directly (unit tests, non-plyranges
+# callers) the atomic-vector branch above still returns CharacterList for
+# strategy="list", preserving the original semantics in that context.
 .aggregate_values_listwise <- function(values, strategy, tiebreaker,
                                        separator, strict_marker) {
   n <- length(values)
-  if (strategy == "list") {
-    return(IRanges::CharacterList(lapply(seq_len(n), function(i) {
-      unique(as.character(values[[i]]))
-    })))
-  }
   vapply(seq_len(n), function(i) {
     elem <- as.character(values[[i]])
     if (length(elem) == 0L) return(NA_character_)
     uniq <- unique(elem)
     switch(
       strategy,
+      list        = paste(sort(uniq), collapse = separator),  # see comment above
       concatenate = paste(sort(uniq), collapse = separator),
       best        = {
         if (is.null(tiebreaker)) {
