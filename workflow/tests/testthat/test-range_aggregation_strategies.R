@@ -166,3 +166,80 @@ test_that("aggregate_values + make_tiebreaker_picker compose cleanly for the `be
                           tiebreaker = pick(bitscore = bitscore, identity = identity))
   expect_equal(out, "GAG")
 })
+
+
+# ─────────────────── plyranges integration regression ───────────────────────
+#
+# The unit tests above exercise aggregate_values() in isolation. The function
+# is also called from inside plyranges::reduce_ranges_directed(...) via
+# range_analysis/reductions.R::reduce_first(). plyranges presents grouped
+# metadata as a CompressedAtomicList of length n (one element per output
+# range, each element being the per-row vector of contributing values). The
+# function's AtomicList branch (.aggregate_values_listwise) must return a
+# value plyranges' summarize_rng can attach to the n-row output GRanges.
+#
+# Regression: a prior version returned a CharacterList of length n for
+# strategy="list". plyranges' summarize_rng compresses list-columns via
+# Reduce(S4Vectors::pc, ans[[i]]) and that path collapses uniform-length
+# CharacterLists to a single entry, then `stopifnot(length(ans) == nr)`
+# fires with "length(ans[[i]]) == nr is not TRUE". The fix is to return an
+# atomic character of length n (joined by `separator`) for "list" inside
+# the AtomicList path. These tests guard against re-introducing that bug.
+
+test_that("aggregate_values handles CompressedCharacterList input (plyranges shape)", {
+  # Mimic the shape plyranges passes inside reduce_ranges_directed:
+  # a CompressedCharacterList of length n, where each element is the
+  # per-group character vector of contributing values.
+  values <- IRanges::CharacterList(list(
+    c("HIV", "HIV"),               # group 1: all same → unique = "HIV"
+    c("HTLV"),                     # group 2: single value
+    c("HIV", "HTLV", "HIV")        # group 3: mixed → unique = "HIV","HTLV"
+  ))
+  expect_s4_class(values, "CompressedCharacterList")
+
+  for (strategy in c("concatenate", "first", "majority", "strict", "list")) {
+    out <- aggregate_values(values, strategy = strategy, separator = "; ")
+    expect_type(out, "character")
+    expect_length(out, length(values))
+  }
+})
+
+
+test_that("plyranges reduce_ranges_directed + aggregate_values round-trips cleanly", {
+  # End-to-end: builds a tiny GRanges, groups by (probe, virus), reduces
+  # overlapping ranges, runs aggregate_values inside reduce_ranges_directed.
+  # Reproduces the exact shape that triggered the
+  # `length(ans[[i]]) == nr is not TRUE` assertion in the prior version.
+  skip_if_not_installed("plyranges")
+  skip_if_not_installed("GenomicRanges")
+  suppressMessages({
+    library(plyranges)
+    library(GenomicRanges)
+  })
+  gr <- GenomicRanges::GRanges(
+    seqnames = c("chr1", "chr1", "chr1", "chr2", "chr2"),
+    ranges   = IRanges::IRanges(start = c(10, 30, 100, 50, 200),
+                                end   = c(40,  70, 150, 90, 250)),
+    probe    = c("POL", "POL", "POL", "GAG", "GAG"),
+    virus    = c("HIV", "HIV", "HIV", "HTLV", "HTLV"),
+    label    = c("class_a", "class_a", "class_b", "class_a", "class_a"),
+    bitscore = c(100, 200, 50, 80, 90),
+    identity = c(90, 80, 70, 85, 95)
+  )
+
+  result <- gr %>%
+    plyranges::group_by(probe, virus) %>%
+    plyranges::reduce_ranges_directed(
+      virus = aggregate_values(virus, "list", separator = "; "),
+      label = aggregate_values(label, "list", separator = "; "),
+      n_hits = length(bitscore)
+    )
+
+  # The reduction collapses the two adjacent POL/HIV ranges 10-40 and 30-70
+  # into one merged range; the third POL/HIV range 100-150 stays separate.
+  # GAG/HTLV's two ranges are non-overlapping, both kept.
+  # Total: 2 (POL/HIV) + 2 (GAG/HTLV) = 4 output rows.
+  expect_equal(length(result), 4)
+  expect_type(GenomicRanges::mcols(result)$virus, "character")
+  expect_length(GenomicRanges::mcols(result)$virus, 4)
+})

@@ -48,7 +48,7 @@ reduce_first <- function(gr, merge_option, agg, probe_lengths) {
 
     if (by_label) {
       sub_gr %>%
-        dplyr::group_by(probe, label) %>%
+        plyranges::group_by(probe, label) %>%
         plyranges::reduce_ranges_directed(
           min.gapwidth    = gap_val,
           virus           = aggregate_values(virus,   agg$agg_virus,
@@ -69,7 +69,7 @@ reduce_first <- function(gr, merge_option, agg, probe_lengths) {
         )
     } else {
       sub_gr %>%
-        dplyr::group_by(probe, virus) %>%
+        plyranges::group_by(probe, virus) %>%
         plyranges::reduce_ranges_directed(
           min.gapwidth    = gap_val,
           virus           = aggregate_values(virus,   agg$agg_virus,
@@ -116,7 +116,7 @@ reduce_global <- function(gr_first, agg) {
   if (length(gr_first) == 0L) return(gr_first)
 
   reduced <- gr_first %>%
-    dplyr::group_by(probe) %>%
+    plyranges::group_by(probe) %>%
     plyranges::reduce_ranges_directed(
       species         = aggregate_values(species, agg$agg_species,
                                          tiebreaker = pick_tb(bitscore = max_bitscore, identity = max_identity),
@@ -151,7 +151,7 @@ attach_probe_id <- function(gr) {
     return(gr)
   }
   gr %>%
-    dplyr::group_by(probe) %>%
+    plyranges::group_by(probe) %>%
     dplyr::mutate(ID = paste0(probe, "_", seq_along(probe))) %>%
     dplyr::ungroup()
 }
