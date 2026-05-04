@@ -121,7 +121,10 @@ Related: `parameters.solo_ltr_aggregation` (already documented above under the `
 | `dpi` | int ≥ 1 | `300` | Output resolution. |
 | `width` | int ≥ 1 | `15` | Plot width in inches. |
 | `height` | int ≥ 1 | `12` | Plot height in inches. |
-| `omit_lower_percent` | number ≥ 0 | `0.05` | Sankey paths representing less than this fraction are dropped. |
+| `bitscore_x_scale` | str (`linear` \| `log10`) | `linear` | X-axis scale on density / raincloud bitscore plots. Use `log10` when the long-tail of low-bitscore hits crushes the lower modes. |
+| `sankey_top_n` | int ≥ 1 or `null` | `null` | Long-tail handling for Sankey plots. `null` (default) shows every stratum. Set to a positive integer N to keep the top N strata per axis and fold the rest into a single labelled `Other (k)` stratum recording how many strata were collapsed. |
+| `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
+| `waffle_unit_hits` | int ≥ 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` → "1 square = 10 ranges"). |
 | `circle_plot_bitscore_threshold` | number ≥ 0 | `0` | Bit-score cutoff for circle-plot display. |
 
 ## `execution`

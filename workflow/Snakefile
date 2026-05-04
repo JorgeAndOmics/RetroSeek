@@ -647,7 +647,13 @@ rule plot_generator_setup:
         sankey_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
                             sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
         balloon_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{balloon_probe}_balloon.png'),
-                             balloon_probe=['main','accessory'])
+                             balloon_probe=['main','accessory']),
+        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{qc_probe}_query_coverage.png'),
+                                    qc_probe=['main','accessory']),
+        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
+                             hm_probe=['main','accessory']),
+        waffle_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
+                            wf_probe=['main','accessory'])
     params:
         plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
         plot_dir=defaults.PATH_DICT['PLOT_DIR'],
