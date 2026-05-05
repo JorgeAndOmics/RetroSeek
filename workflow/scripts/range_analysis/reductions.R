@@ -25,12 +25,12 @@ suppressMessages({
 # ranges and compute composite metrics from contributing rows.
 #
 # Args:
-#   gr               : BLAST GRanges (filtered), with `min_gapwidth` mcols.
+#   gr               : BLAST GRanges (filtered), with `min_gapwidth` and
+#                      per-hit `query_coverage` mcols already attached by
+#                      build_blast_gr.
 #   merge_option     : "virus" or "label" (selects the secondary group key).
 #   agg              : aggregation-options list from read_pipeline_options().
-#   probe_lengths    : named integer (Abbreviation -> nchar(Probe)) for the
-#                      query_coverage normaliser.
-reduce_first <- function(gr, merge_option, agg, probe_lengths) {
+reduce_first <- function(gr, merge_option, agg) {
   pick_tb <- make_tiebreaker_picker(agg$agg_best_tiebreaker)
   by_label <- identical(merge_option, "label")
 
@@ -65,7 +65,7 @@ reduce_first <- function(gr, merge_option, agg, probe_lengths) {
           median_bitscore = median(bitscore),
           max_identity    = max(identity),
           min_evalue      = min(evalue),
-          query_coverage  = pmin(1, sum(align_length) / probe_lengths[as.character(unlist(probe))[1]])
+          query_coverage  = pmin(1, sum(query_coverage))
         )
     } else {
       sub_gr %>%
@@ -90,7 +90,7 @@ reduce_first <- function(gr, merge_option, agg, probe_lengths) {
           median_bitscore = median(bitscore),
           max_identity    = max(identity),
           min_evalue      = min(evalue),
-          query_coverage  = pmin(1, sum(align_length) / probe_lengths[as.character(unlist(probe))[1]])
+          query_coverage  = pmin(1, sum(query_coverage))
         )
     }
   }
