@@ -21,7 +21,13 @@ suppressMessages({
 # (e.g. "CM138268.1"), having been split from the BLAST hit_def by seq_utils
 # / obj2dict. This matches the seqid LTRdigest emits, so findOverlaps against
 # LTRdigest GRanges work without per-stage stripping.
-build_blast_gr <- function(blast_df) {
+#
+# `probe_lengths` is a named integer vector keyed by paste(virus, probe, '|')
+# (built by load_probe_lengths). When supplied, attaches per-hit
+# `query_coverage = pmin(1, hsp_align_length / probe_total_length)` as an
+# mcols column. The reduction stage downstream just sums the per-hit values
+# across each merged range.
+build_blast_gr <- function(blast_df, probe_lengths = NULL) {
   gr <- GenomicRanges::GRanges(
     seqnames = blast_df$accession,
     ranges   = IRanges::IRanges(
@@ -41,6 +47,15 @@ build_blast_gr <- function(blast_df) {
   S4Vectors::mcols(gr)$align_length <- blast_df$hsp_align_length
   S4Vectors::mcols(gr)$query_start  <- blast_df$hsp_query_start
   S4Vectors::mcols(gr)$query_end    <- blast_df$hsp_query_end
+
+  if (is.null(probe_lengths)) {
+    S4Vectors::mcols(gr)$query_coverage <- NA_real_
+  } else {
+    key <- paste(blast_df$virus, blast_df$probe, sep = "|")
+    plen <- probe_lengths[key]
+    S4Vectors::mcols(gr)$query_coverage <- pmin(1, blast_df$hsp_align_length / plen)
+  }
+
   gr
 }
 

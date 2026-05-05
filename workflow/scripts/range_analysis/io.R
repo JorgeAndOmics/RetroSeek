@@ -44,12 +44,30 @@ load_ltrdigest_gff3 <- function(path) {
 # Load probes CSV. Returns a list with:
 #   $df       — full tibble (one row per probe)
 #   $df_sum   — distinct (Name, Label, Abbreviation) tibble
-#   $lengths  — named integer vector: Abbreviation -> nchar(Probe)
 load_probes <- function(path) {
   df <- readr::read_csv(path, show_col_types = FALSE)
   df_sum <- dplyr::distinct(df, Name, Label, Abbreviation)
-  lengths <- setNames(nchar(df$Probe), df$Abbreviation)
-  list(df = df, df_sum = df_sum, lengths = lengths)
+  list(df = df, df_sum = df_sum)
+}
+
+
+# Load probe protein lengths from the post-fetch enriched probe_dict parquet
+# (the file produced by obj2dict.py after Entrez retrieval populates
+# `genbank_seq`). Returns a named integer vector keyed by
+# `paste(virus, probe, sep = "|")` — the same key shape used by
+# build_blast_gr to attach per-hit query_coverage.
+#
+# When the same (virus, probe) pair has multiple proteins (e.g. HIV-1 VIF
+# carries two accessions), the longest sequence is kept — the most
+# conservative coverage estimate, deterministic, and consistent with the
+# pre-fix code that arbitrarily picked one length per group.
+load_probe_lengths <- function(probe_dict_path) {
+  pdict <- arrow::read_parquet(probe_dict_path)
+  agg <- pdict %>%
+    dplyr::mutate(.seq_len = nchar(genbank_seq)) %>%
+    dplyr::group_by(virus, probe) %>%
+    dplyr::summarise(.probe_len = max(.seq_len, na.rm = TRUE), .groups = "drop")
+  setNames(agg$.probe_len, paste(agg$virus, agg$probe, sep = "|"))
 }
 
 

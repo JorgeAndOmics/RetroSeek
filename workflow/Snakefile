@@ -397,7 +397,8 @@ rule ranges_analysis_setup:
         # could run.
         original_fasta    = os.path.join(defaults.PATH_DICT['SPECIES_DB'],           '{genome}.fa'),
         species_segmented = os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],'{genome}.parquet'),
-        ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3')
+        ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3'),
+        probe_dict        = os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'],     'probe_dict.parquet')
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
@@ -437,6 +438,7 @@ rule ranges_analysis_setup:
         --blast {params.segmented_species_dir:q}/{wildcards.genome:q}.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         --probes {params.probes_csv:q} \
+        --probe_dict {input.probe_dict:q} \
         --config {params.yaml_config_file:q} \
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --original_ranges_reduced {params.original_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \

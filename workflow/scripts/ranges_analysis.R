@@ -57,6 +57,10 @@ parser$add_argument("--fasta",                    required = TRUE)
 parser$add_argument("--blast",                    required = TRUE)
 parser$add_argument("--ltrdigest",                required = TRUE)
 parser$add_argument("--probes",                   required = TRUE)
+parser$add_argument("--probe_dict",               required = TRUE,
+                    help = paste("Post-fetch probe_dict parquet (with",
+                                 "genbank_seq populated). Used to compute",
+                                 "per-hit query_coverage."))
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--original_ranges_reduced",  required = TRUE)
@@ -96,6 +100,7 @@ chrom_lengths <- load_chrom_lengths(args$fasta)
 blast_df      <- load_blast_parquet(args$blast)
 ltr_data      <- load_ltrdigest_gff3(args$ltrdigest)
 probes        <- load_probes(args$probes)
+probe_lengths <- load_probe_lengths(args$probe_dict)
 record_count("raw_blast_hits",       nrow(blast_df))
 record_count("ltrdigest_features",   length(ltr_data))
 
@@ -104,7 +109,7 @@ record_count("ltrdigest_features",   length(ltr_data))
 # Phase 2. Build the BLAST GRanges + filter
 # ----------------------------------------------------------------------------
 log_section("Phase 2: building BLAST GRanges and applying filters")
-gr <- build_blast_gr(blast_df)
+gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
 .pre_n <- length(gr)
 gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
 gr <- attach_min_gapwidth(gr, opts$probe_min_length)
@@ -116,7 +121,7 @@ message(sprintf("   %d of %d hits kept", length(gr), .pre_n))
 # Phase 3. First reduction (per probe x virus | label)
 # ----------------------------------------------------------------------------
 log_section("Phase 3: first reduction (per probe x virus|label)")
-gr_virus <- reduce_first(gr, opts$merge_option, opts, probes$lengths)
+gr_virus <- reduce_first(gr, opts$merge_option, opts)
 gr_virus <- attach_probe_id(gr_virus)
 record_count("first_reduced_ranges", length(gr_virus))
 
