@@ -327,3 +327,133 @@ test_that("waffle_virus_plot uses unit_hits to bucket squares", {
   expect_equal(p_one$labels$caption, "1 square = 1 hit")
   expect_equal(p_ten$labels$caption, "1 square = 10 hits")
 })
+
+test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap", {
+  skip_if_not_installed("waffle")
+  # 10,000 hits with a 400-square cap → auto-derive forces unit_hits to 25
+  df <- tibble::tibble(virus = rep("HIV", 10000))
+  p <- waffle_virus_plot(df, unit_hits = NULL)
+  expect_match(p$labels$caption, "auto-scaled from 10000 total hits")
+})
+
+
+# ───────────────────────── title / subtitle injection ─────────────────────
+
+test_that("add_titles prepends subset_label when supplied", {
+  p <- ggplot2::ggplot()
+  q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
+  expect_equal(q$labels$title,    "Main — Foo")
+  expect_equal(q$labels$subtitle, "Bar")
+})
+
+test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
+  p <- ggplot2::ggplot()
+  q1 <- add_titles(p, "Foo", "Bar", subset_label = NULL)
+  q2 <- add_titles(p, "Foo", "Bar", subset_label = "")
+  expect_equal(q1$labels$title, "Foo")
+  expect_equal(q2$labels$title, "Foo")
+})
+
+test_that("add_titles forces a white plot.background", {
+  # theme_void() makes plot.background transparent, which renders as black in
+  # some viewers and hides the title. add_titles must pin the background to
+  # white regardless of the underlying theme.
+  p <- ggplot2::ggplot() + ggplot2::theme_void()
+  q <- add_titles(p, "T", "S")
+  bg <- q$theme$plot.background
+  expect_s3_class(bg, "element_rect")
+  expect_equal(bg$fill, "white")
+})
+
+test_that("query_coverage_plot threads subset_label into title", {
+  p <- query_coverage_plot(.fake_plot_df(), subset_label = "Accessory")
+  expect_equal(p$labels$title, "Accessory — Probe query coverage density")
+  expect_match(p$labels$subtitle, "alignment length / probe length")
+})
+
+
+# ───────────────────────────── auto_dims ──────────────────────────────────
+
+test_that("auto_dims keeps the base canvas when n is at or below base_strata", {
+  d <- auto_dims(5, axis = "x", base_w = 15, base_h = 12)
+  expect_equal(d$w, 15)
+  expect_equal(d$h, 12)
+})
+
+test_that("auto_dims grows width with n on the x axis", {
+  d <- auto_dims(102, axis = "x", base_w = 15, base_h = 12,
+                 per_stratum = 0.18, base_strata = 12)
+  expect_equal(d$w, 15 + (102 - 12) * 0.18)
+  expect_equal(d$h, 12)
+})
+
+test_that("auto_dims grows height with n on the y axis", {
+  d <- auto_dims(60, axis = "y", base_w = 15, base_h = 12,
+                 per_stratum = 0.20, base_strata = 12)
+  expect_equal(d$w, 15)
+  expect_equal(d$h, 12 + (60 - 12) * 0.20)
+})
+
+test_that("auto_dims clamps at the cap", {
+  # 1000 strata at 0.18 in/stratum would request ~178 in width — must cap.
+  d <- auto_dims(1000, axis = "x", base_w = 15, base_h = 12,
+                 per_stratum = 0.18, cap = 60)
+  expect_equal(d$w, 60)
+})
+
+
+# ───────────────────────────── intended_dims attribute ────────────────────
+
+test_that("species-axis builders attach an intended_dims attribute", {
+  df <- .fake_plot_df() %>% group_count()
+  p_bar <- bar_plot(df)
+  p_bal <- balloon_virus_species_plot(df)
+  p_hm  <- heatmap_probe_species_plot(.fake_plot_df())
+  expect_true(is.list(attr(p_bar, "intended_dims")))
+  expect_true(is.list(attr(p_bal, "intended_dims")))
+  expect_true(is.list(attr(p_hm,  "intended_dims")))
+  expect_true(all(c("w", "h") %in% names(attr(p_bar, "intended_dims"))))
+})
+
+
+# ───────────────────────────── save_plot ──────────────────────────────────
+
+test_that("save_plot writes the file and respects dims override", {
+  tmp <- tempfile("plot2sort_test_", fileext = "")
+  dir.create(tmp)
+  p <- empty_plot("hello")
+  out <- save_plot("test.png", p, tmp,
+                   dims = list(w = 4, h = 3),
+                   base_w = 15, base_h = 12, dpi = 72)
+  expect_true(file.exists(out))
+  expect_match(out, "test\\.png$")
+  unlink(tmp, recursive = TRUE)
+})
+
+test_that("save_plot falls back to base_w / base_h when dims is NULL", {
+  tmp <- tempfile("plot2sort_test_", fileext = "")
+  dir.create(tmp)
+  p <- empty_plot("hello2")
+  out <- save_plot("test2.png", p, tmp,
+                   dims = NULL,
+                   base_w = 4, base_h = 3, dpi = 72)
+  expect_true(file.exists(out))
+  unlink(tmp, recursive = TRUE)
+})
+
+
+# ───────────────────────────── verify_required_columns ────────────────────
+
+test_that("verify_required_columns is silent when columns are present", {
+  expect_silent(verify_required_columns(.fake_plot_df(),
+                                        c("species", "probe", "label")))
+})
+
+test_that("verify_required_columns lists every missing column at once", {
+  err <- expect_error(
+    verify_required_columns(.fake_plot_df(),
+                            c("species", "probe", "missing_one", "missing_two"))
+  )
+  expect_match(conditionMessage(err), "missing_one")
+  expect_match(conditionMessage(err), "missing_two")
+})

@@ -108,9 +108,12 @@ plots:
   # placement of the bundle at the bottom of each axis.
   sankey_top_n: null
   sankey_other_label: 'Other'
-  # Waffle chart granularity. 1 = one square per range. Bump on huge inputs to
-  # keep the waffle legible (e.g. 10 = "1 square = 10 ranges").
-  waffle_unit_hits: 1
+  # Waffle chart granularity. null (recommended) = auto-derive a unit that keeps
+  # total tile count near `target_squares` (~2,500) so the chart stays legible
+  # at any input scale. Set an integer (e.g. 10 = "1 square = 10 ranges") to
+  # force a fixed unit; the builder will still raise it if your value would
+  # exceed the legibility cap.
+  waffle_unit_hits: null
   circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
