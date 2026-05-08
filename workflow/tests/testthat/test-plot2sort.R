@@ -111,6 +111,15 @@ test_that("empty_plot returns a ggplot with the requested title", {
   expect_equal(p$labels$title, "nothing here")
 })
 
+test_that("empty_plot forces a white plot.background", {
+  # Same reason as add_titles: theme_void()'s default transparent background
+  # composes as black in some viewers and hides the diagnostic title text.
+  p <- empty_plot("placeholder")
+  bg <- p$theme$plot.background
+  expect_s3_class(bg, "element_rect")
+  expect_equal(bg$fill, "white")
+})
+
 
 # ───────────────────────────── bar_plot ───────────────────────────────────
 
