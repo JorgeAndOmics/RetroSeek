@@ -68,11 +68,17 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 
 # Placeholder ggplot for zero-row inputs. Keeps the Snakemake DAG flowing on
 # genomes / probe_types with no hits — the rule still produces an output PNG.
+# Forces white plot.background so the diagnostic title remains legible in
+# viewers that compose transparent PNGs on a dark canvas (same reason as
+# add_titles).
 empty_plot <- function(label = "no data") {
   ggplot() +
     theme_void() +
     labs(title = label) +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18))
+    theme(
+      plot.title      = element_text(hjust = 0.5, face = "bold", size = 18),
+      plot.background = element_rect(fill = "white", colour = NA)
+    )
 }
 
 
