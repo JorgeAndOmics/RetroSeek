@@ -104,7 +104,7 @@ plots_schema:
   bitscore_x_scale: str(matches='^(linear|log10)$', required=False)
   sankey_top_n: any(int(min=1), null(), required=False)
   sankey_other_label: str(required=False)
-  waffle_unit_hits: int(min=1, required=False)
+  waffle_unit_hits: any(int(min=1), null(), required=False)
   circle_plot_bitscore_threshold: num(min=0)
 
 execution_schema:

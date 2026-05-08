@@ -58,6 +58,7 @@ logs/
 # Pipeline outputs (user runs locally; not versioned)
 # ──────────────────────────────────────────────
 results/
+results - Copy/
 data/pickles/
 data/species/
 data/tables/
