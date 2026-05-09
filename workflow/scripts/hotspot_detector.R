@@ -1,297 +1,401 @@
 # =============================================================================
-# Suppress Warnings and Load Libraries
+# RetroSeek hotspot detector v2 — NB GLM primary, permutation as opt-in
+# validation pass. Full architecture in `.claude/memory/r-scripts.md` and
+# `docs/architecture.md`.
+#
+# Orchestrator only — pure transforms live in `hotspot_analysis/*.R`.
+#
+# Outputs (per genome):
+#   results/tables/hotspots/{species}.csv               per-window summary
+#   results/tables/hotspots/{species}.parquet           same content, parquet
+#   results/tables/hotspots/{species}.manifest.yaml     provenance manifest
+#   results/tracks/hotspots/{species}.gff3              merged hotspot regions
+#   results/tracks/hotspots/{species}.bed               same regions, BED6
+#   results/plots/hotspot_pdfs/{species}_manhattan.pdf  per-label Manhattan
+#   results/plots/hotspot_pdfs/{species}_karyotype.pdf  ideogram + hotspots
+#   results/plots/hotspot_pdfs/{species}_qq.pdf         per-label Q-Q diagnostic
+#   results/plots/hotspot_pdfs/{species}_summary.pdf    density + width panel
+#   results/plots/hotspot_pdfs/{species}_histogram.pdf  permutation null hist
+#                                                       (blank if validation off)
+#   results/plots/hotspot_pdfs/{species}_density.pdf    permutation null density
+#                                                       (blank if validation off)
 # =============================================================================
-options(warn = -1)
+options(warn = 1)
 suppressMessages({
-  library(argparse)       # Argument parsing
-  library(Biostrings)     # DNA sequence utilities
-  library(rtracklayer)    # GFF I/O
-  library(GenomicRanges)  # Genomic interval operations
-  library(plyranges)      # Genomic data manipulation
-  library(regioneR)       # Permutation testing for genomic intervals
-  library(tidyverse)      # Data manipulation and visualization
-  library(purrr)          # Functional programming tools
-  library(yaml)           # YAML config parsing
-  library(ggsci)          # Scientific color palettes
+  library(argparse)
+  library(rtracklayer)
+  library(GenomicRanges)
+  library(IRanges)
+  library(S4Vectors)
+  library(BiocGenerics)
+  library(dplyr)
+  library(tibble)
+  library(readr)
+  library(arrow)
+  library(yaml)
+  library(tools)
 })
 
-# =============================================================================
-# 1. Parse Command-Line Arguments
-# =============================================================================
-parser <- ArgumentParser(description = "ERV Hotspot Permutation Analysis")
 
-parser$add_argument("--fasta", required=TRUE, help="Path to genome FASTA file")
-parser$add_argument("--gff", required=TRUE, help="Path to GFF3 with ERV annotations")
-parser$add_argument("--config", required=TRUE, help="YAML config file")
-parser$add_argument("--csv_output_dir", required=TRUE, help="Directory to write CSV output")
-parser$add_argument("--pdf_output_dir", required=TRUE, help="Directory to write PDF output")
-parser$add_argument("--hotspot_output_dir", required=TRUE, help="Directory to write GFF3 hotspot output")
+# -----------------------------------------------------------------------------
+# Locate sibling scripts + source modules
+# -----------------------------------------------------------------------------
+.resolve_script_dir <- function() {
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  "scripts"
+}
+.script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "utils",            "chrom_names.R"))
+source(file.path(.script_dir, "hotspot_analysis", "io.R"))
+source(file.path(.script_dir, "hotspot_analysis", "masking.R"))
+source(file.path(.script_dir, "hotspot_analysis", "windowing.R"))
+source(file.path(.script_dir, "hotspot_analysis", "models.R"))
+source(file.path(.script_dir, "hotspot_analysis", "postprocess.R"))
+source(file.path(.script_dir, "hotspot_analysis", "plots.R"))
+source(file.path(.script_dir, "range_analysis",   "exporters.R"))
 
+
+# -----------------------------------------------------------------------------
+# CLI
+# -----------------------------------------------------------------------------
+parser <- ArgumentParser(
+  description = "RetroSeek hotspot detector v2 (NB GLM + optional perm validation)"
+)
+parser$add_argument("--fasta",            required = TRUE, help = "Genome FASTA")
+parser$add_argument("--gff",              required = TRUE,
+                    help = "Per-genome GFF3 of ERV-related hits (original or valid track)")
+parser$add_argument("--config",           required = TRUE, help = "Project YAML config")
+parser$add_argument("--table_output_dir", required = TRUE,
+                    help = "Output dir for {species}.csv / .parquet / .manifest.yaml")
+parser$add_argument("--track_output_dir", required = TRUE,
+                    help = "Output dir for {species}.gff3 / .bed")
+parser$add_argument("--pdf_output_dir",   required = TRUE,
+                    help = "Output dir for hotspot PDFs")
 args <- parser$parse_args()
 
-args.genome <- file.path(args$fasta)
-args.gff <- file.path(args$gff)
-args.yaml <- file.path(args$config)
-args.csv_output_dir <- file.path(args$csv_output_dir)
-args.pdf_output_dir <- file.path(args$pdf_output_dir)
-args.hotspot_output_dir <- file.path(args$hotspot_output_dir)
 
-config <- yaml::read_yaml(args.yaml)
-
-species <- tools::file_path_sans_ext(basename(args.genome))
-species_name <- ifelse(!is.na(config$species[species]), config$species[species], species)
-
-# =============================================================================
-# 2. Load Genome and Create Genome Boundaries
-# =============================================================================
-print(paste0("Initializing permutation analysis for ", species_name, "..."))
-
-subject_genome <- readDNAStringSet(args.genome)
-
-genome_granges <- GRanges(
-  seqnames = names(subject_genome),
-  ranges   = IRanges(start = 1, end = width(subject_genome))
-)
-
-chrom.names.filtered <- stringr::str_extract(names(subject_genome), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
-
-seqlevels(genome_granges) <- chrom.names.filtered
-seqnames(genome_granges) <- chrom.names.filtered
-
-seqinfo.vec <- setNames(width(subject_genome), chrom.names.filtered)
-
-# =============================================================================
-# 3. Create Genomic Windows and Mask Regions
-# =============================================================================
-print(paste0("Segmenting ", species_name, " genome in tiles and masking ..."))
-
-window_size <- as.integer(config$parameters$hotspot_window_size)
-genomic_windows <- tileGenome(
-  seqlengths = seqinfo.vec,
-  tilewidth = window_size,
-  cut.last.tile.in.chrom = TRUE
-)
-
-mask_size <- as.integer(config$parameters$hotspot_mask_size)
-mask_mismatch <- as.integer(config$parameters$hotspot_mask_mismatch)
-mask_pattern <- DNAString(paste(rep("N", mask_size), collapse = ""))
-mask_match <- vmatchPattern(mask_pattern, subject_genome, max.mismatch = mask_mismatch)
-genome_mask <- as(mask_match, "GRanges")
-
-# =============================================================================
-# 4. Define Randomization Function
-# =============================================================================
-randomize_ervs <- function(A, genome, ...) {
-  randomizeRegions(A, genome = genome, mask = genome_mask, per.chromosome = TRUE)
+# -----------------------------------------------------------------------------
+# Pipeline instrumentation
+# -----------------------------------------------------------------------------
+.t0 <- Sys.time()
+log_section <- function(name) {
+  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
+  message(sprintf("[%6.2fs] > %s", elapsed, name))
 }
 
-# =============================================================================
-# 5. Import and Split GFF3 by Label
-# =============================================================================
-subject_genome_gff <- rtracklayer::import(args.gff, format = "gff3")
+`%||%` <- function(x, y) if (is.null(x) || (length(x) == 1L && is.na(x))) y else x
 
-if (!"label" %in% colnames(mcols(subject_genome_gff))) {
-  stop("The GFF3 file does not contain a 'label' metadata field.")
-}
 
-subject_genome_gff_clean <- as(subject_genome_gff, "GRanges")
+# -----------------------------------------------------------------------------
+# Phase 1. Load config, seed, FASTA, hits
+# -----------------------------------------------------------------------------
+log_section("Phase 1: loading config, FASTA, hits")
+config       <- read_config(args$config)
+opts         <- read_hotspot_options(config)
+set.seed(opts$seed)
 
-gff_list <- if (config$parameters$hotspot_group_split) {
-  split(subject_genome_gff_clean, mcols(subject_genome_gff_clean)$label)
+species      <- tools::file_path_sans_ext(basename(args$fasta))
+species_name <- if (!is.null(config$species[[species]])) {
+  as.character(config$species[[species]])
 } else {
-  list("Ungrouped" = subject_genome_gff_clean)
+  species
 }
+message(sprintf("  species: %s (display: %s)", species, species_name))
+message(sprintf("  seed: %d | input: %s | window: %d | perm-validation: %s",
+                opts$seed, opts$input, opts$window_size,
+                if (opts$validate_permutation) "ON" else "OFF"))
 
-# =============================================================================
-# 6. Permutation Tests
-# =============================================================================
-n_perms <- config$parameters$hotspot_permutations
+genome     <- load_genome_for_hotspot(args$fasta)
+seqs       <- genome$seqs
+seqlengths <- genome$seqlengths
+hits       <- load_hits_gff(args$gff)
+message(sprintf("  loaded %d chromosomes, %d hits", length(seqlengths), length(hits)))
 
-perm_results <- map2(
-  names(gff_list), gff_list,
-  ~{
-    message("Running permutation test: ", .x)
-    result <- permTest(
-      A = .y,
-      B = genomic_windows,
-      genome = genome_granges,
-      randomize.function = randomize_ervs,
-      evaluate.function = numOverlaps,
-      ntimes = n_perms
-    )
-    list(label = .x, perm_result = result)
-  }
+
+# -----------------------------------------------------------------------------
+# Phase 2. Build mask, windows, count matrix
+# -----------------------------------------------------------------------------
+log_section("Phase 2: building mask, windows, count matrix")
+mask <- build_n_mask(seqs, opts$mask_size, opts$mask_mismatch)
+message(sprintf("  N-mask: %d intervals, %d total bp masked",
+                length(mask), sum(BiocGenerics::width(mask))))
+
+windows <- tile_genome_for_hotspot(seqlengths, opts$window_size)
+effective_bp <- effective_bp_per_window(windows, mask)
+chrom_stratum <- pool_small_scaffolds(seqlengths, opts$window_size,
+                                       opts$unplaced_min_factor)
+message(sprintf("  tiled into %d windows; %d strata after pooling",
+                length(windows), length(unique(chrom_stratum))))
+
+# Genome GRanges for the optional permutation pass
+genome_gr <- GenomicRanges::GRanges(
+  seqnames = names(seqlengths),
+  ranges   = IRanges::IRanges(start = 1L, end = unname(seqlengths))
 )
 
-# =============================================================================
-# 7. Summarize Permutation Results
-# =============================================================================
-summary_df <- map_dfr(perm_results, function(res) {
-  data.frame(
-    Species      = species_name,
-    Label       = res$label,
-    Observed     = res$perm_result$numOverlaps$observed,
-    P_value      = res$perm_result$numOverlaps$pval,
-    Z_score      = res$perm_result$numOverlaps$zscore,
-    Permutations = res$perm_result$numOverlaps$ntimes,
-    Alternative  = res$perm_result$numOverlaps$alternative
+
+# -----------------------------------------------------------------------------
+# Phase 3. Per-label NB GLM (and optional permutation validation)
+# -----------------------------------------------------------------------------
+log_section("Phase 3: per-label NB GLM")
+
+gff_groups <- if (opts$group_split) {
+  split(hits, S4Vectors::mcols(hits)$label)
+} else {
+  list(Ungrouped = hits)
+}
+message(sprintf("  %d label group(s): %s",
+                length(gff_groups),
+                paste(names(gff_groups), collapse = ", ")))
+
+per_label_window_dfs <- list()
+per_label_hotspots   <- list()
+fit_diagnostics      <- list()
+perm_diagnostics     <- list()  # for histogram / density plots
+
+for (label in names(gff_groups)) {
+  log_section(sprintf("  [%s] %d hits", label, length(gff_groups[[label]])))
+  events <- gff_groups[[label]]
+  counts <- count_hits_per_window(windows, events)
+  win_df <- assemble_window_table(windows, counts, effective_bp,
+                                   chrom_stratum, label)
+
+  fit <- fit_nb_model(win_df, opts$window_size,
+                      strata_by_chromosome = opts$strata_by_chromosome)
+  fit_diagnostics[[label]] <- list(
+    status = fit$status, family = fit$family,
+    theta  = if (is.na(fit$theta)) NULL else as.numeric(fit$theta),
+    n_fit_rows = nrow(fit$fit_data)
+  )
+  if (identical(fit$status, "poisson_fallback")) {
+    message(sprintf("    WARNING: NB fit unstable for %s; using Poisson fallback (anti-conservative)",
+                    label))
+  } else if (identical(fit$status, "insufficient_data")) {
+    message(sprintf("    WARNING: %s has too few non-zero windows to fit; emitting NA p-values",
+                    label))
+  } else if (identical(fit$status, "failed")) {
+    message(sprintf("    WARNING: %s GLM failed entirely; emitting NA p-values", label))
+  }
+
+  # Score windows
+  scored <- score_windows_nb(win_df, fit)
+
+  # Optional permutation validation pass
+  if (opts$validate_permutation) {
+    log_section(sprintf("    permutation validation (n=%d)", opts$permutations))
+    scored <- score_windows_perm(
+      scored, windows, events, genome_gr, mask,
+      n_perm = opts$permutations, seed = opts$seed
+    )
+    perm_diagnostics[[label]] <- list(
+      perm_totals    = attr(scored, "perm_totals"),
+      observed_total = sum(scored$count, na.rm = TRUE)
+    )
+  } else {
+    scored$pval_perm <- NA_real_
+    scored$qval_perm <- NA_real_
+  }
+
+  # Postprocess: select -> merge -> recompute -> min-hits
+  significant <- select_significant_windows(scored, opts$pvalue_threshold)
+  merge_gap   <- if (opts$merge_adjacent) opts$merge_gap else -1L
+  merged      <- merge_adjacent_hotspots(significant, gap = merge_gap)
+  merged      <- recompute_merged_pvalue(merged, fit)
+  merged      <- apply_min_hits_filter(merged, opts$min_hits_per_window)
+
+  message(sprintf("    %d significant windows -> %d hotspot regions after merge & filter",
+                  nrow(significant), length(merged)))
+
+  per_label_window_dfs[[label]] <- scored
+  per_label_hotspots[[label]]   <- merged
+}
+
+
+# -----------------------------------------------------------------------------
+# Phase 4. Concatenate, assign IDs, attach to per-window table
+# -----------------------------------------------------------------------------
+log_section("Phase 4: concatenating per-label outputs")
+all_windows_df <- dplyr::bind_rows(per_label_window_dfs)
+all_hotspots <- if (length(per_label_hotspots) == 0L) {
+  .empty_merged_gr()
+} else {
+  do.call(c, unname(per_label_hotspots))
+}
+all_hotspots <- assign_hotspot_ids(all_hotspots, species)
+all_windows_df <- attach_hotspot_id_to_windows(all_windows_df, all_hotspots)
+message(sprintf("  total windows: %d | total hotspots: %d",
+                nrow(all_windows_df), length(all_hotspots)))
+
+
+# -----------------------------------------------------------------------------
+# Phase 5. Emit CSV / Parquet / GFF3 / BED / manifest
+# -----------------------------------------------------------------------------
+log_section("Phase 5: emitting tables, tracks, manifest")
+
+dir.create(args$table_output_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(args$track_output_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(args$pdf_output_dir,   showWarnings = FALSE, recursive = TRUE)
+
+csv_path     <- file.path(args$table_output_dir, paste0(species, ".csv"))
+parquet_path <- file.path(args$table_output_dir, paste0(species, ".parquet"))
+manifest_path <- file.path(args$table_output_dir, paste0(species, ".manifest.yaml"))
+gff_path     <- file.path(args$track_output_dir, paste0(species, ".gff3"))
+bed_path     <- file.path(args$track_output_dir, paste0(species, ".bed"))
+
+readr::write_csv(all_windows_df, csv_path)
+arrow::write_parquet(all_windows_df, parquet_path)
+
+generator_version <- resolve_generator_version()
+track_exporter(all_hotspots, gff_path, generator_version = generator_version)
+
+# BED uses the standard `bed_exporter()` from range_analysis/exporters.R, which
+# expects `mcols$ID` (name) and `mcols$max_bitscore` (score). Munge a copy of
+# the GRanges with those names so we DRY the writer rather than duplicating.
+hotspots_for_bed <- all_hotspots
+if (length(hotspots_for_bed) > 0L) {
+  scores_raw <- as.numeric(S4Vectors::mcols(hotspots_for_bed)$pval_nb_region)
+  scores_raw[is.na(scores_raw)] <- 1
+  scores <- pmin(round(-log10(pmax(scores_raw, .Machine$double.xmin)) * 100),
+                 1000)
+  S4Vectors::mcols(hotspots_for_bed)$ID <-
+    as.character(S4Vectors::mcols(hotspots_for_bed)$hotspot_id)
+  S4Vectors::mcols(hotspots_for_bed)$max_bitscore <- as.integer(scores)
+}
+bed_exporter(hotspots_for_bed, bed_path)
+
+# Hotspot-specific manifest emitter (the range_analysis one is shaped for that
+# pipeline's args). Keeps provenance for reruns.
+emit_hotspot_manifest <- function(args, opts, species, species_name,
+                                  fit_diagnostics, counts,
+                                  generator_version, path) {
+  manifest <- list(
+    generator       = generator_version,
+    timestamp       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    species         = species,
+    species_display = species_name,
+    inputs = list(
+      fasta  = list(path = args$fasta,  md5 = file_md5(args$fasta)),
+      gff    = list(path = args$gff,    md5 = file_md5(args$gff)),
+      config = list(path = args$config, md5 = file_md5(args$config))
+    ),
+    options = opts,
+    counts = counts,
+    per_label_diagnostics = fit_diagnostics,
+    outputs = list(
+      csv      = csv_path,
+      parquet  = parquet_path,
+      gff3     = gff_path,
+      bed      = bed_path
+    )
+  )
+  yaml::write_yaml(manifest, path)
+  invisible(path)
+}
+
+emit_hotspot_manifest(
+  args, opts, species, species_name, fit_diagnostics,
+  counts = list(
+    total_hits      = length(hits),
+    total_windows   = length(windows),
+    total_hotspots  = length(all_hotspots),
+    n_label_groups  = length(gff_groups)
+  ),
+  generator_version = generator_version,
+  path = manifest_path
+)
+
+
+# -----------------------------------------------------------------------------
+# Phase 6. Plots
+# -----------------------------------------------------------------------------
+log_section("Phase 6: plots")
+plot_w <- as.integer(config$plots$width  %||% 15L)
+plot_h <- as.integer(config$plots$height %||% 12L)
+
+manhattan_pdf <- file.path(args$pdf_output_dir, paste0(species, "_manhattan.pdf"))
+karyotype_pdf <- file.path(args$pdf_output_dir, paste0(species, "_karyotype.pdf"))
+qq_pdf        <- file.path(args$pdf_output_dir, paste0(species, "_qq.pdf"))
+summary_pdf   <- file.path(args$pdf_output_dir, paste0(species, "_summary.pdf"))
+histogram_pdf <- file.path(args$pdf_output_dir, paste0(species, "_histogram.pdf"))
+density_pdf   <- file.path(args$pdf_output_dir, paste0(species, "_density.pdf"))
+
+# Manhattan: one page per label
+labels_present <- unique(all_windows_df$label)
+manhattan_pages <- lapply(labels_present, function(lbl) {
+  plot_manhattan(
+    dplyr::filter(all_windows_df, .data$label == lbl),
+    threshold = opts$pvalue_threshold,
+    title     = sprintf("Hotspot Manhattan plot — %s", species_name),
+    subtitle  = sprintf("Label: %s", lbl)
   )
 })
-summary_df$Adjusted_pvalue <- p.adjust(summary_df$P_value, method = "BH")
+save_plots_pdf_pages(manhattan_pages, manhattan_pdf, plot_w, plot_h)
 
-write_csv(summary_df, file.path(args.csv_output_dir, paste0(species, ".csv")))
+# Karyotype: one page covering all hotspots
+save_plots_pdf_pages(
+  list(plot_karyotype(
+    seqlengths, all_hotspots,
+    title    = sprintf("Hotspot karyotype — %s", species_name),
+    subtitle = sprintf("%d hotspots across %d chromosomes",
+                       length(all_hotspots), length(seqlengths))
+  )),
+  karyotype_pdf, plot_w, plot_h
+)
 
-# =============================================================================
-# 8. Export Permutation Test Plots (Histogram) for Each Label
-# =============================================================================
-pdf(file.path(args.pdf_output_dir, paste0(species, "_histogram.pdf")), width = 15, height = 12)
-for (res in perm_results) {
-  perm_values    <- res$perm_result$numOverlaps$permuted   # Recompute for easier plotting within a single pdf
-  observed_value <- res$perm_result$numOverlaps$observed
-  ntimes         <- res$perm_result$numOverlaps$ntimes
-  alternative    <- res$perm_result$numOverlaps$alternative
-  p_value        <- res$perm_result$numOverlaps$pval
-  adjusted_p     <- summary_df %>%
-    filter(Label == res$label) %>%
-    pull(Adjusted_pvalue)
-  
-  df <- data.frame(Overlaps = perm_values)
-  perm_mean <- mean(perm_values)
-  perm_sd   <- sd(perm_values)
-  
-  p_hist <- ggplot(df, aes(x = Overlaps)) +
-    geom_histogram(binwidth = 10, fill = "lightblue", color = "black") +
-    geom_vline(xintercept = observed_value, color = "red", linetype = "dashed", size = 1) +
-    labs(
-      title = paste("Permutation Test -", species_name, "\nLabel:", res$label),
-      subtitle = paste(
-        "Observed overlaps =", observed_value,
-        "| Permuted overlaps (mean ± SD) =",
-        sprintf("%.2f ± %.2f", perm_mean, perm_sd),
-        "| Adjusted p-value (BH) =", sprintf("%.3g", adjusted_p),
-        "| Permutations =", ntimes,
-        "| Alternative:", alternative
-      ),
-      x = "Number of Overlaps",
-      y = "Frequency"
-    ) +
-    theme_minimal() +
-    scale_fill_nejm()
-  
-  print(p_hist)
-}
-invisible(dev.off())
+# Q-Q: one page per label
+qq_pages <- lapply(labels_present, function(lbl) {
+  plot_qq(
+    dplyr::filter(all_windows_df, .data$label == lbl),
+    title    = sprintf("Hotspot Q-Q diagnostic — %s", species_name),
+    subtitle = sprintf("Label: %s", lbl)
+  )
+})
+save_plots_pdf_pages(qq_pages, qq_pdf, plot_w, plot_h)
 
-# =============================================================================
-# 9. Integration Hotspot Analysis per Label (Window-Based)
-# =============================================================================
-n_perm_hotspots <- n_perms
-hotspots_list <- list()
+# Summary panel
+save_plots_pdf_pages(
+  list(plot_summary_panel(
+    all_hotspots, seqlengths,
+    title    = sprintf("Hotspot summary — %s", species_name),
+    subtitle = sprintf("%d hotspots; threshold q < %.3g",
+                       length(all_hotspots), opts$pvalue_threshold)
+  )),
+  summary_pdf, plot_w, plot_h
+)
 
-for (fam in names(gff_list)) {
-  cat("Performing hotspot empirical permutation analysis for label:", fam, "\n")
-  
-  events <- gff_list[[fam]]   # Factual observations
-  obs_counts <- countOverlaps(genomic_windows, events)
-  
-  null_matrix <- matrix(NA, nrow = length(genomic_windows), ncol = n_perm_hotspots)
-  for (i in seq_len(n_perm_hotspots)) {
-    randomized_events <- randomize_ervs(events, genome_granges)
-    null_matrix[, i] <- countOverlaps(genomic_windows, randomized_events)
-  }
-  
-  pvals <- apply(null_matrix, 1, function(x) mean(x >= obs_counts))
-  pvals_adjusted <- p.adjust(pvals, method = "BH")
-  
-  pvalue_threshold <- config$parameters$hotspot_pvalue_threshold
-  
-  hotspot_windows <- genomic_windows[pvals_adjusted < pvalue_threshold]
-  
-  hotspots_list[[fam]] <- list(
-    observed_counts = obs_counts,
-    pvalues         = pvals_adjusted,
-    hotspots        = hotspot_windows
+# Conditional permutation plots
+if (opts$validate_permutation && length(perm_diagnostics) > 0L) {
+  hist_pages <- lapply(names(perm_diagnostics), function(lbl) {
+    diag <- perm_diagnostics[[lbl]]
+    plot_perm_histogram(
+      diag$perm_totals, diag$observed_total, lbl, species_name
+    )
+  })
+  density_pages <- lapply(names(perm_diagnostics), function(lbl) {
+    diag <- perm_diagnostics[[lbl]]
+    plot_perm_density(
+      diag$perm_totals, diag$observed_total, lbl, species_name
+    )
+  })
+  save_plots_pdf_pages(hist_pages,    histogram_pdf, plot_w, plot_h)
+  save_plots_pdf_pages(density_pages, density_pdf,   plot_w, plot_h)
+} else {
+  save_blank_pdf(
+    histogram_pdf,
+    "Permutation histogram",
+    "Set hotspot_validate_permutation: true in config to populate this plot.",
+    width = plot_w, height = plot_h
+  )
+  save_blank_pdf(
+    density_pdf,
+    "Permutation density",
+    "Set hotspot_validate_permutation: true in config to populate this plot.",
+    width = plot_w, height = plot_h
   )
 }
 
-all_hotspots <- GRanges()
-for (fam in names(hotspots_list)) {
-  hs <- hotspots_list[[fam]]$hotspots
-  if (length(hs) > 0) {
-    mcols(hs)$label <- fam
-    all_hotspots <- c(all_hotspots, hs)
-  }
-}
-
-outfile <- file.path(args.hotspot_output_dir, paste0(species, ".gff3"))
-rtracklayer::export(all_hotspots, outfile, format = "gff3")
-
-# =============================================================================
-# A) EMPIRICAL DENSITY PLOTS (Permutation Distribution)
-# =============================================================================
-density_pdf_path <- file.path(args.pdf_output_dir, paste0(species, "_density.pdf"))
-pdf(density_pdf_path, width = 15, height = 12)
-for (res in perm_results) {
-  label_name    <- res$label
-  perm_values    <- res$perm_result$numOverlaps$permuted
-  observed_value <- res$perm_result$numOverlaps$observed
-  perm_mean      <- mean(perm_values)
-  perm_sd        <- sd(perm_values)
-  
-  adjusted_pval <- summary_df %>%
-    filter(Label == label_name) %>%
-    pull(Adjusted_pvalue)
-  
-  df <- data.frame(Overlaps = perm_values)
-  
-  p_density <- ggplot(df, aes(x = Overlaps)) +
-    geom_density(fill = "lightblue", alpha = 0.5) +
-    geom_vline(xintercept = observed_value, color = "red", linetype = "dashed", size = 1) +
-    labs(
-      title = paste0("Empirical Density of Permuted Overlaps - ", species_name),
-      subtitle = paste(
-        "Label:", label_name,
-        "| Observed =", observed_value,
-        "| Perm. Mean ± SD =", sprintf("%.2f ± %.2f", perm_mean, perm_sd),
-        "| Adj. p-value =", sprintf("%.3g", adjusted_pval)
-      ),
-      x = "Number of Overlaps",
-      y = "Density"
-    ) +
-    theme_minimal()
-  
-  print(p_density)
-}
-invisible(dev.off())
-
-
-# =============================================================================
-# B) HEATMAP OF OBSERVED COUNTS
-# =============================================================================
-heatmap_pdf_path <- file.path(args.pdf_output_dir, paste0(species, "_heatmap.pdf"))
-pdf(heatmap_pdf_path, width = 15, height = 12)
-
-for (fam in names(hotspots_list)) {
-  obs_counts <- hotspots_list[[fam]]$observed_counts
-  fam_df <- data.frame(
-    seqnames     = as.character(seqnames(genomic_windows)),
-    start        = start(genomic_windows),
-    OverlapCount = obs_counts
-  )
-  
-  p_heatmap <- ggplot(fam_df, aes(x = seqnames, y = start, fill = OverlapCount)) +
-    geom_tile() +
-    scale_fill_bs5("pink") +
-    labs(
-      title = paste("Heatmap of Observed Overlap Counts -", species_name),
-      subtitle = paste("Label:", fam),
-      x = "Chromosome",
-      y = "Window Start (bp)",
-      fill = "Overlap\nCount"
-    ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle=90, hjust=1))
-  
-  print(p_heatmap)
-}
-invisible(dev.off())
+log_section("Done")

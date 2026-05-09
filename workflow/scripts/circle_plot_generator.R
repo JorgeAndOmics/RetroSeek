@@ -24,6 +24,19 @@ suppressMessages({
   library(yaml)            # For YAML configuration parsing
 })
 
+# Source the shared chromosome-name normaliser. Locate it relative to this
+# script so the path works whether the script is launched via Rscript from
+# the repo root, from inside Snakemake, or interactively in RStudio.
+.resolve_script_dir <- function() {
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  "scripts"
+}
+source(file.path(.resolve_script_dir(), "utils", "chrom_names.R"))
+
 # ------------------------------
 # 2. PARSE COMMAND-LINE ARGUMENTS
 # ------------------------------
@@ -56,8 +69,10 @@ message("Generating circle plots for: ", tools::file_path_sans_ext(basename(args
 # ------------------------------
 genome <- readDNAStringSet(args.fasta_file)
 
-# Extract chromosome names and lengths
-chr_names   <- str_extract(names(genome), "^[A-Za-z]+_?[0-9]+\\.[0-9]{1,2}")
+# Extract chromosome names and lengths via the shared normaliser
+# (workflow/scripts/utils/chrom_names.R) so unmatched headers raise a loud
+# `message()` instead of silently propagating NA seqlevels.
+chr_names   <- normalise_chrom_names(names(genome))
 chr_lengths <- width(genome)
 
 chromosomes <- GRanges(seqnames = chr_names, ranges = IRanges(start = 1, end = chr_lengths))

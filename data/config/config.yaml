@@ -9,17 +9,25 @@ genome_tools:
   ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
 
 parameters:
+  seed: 67   # Master RNG seed; consumed by every stochastic step (currently only hotspot_detector)
   identity_threshold: 0    # 0 for no threshold
   bitscore_threshold: 0   # 0 for no threshold
   ltr_resize: 0   # 0 for no resize
   ltr_flank_margin: 0   # 0 for no margin
   merge_option: 'virus'   # 'virus' or 'label'
-  hotspot_group_split: false   # true or false
-  hotspot_window_size: 10000   # at least 1
-  hotspot_mask_size: 20   # 0 for no masking
+  hotspot_input: valid   # 'valid' (curated) or 'original' (raw BLAST) — selects which TRACK_*_DIR feeds hotspot_detector
+  hotspot_group_split: false   # true splits hits by mcols$label (genus) and fits one model per group
+  hotspot_window_size: 10000   # at least 1; tile width in bp
+  hotspot_mask_size: 20   # 0 for no masking; length of N-run motif to exclude
   hotspot_mask_mismatch: 3    # 0 for no mask mismatch allowed
-  hotspot_permutations: 1   # 0 for no permutations
-  hotspot_pvalue_threshold: 0.05   # 0 for no p-value threshold
+  hotspot_permutations: 100   # only used when hotspot_validate_permutation=true
+  hotspot_pvalue_threshold: 0.05   # BH-adjusted q-value cutoff for window significance
+  hotspot_validate_permutation: false   # opt-in regioneR permutation pass; produces Q-Q diagnostic + histogram/density PDFs
+  hotspot_min_hits_per_window: 2   # minimum total hits in a merged hotspot region
+  hotspot_merge_adjacent: true   # merge significant adjacent windows into hotspot regions
+  hotspot_merge_gap: 0   # bp gap allowed when merging adjacent windows; 0 = strictly adjacent
+  hotspot_strata_by_chromosome: true   # include chromosome as a covariate in the NB GLM
+  hotspot_unplaced_min_factor: 10   # scaffolds shorter than (this * hotspot_window_size) are pooled into a single 'Unplaced' stratum
   probe_to_pair: 'ENV'  # Probe to pair with for pair detection
   pair_max_gap: 300000   # Maximum gap allowed between probes in a pair
   main_probes:

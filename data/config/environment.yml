@@ -59,6 +59,7 @@ dependencies:
   - r-ggnewscale
   - r-ggalluvial
   - r-ggdist
+  - r-patchwork              # multi-panel composition (hotspot_analysis/plots.R)
   - r-waffle
 
   # ── R Bioconductor ──────────────────────────────────────

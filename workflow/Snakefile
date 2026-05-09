@@ -708,56 +708,77 @@ rule circle_plot_generator:
         circle_plots=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=species_with_hits(wildcards))
 
 
-# TODO: SUFFIX PARSING
+# Resolve which input GFF3 directory the hotspot detector should read from.
+# `parameters.hotspot_input`: 'valid' (default) → curated probe-validated
+# track from ranges_analysis; 'original' → raw BLAST track. Resolved at
+# parse-time because it's a config string with no wildcard dependency, so we
+# can use a static path and avoid the input-function machinery entirely.
+_HOTSPOT_INPUT_CHOICE = config.get('parameters', {}).get('hotspot_input', 'valid')
+if _HOTSPOT_INPUT_CHOICE == 'valid':
+    _HOTSPOT_INPUT_DIR = defaults.PATH_DICT['TRACK_VALID_DIR']
+elif _HOTSPOT_INPUT_CHOICE == 'original':
+    _HOTSPOT_INPUT_DIR = defaults.PATH_DICT['TRACK_ORIGINAL_DIR']
+else:
+    raise ValueError(
+        f"Invalid parameters.hotspot_input config value {_HOTSPOT_INPUT_CHOICE!r}; "
+        "must be 'original' or 'valid'."
+    )
+
+
 rule hotspot_detector_setup:
     input:
-        # Per-genome scoping (A5): previously this rule demanded
-        # rules.ranges_analysis.input — which expands across ALL species, so
-        # producing one genome's hotspots required every species's tracks.
-        # The hotspot_detector.R shell command below actually reads only
-        # {params.input_track_dir}/{wildcards.genome}.gff3 + {wildcards.genome}.fa.
-        # Declare those as inputs directly so Snakemake schedules the rule
-        # per-{genome} and per-species parallelism works.
         fasta = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
-        track = os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3')
+        track = os.path.join(_HOTSPOT_INPUT_DIR, '{genome}.gff3')
     output:
-        hotspot_csv=os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),
-        hotspot_histogram_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),
-        hotspot_density_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'),
-        hotspot_heatmap_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'),
-        hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3')
+        # Tables (results/tables/hotspots/)
+        hotspot_csv      = os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),
+        hotspot_parquet  = os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.parquet'),
+        hotspot_manifest = os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.manifest.yaml'),
+        # Tracks (results/tracks/hotspots/)
+        hotspot_gff3 = os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),
+        hotspot_bed  = os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed'),
+        # Plots (results/plots/hotspot_pdfs/)
+        hotspot_manhattan_pdf = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_manhattan.pdf'),
+        hotspot_karyotype_pdf = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_karyotype.pdf'),
+        hotspot_qq_pdf        = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_qq.pdf'),
+        hotspot_summary_pdf   = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_summary.pdf'),
+        # Conditional plots — emitted as 1-page placeholder PDFs when
+        # hotspot_validate_permutation=false, populated when true. Declared as
+        # static outputs so the Snakemake DAG remains a pure function of config.
+        hotspot_histogram_pdf = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),
+        hotspot_density_pdf   = os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf')
     params:
-        genomes_dir=defaults.PATH_DICT['SPECIES_DB'],
-        input_track_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],          # For now
-        window_size=config['parameters'].get('hotspot_window_size', 10000),
-        mask_size=config['parameters'].get('hotspot_mask_size', 20),
-        mask_mismatch=config['parameters'].get('hotspot_mask_mismatch', 2),
-        permutations=config['parameters'].get('hotspot_permutations', 3),
-        pvalue_threshold=config['parameters'].get('hotspot_pvalue_threshold', 0.05),
-        csv_dir=defaults.PATH_DICT['TABLE_HOTSPOT_DIR'],
-        pdf_dir=defaults.PATH_DICT['HOTSPOT_PDF_DIR'],
-        track_dir=defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
-        config_yaml = defaults.CONFIG_FILE
+        config_yaml      = defaults.CONFIG_FILE,
+        table_output_dir = defaults.PATH_DICT['TABLE_HOTSPOT_DIR'],
+        track_output_dir = defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
+        pdf_output_dir   = defaults.PATH_DICT['HOTSPOT_PDF_DIR']
     threads:
         workflow.cores
     shell:
         '''
         Rscript scripts/hotspot_detector.R \
-        --fasta {params.genomes_dir:q}/{wildcards.genome}.fa \
-        --gff {params.input_track_dir:q}/{wildcards.genome}.gff3 \
+        --fasta {input.fasta:q} \
+        --gff {input.track:q} \
         --config {params.config_yaml:q} \
-        --csv_output_dir {params.csv_dir:q} \
-        --pdf_output_dir {params.pdf_dir:q} \
-        --hotspot_output_dir {params.track_dir:q}
+        --table_output_dir {params.table_output_dir:q} \
+        --track_output_dir {params.track_output_dir:q} \
+        --pdf_output_dir {params.pdf_output_dir:q}
         '''
+
 
 rule hotspot_detector:
     input:
-        hotspot_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
-        hotspot_histogram_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_density_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_heatmap_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_track=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=species_with_hits(wildcards))
+        hotspot_csv      = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),               genome=species_with_hits(wildcards)),
+        hotspot_parquet  = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.parquet'),           genome=species_with_hits(wildcards)),
+        hotspot_manifest = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.manifest.yaml'),     genome=species_with_hits(wildcards)),
+        hotspot_gff3     = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),             genome=species_with_hits(wildcards)),
+        hotspot_bed      = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed'),              genome=species_with_hits(wildcards)),
+        hotspot_manhattan_pdf = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_manhattan.pdf'),  genome=species_with_hits(wildcards)),
+        hotspot_karyotype_pdf = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_karyotype.pdf'),  genome=species_with_hits(wildcards)),
+        hotspot_qq_pdf        = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_qq.pdf'),         genome=species_with_hits(wildcards)),
+        hotspot_summary_pdf   = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_summary.pdf'),    genome=species_with_hits(wildcards)),
+        hotspot_histogram_pdf = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),  genome=species_with_hits(wildcards)),
+        hotspot_density_pdf   = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'),    genome=species_with_hits(wildcards))
 
 
 rule pair_detector_setup:
