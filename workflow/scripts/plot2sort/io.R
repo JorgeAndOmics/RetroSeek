@@ -6,14 +6,16 @@
 # scope at call time — same convention as `ranges_analysis.R`.
 
 
-# Discover every {genome}.parquet under `input_dir` and concatenate them into
-# one tibble. Reports per-input row counts and the total so an empty input
-# surfaces immediately in the verbose log instead of failing 300 lines later.
+# Discover every {genome}.final_loci.parquet under `input_dir` and concatenate
+# them into one tibble. The ranges-analysis tables directory holds several
+# table types per genome; plot2sort consumes only the final-tier loci. Reports
+# per-input row counts and the total so an empty input surfaces immediately in
+# the verbose log instead of failing 300 lines later.
 load_plot_dataframes <- function(input_dir) {
-  parquet_files <- list.files(input_dir, pattern = "\\.parquet$",
+  parquet_files <- list.files(input_dir, pattern = "\\.final_loci\\.parquet$",
                               full.names = TRUE)
   if (length(parquet_files) == 0L) {
-    stop("plot2sort: no per-genome plot parquet files found in ", input_dir)
+    stop("plot2sort: no per-genome *.final_loci.parquet files found in ", input_dir)
   }
   log_section(sprintf("Loading %d plot dataframes from %s",
                       length(parquet_files), input_dir))

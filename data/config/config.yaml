@@ -9,6 +9,7 @@ genome_tools:
   ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
 
 parameters:
+  seed: 67   # Master RNG seed for reproducibility (recorded in the run manifest)
   identity_threshold: 0    # 0 for no threshold
   bitscore_threshold: 0   # 0 for no threshold
   ltr_resize: 0   # 0 for no resize

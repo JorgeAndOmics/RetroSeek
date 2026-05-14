@@ -79,6 +79,7 @@ read_pipeline_options <- function(config) {
 
   agg <- config$parameters$aggregation %||% list()
   list(
+    seed                = config$parameters$seed %||% NA_integer_,
     probe_min_length    = unlist(config$parameters$probe_min_length),
     bitscore_threshold  = as.numeric(config$parameters$bitscore_threshold %||% 0),
     identity_threshold  = as.numeric(config$parameters$identity_threshold %||% 0),

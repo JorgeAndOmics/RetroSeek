@@ -37,7 +37,11 @@ dependencies:
                          #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
 
   # ── python libs ─────────────────────────────────────────
-  - biopython
+  # biopython is version-pinned for reproducibility: the tBLASTn pickle cache
+  # is only readable by the Biopython version that wrote it (older releases
+  # exposed `Bio.Blast.Record`, which newer ones removed). Pinning keeps
+  # `make env` deterministic; if you bump it, regenerate the cache (--blast).
+  - biopython=1.87
   - pandas
   - pyarrow              # parquet I/O from Python
   - pandera

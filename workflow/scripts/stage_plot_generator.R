@@ -3,9 +3,9 @@
 # =============================================================================
 # Builds RetroSeek's "middle stage" PNG plots — the homology + LTRharvest/
 # LTRdigest integration step that the final-tier plots from plot2sort.R do not
-# capture. Inputs are the per-genome stage dataframes that ranges_analysis.R
-# writes to `results/tables/stage_dataframe/` plus the per-genome manifest
-# YAMLs (for the refinement-funnel counts).
+# capture. Input is the per-genome ranges-analysis parquet tables that
+# ranges_analysis.R writes to `data/tables/ranges_analysis/` (homology_loci /
+# ltr_structure / reduction_multiplicity / counts).
 #
 # Shared infrastructure (theme, add_titles, auto_dims, empty_plot, save_plot,
 # the aggregation-warning helper) is reused from plot2sort/*.R — not
@@ -13,7 +13,7 @@
 # auto-scaling exactly.
 #
 # Phases:
-#   1. Load the three stage-dataframe parquet types + the manifest counts.
+#   1. Load the three stage-dataframe parquet types + the counts table.
 #   2. Concordance plots (homology ↔ LTR spatial relationship, per-probe yield).
 #   3. LTR structure plots (structural completeness, domain composition).
 #   4. Refinement funnel plots (per-genome + aggregate cohort).
@@ -84,9 +84,9 @@ main <- function() {
     description = "Generate RetroSeek middle-stage plots (homology + LTR integration)"
   )
   parser$add_argument("--input", required = TRUE,
-                      help = "Directory with per-genome stage parquets ({genome}_{hits,ltr,reduced}.parquet).")
-  parser$add_argument("--manifest_dir", required = TRUE,
-                      help = "Directory with per-genome manifest YAMLs (for refinement-funnel counts).")
+                      help = paste("Directory with per-genome ranges-analysis parquet",
+                                   "tables (homology_loci / ltr_structure /",
+                                   "reduction_multiplicity / counts)."))
   parser$add_argument("--output", required = TRUE,
                       help = "Directory to save output plots.")
   parser$add_argument("--config", required = TRUE,
@@ -119,7 +119,7 @@ main <- function() {
 
   # ---------- Phase 1: load --------------------------------------------------
   stage     <- load_stage_dataframes(args$input)
-  counts_df <- load_manifest_counts(args$manifest_dir)
+  counts_df <- load_counts_table(args$input)
 
   # ---------- Phase 2: concordance + per-probe yield -------------------------
   log_section("Rendering concordance plots (homology ↔ LTR)")
@@ -130,8 +130,8 @@ main <- function() {
 
   # ---------- Phase 3: LTR structure ----------------------------------------
   log_section("Rendering LTR structure plots")
-  emit("ltr_structural_completeness.png",
-       ltr_completeness_plot(stage$ltr, warning_caption = warn_caption))
+  emit("ltr_structural_components.png",
+       ltr_structure_components_plot(stage$ltr, warning_caption = warn_caption))
   emit("retrotransposon_domain_composition.png",
        domain_composition_plot(stage$ltr, warning_caption = warn_caption))
 

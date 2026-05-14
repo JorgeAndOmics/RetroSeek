@@ -25,7 +25,8 @@ parser <- ArgumentParser(description = 'Process tBLASTn and LTRdigest integratio
 # Define expected command-line arguments
 parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
 parser$add_argument("--gff", required=TRUE, help="GFF3 input: Ranges file to analyse")
-parser$add_argument("--table_output_dir", required=TRUE, help="Output directory for table results")
+parser$add_argument("--parquet_dir", required=TRUE, help="Directory for pipeline-internal Parquet output")
+parser$add_argument("--csv_dir", required=TRUE, help="Directory for user-facing CSV output")
 
 args <- parser$parse_args()
 
@@ -172,5 +173,5 @@ waffle_plot <- pair_counts %>%
 # ------------------------------
 # EXPORT RESULTS
 # ------------------------------
-write.csv(pair_df, file.path(args$table_output_dir, paste0(file.basename, ".csv")), row.names = FALSE)
-arrow::write_parquet(pair_df, file.path(args$table_output_dir, paste0(file.basename, ".parquet")))
+write.csv(pair_df, file.path(args$csv_dir, paste0(file.basename, ".csv")), row.names = FALSE)
+arrow::write_parquet(pair_df, file.path(args$parquet_dir, paste0(file.basename, ".parquet")))

@@ -26,7 +26,9 @@ Requirements:
     - The `Object` class must be readable; no changes in environment or class definition between pickling and unpickling.
 
 Usage:
-    python obj2table.py --files genomeA.pkl genomeB.pkl --output_file output/probes
+    python obj2dict.py --files genomeA.pkl genomeB.pkl \\
+        --csv_path results/tables/<name>/<name>.csv \\
+        --parquet_path data/tables/<name>/<name>.parquet
 """
 
 # =============================================================================
@@ -165,10 +167,16 @@ if __name__ == "__main__":
         help="One or more pickle files to load from PICKLE_DIR.",
     )
     parser.add_argument(
-        "--output_file_name",
+        "--csv_path",
         type=str,
         required=True,
-        help="Base name for output files (CSV and Parquet will be generated).",
+        help="Full path for the user-facing CSV output.",
+    )
+    parser.add_argument(
+        "--parquet_path",
+        type=str,
+        required=True,
+        help="Full path for the pipeline-internal Parquet output.",
     )
     args = parser.parse_args()
 
@@ -230,11 +238,8 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 2.6 Save DataFrame to CSV and Parquet
     # -------------------------------------------------------------------------
-    output_csv_path = f"{args.output_file_name}.csv"
-    output_parquet_path = f"{args.output_file_name}.parquet"
+    df.to_csv(args.csv_path, index=False)
+    logger.info(f"CSV saved to: {args.csv_path}")
 
-    df.to_csv(output_csv_path, index=False)
-    logger.info(f"CSV saved to: {output_csv_path}")
-
-    df.to_parquet(output_parquet_path, index=False)
-    logger.info(f"Parquet saved to: {output_parquet_path}")
+    df.to_parquet(args.parquet_path, index=False)
+    logger.info(f"Parquet saved to: {args.parquet_path}")

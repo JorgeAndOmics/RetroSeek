@@ -14,7 +14,8 @@ suppressMessages({
 # =============================================================================
 parser <- ArgumentParser(description = "Split a Parquet dataset by species")
 parser$add_argument("--input_file", required = TRUE, help = "Path to input Parquet file.")
-parser$add_argument("--output_dir", required = TRUE, help = "Directory to write output Parquet files.")
+parser$add_argument("--parquet_dir", required = TRUE, help = "Directory for pipeline-internal Parquet outputs.")
+parser$add_argument("--csv_dir", required = TRUE, help = "Directory for user-facing CSV outputs.")
 parser$add_argument("--config_file", required = TRUE, help = "Path to configuration YAML file.")
 parser$add_argument(
   "--species",
@@ -29,6 +30,13 @@ parser$add_argument(
 )
 
 args <- parser$parse_args()
+
+# Write a data frame as both Parquet (pipeline-internal, data/tables/) and CSV
+# (user-facing, results/tables/), under the matching per-table subdirectory.
+write_both <- function(df, name) {
+  arrow::write_parquet(df, file.path(args$parquet_dir, paste0(name, ".parquet")))
+  utils::write.csv(df, file.path(args$csv_dir, paste0(name, ".csv")), row.names = FALSE)
+}
 
 # =============================================================================
 # 2. Load Input File and Config
@@ -45,9 +53,9 @@ main_probe_names <- config$parameters$main_probes
 main_probes_df <- data %>% filter(probe %in% main_probe_names)
 accessory_probes_df <- data %>% filter(!probe %in% main_probe_names)
 
-message("Writing full main and accessory parquet files.")
-arrow::write_parquet(main_probes_df, file.path(args$output_dir, "all_main.parquet"))
-arrow::write_parquet(accessory_probes_df, file.path(args$output_dir, "all_accessory.parquet"))
+message("Writing full main and accessory tables.")
+write_both(main_probes_df, "all_main")
+write_both(accessory_probes_df, "all_accessory")
 
 # =============================================================================
 # 4. Split by Species and Write Per-Species Files
@@ -61,10 +69,7 @@ written <- character(0)
 for (i in seq_along(species_list)) {
   sp <- unique(species_list[[i]]$species)
   message(paste("Writing hits for species:", sp))
-  arrow::write_parquet(
-    species_list[[i]],
-    file.path(args$output_dir, paste0(sp, ".parquet"))
-  )
+  write_both(species_list[[i]], sp)
   written <- c(written, sp)
 }
 
@@ -86,10 +91,7 @@ if (length(missing_species) > 0L) {
   # missing-column edge cases. Zero-row slice preserves all column types.
   empty_df <- data[0L, , drop = FALSE]
   for (sp in missing_species) {
-    message(paste("Writing empty parquet for species (no hits):", sp))
-    arrow::write_parquet(
-      empty_df,
-      file.path(args$output_dir, paste0(sp, ".parquet"))
-    )
+    message(paste("Writing empty table for species (no hits):", sp))
+    write_both(empty_df, sp)
   }
 }

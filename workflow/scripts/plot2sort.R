@@ -1,10 +1,10 @@
 # =============================================================================
 # plot2sort.R — orchestrator
 # =============================================================================
-# Builds RetroSeek's global PNG plots from the per-genome plot dataframes that
-# `ranges_analysis.R` writes to `results/tables/plot_dataframes/`. Heavy lifting
-# is in `workflow/scripts/plot2sort/*.R`; this file argument-parses, sources the
-# modules, prepares the joined per-probe-type frames, and emits each PNG.
+# Builds RetroSeek's global PNG plots from the per-genome `final_loci` tables
+# that `ranges_analysis.R` writes to `data/tables/ranges_analysis/`. Heavy
+# lifting is in `workflow/scripts/plot2sort/*.R`; this file argument-parses,
+# sources the modules, prepares the joined per-probe-type frames, emits each PNG.
 #
 # Phases:
 #   1. Load + validate the per-genome parquets (verifies probe_type +
@@ -77,7 +77,7 @@ main <- function() {
     description = "Generate global plots from RetroSeek per-genome Parquet results"
   )
   parser$add_argument("--input",  required = TRUE,
-                      help = "Input directory with one {genome}.parquet per species; each carries a probe_type column (main | accessory).")
+                      help = "Directory with the per-genome ranges-analysis tables; reads {genome}.final_loci.parquet (carries a probe_type column: main | accessory).")
   parser$add_argument("--output", required = TRUE,
                       help = "Directory to save output plots")
   parser$add_argument("--config", required = TRUE,

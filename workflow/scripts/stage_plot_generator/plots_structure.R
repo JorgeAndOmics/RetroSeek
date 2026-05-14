@@ -1,42 +1,67 @@
 # =============================================================================
-# stage_plot_generator/plots_structure.R — LTR structural completeness
+# stage_plot_generator/plots_structure.R — LTR structural components
 # =============================================================================
 # Builders characterising the LTRdigest retrotransposon calls themselves: how
-# structurally complete they are (flanking LTRs / internal Pfam domains / TSDs)
-# and which probe-domain combinations they carry.
+# structurally complete they are (flanking LTRs / Pfam domains / TSD / PPT) and
+# which probe-domain combinations they carry.
 
 
-# Bar: retrotransposon counts by a 0–3 completeness score. One point each for
-# both flanking LTRs present, ≥1 probe-assigned Pfam domain, and a target-site
-# duplication. The per-feature rates are surfaced in the subtitle.
-ltr_completeness_plot <- function(ltr_df, subset_label = NULL,
-                                  warning_caption = NULL) {
+# Faceted bar panel: retrotransposon counts per structural component. Replaces
+# a former 0–3 composite "completeness score" — under default LTRharvest config
+# `has_both_ltrs` and `has_tsd` are ~constant (LTRharvest only emits 2-LTR,
+# TSD-flanked elements), so summing them into a score added no discrimination.
+# Each component is shown on its own facet instead; the genuinely-varying
+# signals (`n_probe_domains`, `n_domains_total`, `has_ppt`) carry the
+# information, and the near-constant ones are reported honestly as rates in the
+# subtitle rather than dressed up as a score.
+ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
+                                          warning_caption = NULL) {
   if (nrow(ltr_df) == 0L) return(empty_plot())
-  d <- ltr_df %>%
+
+  # Bucket a count vector to "0","1","2","3","4+" for compact, readable facets.
+  bucket <- function(x) {
+    b <- pmin(as.integer(x), 4L)
+    ifelse(b == 4L, "4+", as.character(b))
+  }
+  yesno <- function(x) ifelse(x, "yes", "no")
+
+  components <- c(
+    "Flanking LTRs (n)", "Probe-assigned domains (n)",
+    "Pfam domains, total (n)", "Polypurine tract (PPT)",
+    "Target-site duplication (TSD)"
+  )
+  d <- dplyr::bind_rows(
+    tibble::tibble(component = components[1], category = bucket(ltr_df$n_flanking_ltrs)),
+    tibble::tibble(component = components[2], category = bucket(ltr_df$n_probe_domains)),
+    tibble::tibble(component = components[3], category = bucket(ltr_df$n_domains_total)),
+    tibble::tibble(component = components[4], category = yesno(ltr_df$has_ppt)),
+    tibble::tibble(component = components[5], category = yesno(ltr_df$has_tsd))
+  ) %>%
+    dplyr::count(component, category, name = "count") %>%
     dplyr::mutate(
-      completeness = as.integer(has_both_ltrs) +
-                     as.integer(n_domains > 0L) +
-                     as.integer(has_tsd),
-      completeness = factor(completeness, levels = 0:3)
-    ) %>%
-    dplyr::count(completeness, name = "count", .drop = FALSE)
+      category  = factor(category,
+                          levels = c("0", "1", "2", "3", "4+", "no", "yes")),
+      component = factor(component, levels = components)
+    )
 
   both_rate <- mean(ltr_df$has_both_ltrs)
-  dom_rate  <- mean(ltr_df$n_domains > 0L)
   tsd_rate  <- mean(ltr_df$has_tsd)
+  ppt_rate  <- mean(ltr_df$has_ppt)
 
-  p <- ggplot(d, aes(x = completeness, y = count, fill = completeness)) +
+  p <- ggplot(d, aes(x = category, y = count, fill = component)) +
     geom_col(colour = "black", linewidth = 0.2) +
+    facet_wrap(~ component, scales = "free_x", ncol = 3) +
     scale_fill_brewer(palette = "YlGnBu") +
     theme_minimal() +
-    labs(x = "Completeness score (0–3)", y = "Retrotransposons") +
+    labs(x = "Per-retrotransposon value", y = "Retrotransposons") +
     theme(text = element_text(face = "bold"), legend.position = "none")
   add_titles(
     p,
-    title    = "LTR structural completeness",
+    title    = "LTR structural components",
     subtitle = sprintf(
-      "Score = both flanking LTRs (%.0f%%) + ≥1 probe-domain (%.0f%%) + TSD (%.0f%%)",
-      100 * both_rate, 100 * dom_rate, 100 * tsd_rate),
+      paste0("Both flanking LTRs %.0f%% · TSD %.0f%% · PPT %.0f%% — ",
+             "the first two are ~constant under default LTRharvest config"),
+      100 * both_rate, 100 * tsd_rate, 100 * ppt_rate),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

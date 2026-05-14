@@ -44,8 +44,11 @@ source(file.path(.script_dir, "stage_dataframe.R"))
     ranges   = IRanges::IRanges(start = c(80, 5700), end = c(260, 6000)),
     strand   = "+"
   )
-  S4Vectors::mcols(gr)$type <- "LTR_retrotransposon"
-  S4Vectors::mcols(gr)$ID   <- c("retro_1", "retro_2")
+  S4Vectors::mcols(gr)$type   <- "LTR_retrotransposon"
+  S4Vectors::mcols(gr)$ID     <- c("retro_1", "retro_2")
+  # Each retrotransposon's Parent is its enclosing repeat_region — the
+  # namespace target-site-duplication features are parented to.
+  S4Vectors::mcols(gr)$Parent <- c("repeat_region_1", "repeat_region_2")
   gr
 }
 
@@ -79,7 +82,7 @@ test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
 
 # ───────────────────────────── build_stage_ltr_df ───────────────────────────
 
-test_that("build_stage_ltr_df counts flanking LTRs, domains and TSDs per retrotransposon", {
+test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotransposon", {
   retros <- .fake_retros()
   flank <- GenomicRanges::GRanges(
     seqnames = "chr1",
@@ -95,34 +98,64 @@ test_that("build_stage_ltr_df counts flanking LTRs, domains and TSDs per retrotr
   )
   S4Vectors::mcols(doms)$Parent <- c("retro_1", "retro_1")
   S4Vectors::mcols(doms)$probe  <- c("POL", "GAG")
+
+  # ltr_data mixes three child types. Critically, target_site_duplication is
+  # parented to the *repeat_region*, not the LTR_retrotransposon — the join in
+  # build_stage_ltr_df must translate through retrotransposons$Parent. RR_tract
+  # and protein_match are parented to the LTR_retrotransposon directly. retro_1
+  # carries 2 TSD arms, 1 PPT and 3 Pfam domains (2 probe-assigned); retro_2 has
+  # none of these.
   ltr_data <- GenomicRanges::GRanges(
     seqnames = "chr1",
-    ranges   = IRanges::IRanges(start = 78, end = 82), strand = "+"
+    ranges   = IRanges::IRanges(
+      start = c(78, 262, 130, 122, 152, 200),
+      end   = c(82, 266, 136, 142, 172, 210)
+    ),
+    strand   = "+"
   )
-  S4Vectors::mcols(ltr_data)$type   <- "target_site_duplication"
-  S4Vectors::mcols(ltr_data)$Parent <- "retro_1"
+  S4Vectors::mcols(ltr_data)$type <- c(
+    "target_site_duplication", "target_site_duplication",
+    "RR_tract",
+    "protein_match", "protein_match", "protein_match"
+  )
+  S4Vectors::mcols(ltr_data)$Parent <- c(
+    "repeat_region_1", "repeat_region_1",   # TSD -> repeat_region namespace
+    "retro_1",                              # RR_tract -> LTR_retrotransposon
+    "retro_1", "retro_1", "retro_1"         # protein_match -> LTR_retrotransposon
+  )
 
   df <- build_stage_ltr_df(retros, flank, doms, ltr_data, .fake_gr_virus())
   expect_equal(nrow(df), 2L)
   r1 <- df[df$ID == "retro_1", ]
   r2 <- df[df$ID == "retro_2", ]
+
   expect_equal(r1$n_flanking_ltrs, 2L)
   expect_true(r1$has_both_ltrs)
-  expect_equal(r1$n_domains, 2L)
+  expect_equal(r1$n_probe_domains, 2L)         # POL + GAG (regex-matched subset)
+  expect_equal(r1$n_domains_total, 3L)         # all 3 protein_match features
   expect_equal(r1$domain_probes, "GAG; POL")   # sorted unique set
-  expect_true(r1$has_tsd)
+  expect_equal(r1$n_tsd, 2L)                   # both TSD arms, via repeat_region join
+  expect_true(r1$has_tsd)                      # would be FALSE under the namespace bug
+  expect_equal(r1$n_ppt, 1L)
+  expect_true(r1$has_ppt)
+
   expect_equal(r2$n_flanking_ltrs, 1L)
   expect_false(r2$has_both_ltrs)
-  expect_equal(r2$n_domains, 0L)
+  expect_equal(r2$n_probe_domains, 0L)
+  expect_equal(r2$n_domains_total, 0L)
+  expect_equal(r2$n_tsd, 0L)
   expect_false(r2$has_tsd)
+  expect_equal(r2$n_ppt, 0L)
+  expect_false(r2$has_ppt)
 })
 
 test_that("build_stage_ltr_df returns a typed empty tibble for no retrotransposons", {
   empty <- .fake_retros()[FALSE]
   df <- build_stage_ltr_df(empty, empty, empty, empty, .fake_gr_virus())
   expect_equal(nrow(df), 0L)
-  expect_true(all(c("n_flanking_ltrs", "has_both_ltrs", "n_domains",
-                    "domain_probes", "has_tsd") %in% colnames(df)))
+  expect_true(all(c("n_flanking_ltrs", "has_both_ltrs", "n_probe_domains",
+                    "n_domains_total", "domain_probes", "has_tsd", "n_tsd",
+                    "has_ppt", "n_ppt") %in% colnames(df)))
 })
 
 

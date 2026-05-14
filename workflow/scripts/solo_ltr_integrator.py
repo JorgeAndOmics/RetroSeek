@@ -73,6 +73,7 @@ Usage
         --genome <name> \\
         --output-gff3 <path> \\
         --output-ratio-csv <path> \\
+        --output-ratio-parquet <path> \\
         --nearest-erv-max-distance 10000
 """
 
@@ -527,7 +528,13 @@ def main(argv: list[str] | None = None) -> int:
         "--output-ratio-csv",
         type=Path,
         required=True,
-        help="Output path for per-genome solo/intact ratio CSV.",
+        help="Output path for the per-genome solo/intact ratio CSV (user-facing).",
+    )
+    parser.add_argument(
+        "--output-ratio-parquet",
+        type=Path,
+        required=True,
+        help="Output path for the per-genome solo/intact ratio Parquet (pipeline-internal).",
     )
     parser.add_argument(
         "--nearest-erv-max-distance",
@@ -571,7 +578,9 @@ def main(argv: list[str] | None = None) -> int:
 
     ratio_df = compute_solo_intact_ratio(solos, valid_ranges, species=args.genome)
     args.output_ratio_csv.parent.mkdir(parents=True, exist_ok=True)
+    args.output_ratio_parquet.parent.mkdir(parents=True, exist_ok=True)
     ratio_df.to_csv(args.output_ratio_csv, index=False)
+    ratio_df.to_parquet(args.output_ratio_parquet, index=False)
 
     return 0
 
