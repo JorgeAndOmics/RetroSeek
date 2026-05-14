@@ -71,6 +71,11 @@ data/tmp/*
 data/config/config.local.yaml
 
 # ──────────────────────────────────────────────
+# Parameter-sweep tooling — internal development only, not versioned
+# ──────────────────────────────────────────────
+sweeps/
+
+# ──────────────────────────────────────────────
 # Misc
 # ──────────────────────────────────────────────
 *.pptx
