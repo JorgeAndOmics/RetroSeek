@@ -44,18 +44,19 @@ def standardize_fasta_extensions(fasta_dir_path: str | Path) -> None:
 
 
 def run_snakemake_rule(
-    rule: str,
+    rule: str | list[str],
     num_cores: int,
     display_info: bool,
     snakemake_flags: list[str] | None = None,
 ) -> None:
     """
-    Execute a Snakemake rule with specified options.
+    Execute one or more Snakemake rules with specified options.
 
     Parameters
     ----------
-        :param rule : str
-        Name of the Snakemake rule to execute.
+        :param rule : str | list[str]
+        Name(s) of the Snakemake rule(s) to execute. A list is passed to
+        snakemake as multiple targets in a single invocation (one DAG).
         :param num_cores : int
         Number of cores to allocate for the rule.
         :param display_info : bool
@@ -64,9 +65,11 @@ def run_snakemake_rule(
     """
     if snakemake_flags is None:
         snakemake_flags = []
+    rules = [rule] if isinstance(rule, str) else list(rule)
+    rule_label = " ".join(rules)
     shell_cmd: list[str] = [
         "snakemake",
-        rule,
+        *rules,
         "--cores",
         str(num_cores),
         "--rerun-incomplete",
@@ -79,13 +82,13 @@ def run_snakemake_rule(
     try:
         result = subprocess.run(shell_cmd, check=False)
     except (FileNotFoundError, OSError) as exc:
-        logger.error(f"Failed to invoke snakemake for rule '{rule}': {exc}")
+        logger.error(f"Failed to invoke snakemake for rule(s) '{rule_label}': {exc}")
         sys.exit(1)
 
     if result.returncode != 0:
         logger.error(
-            f"Snakemake rule '{rule}' failed with exit code {result.returncode}. "
-            f"See snakemake output above for details."
+            f"Snakemake rule(s) '{rule_label}' failed with exit code "
+            f"{result.returncode}. See snakemake output above for details."
         )
         sys.exit(result.returncode)
 
@@ -293,8 +296,11 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
             )
 
         if args.generate_global_plots:
+            # --generate-global-plots produces the full panel: the 21-plot
+            # final-tier panel (plot_generator) plus the middle-stage panel
+            # (stage_plot_generator) — one DAG, shared ranges_analysis upstream.
             run_snakemake_rule(
-                "plot_generator",
+                ["plot_generator", "stage_plot_generator"],
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,
