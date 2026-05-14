@@ -411,6 +411,11 @@ rule ranges_analysis_setup:
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
         plot_dataframe=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+        # Middle-stage dataframes (homology + LTR integration) — consumed by
+        # stage_plot_generator. Three suffixed parquets per genome.
+        stage_hits_dataframe=os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_hits.parquet'),
+        stage_ltr_dataframe=os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_ltr.parquet'),
+        stage_reduced_dataframe=os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_reduced.parquet'),
         manifest=os.path.join(defaults.PATH_DICT['TABLE_MANIFEST_DIR'],'{genome}.yaml'),
         original_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.bed'),
         candidate_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.bed'),
@@ -421,6 +426,7 @@ rule ranges_analysis_setup:
         probes_csv=defaults.PROBE_CSV,
         workflow_dir=defaults.PATH_DICT['WORKFLOW_DIR'],
         plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        stage_dataframe_dir=defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],
         ltr_digest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
         yaml_config_file=defaults.CONFIG_FILE,
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
@@ -449,6 +455,9 @@ rule ranges_analysis_setup:
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}.csv \
         --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet \
+        --stage_hits_dataframe {params.stage_dataframe_dir:q}/{wildcards.genome:q}_hits.parquet \
+        --stage_ltr_dataframe {params.stage_dataframe_dir:q}/{wildcards.genome:q}_ltr.parquet \
+        --stage_reduced_dataframe {params.stage_dataframe_dir:q}/{wildcards.genome:q}_reduced.parquet \
         --manifest {params.manifest_dir:q}/{wildcards.genome:q}.yaml
         '''
 
@@ -474,6 +483,12 @@ rule ranges_analysis:
         overlap_matrix=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
                               genome=species_with_hits(wildcards)),
         plot_dataframes=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
+                               genome=species_with_hits(wildcards)),
+        stage_hits_dataframes=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_hits.parquet'),
+                               genome=species_with_hits(wildcards)),
+        stage_ltr_dataframes=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_ltr.parquet'),
+                               genome=species_with_hits(wildcards)),
+        stage_reduced_dataframes=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_reduced.parquet'),
                                genome=species_with_hits(wildcards))
 
 
@@ -674,6 +689,51 @@ rule plot_generator_setup:
 rule plot_generator:
     input:
         plots=rules.plot_generator_setup.output
+
+
+# Middle-stage plots (homology + LTRharvest/LTRdigest integration). Mirrors
+# plot_generator_setup: aggregate rule consuming the per-genome stage
+# dataframes + manifests, emitting a fixed panel of PNGs into PLOT_DIR.
+rule stage_plot_generator_setup:
+    input:
+        stage_hits=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_hits.parquet'),
+                          genome=species_with_hits(wildcards)),
+        stage_ltr=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_ltr.parquet'),
+                         genome=species_with_hits(wildcards)),
+        stage_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],'{genome}_reduced.parquet'),
+                             genome=species_with_hits(wildcards)),
+        manifests=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TABLE_MANIFEST_DIR'],'{genome}.yaml'),
+                         genome=species_with_hits(wildcards))
+    output:
+        stage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{stage_plot}.png'),
+                           stage_plot=['homology_ltr_concordance',
+                                       'probe_yield_funnel',
+                                       'ltr_structural_completeness',
+                                       'retrotransposon_domain_composition',
+                                       'refinement_funnel_per_genome',
+                                       'refinement_funnel_aggregate',
+                                       'multiplicity_m1_by_tier',
+                                       'multiplicity_m2_global'])
+    params:
+        stage_dataframe_dir=defaults.PATH_DICT['STAGE_DATAFRAMES_DIR'],
+        manifest_dir=defaults.PATH_DICT['TABLE_MANIFEST_DIR'],
+        plot_dir=defaults.PATH_DICT['PLOT_DIR'],
+        config_yaml=defaults.CONFIG_FILE
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript scripts/stage_plot_generator.R \
+        --input {params.stage_dataframe_dir:q} \
+        --manifest_dir {params.manifest_dir:q} \
+        --output {params.plot_dir:q} \
+        --config {params.config_yaml:q}
+        '''
+
+
+rule stage_plot_generator:
+    input:
+        plots=rules.stage_plot_generator_setup.output
 
 
 rule circle_plot_generator_setup:

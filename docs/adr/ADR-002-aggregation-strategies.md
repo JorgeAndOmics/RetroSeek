@@ -1,6 +1,6 @@
 # ADR-002: Configurable metadata aggregation strategies
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-05-14 — see [Amendment](#amendment-2026-05-14))
 - **Date**: 2026-04-24
 - **Deciders**: Jorge González García
 
@@ -72,3 +72,33 @@ A single `aggregate_values()` helper in `ranges_analysis.R` dispatches on strate
 - `data/config/schema.yaml` — `aggregation_schema` and `solo_ltr_aggregation_schema`.
 - `docs/configuration.md` — end-user field-by-field reference.
 - plyranges documentation — `reduce_ranges_directed` argument evaluation semantics.
+
+## Amendment (2026-05-14)
+
+The original decision shipped `list` as the default for `virus`/`label`. Two
+operational findings prompted a default change to **`best`**:
+
+1. **Plot integrity.** `list` (and `concatenate`) produce multi-value cells. The
+   plot dataframe pipeline either explodes one locus into N rows (count
+   inflation) or carries compound `"A; B; C"` category labels — either way the
+   aggregate plots are not statistically meaningful. `best` yields one value per
+   merged range, so plots count loci correctly.
+2. **Reproducibility.** `best` resolves via `which.max(tiebreaker)`, which is
+   order-dependent. With no input sort, exact ties were resolved
+   non-deterministically across R / plyranges versions. Shipping `best` as the
+   default *required* fixing this.
+
+Changes:
+- `parameters.aggregation.{virus,label}` default `list → best` in
+  `data/config/config.yaml`.
+- `reduce_first` / `reduce_global` (`range_analysis/reductions.R`) now sort
+  their input via `sort_for_tiebreak()` before reduction — a fixed key chain
+  (`bitscore` desc → `query_coverage` desc → `identity` desc → `evalue` asc →
+  genomic position → `label` name). This makes `best` fully deterministic
+  without touching the `aggregate_values()` dispatcher.
+- The plot scripts (`plot2sort.R`, `stage_plot_generator.R`) emit a logged
+  warning and an in-plot caption when `virus`/`label` use `list`/`concatenate`,
+  so the inflation caveat is visible on the artifact.
+
+`list`/`concatenate` remain fully supported opt-in strategies — the schema and
+the six-strategy vocabulary are unchanged. Only the default moved.

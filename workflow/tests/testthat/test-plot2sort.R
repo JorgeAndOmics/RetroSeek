@@ -466,3 +466,49 @@ test_that("verify_required_columns lists every missing column at once", {
   expect_match(conditionMessage(err), "missing_one")
   expect_match(conditionMessage(err), "missing_two")
 })
+
+
+# ─────────────────── multi-value aggregation warning ───────────────────────
+#
+# aggregation_warning() flags `list` / `concatenate` on virus/label (entry
+# explosion); stamp_warning_caption() applies it to a finished plot. Both are
+# defined in plot2sort/helpers.R and shared with stage_plot_generator.R.
+
+.cfg_with_agg <- function(virus = "best", label = "best") {
+  list(parameters = list(aggregation = list(virus = virus, label = label)))
+}
+
+test_that("aggregation_warning returns NULL when virus/label are singular", {
+  expect_null(aggregation_warning(.cfg_with_agg("best", "best")))
+  expect_null(aggregation_warning(.cfg_with_agg("first", "majority")))
+})
+
+test_that("aggregation_warning fires for list / concatenate and names the offender", {
+  w_list <- aggregation_warning(.cfg_with_agg("list", "best"))
+  expect_type(w_list, "character")
+  expect_match(w_list, "virus=list")
+
+  w_concat <- aggregation_warning(.cfg_with_agg("best", "concatenate"))
+  expect_match(w_concat, "label=concatenate")
+
+  w_both <- aggregation_warning(.cfg_with_agg("list", "concatenate"))
+  expect_match(w_both, "virus=list")
+  expect_match(w_both, "label=concatenate")
+})
+
+test_that("aggregation_warning returns NULL when there is no aggregation block", {
+  expect_null(aggregation_warning(list(parameters = list())))
+  expect_null(aggregation_warning(list()))
+})
+
+test_that("stamp_warning_caption is a no-op for NULL / empty captions", {
+  p <- ggplot2::ggplot()
+  expect_identical(stamp_warning_caption(p, NULL), p)
+  expect_identical(stamp_warning_caption(p, ""), p)
+})
+
+test_that("stamp_warning_caption attaches the caption when supplied", {
+  p <- stamp_warning_caption(ggplot2::ggplot(), "watch out")
+  expect_true(inherits(p, "ggplot"))
+  expect_equal(p$labels$caption, "watch out")
+})

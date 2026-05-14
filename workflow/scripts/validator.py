@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------
 
 
-def yaml_validator(yaml_file: str, yaml_schema: str) -> bool:
+def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
     """
     Validates the YAML configuration file against a Yamale schema.
 
@@ -81,8 +81,8 @@ def csv_validator(csv_file: str) -> bool:
             time.sleep(0.3)
             Entrez.email = defaults.ENTREZ_EMAIL
             try:
-                with Entrez.esearch(db="protein", term=acc) as handle:
-                    record = Entrez.read(handle)
+                with Entrez.esearch(db="protein", term=acc) as handle:  # type: ignore[no-untyped-call]
+                    record = Entrez.read(handle)  # type: ignore[no-untyped-call]
                     return int(record["Count"]) > 0
             except Exception:
                 return False
@@ -92,7 +92,7 @@ def csv_validator(csv_file: str) -> bool:
     try:
         df = pd.read_csv(csv_file)
 
-        schema = pa.DataFrameSchema(
+        schema = pa.DataFrameSchema(  # type: ignore[no-untyped-call]
             {
                 "Label": pa.Column(str, nullable=False),
                 "Name": pa.Column(str, nullable=False),
@@ -137,7 +137,7 @@ def fasta_validator(fasta_file: str) -> bool:
         return False
 
     try:
-        records = list(SeqIO.parse(fasta_file, "fasta"))
+        records = list(SeqIO.parse(fasta_file, "fasta"))  # type: ignore[no-untyped-call]
         if not records:
             logger.warning("FASTA file is empty or has no valid records.")
             return False

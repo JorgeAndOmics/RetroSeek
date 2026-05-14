@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------
 
 
-def standardize_fasta_extensions(fasta_dir_path: str) -> None:
+def standardize_fasta_extensions(fasta_dir_path: str | Path) -> None:
     """
     Standardize extensions of all FASTA files in the provided directory to .fa.
 
@@ -33,7 +33,7 @@ def standardize_fasta_extensions(fasta_dir_path: str) -> None:
 
     for file in Path(fasta_dir_path).iterdir():
         if file.is_file() and pattern.search(file.name):
-            new_name: str = file.with_name(f"{file.stem}.fa")
+            new_name: Path = file.with_name(f"{file.stem}.fa")
             logger.debug(f"Renaming: {file.name} -> {new_name.name}")
             file.rename(new_name)
 
@@ -64,7 +64,7 @@ def run_snakemake_rule(
     """
     if snakemake_flags is None:
         snakemake_flags = []
-    shell_cmd: list = [
+    shell_cmd: list[str] = [
         "snakemake",
         rule,
         "--cores",
@@ -208,7 +208,7 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     # -----------------------------
     # VALIDATE INPUT & EXECUTE RULES
     # -----------------------------
-    species_paths: list = [
+    species_paths: list[str] = [
         str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
         for species in defaults.SPECIES
     ]

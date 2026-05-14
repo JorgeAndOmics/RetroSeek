@@ -58,9 +58,9 @@ When overlapping ranges are collapsed via `plyranges::reduce_ranges_directed`, t
 
 | Strategy | Output shape | Semantics |
 |---|---|---|
-| `list` | native multi-value (`CharacterList` in R; `list<string>` in parquet; comma-separated in GFF3 attributes) | Every unique contributor preserved. **Default** — no information lost. |
-| `concatenate` | single string joined by `concat_separator` | Current pre-refactor behaviour. Human-readable in a text editor. |
-| `best` | single value | Row with the highest `best_tiebreaker` wins. |
+| `list` | native multi-value (`CharacterList` in R; `list<string>` in parquet; comma-separated in GFF3 attributes) | Every unique contributor preserved — no information lost. Inflates plot row counts (entry explosion); the plot scripts emit a warning when `virus`/`label` use `list` or `concatenate`. |
+| `concatenate` | single string joined by `concat_separator` | Pre-refactor behaviour. Human-readable in a text editor. Same plot-inflation caveat as `list`. |
+| `best` | single value | Row with the highest `best_tiebreaker` wins. **Default** for `virus`/`label`. Tie-break is deterministic — see note below. |
 | `majority` | single value | Mode (most frequent value). Ties broken by first alphabetical. |
 | `first` | single value | Alphabetical first unique value. Deterministic but arbitrary. |
 | `strict` | single value or `strict_marker` | Returns the value if all contributors agree, else the configured marker. |
@@ -69,13 +69,19 @@ When overlapping ranges are collapsed via `plyranges::reduce_ranges_directed`, t
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `virus` | strategy | `list` | Strategy for `virus` column. |
-| `label` | strategy | `list` | Strategy for `label` column. |
-| `probe` | strategy | `list` | Strategy for `probe` column. Usually single-valued in practice; `list` is safe. |
+| `virus` | strategy | `best` | Strategy for `virus` column. |
+| `label` | strategy | `best` | Strategy for `label` column. |
+| `probe` | strategy | `list` | Strategy for `probe` column. Always a reduction grouping key, so single-valued in practice — strategy is effectively a no-op. |
 | `species` | strategy | `first` | Per-genome pipeline — all rows share one species. |
 | `best_tiebreaker` | `bitscore` \| `identity` \| `align_length` | `bitscore` | Column used to rank contributors when strategy is `best`. |
 | `concat_separator` | string | `"; "` | Separator used by `concatenate`. |
 | `strict_marker` | string | `"ambiguous"` | Value emitted by `strict` when contributors disagree. |
+
+**Deterministic `best` tie-break.** When several contributors to a merged
+range tie on `best_tiebreaker`, the winner is resolved by a fixed key chain
+applied as a sort of the reduction input: `bitscore` desc → `query_coverage`
+desc → `identity` desc → `evalue` asc → genomic position → `label` name. This
+makes `best` reproducible across R / plyranges versions.
 
 #### `parameters.solo_ltr_aggregation`
 
@@ -88,9 +94,9 @@ Separate block for solo-LTR probe-label propagation (produced by the LTR_retriev
 
 #### Choosing a strategy
 
-- **Default (`list`)** — recommended. Downstream code always has the full contributor set and can compute any summary it wants (mode, first, best, etc.) without needing to parse strings.
-- **`concatenate`** — pick this if your downstream tooling expects semicolon-delimited strings (e.g., grep-based inspection, legacy scripts).
-- **`best`** — pick this if you want a single deterministic "dominant" label per merged range based on alignment strength.
+- **Default (`best`)** — recommended for `virus`/`label`. One deterministic "dominant" value per merged range based on alignment strength; clean single-value GFF3/parquet output and statistically meaningful plots.
+- **`list`** — pick this if downstream code needs the full contributor set. Note: inflates plot row counts (entry explosion) — the plot scripts warn when `virus`/`label` use `list`.
+- **`concatenate`** — pick this if your downstream tooling expects semicolon-delimited strings (e.g., grep-based inspection, legacy scripts). Same plot caveat as `list`.
 - **`majority`** — pick this if you trust hit counts more than hit strength.
 - **`strict`** — pick this when you want to flag ambiguity explicitly; useful for high-confidence result tables.
 - **`first`** — mostly for testing/comparison; rarely the right production choice.

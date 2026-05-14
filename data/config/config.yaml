@@ -38,15 +38,18 @@ parameters:
   # ranges are collapsed via plyranges::reduce_ranges_directed. Every field below
   # accepts one of the strategies: list | concatenate | best | majority | first | strict.
   #   list        : native multi-value (CharacterList in R, list<string> in parquet,
-  #                 comma-separated in GFF3 attributes). Default — no information lost.
+  #                 comma-separated in GFF3 attributes). No information lost, but
+  #                 inflates plot row counts (entry explosion) — plots warn.
   #   concatenate : single string joined by concat_separator. Backward-compatible.
   #   best        : single value from the row with the highest best_tiebreaker.
+  #                 Default — clean single-value output; deterministic tie-break
+  #                 (bitscore > query_coverage > identity > evalue > position > name).
   #   majority    : mode; ties resolved by first alphabetical.
   #   first       : alphabetical first. Deterministic but arbitrary.
   #   strict      : single value if all contributors agree, else strict_marker.
   aggregation:
-    virus: "list"
-    label: "list"
+    virus: "best"
+    label: "best"
     probe: "list"
     species: "first"                 # per-genome pipeline — rows share one species
     best_tiebreaker: "bitscore"      # bitscore | identity | align_length
