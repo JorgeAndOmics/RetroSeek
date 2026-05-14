@@ -70,14 +70,15 @@ parser$add_argument("--candidate_ranges_reduced", required = TRUE)
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
-parser$add_argument("--overlap_matrix",           required = TRUE)
-parser$add_argument("--plot_dataframe",           required = TRUE)
-# Middle-stage dataframes (homology + LTR integration) consumed by
-# stage_plot_generator.R. Optional so non-Snakemake callers / tests can omit
-# them — emitted only when the path is supplied (mirrors --manifest).
-parser$add_argument("--stage_hits_dataframe",     required = FALSE)
-parser$add_argument("--stage_ltr_dataframe",      required = FALSE)
-parser$add_argument("--stage_reduced_dataframe",  required = FALSE)
+parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
+parser$add_argument("--overlap_matrix_csv",       required = TRUE)
+# Per-genome ranges-analysis tables (final_loci / homology_loci / ltr_structure
+# / reduction_multiplicity / counts). Each is written as both parquet (under
+# --ranges_analysis_parquet_dir, pipeline-internal) and CSV (under
+# --ranges_analysis_csv_dir, user-facing); filenames derive from --genome.
+parser$add_argument("--ranges_analysis_parquet_dir", required = TRUE)
+parser$add_argument("--ranges_analysis_csv_dir",     required = TRUE)
+parser$add_argument("--genome",                      required = TRUE)
 parser$add_argument("--manifest",                 required = FALSE)
 args <- parser$parse_args()
 
@@ -193,7 +194,7 @@ valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_
 # ----------------------------------------------------------------------------
 # Phase 8. Export tracks + tables + manifest
 # ----------------------------------------------------------------------------
-log_section("Phase 8: exporting tracks, BED6, parquet, manifest")
+log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
 gen_ver <- resolve_generator_version()
 
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
@@ -210,32 +211,36 @@ bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges
 
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
-overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits, args$overlap_matrix)
-arrow::write_parquet(plot_df, args$plot_dataframe)
+overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits,
+                        args$overlap_matrix_parquet, args$overlap_matrix_csv)
 
-# Middle-stage dataframes — emitted only when paths are supplied.
-if (!is.null(args$stage_hits_dataframe)) {
-  arrow::write_parquet(
-    build_stage_hits_df(gr_virus, retrotransposons, candidate_hits, valid_hits),
-    args$stage_hits_dataframe
-  )
+# Per-genome ranges-analysis tables — each written as parquet (pipeline-internal)
+# + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
+.table_path <- function(table, ext) {
+  dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
+         else                  args$ranges_analysis_csv_dir
+  file.path(dir, sprintf("%s.%s.%s", args$genome, table, ext))
 }
-if (!is.null(args$stage_ltr_dataframe)) {
-  arrow::write_parquet(
-    build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
-                       ltr_data, gr_virus),
-    args$stage_ltr_dataframe
-  )
+write_one <- function(table, df) {
+  write_table(df, .table_path(table, "parquet"), .table_path(table, "csv"))
 }
-if (!is.null(args$stage_reduced_dataframe)) {
-  arrow::write_parquet(
-    build_stage_reduced_df(gr_global),
-    args$stage_reduced_dataframe
-  )
-}
+
+write_one("final_loci", plot_df)
+write_one("homology_loci",
+          build_stage_hits_df(gr_virus, retrotransposons, candidate_hits, valid_hits))
+write_one("ltr_structure",
+          build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
+                             ltr_data, gr_virus))
+write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
+# Genomic counts as their own long-form table — the run manifest no longer
+# carries genomic data, and the refinement-funnel plots read this.
+write_one("counts", tibble::tibble(
+  metric = names(.counts),
+  value  = as.integer(unlist(.counts, use.names = FALSE))
+))
 
 if (!is.null(args$manifest)) {
-  emit_manifest(args, .counts, gen_ver, opts, args$manifest)
+  emit_manifest(args, gen_ver, opts, args$manifest)
 }
 
 log_section("Done")

@@ -45,9 +45,13 @@ source(file.path(.scripts, "stage_plot_generator", "plots_multiplicity.R"))
     ID                 = paste0("retro_", 1:4),
     n_flanking_ltrs    = c(2L, 1L, 2L, 0L),
     has_both_ltrs      = c(TRUE, FALSE, TRUE, FALSE),
-    n_domains          = c(3L, 0L, 1L, 0L),
+    n_probe_domains    = c(3L, 0L, 1L, 0L),
+    n_domains_total    = c(5L, 1L, 1L, 0L),
     domain_probes      = c("GAG; POL", NA, "ENV", NA),
-    has_tsd            = c(TRUE, FALSE, FALSE, FALSE),
+    has_tsd            = c(TRUE, TRUE, FALSE, FALSE),
+    n_tsd              = c(2L, 2L, 0L, 0L),
+    has_ppt            = c(TRUE, FALSE, TRUE, FALSE),
+    n_ppt              = c(1L, 0L, 1L, 0L),
     n_overlapping_hits = c(4L, 0L, 2L, 1L)
   )
 }
@@ -79,7 +83,7 @@ test_that("concordance + probe-yield builders return ggplots for valid input", {
 })
 
 test_that("LTR structure builders return ggplots for valid input", {
-  expect_true(is_gg(ltr_completeness_plot(.fake_ltr_df())))
+  expect_true(is_gg(ltr_structure_components_plot(.fake_ltr_df())))
   expect_true(is_gg(domain_composition_plot(.fake_ltr_df())))
 })
 
@@ -100,7 +104,7 @@ test_that("every stage builder falls through to a ggplot for empty input", {
   e_counts  <- .fake_counts_df()[0, ]
   expect_true(is_gg(concordance_plot(e_hits)))
   expect_true(is_gg(probe_yield_plot(e_hits)))
-  expect_true(is_gg(ltr_completeness_plot(e_ltr)))
+  expect_true(is_gg(ltr_structure_components_plot(e_ltr)))
   expect_true(is_gg(domain_composition_plot(e_ltr)))
   expect_true(is_gg(refinement_funnel_plot(e_counts)))
   expect_true(is_gg(aggregate_funnel_plot(e_counts)))

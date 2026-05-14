@@ -88,34 +88,71 @@ PATH_DICT["ACCESSORY_DB"] = (PATH_DICT["ROOT"] / "accessory").resolve()
 # === Data Subdirectories ===
 PATH_DICT["CONFIG_DIR"] = (PATH_DICT["DATA_DIR"] / "config").resolve()
 PATH_DICT["SPECIES_DIR"] = (PATH_DICT["DATA_DIR"] / "species").resolve()
-PATH_DICT["TABLE_INPUT_DIR"] = (PATH_DICT["DATA_DIR"] / "tables").resolve()
+# User-provided input tables (e.g. the probe CSV). Kept under a dedicated
+# `_input/` subdir so it doesn't sit loose alongside the pipeline's own
+# data/tables/<name>/ output subdirectories.
+PATH_DICT["TABLE_INPUT_DIR"] = (PATH_DICT["DATA_DIR"] / "tables" / "_input").resolve()
 PATH_DICT["PICKLE_DIR"] = (PATH_DICT["DATA_DIR"] / "pickles").resolve()
 PATH_DICT["TMP_DIR"] = (PATH_DICT["DATA_DIR"] / "tmp").resolve()
 PATH_DICT["TBLASTN_PICKLE_DIR"] = (PATH_DICT["PICKLE_DIR"] / "tblastn").resolve()
 
 # === Results - Tables ===
 PATH_DICT["TABLE_OUTPUT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tables").resolve()
-PATH_DICT["TABLE_HOTSPOT_DIR"] = (PATH_DICT["TABLE_OUTPUT_DIR"] / "hotspots").resolve()
-PATH_DICT["TABLE_OVERLAP_MATRIX_DIR"] = (
-    PATH_DICT["TABLE_OUTPUT_DIR"] / "overlap_matrix"
-).resolve()
-PATH_DICT["SEGMENTED_SPECIES_DIR"] = (
-    PATH_DICT["TABLE_OUTPUT_DIR"] / "segmented_species"
-).resolve()
-PATH_DICT["PLOT_DATAFRAMES_DIR"] = (
-    PATH_DICT["TABLE_OUTPUT_DIR"] / "plot_dataframes"
-).resolve()
-# Middle-stage (homology + LTR integration) dataframes — consumed by
-# stage_plot_generator.R. Three suffixed parquets per genome:
-# {genome}_{hits,ltr,reduced}.parquet.
-PATH_DICT["STAGE_DATAFRAMES_DIR"] = (
-    PATH_DICT["TABLE_OUTPUT_DIR"] / "stage_dataframe"
-).resolve()
-PATH_DICT["TABLE_PAIR_DIR"] = (PATH_DICT["TABLE_OUTPUT_DIR"] / "probe_pairs").resolve()
-PATH_DICT["TABLE_MANIFEST_DIR"] = (PATH_DICT["TABLE_OUTPUT_DIR"] / "manifest").resolve()
-PATH_DICT["TABLE_SOLO_INTACT_DIR"] = (
-    PATH_DICT["TABLE_OUTPUT_DIR"] / "solo_intact_ratio"
-).resolve()
+
+
+def table_dirs(name: str) -> tuple[Path, Path]:
+    """Resolve the (parquet, csv) directory pair for a named table group.
+
+    Pipeline-internal parquet copies live under ``data/tables/<name>/``;
+    user-facing CSV copies under ``results/tables/<name>/``. The caller is
+    expected to store both in PATH_DICT so they are auto-created below.
+    """
+    return (
+        (PATH_DICT["DATA_DIR"] / "tables" / name).resolve(),
+        (PATH_DICT["TABLE_OUTPUT_DIR"] / name).resolve(),
+    )
+
+
+# Every per-table directory is a (parquet, csv) pair via table_dirs(): the
+# pipeline-internal Parquet copies under data/tables/<name>/, the user-facing
+# CSV copies under results/tables/<name>/. No table file sits loose in tables/.
+(
+    PATH_DICT["HOTSPOT_PARQUET_DIR"],
+    PATH_DICT["HOTSPOT_CSV_DIR"],
+) = table_dirs("hotspots")
+(
+    PATH_DICT["OVERLAP_MATRIX_PARQUET_DIR"],
+    PATH_DICT["OVERLAP_MATRIX_CSV_DIR"],
+) = table_dirs("overlap_matrix")
+(
+    PATH_DICT["SEGMENTED_SPECIES_PARQUET_DIR"],
+    PATH_DICT["SEGMENTED_SPECIES_CSV_DIR"],
+) = table_dirs("segmented_species")
+# Per-genome ranges-analysis tables (final_loci / homology_loci / ltr_structure
+# / reduction_multiplicity / counts).
+(
+    PATH_DICT["RANGES_ANALYSIS_TABLES_PARQUET_DIR"],
+    PATH_DICT["RANGES_ANALYSIS_TABLES_CSV_DIR"],
+) = table_dirs("ranges_analysis")
+(
+    PATH_DICT["PROBE_PAIRS_PARQUET_DIR"],
+    PATH_DICT["PROBE_PAIRS_CSV_DIR"],
+) = table_dirs("probe_pairs")
+(
+    PATH_DICT["SOLO_INTACT_PARQUET_DIR"],
+    PATH_DICT["SOLO_INTACT_CSV_DIR"],
+) = table_dirs("solo_intact_ratio")
+(
+    PATH_DICT["PROBE_DICT_PARQUET_DIR"],
+    PATH_DICT["PROBE_DICT_CSV_DIR"],
+) = table_dirs("probe_dict")
+(
+    PATH_DICT["FULL_GENOME_BLAST_PARQUET_DIR"],
+    PATH_DICT["FULL_GENOME_BLAST_CSV_DIR"],
+) = table_dirs("full_genome_blast")
+# Run manifest — provenance metadata (generator, timestamp, input md5s,
+# resolved parameters, seed), not a table; lives directly under results/.
+PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
 # LTRharvest screen-format (.scn) intermediate — consumed by LTR_retriever.
 # Lives under /data (not /results) because it's a working format, not an output.
 PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
@@ -169,7 +206,7 @@ DISPLAY_REQUESTS_WARNING: bool = config["display"].get(
 DISPLAY_OPERATION_INFO: bool = config["display"].get("display_operation_info", False)
 
 # INPUT
-PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/probes.csv")
+PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/_input/probes.csv")
 
 # Genomes
 SPECIES_DICT: dict[str, str] = config.get("species", {})

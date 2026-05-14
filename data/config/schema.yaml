@@ -24,6 +24,7 @@ genome_tools_schema:
   ltrdigest_optional_parameters: str(required=False)
 
 parameters_schema:
+  seed: int(min=0)
   identity_threshold: int(min=0)
   bitscore_threshold: num(min=0)
   ltr_resize: int(min=0)

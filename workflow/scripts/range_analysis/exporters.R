@@ -70,11 +70,12 @@ bed_exporter <- function(track, path) {
 }
 
 
-# Compute a simple per-probe overlap count matrix and write to CSV.
-# Rows: probe; Columns: candidate / valid / total. Lightweight summary that
-# replaces the pre-refactor full overlap-matrix machinery (which is not
-# consumed by any current downstream rule).
-overlap_matrix_exporter <- function(gr_virus, gr_candidates, gr_valid, path) {
+# Compute a simple per-probe overlap count matrix and write it as both Parquet
+# (pipeline-internal) and CSV (user-facing). Rows: probe; Columns:
+# candidate / valid / total. Lightweight summary that replaces the pre-refactor
+# full overlap-matrix machinery (which is not consumed by any downstream rule).
+overlap_matrix_exporter <- function(gr_virus, gr_candidates, gr_valid,
+                                    parquet_path, csv_path) {
   probes <- sort(unique(c(
     as.character(S4Vectors::mcols(gr_virus)$probe),
     as.character(S4Vectors::mcols(gr_candidates)$probe),
@@ -88,8 +89,18 @@ overlap_matrix_exporter <- function(gr_virus, gr_candidates, gr_valid, path) {
     valid     = vapply(probes, function(p) counts(gr_valid,      p), integer(1)),
     stringsAsFactors = FALSE
   )
-  utils::write.csv(out, path, row.names = FALSE)
-  invisible(path)
+  write_table(out, parquet_path, csv_path)
+  invisible(NULL)
+}
+
+
+# Write a data frame in both formats: parquet (pipeline-internal, consumed by
+# the plot generators) and CSV (the user-facing form). Either path may be NULL
+# to skip that format.
+write_table <- function(df, parquet_path = NULL, csv_path = NULL) {
+  if (!is.null(parquet_path)) arrow::write_parquet(df, parquet_path)
+  if (!is.null(csv_path))     utils::write.csv(df, csv_path, row.names = FALSE)
+  invisible(NULL)
 }
 
 
@@ -113,40 +124,33 @@ file_md5 <- function(path) {
 }
 
 
-# Emit a YAML manifest describing inputs, key counts, and outputs.
-emit_manifest <- function(args, counts, generator_version, opts, path) {
+# Emit a YAML run manifest — provenance only. Records which RetroSeek build
+# ran, when, the md5s of the actual input files, the resolved run parameters,
+# and the RNG seed. Genomic counts live in their own per-genome table
+# (`{genome}.counts.*`), not here; the `outputs` paths are derivable and
+# intentionally omitted. The manifest is run metadata, not data.
+emit_manifest <- function(args, generator_version, opts, path) {
   manifest <- list(
-    generator       = generator_version,
-    timestamp       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    generator = generator_version,
+    timestamp = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    seed      = opts$seed,
     inputs = list(
-      fasta            = list(path = args$fasta,           md5 = file_md5(args$fasta)),
-      blast_parquet    = list(path = args$blast,           md5 = file_md5(args$blast)),
-      ltrdigest_gff3   = list(path = args$ltrdigest,       md5 = file_md5(args$ltrdigest)),
-      probes_csv       = list(path = args$probes,          md5 = file_md5(args$probes)),
-      config_yaml      = list(path = args$config,          md5 = file_md5(args$config))
+      fasta          = list(path = args$fasta,     md5 = file_md5(args$fasta)),
+      blast_parquet  = list(path = args$blast,     md5 = file_md5(args$blast)),
+      ltrdigest_gff3 = list(path = args$ltrdigest, md5 = file_md5(args$ltrdigest)),
+      probes_csv     = list(path = args$probes,    md5 = file_md5(args$probes)),
+      config_yaml    = list(path = args$config,    md5 = file_md5(args$config))
     ),
-    counts = counts,
     options = list(
-      bitscore_threshold  = opts$bitscore_threshold,
-      identity_threshold  = opts$identity_threshold,
-      merge_option        = opts$merge_option,
-      probe_min_length    = as.list(opts$probe_min_length),
-      aggregation         = list(
+      bitscore_threshold = opts$bitscore_threshold,
+      identity_threshold = opts$identity_threshold,
+      merge_option       = opts$merge_option,
+      probe_min_length   = as.list(opts$probe_min_length),
+      aggregation        = list(
         virus = opts$agg_virus, label = opts$agg_label,
         probe = opts$agg_probe, species = opts$agg_species,
         best_tiebreaker = opts$agg_best_tiebreaker
       )
-    ),
-    outputs = list(
-      original_ranges             = args$original_ranges,
-      original_ranges_reduced     = args$original_ranges_reduced,
-      candidate_ranges            = args$candidate_ranges,
-      candidate_ranges_reduced    = args$candidate_ranges_reduced,
-      valid_ranges                = args$valid_ranges,
-      valid_ranges_reduced        = args$valid_ranges_reduced,
-      flanking_ltr_ranges         = args$flanking_ltr_ranges,
-      overlap_matrix              = args$overlap_matrix,
-      plot_dataframe              = args$plot_dataframe
     )
   )
   yaml::write_yaml(manifest, path)

@@ -3,8 +3,8 @@
 # =============================================================================
 # Builders visualising how range counts collapse across the pipeline stages
 # (homology → first-reduced → candidate → valid). Input is the tidy
-# (genome, stage, count) tibble from load_manifest_counts() — no pipeline
-# re-computation; the counts already live in the per-genome manifest YAMLs.
+# (genome, stage, count) tibble from load_counts_table() — no pipeline
+# re-computation; the counts already live in the per-genome counts tables.
 #
 # Counts span orders of magnitude (≈10^5 homology hits → ≈10^2 valid ranges),
 # so the y-axis is log10. Genomes whose count hits 0 at a stage simply do not

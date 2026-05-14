@@ -58,7 +58,9 @@ All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand
 ## Outputs
 
 - `results/tracks/` — GFF3 per stage (`original`, `candidate`, `valid`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`, `ltr_retriever/`), each with a `_reduced` variant (merged overlapping ranges) where applicable. `solo_ltr/{genome}.gff3` carries probe_labels propagated from valid ERVs (see `docs/solo_ltr.md`).
-- `results/tables/` — overlap matrices, plot dataframes (Parquet), probe-pair tables, segmented species data, solo/intact ratios (`solo_intact_ratio/{genome}.csv` + `all_species.csv`).
+- `results/tables/<name>/` — user-facing **CSV** copy of every table group, each in its own subdirectory (no loose files): `ranges_analysis` (`{genome}.{final_loci,homology_loci,ltr_structure,reduction_multiplicity,counts}.csv`), `overlap_matrix`, `segmented_species`, `probe_pairs`, `solo_intact_ratio`, `hotspots`, `probe_dict`, `full_genome_blast`.
+- `data/tables/<name>/` — the pipeline-internal **Parquet** copy of each of those table groups, mirroring the `results/tables/` layout. `data/tables/_input/` holds the user-provided probe CSV.
+- `results/manifest/` — per-genome run manifest YAMLs: provenance only (generator build, timestamp, input md5s, resolved parameters, seed).
 - `results/plots/` — 21 global PNGs from `plot2sort` (density, raincloud, query-coverage, bar, balloon, heatmap-probe×species, virus waffle, three Sankey variants, each split into `main` / `accessory` / `full` where applicable), plus per-genome Circos-style PNG + PDF.
 - `results/hotspots/` — CSV + GFF3 + PDFs (histogram / density / heatmap).
 - `data/ltr_scn/` — LTRharvest screen-format intermediates: `{genome}.scn` (raw LTRharvest output) plus `{genome}_retroviral.scn` (Coupling-A filtered) and `{genome}_full.scn` (byte-equal passthrough). The prefilter rule emits both filtered files from one read pass; one of them feeds LTR_retriever.

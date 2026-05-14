@@ -170,7 +170,7 @@ Two counting modes are emitted side-by-side in the ratio CSV:
 
 Both modes are written so downstream analysis can pick either. `label_mode` is a column in the CSV; filter on it to choose.
 
-Per-genome CSVs live at `results/tables/solo_intact_ratio/{genome}.csv`. The aggregate across species is `results/tables/solo_intact_ratio/all_species.csv`, built by an inline `pandas.concat` in the Snakemake aggregate rule.
+Per-genome CSVs live at `results/tables/solo_intact_ratio/{genome}.csv` (pipeline-internal Parquet copies under `data/tables/solo_intact_ratio/`). The aggregate across species is `results/tables/solo_intact_ratio/all_species.csv` (+ `.parquet`), built by an inline `pandas.concat` in the Snakemake aggregate rule.
 
 ---
 

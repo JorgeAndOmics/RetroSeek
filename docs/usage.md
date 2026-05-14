@@ -98,7 +98,7 @@ Top-level sections (fields inside each section — see file for full list):
 
 ### Probe CSV
 
-The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/` (not tracked — user-provided).
+The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/_input/` (not tracked — user-provided).
 
 Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.probe_min_length`, `config.domains`, and `config.parameters.probe_to_pair`.
 

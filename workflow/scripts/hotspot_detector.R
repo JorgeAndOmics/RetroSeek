@@ -23,7 +23,8 @@ parser <- ArgumentParser(description = "ERV Hotspot Permutation Analysis")
 parser$add_argument("--fasta", required=TRUE, help="Path to genome FASTA file")
 parser$add_argument("--gff", required=TRUE, help="Path to GFF3 with ERV annotations")
 parser$add_argument("--config", required=TRUE, help="YAML config file")
-parser$add_argument("--csv_output_dir", required=TRUE, help="Directory to write CSV output")
+parser$add_argument("--parquet_dir", required=TRUE, help="Directory for pipeline-internal Parquet output")
+parser$add_argument("--csv_dir", required=TRUE, help="Directory for user-facing CSV output")
 parser$add_argument("--pdf_output_dir", required=TRUE, help="Directory to write PDF output")
 parser$add_argument("--hotspot_output_dir", required=TRUE, help="Directory to write GFF3 hotspot output")
 
@@ -32,7 +33,8 @@ args <- parser$parse_args()
 args.genome <- file.path(args$fasta)
 args.gff <- file.path(args$gff)
 args.yaml <- file.path(args$config)
-args.csv_output_dir <- file.path(args$csv_output_dir)
+args.csv_dir <- file.path(args$csv_dir)
+args.parquet_dir <- file.path(args$parquet_dir)
 args.pdf_output_dir <- file.path(args$pdf_output_dir)
 args.hotspot_output_dir <- file.path(args$hotspot_output_dir)
 
@@ -139,7 +141,8 @@ summary_df <- map_dfr(perm_results, function(res) {
 })
 summary_df$Adjusted_pvalue <- p.adjust(summary_df$P_value, method = "BH")
 
-write_csv(summary_df, file.path(args.csv_output_dir, paste0(species, ".csv")))
+write_csv(summary_df, file.path(args.csv_dir, paste0(species, ".csv")))
+arrow::write_parquet(summary_df, file.path(args.parquet_dir, paste0(species, ".parquet")))
 
 # =============================================================================
 # 8. Export Permutation Test Plots (Histogram) for Each Label
