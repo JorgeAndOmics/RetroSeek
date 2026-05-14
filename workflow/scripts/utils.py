@@ -113,7 +113,7 @@ def directory_content_eraser(directory_path: str | Path) -> None:
                 logger.warning(f"Failed to delete {entry}: {exc}")
 
 
-def incomplete_dict_cleaner(object_dict: dict) -> dict:
+def incomplete_dict_cleaner(object_dict: dict[str, Any]) -> dict[str, Any]:
     """Drop dict entries whose value fails ``.is_complete()``.
 
     Used to purge records that lack a GenBank / alignment / HSP payload

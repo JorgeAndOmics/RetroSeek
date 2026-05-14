@@ -35,6 +35,7 @@ import defaults
 import seq_utils
 import utils
 from colored_logging import colored_logging
+from RetroSeeker_class import RetroSeeker
 
 # =============================================================================
 # 1. Main Execution Block
@@ -67,7 +68,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 1.2 Load Probe Dictionary
     # -------------------------------------------------------------------------
-    probe_dict: dict[str, object] = utils.unpickler(
+    probe_dict: dict[str, RetroSeeker] = utils.unpickler(
         input_directory_path=defaults.PATH_DICT["PICKLE_DIR"],
         input_file_name="probe_dict.pkl",
     )
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 1.3 Run tBLASTn Search
     # -------------------------------------------------------------------------
-    tblastn_results: dict[str, object] = seq_utils.blast_retriever(
+    tblastn_results: dict[str, RetroSeeker] | None = seq_utils.blast_retriever(
         object_dict=probe_dict,
         command="tblastn",
         genome=genome,

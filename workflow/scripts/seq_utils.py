@@ -39,7 +39,9 @@ from RetroSeeker_class import RetroSeeker
 logger = logging.getLogger(__name__)
 
 
-def species_divider(object_dict: dict) -> dict:
+def species_divider(
+    object_dict: dict[str, RetroSeeker],
+) -> dict[str | None, dict[str, RetroSeeker]]:
     """
     Divides the full_genome_dict into different subdictionaries based on the species contained in the objects
 
@@ -51,7 +53,7 @@ def species_divider(object_dict: dict) -> dict:
         -------
             :return: A dictionary containing the objects divided by species
     """
-    species_dict: dict = defaultdict(dict)
+    species_dict: dict[str | None, dict[str, RetroSeeker]] = defaultdict(dict)
     for key, value in object_dict.items():
         species_dict[value.species][key] = value
 
@@ -59,13 +61,13 @@ def species_divider(object_dict: dict) -> dict:
 
 
 def blaster(
-    instance,
+    instance: RetroSeeker,
     command: str,
-    input_database_path,
+    input_database_path: str | Path,
     subject: str,
     num_threads: int,
     _outfmt: str = "11",
-):
+) -> str | None:
     """
     Runs a BLAST search for a given object against a given database
 
@@ -91,7 +93,7 @@ def blaster(
         if subject
         else input_database_path
     )
-    subject = subject or input_database_path
+    subject = subject or str(input_database_path)
     try:
         blast_command = [
             command,
@@ -123,7 +125,9 @@ def blaster(
         return None
 
 
-def blaster_parser(result, instance: object, subject: str) -> dict:
+def blaster_parser(
+    result: str, instance: RetroSeeker, subject: str
+) -> dict[str, RetroSeeker] | None:
     """
         Parameters
         ----------
@@ -142,7 +146,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
 
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
-    alignment_dict: dict = {}
+    alignment_dict: dict[str, RetroSeeker] = {}
     try:
         # Write ASN.1 to a temp file
         with tempfile.NamedTemporaryFile(
@@ -164,7 +168,7 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
         xml_handle = StringIO(xml_string)
 
         # Now parse the XML as before
-        for record in NCBIXML.parse(xml_handle):
+        for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
             for alignment in record.alignments:
                 if not record.alignments:
                     logger.warning("No alignments found.")
@@ -206,8 +210,12 @@ def blaster_parser(result, instance: object, subject: str) -> dict:
 
 
 def _blast_task(
-    instance: object, command: str, subject: str, input_database_path, num_threads: int
-) -> dict:
+    instance: RetroSeeker,
+    command: str,
+    subject: str,
+    input_database_path: str | Path,
+    num_threads: int,
+) -> dict[str, RetroSeeker] | None:
     """
     Run BLAST command for the Entrez-retrieved sequences against the species database. This function is used as a task
     in the ThreadPoolExecutor
@@ -250,13 +258,13 @@ def _blast_task(
 
 
 def blast_executor(
-    object_dict: dict,
+    object_dict: dict[str, RetroSeeker],
     command: str,
-    input_database_path,
-    num_threads: str,
+    input_database_path: str | Path,
+    num_threads: int,
     display_full_info: bool,
     genome: str,
-) -> dict:
+) -> dict[str, RetroSeeker] | None:
     """
     Runs BLAST tasks sequentially
 
@@ -273,7 +281,7 @@ def blast_executor(
         -------
             :returns: A dictionary containing the parsed BLAST results
     """
-    full_parsed_results = {}
+    full_parsed_results: dict[str, RetroSeeker] = {}
 
     with tqdm(total=len(object_dict), desc=f"Processing {genome}...") as object_bar:
         for value in object_dict.values():
@@ -301,13 +309,13 @@ def blast_executor(
 
 
 def blast_retriever(
-    object_dict: dict,
+    object_dict: dict[str, RetroSeeker],
     command: str,
     genome: str,
-    input_database_path,
-    num_threads: "1",
+    input_database_path: str | Path,
+    num_threads: int,
     display_full_info: bool = defaults.DISPLAY_OPERATION_INFO,
-) -> dict:
+) -> dict[str, RetroSeeker] | None:
     """
     Orchestrates the blast retrieval process. It first performs the blast search, then merges the results, and
     finally retrieves the sequences from the online database and removes incomplete records.
@@ -337,13 +345,13 @@ def blast_retriever(
 
 
 def gb_fetcher(
-    instance: object,
+    instance: RetroSeeker,
     online_database: str,
     _attempt: int = 1,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
     display_warning: bool = False,
     _entrez_email: str = defaults.ENTREZ_EMAIL,
-):
+) -> RetroSeeker:
     """
     Fetch the GenBank results for a given sequence and appends it to the objects.
 
@@ -367,7 +375,7 @@ def gb_fetcher(
         ------
             :raise Exception: If an error occurs while fetching the sequence.
     """
-    Entrez.email = _entrez_email
+    Entrez.email = _entrez_email  # type: ignore[assignment]
 
     kwargs = {
         "db": online_database,
@@ -381,8 +389,8 @@ def gb_fetcher(
             "seq_stop": instance.HSP.sbjct_end,
         }
     try:
-        with Entrez.efetch(**kwargs) as handle:
-            genbank_record: object = handle.read()
+        with Entrez.efetch(**kwargs) as handle:  # type: ignore[no-untyped-call]
+            genbank_record = handle.read()
             instance.set_genbank(genbank_record)
         return instance
 
@@ -402,12 +410,12 @@ def gb_fetcher(
 
 
 def gb_executor(
-    object_dict: dict,
+    object_dict: dict[str, RetroSeeker],
     online_database: str,
     display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
     display_full_info: bool = False,
-) -> dict:
+) -> dict[str, RetroSeeker] | None:
     """
     Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
 
@@ -431,18 +439,20 @@ def gb_executor(
 
     with tqdm(total=len(object_dict), desc="Fetching GenBank sequences") as object_bar:
         for value in object_dict.values():
-            if result := gb_fetcher(
+            # gb_fetcher always returns the instance (updated on success, or
+            # unchanged after exhausting retries) — never None.
+            result = gb_fetcher(
                 instance=value,
                 online_database=online_database,
                 max_attempts=max_attempts,
                 display_warning=display_warning,
-            ):
-                key_identifier = f"{value.accession}-{value.identifier}"
-                full_retrieved_results[key_identifier] = result
-                if display_full_info:
-                    logger.info(
-                        f"Added {key_identifier} to GenBank Dictionary\n{result.display_info()}"
-                    )
+            )
+            key_identifier = f"{value.accession}-{value.identifier}"
+            full_retrieved_results[key_identifier] = result
+            if display_full_info:
+                logger.info(
+                    f"Added {key_identifier} to GenBank Dictionary\n{result.display_info()}"
+                )
             object_bar.update(1)
 
     if not full_retrieved_results:

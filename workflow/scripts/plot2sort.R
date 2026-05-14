@@ -96,12 +96,24 @@ main <- function() {
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek plot generation (output: %s)", args$output))
 
+  # Multi-value aggregation warning: when virus/label use list/concatenate,
+  # plot counts are inflated by entry explosion. Log it once and stamp every
+  # emitted plot so the caveat travels with the PNG artifact.
+  warn_caption <- aggregation_warning(cfg)
+  if (!is.null(warn_caption)) {
+    warning(warn_caption, call. = FALSE)
+    log_section(paste0("  ", warn_caption))
+  }
+
   # Local save wrapper that:
   #   1) captures output_dir + base canvas + dpi from config,
   #   2) extracts the per-builder `intended_dims` attribute (set by
-  #      auto-scaling builders) and passes it to io.R::save_plot.
+  #      auto-scaling builders) — read BEFORE stamping, since `+` drops attrs,
+  #   3) stamps the multi-value aggregation warning caption when active,
+  #   4) passes the captured dims to io.R::save_plot.
   emit <- function(name, plot) {
     dims <- attr(plot, "intended_dims")
+    plot <- stamp_warning_caption(plot, warn_caption)
     save_plot(name, plot, args$output,
               dims = dims, base_w = plot_width, base_h = plot_height,
               dpi  = plot_dpi)

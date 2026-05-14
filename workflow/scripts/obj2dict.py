@@ -37,6 +37,7 @@ import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
@@ -51,7 +52,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # 1. Attribute Extraction Function
 # =============================================================================
-def extract_attributes_from_object(obj) -> dict:
+def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
     """
     Extracts all structured attributes from a probe Object for tabular export.
 
@@ -79,7 +80,7 @@ def extract_attributes_from_object(obj) -> dict:
     # column compatible with LTRdigest / GRanges seqnames downstream.
     raw_accession = obj.accession or ""
     clean_accession = raw_accession.split()[0] if raw_accession else raw_accession
-    data: dict = {
+    data: dict[str, Any] = {
         # Basic Object attributes
         "label": obj.label,
         "virus": obj.virus,
@@ -174,7 +175,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 2.2 Load Object Dictionaries from Pickles
     # -------------------------------------------------------------------------
-    all_objects: list = []
+    all_objects: list[Any] = []
     for file in args.files:
         objct_dict = utils.unpickler(
             input_directory_path=defaults.PATH_DICT["PICKLE_DIR"], input_file_name=file
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 2.3 Group Objects by Species
     # -------------------------------------------------------------------------
-    species_objects: dict = defaultdict(list)
+    species_objects: dict[str, list[Any]] = defaultdict(list)
     for obj in all_objects:
         species_objects[obj.species].append(obj)
 
@@ -196,12 +197,12 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 2.4 Process Each Species Sequentially and Build DataFrames
     # -------------------------------------------------------------------------
-    species_dataframes: dict = {}
+    species_dataframes: dict[str, Any] = {}
 
     for species, objects in species_objects.items():
         logger.info(f"Processing species: {species} ({len(objects)} objects)")
 
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         with (
             tqdm(total=len(objects), desc=f"Processing {species}") as pbar,
             ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor,

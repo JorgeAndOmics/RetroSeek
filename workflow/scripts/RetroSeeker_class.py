@@ -76,13 +76,13 @@ class RetroSeeker:
             is_complete: Checks if the object contains Genbank, FASTA and GFF records
     """
 
-    label: str = field(default=None)
-    virus: str = field(default=None)
-    abbreviation: str = field(default=None)
-    species: str = field(default=None)
-    probe: str = field(default=None)
-    accession: str = field(default=None)
-    identifier: str = field(default=None)
+    label: str | None = field(default=None)
+    virus: str | None = field(default=None)
+    abbreviation: str | None = field(default=None)
+    species: str | None = field(default=None)
+    probe: str | None = field(default=None)
+    accession: str | None = field(default=None)
+    identifier: str | None = field(default=None)
     alignment: Any | None = field(default=None)
     HSP: Any | None = field(default=None)
     genbank: Any | None = field(default=None)
@@ -90,7 +90,7 @@ class RetroSeeker:
     gff: Any | None = field(default=None, init=False, repr=False)
     strand: Any | None = field(default=None, init=False, repr=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.label},"
             f"{self.virus},"
@@ -101,7 +101,7 @@ class RetroSeeker:
             f"{self.identifier}"
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.identifier)
 
     def __eq__(self, other: object) -> bool:
@@ -111,7 +111,7 @@ class RetroSeeker:
 
     # Static Methods
     @staticmethod
-    def extract_fasta_from_genbank(genbank_record) -> str or None:
+    def extract_fasta_from_genbank(genbank_record: Any) -> str | None:
         """
         Extracts the FASTA file from the GenBank record.
 
@@ -134,7 +134,7 @@ class RetroSeeker:
             return None
 
     @staticmethod
-    def extract_gff_from_genbank(genbank_record) -> str | None:
+    def extract_gff_from_genbank(genbank_record: Any) -> str | None:
         """
         Extracts the GFF file from the GenBank record.
 
@@ -160,7 +160,7 @@ class RetroSeeker:
             return None
 
     @staticmethod
-    def extract_strand_from_HSP(HSP_obj) -> str | None:
+    def extract_strand_from_HSP(HSP_obj: Any) -> str | None:
         """
         Extracts the strand information from the HSP object. If the HSP object contains frame information, it will
         return the strand based on the frame. If the frame is not available, it will return the strand based on the
@@ -190,9 +190,14 @@ class RetroSeeker:
         except Exception as e:
             logger.warning(f"Could not extract strand: {e}")
             return None
+        # The try block can complete without returning (e.g. a zero frame, or
+        # equal sbjct_start/sbjct_end); make that implicit None explicit.
+        return None
 
     @staticmethod
-    def extract_seq2rec(seq_obj: str, obj_type: str, output_type: str = "seqrecord"):
+    def extract_seq2rec(
+        seq_obj: Any, obj_type: str, output_type: str = "seqrecord"
+    ) -> Any:
         """
         Parse text (e.g. FASTA) into a SeqRecord object or a temporary file in tmp directory.
 
@@ -222,13 +227,13 @@ class RetroSeeker:
 
         # Determine the return type based on output_type parameter
         if output_type == "seqrecord":
-            return SeqIO.read(tmp_file.name, obj_type)
+            return SeqIO.read(tmp_file.name, obj_type)  # type: ignore[no-untyped-call]
         if output_type == "tempfile":
             return tmp_file.name
         raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
 
     # Getters and Setters
-    def get_alignment(self) -> str | None:
+    def get_alignment(self) -> Any:
         """
         Returns the Alignment file associated with the object.
 
@@ -253,7 +258,7 @@ class RetroSeeker:
         """
         self.alignment = alignment_object
 
-    def get_HSP(self) -> object:
+    def get_HSP(self) -> Any:
         """
         Retrieves the HSP object.
 
@@ -279,7 +284,7 @@ class RetroSeeker:
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self, output_type=None) -> str | None:
+    def get_genbank(self, output_type: str | None = None) -> Any:
         """
         Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
         record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
@@ -330,13 +335,13 @@ class RetroSeeker:
         """
         try:
             handle = StringIO(genbank_obj)
-            self.genbank = SeqIO.read(handle, "genbank")
+            self.genbank = SeqIO.read(handle, "genbank")  # type: ignore[no-untyped-call]
             self.fasta = self.extract_fasta_from_genbank(self.genbank)
             self.gff = self.extract_gff_from_genbank(self.genbank)
         except Exception as e:
             logger.warning(f"Could not set genbank: {e}")
 
-    def get_fasta(self, output_type=None):
+    def get_fasta(self, output_type: str | None = None) -> Any:
         """
         Returns the FASTA file associated with the object. If no output_type is provided, it will return the FASTA
         as string. If output_type is set to 'seqrecord', it will return the FASTA as a SeqRecord object. If output_type
@@ -365,7 +370,7 @@ class RetroSeeker:
             logger.warning("Genbank not set. Could not retrieve fasta.")
             return None
 
-    def get_gff(self):
+    def get_gff(self) -> Any:
         """
         Returns the GFF file associated with the object.
 
@@ -416,7 +421,9 @@ class RetroSeeker:
             )
 
         if self.is_complete():
-            info += f"Complete Record: {self.alignment.hit_def}\n"
+            # is_complete() guarantees self.alignment is set; mypy can't narrow
+            # through the helper call.
+            info += f"Complete Record: {self.alignment.hit_def}\n"  # type: ignore[union-attr]
 
         return info
 

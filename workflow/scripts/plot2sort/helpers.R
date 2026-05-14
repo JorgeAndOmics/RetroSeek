@@ -84,14 +84,17 @@ empty_plot <- function(label = "no data") {
 
 # Attach a centred title + subtitle to a plot. `subset_label` (e.g. "Main",
 # "Accessory") is prepended to the title so the same builder can produce
-# differently-named PNGs without duplicating logic.
-add_titles <- function(p, title, subtitle, subset_label = NULL) {
+# differently-named PNGs without duplicating logic. `warning_caption`, when
+# supplied, stamps a bold red caption on the plot — used to flag multi-value
+# aggregation (entry explosion) so the caveat travels with the PNG artifact.
+add_titles <- function(p, title, subtitle, subset_label = NULL,
+                       warning_caption = NULL) {
   full_title <- if (!is.null(subset_label) && nzchar(subset_label)) {
     sprintf("%s — %s", subset_label, title)
   } else {
     title
   }
-  p +
+  p <- p +
     labs(title = full_title, subtitle = subtitle) +
     theme(
       plot.title      = element_text(face = "bold", hjust = 0.5, size = 16,
@@ -105,6 +108,42 @@ add_titles <- function(p, title, subtitle, subset_label = NULL) {
       # every builder so titles are always legible.
       plot.background = element_rect(fill = "white", colour = NA)
     )
+  stamp_warning_caption(p, warning_caption)
+}
+
+
+# Stamp a bold red warning caption onto a finished plot, or return it
+# unchanged when `caption` is NULL/empty. Single styling source shared by
+# add_titles() (stage_plot_generator builders) and plot2sort.R's emit()
+# wrapper, so the entry-explosion caveat looks identical everywhere.
+stamp_warning_caption <- function(p, caption) {
+  if (is.null(caption) || !nzchar(caption)) return(p)
+  p +
+    labs(caption = caption) +
+    theme(plot.caption = element_text(hjust = 0, face = "bold",
+                                      colour = "#b22222", size = 10,
+                                      margin = margin(t = 8)))
+}
+
+
+# Build the entry-explosion warning caption from a parsed config, or return
+# NULL when `virus`/`label` use a singular aggregation strategy. `list` and
+# `concatenate` produce multi-value cells: `concatenate` explodes one locus
+# into N plot rows (count inflation); `list` leaves a compound "A; B; C"
+# category label. Either way the aggregate plots are not statistically
+# meaningful. Used by plot2sort.R and stage_plot_generator.R.
+aggregation_warning <- function(cfg) {
+  agg <- cfg$parameters$aggregation
+  if (is.null(agg)) return(NULL)
+  multi <- c("list", "concatenate")
+  offenders <- c(
+    if (!is.null(agg$virus) && agg$virus %in% multi) sprintf("virus=%s", agg$virus),
+    if (!is.null(agg$label) && agg$label %in% multi) sprintf("label=%s", agg$label)
+  )
+  if (length(offenders) == 0L) return(NULL)
+  sprintf(paste0("⚠ multi-value aggregation active (%s) — plot counts ",
+                 "may be inflated by entry explosion; interpret with caution"),
+          paste(offenders, collapse = ", "))
 }
 
 

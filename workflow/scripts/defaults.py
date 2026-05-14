@@ -36,7 +36,9 @@ _REPO_ROOT_FOR_CONFIG = Path(__file__).resolve().parents[2]
 _env_config = os.environ.get("RETROSEEK_CONFIG")
 if _env_config:
     _candidate = Path(_env_config)
-    CONFIG_FILE = _candidate if _candidate.is_absolute() else _REPO_ROOT_FOR_CONFIG / _candidate
+    CONFIG_FILE = (
+        _candidate if _candidate.is_absolute() else _REPO_ROOT_FOR_CONFIG / _candidate
+    )
 else:
     CONFIG_FILE = _REPO_ROOT_FOR_CONFIG / "data" / "config" / "config.yaml"
 
@@ -103,6 +105,12 @@ PATH_DICT["SEGMENTED_SPECIES_DIR"] = (
 PATH_DICT["PLOT_DATAFRAMES_DIR"] = (
     PATH_DICT["TABLE_OUTPUT_DIR"] / "plot_dataframes"
 ).resolve()
+# Middle-stage (homology + LTR integration) dataframes — consumed by
+# stage_plot_generator.R. Three suffixed parquets per genome:
+# {genome}_{hits,ltr,reduced}.parquet.
+PATH_DICT["STAGE_DATAFRAMES_DIR"] = (
+    PATH_DICT["TABLE_OUTPUT_DIR"] / "stage_dataframe"
+).resolve()
 PATH_DICT["TABLE_PAIR_DIR"] = (PATH_DICT["TABLE_OUTPUT_DIR"] / "probe_pairs").resolve()
 PATH_DICT["TABLE_MANIFEST_DIR"] = (PATH_DICT["TABLE_OUTPUT_DIR"] / "manifest").resolve()
 PATH_DICT["TABLE_SOLO_INTACT_DIR"] = (
@@ -164,16 +172,17 @@ DISPLAY_OPERATION_INFO: bool = config["display"].get("display_operation_info", F
 PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/probes.csv")
 
 # Genomes
-SPECIES_DICT: dict = config.get("species", {})
+SPECIES_DICT: dict[str, str] = config.get("species", {})
 
+SPECIES: list[str]
 if not USE_SPECIES_DICT:
     # Discover genomes by scanning SPECIES_DB. Accept any of the FASTA
     # extension variants the genome_fasta_normalizer rule canonicalises
     # to .fa — otherwise a fresh machine with only .fna files would see
     # SPECIES = [] before the normalizer ever runs.
     _FASTA_EXTS = {".fa", ".fna", ".fasta", ".ffn"}
-    SPECIES: list = sorted(
+    SPECIES = sorted(
         {f.stem for f in PATH_DICT["SPECIES_DB"].iterdir() if f.suffix in _FASTA_EXTS}
     )
 else:
-    SPECIES: list = SPECIES_DICT.keys()
+    SPECIES = list(SPECIES_DICT.keys())

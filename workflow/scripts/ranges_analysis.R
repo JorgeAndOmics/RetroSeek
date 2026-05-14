@@ -46,6 +46,7 @@ source(file.path(.script_dir, "range_analysis", "filtering.R"))
 source(file.path(.script_dir, "range_analysis", "reductions.R"))
 source(file.path(.script_dir, "range_analysis", "validation.R"))
 source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
+source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
 source(file.path(.script_dir, "range_analysis", "exporters.R"))
 
 
@@ -71,6 +72,12 @@ parser$add_argument("--valid_ranges_reduced",     required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
 parser$add_argument("--overlap_matrix",           required = TRUE)
 parser$add_argument("--plot_dataframe",           required = TRUE)
+# Middle-stage dataframes (homology + LTR integration) consumed by
+# stage_plot_generator.R. Optional so non-Snakemake callers / tests can omit
+# them — emitted only when the path is supplied (mirrors --manifest).
+parser$add_argument("--stage_hits_dataframe",     required = FALSE)
+parser$add_argument("--stage_ltr_dataframe",      required = FALSE)
+parser$add_argument("--stage_reduced_dataframe",  required = FALSE)
 parser$add_argument("--manifest",                 required = FALSE)
 args <- parser$parse_args()
 
@@ -168,8 +175,11 @@ record_count("valid_ranges_reduced",       length(valid_hits_reduced))
 # Phase 7. Plot dataframe + probe-category tagging
 # ----------------------------------------------------------------------------
 log_section("Phase 7: plot dataframe + probe_category tagging")
+# Plot dataframe is built from the valid-reduced tier (the final, LTR-integrated
+# output) rather than gr_virus (the homology-only original tier). The middle
+# stage is visualised separately by stage_plot_generator.R.
 plot_df <- build_plot_dataframe(
-  gr_virus, probes$df_sum, opts$main_probes,
+  valid_hits_reduced, probes$df_sum, opts$main_probes,
   opts$agg_virus, opts$agg_concat_separator
 )
 gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
@@ -202,6 +212,27 @@ track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
 overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits, args$overlap_matrix)
 arrow::write_parquet(plot_df, args$plot_dataframe)
+
+# Middle-stage dataframes — emitted only when paths are supplied.
+if (!is.null(args$stage_hits_dataframe)) {
+  arrow::write_parquet(
+    build_stage_hits_df(gr_virus, retrotransposons, candidate_hits, valid_hits),
+    args$stage_hits_dataframe
+  )
+}
+if (!is.null(args$stage_ltr_dataframe)) {
+  arrow::write_parquet(
+    build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
+                       ltr_data, gr_virus),
+    args$stage_ltr_dataframe
+  )
+}
+if (!is.null(args$stage_reduced_dataframe)) {
+  arrow::write_parquet(
+    build_stage_reduced_df(gr_global),
+    args$stage_reduced_dataframe
+  )
+}
 
 if (!is.null(args$manifest)) {
   emit_manifest(args, .counts, gen_ver, opts, args$manifest)

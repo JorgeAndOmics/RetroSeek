@@ -34,6 +34,8 @@ Usage:
 # Imports and Logging Setup
 # =============================================================================
 
+from pathlib import Path
+
 import pandas as pd
 
 import defaults
@@ -46,7 +48,7 @@ from RetroSeeker_class import RetroSeeker
 # =============================================================================
 # 1. CSV Table Parser
 # =============================================================================
-def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
+def table_parser(input_csv_file: str | Path) -> dict[str, RetroSeeker]:
     """
     Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
 
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     probe_dict: dict[str, RetroSeeker] = table_parser(input_csv_file=defaults.PROBE_CSV)
 
     # Fetch sequence data from GenBank (or similar)
-    probe_extraction: dict[str, RetroSeeker] = seq_utils.gb_executor(
+    probe_extraction: dict[str, RetroSeeker] | None = seq_utils.gb_executor(
         object_dict=probe_dict,
         online_database="protein",
         display_full_info=defaults.DISPLAY_OPERATION_INFO,

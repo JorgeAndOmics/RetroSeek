@@ -83,8 +83,10 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "Bio.*",
+    "pandas",
     "pandera.*",
     "dill.*",
+    "yaml",
     "yamale.*",
     "coloredlogs.*",
     "tqdm.*",
