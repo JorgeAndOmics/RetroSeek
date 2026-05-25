@@ -1,0 +1,41 @@
+# RetroSeek production-config template.
+#
+# Copy this file to `data/config/config.local.yaml` (gitignored) and edit
+# the four `root` paths plus `input.probe_csv` to point at your data.
+# Then invoke RetroSeek with:
+#
+#     ./RetroSeek --configfile data/config/config.local.yaml [other flags]
+#
+# Only the fields that need machine-specific values are shown below — the
+# rest are inherited from `data/config/config.yaml`. Snakemake's
+# --configfile loader merges them.
+
+input:
+  # Absolute path to your probe metadata CSV. Columns are parsed by
+  # workflow/scripts/probe_extractor.py::table_parser().
+  probe_csv: '/path/to/your/probes.csv'
+
+root:
+  # Where genome FASTAs / BLAST DBs / suffix arrays live. Often on a
+  # large external storage volume separate from the repo working tree.
+  db_root_folder: '/path/to/your/genomes'
+
+  # Working intermediates: pickles, parquets, ltr_scn files. Heavy disk
+  # use; usually colocated with results.
+  data_root_folder: '/path/to/your/run/data'
+
+  # Final outputs: tracks, tables, plots, hotspots.
+  results_root_folder: '/path/to/your/run/results'
+
+  # Per-rule run logs.
+  logs_root_folder: '/path/to/your/run/logs'
+
+execution:
+  # Override defaults to match your machine's resources.
+  num_cores: 64
+  entrez_email: 'your.email@institution.example'
+
+# Override any other field from the base config.yaml as needed.
+# Common ones to revisit on a new dataset:
+#   blast.e_value, parameters.bitscore_threshold, parameters.main_probes,
+#   ltr_retriever.threads_per_genome, ltr_retriever.source_scn.

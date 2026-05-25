@@ -1,559 +1,246 @@
-# -------------------
-# DEPENDENCIES
-# -------------------
+# =============================================================================
+# ranges_analysis.R — orchestrator
+# =============================================================================
+# Phase-separated pipeline that integrates tBLASTn results with LTRdigest
+# annotations. The heavy lifting is in workflow/scripts/range_analysis/*.R;
+# this file only argument-parses, sources the modules, and wires the data
+# flow phase by phase. Each section is intentionally short so the high-level
+# data shape is visible at a glance.
+#
+# Phases:
+#   1. Load inputs (config, BLAST parquet, LTRdigest GFF3, probes, FASTA).
+#   2. Build the BLAST GRanges and apply quality / length filters.
+#   3. Reduce overlapping ranges per (probe x virus|label) -> composite metrics.
+#   4. Globally reduce per probe across virus|label groupings.
+#   5. Process LTRdigest into retrotransposons, domains-with-probes, and
+#      flanking LTRs.
+#   6. Identify candidate hits (LTR-overlapping) and valid hits (probe matches
+#      a Pfam-domain probe in the same retrotransposon).
+#   7. Build the per-row plot dataframe + attach probe_category to all tracks.
+#   8. Export GFF3 / BED6 / parquet / overlap matrix / manifest.
 
-# Suppress warnings so that the output is cleaner; warnings won't appear on-screen.
-options(warn = -1)
-
-# Suppress messages from loading libraries, so the console remains uncluttered.
 suppressMessages({
-  library(yaml)           # For reading YAML configuration file
-  library(arrow)          # Provides tools for reading and writing Parquet files
-  library(tidyverse)      # Collection of R packages for data manipulation and visualization
-  library(argparse)       # Command-line argument parsing
-  library(GenomicRanges)  # Genomic interval operations
-  library(plyranges)      # "Tidyverse"-style GRanges operations
-  library(rtracklayer)    # Reading/writing genome annotation files (e.g., GFF, BED)
+  library(argparse)
+  library(GenomicRanges)
+  library(plyranges)
+  library(dplyr)
 })
 
 
-# -------------------------------
-# 2. PARSE COMMAND-LINE ARGUMENTS
-# -------------------------------
-parser <- ArgumentParser(description = 'Process tBLASTn and LTRdigest integration overlaps')
+# ----------------------------------------------------------------------------
+# Locate sibling scripts + source modules
+# ----------------------------------------------------------------------------
+.resolve_script_dir <- function() {
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  "scripts"
+}
+.script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "range_aggregation_strategies.R"))
+source(file.path(.script_dir, "range_analysis", "io.R"))
+source(file.path(.script_dir, "range_analysis", "granges_build.R"))
+source(file.path(.script_dir, "range_analysis", "filtering.R"))
+source(file.path(.script_dir, "range_analysis", "reductions.R"))
+source(file.path(.script_dir, "range_analysis", "validation.R"))
+source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
+source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
+source(file.path(.script_dir, "range_analysis", "exporters.R"))
 
-# Define expected command-line arguments
-parser$add_argument("--fasta", required=TRUE, help="Genome FASTA input file")
-parser$add_argument("--blast", required=TRUE, help="tBLASTn Parquet input file")
-parser$add_argument("--ltrdigest", required=TRUE, help="LTRdigest GFF3 input file")
-parser$add_argument("--probes", required=TRUE, help="Probes metadata file (CSV)")
-parser$add_argument("--config", required=TRUE, help="Configuration YAML file")
-parser$add_argument("--original_ranges", required=TRUE, help="GFF3 output: original and merged hits")
-parser$add_argument("--original_ranges_reduced", required=TRUE, help="GFF3 output: original reduced and merged hits")
-parser$add_argument("--candidate_ranges", required=TRUE, help="GFF3 output: hits overlapping LTRs")
-parser$add_argument("--candidate_ranges_reduced", required=TRUE, help="GFF3 output: reduced hits overlapping LTRs")
-parser$add_argument("--valid_ranges", required=TRUE, help="GFF3 output: domain-validated hits")
-parser$add_argument("--valid_ranges_reduced", required=TRUE, help="GFF3 output: reduced domain-validated hits")
-parser$add_argument("--solo_ltr_ranges", required=FALSE, help="GFF3 output: solo LTRs")
-parser$add_argument("--flanking_ltr_ranges", required=FALSE, help="GFF3 output: flanking LTRs")
-parser$add_argument("--overlap_matrix", required=TRUE, help="CSV summary of overlaps")
-parser$add_argument("--plot_dataframe", required=TRUE, help="Parquet output for plotting")
 
+# ----------------------------------------------------------------------------
+# CLI
+# ----------------------------------------------------------------------------
+parser <- ArgumentParser(description = "Process tBLASTn and LTRdigest integration overlaps")
+parser$add_argument("--fasta",                    required = TRUE)
+parser$add_argument("--blast",                    required = TRUE)
+parser$add_argument("--ltrdigest",                required = TRUE)
+parser$add_argument("--probes",                   required = TRUE)
+parser$add_argument("--probe_dict",               required = TRUE,
+                    help = paste("Post-fetch probe_dict parquet (with",
+                                 "genbank_seq populated). Used to compute",
+                                 "per-hit query_coverage."))
+parser$add_argument("--config",                   required = TRUE)
+parser$add_argument("--original_ranges",          required = TRUE)
+parser$add_argument("--original_ranges_reduced",  required = TRUE)
+parser$add_argument("--candidate_ranges",         required = TRUE)
+parser$add_argument("--candidate_ranges_reduced", required = TRUE)
+parser$add_argument("--valid_ranges",             required = TRUE)
+parser$add_argument("--valid_ranges_reduced",     required = TRUE)
+parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
+parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
+parser$add_argument("--overlap_matrix_csv",       required = TRUE)
+# Per-genome ranges-analysis tables (final_loci / homology_loci / ltr_structure
+# / reduction_multiplicity / counts). Each is written as both parquet (under
+# --ranges_analysis_parquet_dir, pipeline-internal) and CSV (under
+# --ranges_analysis_csv_dir, user-facing); filenames derive from --genome.
+parser$add_argument("--ranges_analysis_parquet_dir", required = TRUE)
+parser$add_argument("--ranges_analysis_csv_dir",     required = TRUE)
+parser$add_argument("--genome",                      required = TRUE)
+parser$add_argument("--manifest",                 required = FALSE)
 args <- parser$parse_args()
 
-# Print which tBLASTn file is being processed
-message(paste0("Processing ranges for ", tools::file_path_sans_ext(basename(args$blast)), "..."))
 
-# -----------------------------
-# 3. CONFIGURATION PARAMETERS
-# -----------------------------
-# Read YAML configuration file
-config <- yaml::read_yaml(args$config)
+# ----------------------------------------------------------------------------
+# Pipeline instrumentation
+# ----------------------------------------------------------------------------
+.t0 <- Sys.time()
+log_section <- function(name) {
+  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
+  message(sprintf("[%6.2fs] > %s", elapsed, name))
+}
+.counts <- list()
+record_count <- function(key, value) { .counts[[key]] <<- value }
 
-# Import thresholds and merging behavior from config
-probe_min_length   <- unlist(config$parameters$probe_min_length)
-bitscore_threshold <- as.numeric(config$parameters$bitscore_threshold) %||% 0
-identity_threshold <- as.numeric(config$parameters$identity_threshold) %||% 0
-ltr_resize         <- as.numeric(config$parameters$ltr_resize) %||% 0
-merge_options      <- config$parameters$merge_options %||% "virus"
-main_probes        <- config$parameters$main_probes
+message(paste0("Processing ranges for ",
+               tools::file_path_sans_ext(basename(args$blast)), "..."))
 
-# -----------------------------
-# 4. DETERMINE FILE TYPE
-# -----------------------------
-# Whether this is a _main file (used for optional domain validation and ltr parsing)
-is_main <- grepl("_main", args$blast) & !grepl("_accessory", args$blast)
 
-# -----------------------------
-# 5. LOAD FASTA AND CHR LENGTHS
-# -----------------------------
-fa_file <- Biostrings::readDNAStringSet(args$fasta)
-chrom_lengths <- setNames(width(fa_file), names(fa_file))
+# ----------------------------------------------------------------------------
+# Phase 1. Load inputs
+# ----------------------------------------------------------------------------
+log_section("Phase 1: loading config, FASTA, BLAST parquet, LTRdigest, probes")
+config        <- read_config(args$config)
+opts          <- read_pipeline_options(config)
+chrom_lengths <- load_chrom_lengths(args$fasta)
+blast_df      <- load_blast_parquet(args$blast)
+ltr_data      <- load_ltrdigest_gff3(args$ltrdigest)
+probes        <- load_probes(args$probes)
+probe_lengths <- load_probe_lengths(args$probe_dict)
+record_count("raw_blast_hits",       nrow(blast_df))
+record_count("ltrdigest_features",   length(ltr_data))
 
-# -----------------------------
-# 6. LOAD INPUT FILES
-# -----------------------------
-data <- arrow::read_parquet(args$blast)
-ltr_data <- rtracklayer::import(args$ltrdigest, format = "gff3")
 
-# -----------------------------
-# 7. BUILD GRanges OBJECT
-# -----------------------------
-gr <- GRanges(
-  seqnames = data$accession,
-  ranges   = IRanges(start = data$hsp_sbjct_start, end = data$hsp_sbjct_end),
-  strand   = data$strand
+# ----------------------------------------------------------------------------
+# Phase 2. Build the BLAST GRanges + filter
+# ----------------------------------------------------------------------------
+log_section("Phase 2: building BLAST GRanges and applying filters")
+gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
+.pre_n <- length(gr)
+gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
+gr <- attach_min_gapwidth(gr, opts$probe_min_length)
+record_count("filtered_blast_hits",  length(gr))
+message(sprintf("   %d of %d hits kept", length(gr), .pre_n))
+
+
+# ----------------------------------------------------------------------------
+# Phase 3. First reduction (per probe x virus | label)
+# ----------------------------------------------------------------------------
+log_section("Phase 3: first reduction (per probe x virus|label)")
+gr_virus <- reduce_first(gr, opts$merge_option, opts)
+gr_virus <- attach_probe_id(gr_virus)
+record_count("first_reduced_ranges", length(gr_virus))
+
+
+# ----------------------------------------------------------------------------
+# Phase 4. Global reduction (per probe across groupings)
+# ----------------------------------------------------------------------------
+log_section("Phase 4: global reduction (per probe across groupings)")
+gr_global <- reduce_global(gr_virus, opts)
+gr_global <- attach_probe_id(gr_global)
+record_count("global_reduced_ranges", length(gr_global))
+
+
+# ----------------------------------------------------------------------------
+# Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
+# ----------------------------------------------------------------------------
+log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
+domain_map        <- build_domain_map(opts$domains)
+retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
+domains_w_probes  <- extract_domains_with_probes(ltr_data, domain_map)
+flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
+record_count("retrotransposons",      length(retrotransposons))
+record_count("domains_with_probes",   length(domains_w_probes))
+record_count("flanking_ltrs",         length(flanking_ltrs))
+
+
+# ----------------------------------------------------------------------------
+# Phase 6. Candidate + valid hits
+# ----------------------------------------------------------------------------
+log_section("Phase 6: identifying candidate + valid hits")
+candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
+candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
+valid_hits               <- find_valid_hits(candidate_hits,         retrotransposons,
+                                            domains_w_probes, opts$agg_concat_separator)
+valid_hits_reduced       <- find_valid_hits(candidate_hits_reduced, retrotransposons,
+                                            domains_w_probes, opts$agg_concat_separator)
+record_count("candidate_ranges",           length(candidate_hits))
+record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
+record_count("valid_ranges",               length(valid_hits))
+record_count("valid_ranges_reduced",       length(valid_hits_reduced))
+
+
+# ----------------------------------------------------------------------------
+# Phase 7. Plot dataframe + probe-category tagging
+# ----------------------------------------------------------------------------
+log_section("Phase 7: plot dataframe + probe_category tagging")
+# Plot dataframe is built from the valid-reduced tier (the final, LTR-integrated
+# output) rather than gr_virus (the homology-only original tier). The middle
+# stage is visualised separately by stage_plot_generator.R.
+plot_df <- build_plot_dataframe(
+  valid_hits_reduced, probes$df_sum, opts$main_probes,
+  opts$agg_virus, opts$agg_concat_separator
 )
+gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
+gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
+candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_probes, opts$agg_concat_separator)
+candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
+valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
+valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
 
-# Attach metadata to GRanges object
-mcols(gr)$label    <- data$label
-mcols(gr)$virus    <- data$virus
-mcols(gr)$bitscore <- data$hsp_bits
-mcols(gr)$identity <- (data$hsp_identity / data$hsp_align_length) * 100
-mcols(gr)$species  <- data$species
-mcols(gr)$probe    <- data$probe
 
-# -----------------------------
-# 8. FILTER LOW-QUALITY RANGES
-# -----------------------------
-gr <- gr %>% filter(
-  width(.) > ifelse(!is.na(probe_min_length[as.character(probe)]), probe_min_length[as.character(probe)], 0),
-  bitscore > bitscore_threshold,
-  identity > identity_threshold
-)
+# ----------------------------------------------------------------------------
+# Phase 8. Export tracks + tables + manifest
+# ----------------------------------------------------------------------------
+log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
+gen_ver <- resolve_generator_version()
 
-# -----------------------------
-# 9. ADD SEQUENCE METADATA
-# -----------------------------
-seqinfo(gr) <- Seqinfo(seqnames = seqlevels(gr), genome = gr$species[1])
-seqlengths(gr) <- chrom_lengths[names(seqlengths(gr))]
+track_exporter(gr_virus,               args$original_ranges,          gen_ver)
+track_exporter(gr_global,              args$original_ranges_reduced,  gen_ver)
+bed_exporter(  gr_global,              sub("\\.gff3$", ".bed", args$original_ranges_reduced))
 
-# -----------------------------
-# 10. REDUCE BY PROBE + GAP WIDTH
-# -----------------------------
-gap_vals <- ifelse(!is.na(probe_min_length[as.character(gr$probe)]), probe_min_length[as.character(gr$probe)], 0)
-mcols(gr)$min_gapwidth <- gap_vals
-gr_list <- split(gr, ~ probe)
+track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
+track_exporter(candidate_hits_reduced, args$candidate_ranges_reduced, gen_ver)
+bed_exporter(  candidate_hits_reduced, sub("\\.gff3$", ".bed", args$candidate_ranges_reduced))
 
-# Group-specific reduction using reduce_ranges_directed
+track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
+track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
+bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
 
-gr_list_reduced_virus <- sapply(gr_list, function(sub_gr) {
-  gap_val <- unique(sub_gr$min_gapwidth)
-  sub_gr %>% group_by(probe, virus) %>% reduce_ranges_directed(
-    min.gapwidth = gap_val,
-    virus    = as.character(unique(virus)),
-    species  = as.character(unique(species)),
-    label   = as.character(unique(label)),
-    bitscore = max(bitscore),
-    identity = max(identity)
-  )
-})
+track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
-if (merge_options == "label") {
-  gr_list_reduced_label <- sapply(gr_list, function(sub_gr) {
-    gap_val <- unique(sub_gr$min_gapwidth)
-    sub_gr %>% group_by(probe, label) %>% reduce_ranges_directed(
-      min.gapwidth = gap_val,
-      virus    = paste(unique(virus), collapse = "; "),
-      species  = as.character(unique(species)),
-      bitscore = max(bitscore),
-      identity = max(identity)
-    )
-  })
+overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits,
+                        args$overlap_matrix_parquet, args$overlap_matrix_csv)
+
+# Per-genome ranges-analysis tables — each written as parquet (pipeline-internal)
+# + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
+.table_path <- function(table, ext) {
+  dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
+         else                  args$ranges_analysis_csv_dir
+  file.path(dir, sprintf("%s.%s.%s", args$genome, table, ext))
+}
+write_one <- function(table, df) {
+  write_table(df, .table_path(table, "parquet"), .table_path(table, "csv"))
 }
 
-# Combine all reduced probe groups
-gr_virus <- bind_ranges(gr_list_reduced_virus)
+write_one("final_loci", plot_df)
+write_one("homology_loci",
+          build_stage_hits_df(gr_virus, retrotransposons, candidate_hits, valid_hits))
+write_one("ltr_structure",
+          build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
+                             ltr_data, gr_virus))
+write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
+# Genomic counts as their own long-form table — the run manifest no longer
+# carries genomic data, and the refinement-funnel plots read this.
+write_one("counts", tibble::tibble(
+  metric = names(.counts),
+  value  = as.integer(unlist(.counts, use.names = FALSE))
+))
 
-if (merge_options == "label") {
-  gr <- bind_ranges(gr_list_reduced_label)
-} else {
-  gr <- gr_virus
+if (!is.null(args$manifest)) {
+  emit_manifest(args, gen_ver, opts, args$manifest)
 }
 
-# -----------------------------
-# 11. GLOBAL REDUCTION ACROSS PROBES
-# -----------------------------
-reducing.gr <- function(gr) {
-  gr %>%
-    group_by(probe) %>%
-    reduce_ranges_directed(
-      species        = paste(unique(species), collapse = "; "),
-      virus          = paste(sort(unique(virus)), collapse = "; "),
-      label          = paste(sort(unique(label)), collapse = "; "),
-      mean_bitscore  = if (length(bitscore) > 1) mean(bitscore) else bitscore,
-      mean_identity  = if (length(identity) > 1) mean(identity) else identity,
-      type           = "proviral_sequence"
-    ) %>%
-    arrange(.by_group = start)
-}
-
-reduced_gr <- reducing.gr(gr)
-
-gr_virus <- gr_virus %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
-
-named_reduced_gr <- reduced_gr %>% group_by(probe) %>% mutate(ID = paste0(probe, "_", seq_along(probe))) %>% ungroup()
-
-# -----------------------------
-# 12. PROCESS LTR RETRO ELEMENTS
-# -----------------------------
-ltr_retro <- ltr_data %>% filter(type == "repeat_region")
-flank_resize <- as.numeric(ltr_resize)
-ltr_retro <- ltr_retro %>% resize(width = width(ltr_retro) + flank_resize, fix = "center")
-
-
-# ------------------------------------------
-# 13. PROCESS LTR PROTEIN DOMAINS FROM LTRDIGEST
-# ------------------------------------------
-# Step 1: Filter LTRdigest GFF3 entries to keep only those with a 'name' attribute.
-# These correspond to protein domains (e.g., RVT, Integrase, etc).
-# Remove metadata columns that are not required for downstream analysis.
-ltr_domain <- ltr_data %>%
-  filter(!is.na(name)) %>%  # Keep only rows that have a named domain
-  select(
-    -source, -phase,        # Remove unused GFF fields
-    -ID,                    # We will aggregate and reassign IDs later
-    -ltr_similarity,        # Remove LTR similarity metadata
-    -seq_number,            # Redundant field
-    -reading_frame          # Not needed for domain-level comparisons
-  )
-
-# Step 2: Create a domain-to-probe mapping dictionary.
-# Each probe in config$domains is a vector of regular expressions to look for; we collapse each into a single pattern string (x|y|z).
-# This creates a named character vector where each name is a probe and value is a regex pattern (POL: "rvt|integrase|aspartic").
-domain_map <- purrr::map_chr(config$domains, ~ paste(.x, collapse = "|"))
-
-# Step 3: Function to assign a 'probe' label to a given domain name.
-# It searches the domain name against all domain_map regex patterns.
-# If multiple probes match, it chooses the longest matching probe name (favoring specificity).
-assign_probe <- function(domain_name) {
-  matched_probe <- purrr::keep(names(domain_map), function(probe) {
-    grepl(domain_map[[probe]], domain_name, ignore.case = TRUE)
-  })
-  
-  if (length(matched_probe) > 0) {
-    # Prefer the most specific probe (longest name)
-    matched_probe[order(nchar(matched_probe), decreasing = TRUE)[1]]
-  } else {
-    # Return NA if no match is found
-    NA_character_
-  }
-}
-
-# Step 4: Apply the probe assignment function to each domain name.
-# This creates a new 'probe' column identifying which probe the domain matches.
-# Then we remove rows that couldn't be assigned to any probe (i.e., unrecognized domains).
-ltr_domain <- ltr_domain %>%
-  mutate(probe = purrr::map_chr(name, assign_probe)) %>%
-  filter(!is.na(probe))  # Retain only domains successfully mapped to a probe
-
-# -----------------------------
-# 13B. EXTRACT SOLO LTRs
-# -----------------------------
-# Main and Accessory will provide the same tracks, as they don't depend on BLAST
-# results, so we only perform it on main tracks
-
-# Step 1: Extract all LTR features and their Parent IDs
-ltr_seqs <- ltr_data[ltr_data$type == "long_terminal_repeat"]
-ltr_seqs$ParentID <- sapply(mcols(ltr_seqs)$Parent, function(x) sub(".*Parent=([^;]+).*", "\\1", x))
-
-# Step 2: Extract all LTR_retrotransposon parent IDs (composite ERVs)
-ervs <- ltr_data[ltr_data$type == "LTR_retrotransposon"]
-erv_ids <- unique(mcols(ervs)$ID)
-
-# Step 3: Filter out LTRs that are part of full ERVs (i.e., retain only solo LTRs)
-solo_ltr <- ltr_seqs[!ltr_seqs$ParentID %in% erv_ids]
-
-# Step 4: Assign unique ID to each solo LTR
-if (length(solo_ltr) > 0) {
-  solo_ltr$ID <- paste0("soloLTR_", seq_along(solo_ltr))
-}
-
-# -----------------------------
-# 13C. EXTRACT FLANKING LTRs FROM ERVs
-# -----------------------------
-
-# Step 1: Keep only LTRs that belong to full ERVs
-ltr_flanking <- ltr_seqs[ltr_seqs$ParentID %in% erv_ids]
-
-# Step 2: Join strand/start from parent ERVs for orientation
-erv_meta <- data.frame(
-  ID = mcols(ervs)$ID,
-  strand = as.character(strand(ervs)),
-  start = start(ervs)
-)
-
-# Step 3: Add orientation and relative position info
-mcols(ltr_flanking)$strand_erv <- erv_meta$strand[match(ltr_flanking$ParentID, erv_meta$ID)]
-mcols(ltr_flanking)$start_erv <- erv_meta$start[match(ltr_flanking$ParentID, erv_meta$ID)]
-
-# Step 4: Label LTR side (left/right) heuristically
-ltr_flanking$LTR_side <- ifelse(
-  (ltr_flanking$strand_erv == "+" & start(ltr_flanking) <= ltr_flanking$start_erv + config$parameters$ltr_flank_margin),
-  "left",
-  ifelse(
-    (ltr_flanking$strand_erv == "-" & start(ltr_flanking) >= ltr_flanking$start_erv - config$parameters$ltr_flank_margin),
-    "left",
-    "right"
-  )
-)
-
-# Step 5: Assign ID based on ERV and LTR side
-if (length(ltr_flanking) > 0) {
-  ltr_flanking$ID <- paste0("flankLTR_", ltr_flanking$ParentID, "_", ltr_flanking$LTR_side)
-} else {
-  ltr_flanking <- GRanges()   # Empty GRanges if no flanking LTRs
-}
-
-# -----------------------------
-# 14. OVERLAP DETECTION: tBLASTn vs. LTRs
-# -----------------------------
-
-# Compute overlaps between tBLASTn hits and LTR retrotransposons
-ov.B2L <- findOverlaps(named_reduced_gr, ltr_retro)
-ov.B2L.virus <- findOverlaps(gr_virus, ltr_retro)
-ov.L2B <- findOverlaps(ltr_retro, named_reduced_gr)
-
-# Extract overlapping/non-overlapping hits
-BonL       <- named_reduced_gr[unique(queryHits(ov.B2L))]    # tBLASTn hits overlapping LTRs
-BoutsideL  <- named_reduced_gr[-unique(queryHits(ov.B2L))]   # tBLASTn hits outside LTRs
-LonB       <- ltr_retro[unique(queryHits(ov.L2B))]           # LTRs overlapping tBLASTn hits
-LoutsideB  <- ltr_retro[-unique(queryHits(ov.L2B))]          # LTRs with no tBLASTn overlap
-
-# Compute percentages of overlap
-percent_BonL       <- round(length(BonL) / length(named_reduced_gr) * 100, 2)
-percent_BoutsideL  <- round(length(BoutsideL) / length(named_reduced_gr) * 100, 2)
-percent_LonB       <- round(length(LonB) / length(ltr_retro) * 100, 2)
-percent_LoutsideB  <- round(length(LoutsideB) / length(ltr_retro) * 100, 2)
-
-
-# -----------------------------
-# 15. OVERLAP SUMMARY TABLES
-# -----------------------------
-
-# Summary: tBLASTn intervals
-blast_overlap_df <- data.frame(
-  In   = length(BonL),
-  Out  = length(BoutsideL),
-  InP  = percent_BonL,
-  OutP = percent_BoutsideL,
-  row.names = "tBLASTn"
-)
-
-# Summary: LTR intervals
-ltr.full_overlap_df <- data.frame(
-  In   = length(LonB),
-  Out  = length(LoutsideB),
-  InP  = percent_LonB,
-  OutP = percent_LoutsideB,
-  row.names = "LTRdigest"
-)
-
-
-# -----------------------------
-# 16. PER-PROBE OVERLAP ANALYSIS
-# -----------------------------
-
-probe_overlap_calculator <- function(gr, ltr_retro) {
-  probes <- unique(gr$probe)
-  overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
-  rownames(overlap_df) <- probes
-  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
-  
-  for (pr in probes) {
-    gr_pr <- gr[gr$probe == pr]
-    ov <- findOverlaps(gr_pr, ltr_retro)
-    
-    in_hits <- gr_pr[unique(queryHits(ov))]
-    out_hits <- gr_pr[-unique(queryHits(ov))]
-    
-    overlap_df[pr, ] <- c(
-      length(in_hits),
-      length(out_hits),
-      round(length(in_hits) / length(gr_pr) * 100, 2),
-      round(length(out_hits) / length(gr_pr) * 100, 2)
-    )
-  }
-  
-  return(overlap_df)
-}
-
-probe_overlap_df <- probe_overlap_calculator(named_reduced_gr, ltr_retro)
-
-
-# -----------------------------
-# 17. PER-LTR OVERLAP ANALYSIS PER PROBE
-# -----------------------------
-
-ltrdigest_overlap_calculator <- function(gr, ltr_retro) {
-  probes <- unique(gr$probe)
-  overlap_df <- data.frame(matrix(NA, nrow = length(probes), ncol = 4))
-  rownames(overlap_df) <- paste0("LTR_", probes)
-  colnames(overlap_df) <- c("In", "Out", "InP", "OutP")
-  
-  for (pr in probes) {
-    gr_pr <- gr[gr$probe == pr]
-    ov <- findOverlaps(ltr_retro, gr_pr)
-    
-    in_hits <- ltr_retro[unique(queryHits(ov))]
-    out_hits <- ltr_retro[-unique(queryHits(ov))]
-    
-    overlap_df[paste0("LTR_", pr), ] <- c(
-      length(in_hits),
-      length(out_hits),
-      round(length(in_hits) / length(ltr_retro) * 100, 2),
-      round(length(out_hits) / length(ltr_retro) * 100, 2)
-    )
-  }
-  
-  return(overlap_df)
-}
-
-ltr_overlap_df <- ltrdigest_overlap_calculator(named_reduced_gr, ltr_retro)
-
-
-# -----------------------------
-# 18. COMBINE OVERLAP RESULTS
-# -----------------------------
-
-# Merge global and per-probe overlap dataframes
-overlap_df <- rbind(blast_overlap_df, ltr.full_overlap_df, probe_overlap_df, ltr_overlap_df)
-
-
-# -----------------------------
-# 19. CONSTRUCT PLOTTING DATAFRAME
-# -----------------------------
-
-# Read virus metadata
-probe_df <- readr::read_csv(args$probes, show_col_types = FALSE)
-probe_df_sum <- probe_df %>% distinct(Name, Label, Abbreviation)
-
-# Prepare plot-friendly dataframes from reduced GRanges
-plot_df <- as.data.frame(reduced_gr) %>%
-  tidyr::separate_rows(virus, sep = "; ") %>%
-  mutate(
-    label = probe_df_sum$Label[match(virus, probe_df_sum$Name)],
-    abbreviation = probe_df_sum$Abbreviation[match(virus, probe_df_sum$Name)]
-  )
-
-# Generate further dataframes by filtering for main and accessory probes
-plot_df_main <- plot_df %>%
-  filter(probe %in% main_probes) %>%
-  mutate(probe_type = "main")
-
-plot_df_accessory <- plot_df %>%
-  filter(!probe %in% main_probes) %>%
-  mutate(probe_type = "accessory")
-
-
-
-# -----------------------------
-# 20. IDENTIFY VALID tBLASTn HITS
-# -----------------------------
-
-# Candidate hits are those overlapping LTR regions
-ltr_valid_hits <- gr_virus[queryHits(ov.B2L.virus)] %>% arrange(start)
-ltr_valid_hits_reduced <- named_reduced_gr[queryHits(ov.B2L)] %>% arrange(start)
-
-
-# -----------------------------
-# 21. OPTIONAL DOMAIN VALIDATION
-# -----------------------------
-
-domain_valid_hits <- gr_virus %>%
-  
-  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
-  join_overlap_inner_directed(
-    ltr_valid_hits,
-    suffix = c(".gr", ".ltr_valid")
-  ) %>%
-  
-  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
-  filter(probe.gr == probe.ltr_valid) %>%
-  mutate(probe = probe.gr) %>%
-  
-  # Step 3: Overlap the result with LTR domains (strand-aware again)
-  join_overlap_inner_directed(
-    ltr_domain,
-    suffix = c(".merged", ".ltr_domain")
-  ) %>%
-  
-  # Step 4: Filter only cases where probe labels match again
-  filter(probe.merged == probe.ltr_domain) %>%
-  mutate(Parent = as.character(Parent)) %>%
-  
-  # Step 5: Clean up and order result
-  mutate(
-    probe         = probe.merged,
-    species       = species.gr,
-    virus         = virus.gr,
-    label         = label.gr,
-    name          = name,
-    Parent        = Parent,
-    ID            = ID.gr,
-    bitscore = bitscore.gr,
-    identity = identity.gr
-  ) %>%
-  select(
-    probe, species, virus, label,
-    name, ID, Parent,
-    bitscore, identity
-  ) %>%
-  arrange(start)
-
-
-domain_valid_hits_reduced <- gr %>%
-  
-  # Step 1: Overlap tBLASTn hits with valid LTR hits (strand-aware)
-  join_overlap_inner_directed(
-    ltr_valid_hits_reduced,
-    suffix = c(".gr", ".ltr_valid")
-  ) %>%
-  
-  # Step 2: Keep only pairs where probes match between tBLASTn and LTR
-  filter(probe.gr == probe.ltr_valid) %>%
-  mutate(probe = probe.gr) %>%
-  
-  # Step 3: Overlap the result with LTR domains (strand-aware again)
-  join_overlap_inner_directed(
-    ltr_domain,
-    suffix = c(".merged", ".ltr_domain")
-  ) %>%
-  
-  # Step 4: Filter only cases where probe labels match again
-  filter(probe.merged == probe.ltr_domain) %>%
-  mutate(Parent = as.character(Parent)) %>%
-  
-  # Step 5: Group by probe for reduction
-  group_by(probe.ltr_valid) %>%
-  
-  # Step 6: Reduce overlapping domains, aggregating relevant fields
-  reduce_ranges_directed(
-    probe         = paste(unique(probe.ltr_valid), collapse = "; "),
-    species       = paste(unique(species.gr), collapse = "; "),
-    virus         = paste(sort(unique(virus.gr)), collapse = "; "),
-    label        = paste(sort(unique(label.gr)), collapse = "; "),
-    name          = paste(sort(unique(name)), collapse = "; "),
-    ID            = paste(sort(unique(ID)), collapse = "; "),
-    Parent        = paste(unique(Parent), collapse = "; "),
-    mean_bitscore = paste(unique(mean_bitscore), collapse = "; "),
-    mean_identity = paste(unique(mean_identity), collapse = "; "),
-  ) %>%
-  
-  # Step 7: Clean up and order result
-  select(-probe.ltr_valid) %>%
-  arrange(.by_group = start)
-
-
-# -----------------------------
-# 22. EXPORT OUTPUT FILES
-# -----------------------------
-# Export GRanges in GFF3 format. If empty GRanges, it will create a GFF3 file with only the header.
-
-track_exporter <- function(track, path) {
-  if (length(track) > 0) {
-    rtracklayer::export(track, path, format = "gff3")
-  } else {
-    writeLines("##gff-version 3", con = path)
-  }
-}
-
-track_exporter(gr_virus,               args$original_ranges)
-track_exporter(named_reduced_gr,       args$original_ranges_reduced)
-
-track_exporter(ltr_valid_hits,         args$candidate_ranges)
-track_exporter(ltr_valid_hits_reduced, args$candidate_ranges_reduced)
-
-track_exporter(domain_valid_hits,      args$valid_ranges)
-track_exporter(domain_valid_hits_reduced, args$valid_ranges_reduced)
-
-track_exporter(solo_ltr, args$solo_ltr_ranges)
-track_exporter(ltr_flanking, args$flanking_ltr_ranges)
-
-# Export plotting data
-arrow::write_parquet(plot_df, args$plot_dataframe)
-arrow::write_parquet(plot_df_main, sub(".parquet", "_main.parquet", args$plot_dataframe))
-arrow::write_parquet(plot_df_accessory, sub(".parquet", "_accessory.parquet", args$plot_dataframe))
-
-# Export overlap summary matrix
-write.csv(overlap_df, args$overlap_matrix, row.names = TRUE)
+log_section("Done")

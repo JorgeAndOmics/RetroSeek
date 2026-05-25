@@ -1,24 +1,59 @@
 import os
 import math
-import pandas as pd
+import re
+from pathlib import Path
+
+import pyarrow.parquet as pq
 
 from scripts import defaults
 
-def retrieve_species_list(csv_path:str, default:list[str]=None) -> list[str]:
-    if os.path.exists(csv_path):
-        return pd.read_csv(csv_path)["species"].unique().tolist()
-    else:
-        return default
-
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
-LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'ssp', 'suf']
+# Note: .ssp is NOT emitted by `gt suffixerator` in the genometools version
+# shipped with the conda env — empirically 8 files are produced, not 9. Older
+# versions apparently did produce .ssp. LTRharvest runs fine on the 8-file
+# index, so we omit .ssp here to keep Snakemake's output declarations honest.
+LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'suf']
 BLAST_OUTPUT_EXT = ['csv', 'parquet']
-SPECIES = defaults.SPECIES
-SPECIES_POST = retrieve_species_list(
-    csv_path=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'],'full_genome_blast.csv'),
-    default=defaults.SPECIES
-)
+SPECIES = list(defaults.SPECIES)
+
+
+# Pin {genome} to the exact configured species list. Without this, Snakemake
+# defaults {genome} to the regex `.+`, which causes AmbiguousRuleException
+# whenever two rules write to the same directory with overlapping filename
+# patterns — e.g. ltr_harvester_setup ({genome}.scn) and
+# ltr_retriever_prefilter_setup ({genome}_retroviral.scn), where {genome}
+# would greedily absorb "Antrozous_pallidus_retroviral" for the first rule.
+wildcard_constraints:
+    genome = "|".join(re.escape(s) for s in SPECIES) if SPECIES else r"(?!x)x"
+
+
+def species_with_hits(wildcards):
+    """Return the species that produced tBLASTn hits — resolved at runtime.
+
+    Called as a lambda by every aggregate rule that used to use the
+    parse-time ``SPECIES_POST`` variable. Reading happens from the
+    ``blast_pkl2parquet`` checkpoint's parquet output; Snakemake blocks
+    DAG resolution of any rule calling this function until the checkpoint
+    has run, so the parquet is guaranteed to exist at lookup time.
+
+    This replaces the pre-B1 parse-time mechanism where SPECIES_POST was
+    frozen at Snakefile-parse time and depended on prior-run filesystem
+    state. Now the DAG is a pure function of config + inputs:
+
+    - Fresh run: checkpoint runs blast_pkl2parquet first, then this
+      function resolves to the correct hit-species list.
+    - Re-run after probe changes: checkpoint re-runs, the list refreshes.
+
+    Falls back to the full SPECIES list if the parquet somehow produces
+    zero species (shouldn't happen in practice — BLAST with a valid
+    probe set should hit at least one species — but defensive).
+    """
+    parquet_path = checkpoints.blast_pkl2parquet.get().output.parquet_full
+    table = pq.read_table(parquet_path, columns=["species"])
+    hits = sorted(table.to_pandas()["species"].unique().tolist())
+    return hits if hits else SPECIES
+
 
 configfile: defaults.CONFIG_FILE
 
@@ -40,6 +75,39 @@ rule genome_downloader_setup:
 rule genome_downloader:
     input:
         species=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES)
+
+
+# Canonicalise hand-supplied genome FASTAs that arrived with non-`.fa`
+# extensions (.fna from NCBI Datasets, .fasta from manual download, .ffn
+# from older GenBank exports). The script symlinks `{genome}.fa` to the
+# selected source so every downstream rule's `.fa` input contract holds
+# regardless of upstream filename. Idempotent — a real `{genome}.fa`
+# already in place is left untouched. Refuses on multi-extension
+# ambiguity (see workflow/scripts/genome_fasta_normalizer.py docstring).
+#
+# Ruleorder below pins this rule to win over `genome_downloader_setup`
+# when both can produce the same `{genome}.fa` output: if a user has a
+# local FASTA, no NCBI download fires; if not, the downloader produces
+# `.fa` directly and the normalizer is a no-op via its real-file path.
+rule genome_fasta_normalizer_setup:
+    output:
+        canonical_fa = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'genome_fasta_normalizer', '{genome}.log')
+    params:
+        species_dir = defaults.PATH_DICT['SPECIES_DB']
+    threads: 1
+    shell:
+        '''
+        python scripts/genome_fasta_normalizer.py \
+            --genome-name {wildcards.genome:q} \
+            --species-dir {params.species_dir:q} \
+            --output {output.canonical_fa:q} \
+            2> {log:q}
+        '''
+
+
+ruleorder: genome_fasta_normalizer_setup > genome_downloader_setup
 
 
 rule pfam_hmm_downloader:
@@ -81,8 +149,6 @@ rule blast_db_generator_setup:
         workflow.cores         # Faster download, not conflicts
     shell:
         """
-        find . -maxdepth 1 -type f \( -iname '*.fasta' -o -iname '*.fna' -o -iname '*.fas' -o -iname '*.FASTA' \) \
-        | parallel 'mv {{}} "{{.}}.fa"' && \
         makeblastdb -in {input.fa:q} -dbtype nucl {params.optional_params} \
         -out {params.db_dir:q}/{wildcards.genome:q}/{wildcards.genome:q}
         """
@@ -106,7 +172,8 @@ rule ltr_index_generator_setup:
         md5_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.md5'),
         prj_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.prj'),
         sds_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.sds'),
-        ssp_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.ssp'),
+        # Note: .ssp not declared — gt suffixerator in this env's genometools
+        # version does not emit it. See the comment on LTR_INDEX_EXT above.
         suf_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.suf')
     params:
         db_dir=defaults.PATH_DICT['SPECIES_DB'],
@@ -116,6 +183,11 @@ rule ltr_index_generator_setup:
     threads: config.get('rule_threads', 1)
     shell:
         """
+        ( while sleep 60; do \
+              printf '[heartbeat:ltr_index_generator:%s] still running at %dm elapsed\\n' \
+                  "{wildcards.genome}" $(( SECONDS / 60 )) >&2 ; \
+          done ) & HEARTBEAT_PID=$! ; \
+        trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT && \
         echo "Generating suffix array for {wildcards.genome:q}" && \
         gt suffixerator \
         -db {input.fa:q} \
@@ -136,23 +208,33 @@ rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator.input
     output:
-        ltr_fasta = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
-        ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
-        ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3')
+        ltr_fasta       = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
+        ltr_gff3        = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
+        ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
+        # Screen-format (.scn) output — LTRharvest writes this to stdout by default.
+        # Needed as LTR_retriever's primary input format (-inharvest).
+        ltr_scn         = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}.scn')
     params:
         index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
         output_directory_path=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR']),
+        scn_directory_path=defaults.PATH_DICT['LTR_SCN_DIR'],
         optional_params=config['genome_tools'].get('ltrharvest_optional_parameters','')
     threads: config.get('rule_threads',1)
     shell:
         '''
+        ( while sleep 60; do \
+              printf '[heartbeat:ltr_harvester:%s] still running at %dm elapsed\\n' \
+                  "{wildcards.genome}" $(( SECONDS / 60 )) >&2 ; \
+          done ) & HEARTBEAT_PID=$! ; \
+        trap 'kill $HEARTBEAT_PID 2>/dev/null || true' EXIT && \
         TMPDIR=$(mktemp -d /tmp/ltrharvest_{wildcards.genome}_XXXXXX) && \
         gt ltrharvest \
         -seqids \
         -index {params.index_directory_path:q}/{wildcards.genome:q}/{wildcards.genome:q} \
         -out {params.output_directory_path:q}/{wildcards.genome:q}.fa \
         -gff3 {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
-        {params.optional_params} && \
+        {params.optional_params} \
+        > {params.scn_directory_path:q}/{wildcards.genome:q}.scn && \
         gt gff3 -sort {params.output_directory_path:q}/{wildcards.genome:q}.gff3 \
         > {params.output_directory_path:q}/{wildcards.genome:q}_sorted.gff3
         '''
@@ -165,13 +247,20 @@ rule ltr_harvester:
                            ext=['fa', 'gff3']),
         ltr_sorted_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.{ext}'),
                                  genome=SPECIES,
-                                 ext=['gff3'])
+                                 ext=['gff3']),
+        ltr_scn   = expand(os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}.scn'),
+                           genome=SPECIES)
 
 
 rule ltr_digester_setup:
     input:
-        ltrharvest_output=rules.ltr_harvester.input.ltr_sorted_gff3,
-        pfam_database=rules.pfam_hmm_downloader.output
+        ltr_sorted_gff3=os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
+        pfam_database=rules.pfam_hmm_downloader.output,
+        fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        suffix_index=expand(
+            os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{{genome}}', '{{genome}}.{ext}'),
+            ext=LTR_INDEX_EXT
+        )
     output:
         ltr_gff3 = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     params:
@@ -202,27 +291,32 @@ rule ltr_digester:
                            genome=SPECIES, ext=['gff3'])
 
 
-# TODO: FIX INPUT IN PROBE_EXTRACTOR RULE
 rule probe_extractor:
+    input:
+        probe_csv=defaults.PROBE_CSV
     output:
         probe_pkl=os.path.join(defaults.PATH_DICT['PICKLE_DIR'], 'probe_dict.pkl'),
-        probe_csv=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.csv'),
-        probe_parquet=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'probe_dict.parquet')
+        probe_csv=os.path.join(defaults.PATH_DICT['PROBE_DICT_CSV_DIR'], 'probe_dict.csv'),
+        probe_parquet=os.path.join(defaults.PATH_DICT['PROBE_DICT_PARQUET_DIR'], 'probe_dict.parquet')
     params:
-        table_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
+        pickle_dir=defaults.PATH_DICT['PICKLE_DIR']
     threads:
         workflow.cores
     shell:
         '''
         python scripts/probe_extractor.py && \
-        python scripts/obj2dict.py --files probe_dict.pkl --output_file_name {params.table_dir}/probe_dict
+        python scripts/obj2dict.py --files {params.pickle_dir:q}/probe_dict.pkl \
+            --csv_path {output.probe_csv:q} --parquet_path {output.probe_parquet:q}
         '''
 
 
 rule full_genome_blaster_setup:
     input:
         input_pkl=rules.probe_extractor.output.probe_pkl,
-        blast_db=rules.blast_db_generator.output
+        blast_db=expand(
+            os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{{genome}}', '{{genome}}.{ext}'),
+            ext=BLAST_DB_EXT
+        )
     output:
         parquet_species=os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'], '{genome}.pkl')
     params:
@@ -240,39 +334,59 @@ rule full_genome_blaster:
         pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=SPECIES)
 
 
-rule blast_pkl2parquet:
+# `blast_pkl2parquet` is a Snakemake checkpoint (B1). Its parquet output is
+# the source-of-truth for which species produced tBLASTn hits. Downstream
+# aggregate rules read the parquet at runtime via species_with_hits(wildcards)
+# to resolve which per-genome files they should demand. See the docstring on
+# species_with_hits() at the top of this file for the mechanism.
+checkpoint blast_pkl2parquet:
     input:
         pkl_species=expand(os.path.join(defaults.PATH_DICT['TBLASTN_PICKLE_DIR'],'{genome}.pkl'), genome=SPECIES)
     output:
-        csv_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.csv'),
-        parquet_full=os.path.join(defaults.PATH_DICT['TABLE_OUTPUT_DIR'], 'full_genome_blast.parquet')
+        csv_full=os.path.join(defaults.PATH_DICT['FULL_GENOME_BLAST_CSV_DIR'], 'full_genome_blast.csv'),
+        parquet_full=os.path.join(defaults.PATH_DICT['FULL_GENOME_BLAST_PARQUET_DIR'], 'full_genome_blast.parquet')
     params:
-        tmp_dir=defaults.PATH_DICT['TMP_DIR'],
-        table_output_dir=defaults.PATH_DICT['TABLE_OUTPUT_DIR']
+        tmp_dir=defaults.PATH_DICT['TMP_DIR']
     threads: config.get('rule_threads', 1)
     shell:
         '''
         rm -rf {params.tmp_dir:q} && \
-        python scripts/obj2dict.py --files {input.pkl_species:q} --output_file_name {params.table_output_dir:q}/full_genome_blast
+        python scripts/obj2dict.py --files {input.pkl_species:q} \
+            --csv_path {output.csv_full:q} --parquet_path {output.parquet_full:q}
         '''
 
 rule species_segmenter_setup:
     input:
         input_parquet = rules.blast_pkl2parquet.output.parquet_full
     output:
-        all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], 'all{suffix}.parquet'),
+        # Aggregate outputs (all main / all accessory) — always present.
+        all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'], 'all{suffix}.parquet'),
                            suffix=['_main', '_accessory']),
-        species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                               genome=SPECIES_POST)
+        all_csv=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_CSV_DIR'], 'all{suffix}.csv'),
+                       suffix=['_main', '_accessory']),
+        # Per-species outputs: declared over the FULL SPECIES list (not
+        # SPECIES_POST-equivalent) so Snakemake can resolve per-{genome}
+        # dependencies from downstream rules. species_segmenter.R ensures
+        # every SPECIES gets a table written — empty-schema for species
+        # with no hits. Downstream aggregates demand only the hit subset
+        # via species_with_hits(wildcards) lambdas.
+        species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'], '{genome}.parquet'),
+                                    genome=SPECIES),
+        species_csv_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_CSV_DIR'], '{genome}.csv'),
+                                genome=SPECIES)
     threads: config.get('rule_threads',1)
     params:
-        output_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
-        config_file = defaults.CONFIG_FILE
+        parquet_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'],
+        csv_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_CSV_DIR'],
+        config_file = defaults.CONFIG_FILE,
+        species_list = ",".join(SPECIES)
     shell:
         'Rscript scripts/species_segmenter.R \
         --input_file {input.input_parquet:q} \
-        --output_dir {params.output_dir:q} \
-        --config_file {params.config_file:q}'
+        --parquet_dir {params.parquet_dir:q} \
+        --csv_dir {params.csv_dir:q} \
+        --config_file {params.config_file:q} \
+        --species {params.species_list:q}'
 
 rule species_segmenter:
     input:
@@ -281,11 +395,16 @@ rule species_segmenter:
 
 rule ranges_analysis_setup:
     input:
-        original_fasta=expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'), genome=SPECIES_POST),
-        species_segmented=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'], '{genome}.parquet'),
-                                 genome=SPECIES_POST),
-        ltr_gff3 = expand(os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3'),
-                          genome=SPECIES_POST)
+        # Per-genome scoping (A4): each invocation of this rule needs only
+        # one species's fasta, segmented parquet, and ltrdigest GFF3 — the R
+        # script reads exactly those three per run. The pre-refactor
+        # expand(...) across SPECIES_POST blocked per-species parallelism
+        # and demanded every species' files before ANY genome's ranges-analysis
+        # could run.
+        original_fasta    = os.path.join(defaults.PATH_DICT['SPECIES_DB'],           '{genome}.fa'),
+        species_segmented = os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'],'{genome}.parquet'),
+        ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3'),
+        probe_dict        = os.path.join(defaults.PATH_DICT['PROBE_DICT_PARQUET_DIR'], 'probe_dict.parquet')
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
@@ -293,26 +412,41 @@ rule ranges_analysis_setup:
         candidate_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
-        # solo_ltr_dir=os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-        # flanking_ltr_dir=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
-        overlap_matrix=os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-        plot_dataframes_full=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-        plot_dataframes_main=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_main.parquet'),
-        plot_dataframes_accessory=os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}_accessory.parquet')
+        # solo_ltr production has moved to the LTR_retriever-based workstream
+        # (separate rule); the file is no longer produced by ranges_analysis.R.
+        flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+        overlap_matrix_parquet=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_PARQUET_DIR'],'{genome}.parquet'),
+        overlap_matrix_csv=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_CSV_DIR'],'{genome}.csv'),
+        # Per-genome ranges-analysis tables — parquet (pipeline-internal, under
+        # data/tables/) + CSV (user-facing, under results/tables/) for each.
+        final_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
+        final_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.final_loci.csv'),
+        homology_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),
+        homology_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.homology_loci.csv'),
+        ltr_structure_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_structure.parquet'),
+        ltr_structure_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.ltr_structure.csv'),
+        reduction_multiplicity_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_multiplicity.parquet'),
+        reduction_multiplicity_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.reduction_multiplicity.csv'),
+        counts_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+        counts_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.counts.csv'),
+        manifest=os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
+        original_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.bed'),
+        candidate_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.bed'),
+        valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
-        segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_DIR'],
+        segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'],
         probes_csv=defaults.PROBE_CSV,
         workflow_dir=defaults.PATH_DICT['WORKFLOW_DIR'],
-        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
+        ranges_analysis_csv_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],
         ltr_digest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
         yaml_config_file=defaults.CONFIG_FILE,
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
-        solo_ltr_dir=defaults.PATH_DICT['SOLO_LTR_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
-        overlap_matrix_dir=defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],
+        manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
     shell:
@@ -322,6 +456,7 @@ rule ranges_analysis_setup:
         --blast {params.segmented_species_dir:q}/{wildcards.genome:q}.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
         --probes {params.probes_csv:q} \
+        --probe_dict {input.probe_dict:q} \
         --config {params.yaml_config_file:q} \
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --original_ranges_reduced {params.original_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
@@ -329,42 +464,216 @@ rule ranges_analysis_setup:
         --candidate_ranges_reduced {params.candidate_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
-        --solo_ltr_ranges {params.solo_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
-        --overlap_matrix {params.overlap_matrix_dir:q}/{wildcards.genome:q}.csv \
-        --plot_dataframe {params.plot_dataframes_dir:q}/{wildcards.genome:q}.parquet
+        --overlap_matrix_parquet {output.overlap_matrix_parquet:q} \
+        --overlap_matrix_csv {output.overlap_matrix_csv:q} \
+        --ranges_analysis_parquet_dir {params.ranges_analysis_parquet_dir:q} \
+        --ranges_analysis_csv_dir {params.ranges_analysis_csv_dir:q} \
+        --genome {wildcards.genome:q} \
+        --manifest {params.manifest_dir:q}/{wildcards.genome:q}.yaml
         '''
 
 
 rule ranges_analysis:
     input:
-        original_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
-                               genome=SPECIES_POST),
-        original_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}.gff3'),
-                               genome=SPECIES_POST),
-        candidate_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
-                                genome=SPECIES_POST),
-        candidate_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
-                                genome=SPECIES_POST),
-        valid_tracks=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
-                             genome=SPECIES_POST),
-        valid_tracks_reduced=expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
-                                genome=SPECIES_POST),
-        # solo_ltr=expand(os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],'{genome}.gff3'),
-        #                     genome=SPECIES),
-        # flanking_ltr=expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
-        #                         genome=SPECIES),
-        overlap_matrix=expand(os.path.join(defaults.PATH_DICT['TABLE_OVERLAP_MATRIX_DIR'],'{genome}.csv'),
-                              genome=SPECIES_POST),
-        plot_dataframes_full=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}.parquet'),
-                               genome=SPECIES_POST),
-        plot_dataframes_suffixed=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
-                                 genome=SPECIES_POST, suffix=['_main','_accessory'])
+        original_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
+                               genome=species_with_hits(wildcards)),
+        original_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
+                               genome=species_with_hits(wildcards)),
+        candidate_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
+                                genome=species_with_hits(wildcards)),
+        candidate_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
+                                genome=species_with_hits(wildcards)),
+        valid_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
+                             genome=species_with_hits(wildcards)),
+        valid_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+                                genome=species_with_hits(wildcards)),
+        # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
+        # demand solo_ltr/{genome}.gff3 here.
+        flanking_ltr=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
+                            genome=species_with_hits(wildcards)),
+        overlap_matrix=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_PARQUET_DIR'],'{genome}.parquet'),
+                              genome=species_with_hits(wildcards)),
+        final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
+                               genome=species_with_hits(wildcards)),
+        homology_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),
+                               genome=species_with_hits(wildcards)),
+        ltr_structure=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_structure.parquet'),
+                               genome=species_with_hits(wildcards)),
+        reduction_multiplicity=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_multiplicity.parquet'),
+                               genome=species_with_hits(wildcards)),
+        counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+                               genome=species_with_hits(wildcards)),
+        manifests=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
+                               genome=species_with_hits(wildcards))
+
+
+# ───────────────────────────── LTR_retriever chain ───────────────────────────
+# Pre-filter LTRharvest SCN by RetroSeek's retroviral-confirmed ERV set
+# (valid_ranges.gff3) — Coupling A. Then hand the filtered SCN to
+# LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
+# derived from the retained intact ERVs. See docs/solo_ltr.md for full
+# mechanism and the LTR_retriever stages.
+rule ltr_retriever_prefilter_setup:
+    input:
+        scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
+        des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
+        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3')
+    output:
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
+        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever_prefilter', '{genome}.log')
+    threads: 1
+    shell:
+        '''
+        python scripts/ltr_retriever_prefilter.py \
+            --scn {input.scn:q} \
+            --des {input.des:q} \
+            --valid-ranges {input.valid_ranges:q} \
+            --output-retroviral {output.retroviral_scn:q} \
+            --output-full {output.full_scn:q} \
+            2> {log:q}
+        '''
+
+
+rule ltr_retriever_prefilter:
+    input:
+        retroviral_scn = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
+            genome=species_with_hits(wildcards)
+        ),
+        full_scn = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn'),
+            genome=species_with_hits(wildcards)
+        )
+
+
+# Invoke LTR_retriever itself. It writes multiple output files into its working
+# directory; we declare the three we consume downstream (.pass.list.gff3,
+# .nmtf.pass.list, .LTRlib.fa). Other LTR_retriever outputs appear alongside
+# them and are considered working files.
+rule ltr_retriever_setup:
+    input:
+        genome_fa      = os.path.join(defaults.PATH_DICT['SPECIES_DB'],     '{genome}.fa'),
+        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_retroviral.scn'),
+        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_full.scn')
+    output:
+        pass_list_gff3 = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
+        nmtf_pass_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+        ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever', '{genome}.log')
+    params:
+        out_dir           = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}'),
+        source_scn_mode   = config['ltr_retriever'].get('source_scn', 'retroviral'),
+        substitution_rate = config['ltr_retriever'].get('substitution_rate', 1.3e-8),
+        min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91),
+        noanno_flag       = '--noanno' if config['ltr_retriever'].get('noanno', True) else ''
+    threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
+    shell:
+        '''
+        python scripts/run_ltr_retriever.py \
+            --genome-fa {input.genome_fa:q} \
+            --retroviral-scn {input.retroviral_scn:q} \
+            --full-scn {input.full_scn:q} \
+            --source-scn-mode {params.source_scn_mode} \
+            --workdir {params.out_dir:q} \
+            --genome-name {wildcards.genome:q} \
+            --substitution-rate {params.substitution_rate} \
+            --min-similarity {params.min_similarity} \
+            --threads {threads} \
+            {params.noanno_flag} \
+            --log-file {log:q}
+        '''
+
+
+rule ltr_retriever:
+    input:
+        pass_gff3 = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
+            genome=species_with_hits(wildcards)
+        ),
+        nmtf      = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+            genome=species_with_hits(wildcards)
+        ),
+        lib       = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
+            genome=species_with_hits(wildcards)
+        )
+
+
+# Integrate LTR_retriever output with RetroSeek's valid_ranges (Coupling B).
+# Emits the final annotated solo-LTR GFF3 + per-genome solo/intact ratio CSV.
+rule solo_ltr_integrator_setup:
+    input:
+        nmtf         = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+        ltr_library  = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
+        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],   '{genome}.gff3')
+    output:
+        solo_ltr_gff3 = os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],            '{genome}.gff3'),
+        ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'],     '{genome}.csv'),
+        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], '{genome}.parquet')
+    params:
+        nearest_distance = config['ltr_retriever'].get('nearest_erv_max_distance', 10000)
+    threads: 1
+    shell:
+        '''
+        python scripts/solo_ltr_integrator.py \
+            --nmtf-pass-list {input.nmtf:q} \
+            --ltr-library {input.ltr_library:q} \
+            --valid-ranges {input.valid_ranges:q} \
+            --genome {wildcards.genome:q} \
+            --output-gff3 {output.solo_ltr_gff3:q} \
+            --output-ratio-csv {output.ratio_csv:q} \
+            --output-ratio-parquet {output.ratio_parquet:q} \
+            --nearest-erv-max-distance {params.nearest_distance}
+        '''
+
+
+# Aggregate per-genome ratio CSVs into all_species.csv via an inline pandas
+# concat. Tiny helper — not worth its own script.
+rule solo_intact_ratio_aggregate:
+    input:
+        per_genome = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], '{genome}.parquet'),
+            genome=species_with_hits(wildcards)
+        )
+    output:
+        all_species_csv = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'], 'all_species.csv'),
+        all_species_parquet = os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], 'all_species.parquet')
+    threads: 1
+    run:
+        import pandas as pd
+        frames = [pd.read_parquet(p) for p in input.per_genome]
+        if frames:
+            combined = pd.concat(frames, ignore_index=True)
+        else:
+            combined = pd.DataFrame(
+                columns=['species', 'probe_family', 'label_mode',
+                         'intact_count', 'solo_count', 'total_integrations',
+                         'solo_to_intact_ratio', 'solo_fraction']
+            )
+        combined.to_csv(output.all_species_csv, index=False)
+        combined.to_parquet(output.all_species_parquet, index=False)
+
+
+# Top-level aggregate — the CLI target. Demands every per-genome GFF3 + the
+# aggregate CSV, triggering the whole LTR_retriever chain transitively.
+rule solo_ltr_detector:
+    input:
+        solo_gff3 = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'], '{genome}.gff3'),
+            genome=species_with_hits(wildcards)
+        ),
+        all_species = rules.solo_intact_ratio_aggregate.output.all_species_csv
+
 
 rule plot_generator_setup:
     input:
-        plot_dataframes=expand(os.path.join(defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],'{genome}{suffix}.parquet'),
-                               genome=SPECIES_POST, suffix=['_main','_accessory'])
+        final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
+                               genome=species_with_hits(wildcards))
     output:
         density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
@@ -375,9 +684,15 @@ rule plot_generator_setup:
         sankey_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
                             sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
         balloon_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{balloon_probe}_balloon.png'),
-                             balloon_probe=['main','accessory'])
+                             balloon_probe=['main','accessory']),
+        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{qc_probe}_query_coverage.png'),
+                                    qc_probe=['main','accessory']),
+        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
+                             hm_probe=['main','accessory']),
+        waffle_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
+                            wf_probe=['main','accessory'])
     params:
-        plot_dataframes_dir=defaults.PATH_DICT['PLOT_DATAFRAMES_DIR'],
+        ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
         plot_dir=defaults.PATH_DICT['PLOT_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
@@ -385,7 +700,7 @@ rule plot_generator_setup:
     shell:
         '''
         Rscript scripts/plot2sort.R \
-        --input {params.plot_dataframes_dir:q} \
+        --input {params.ranges_analysis_parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q}
         '''
@@ -396,10 +711,53 @@ rule plot_generator:
         plots=rules.plot_generator_setup.output
 
 
+# Middle-stage plots (homology + LTRharvest/LTRdigest integration). Mirrors
+# plot_generator_setup: aggregate rule consuming the per-genome stage
+# dataframes + manifests, emitting a fixed panel of PNGs into PLOT_DIR.
+rule stage_plot_generator_setup:
+    input:
+        homology_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),
+                          genome=species_with_hits(wildcards)),
+        ltr_structure=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_structure.parquet'),
+                         genome=species_with_hits(wildcards)),
+        reduction_multiplicity=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_multiplicity.parquet'),
+                             genome=species_with_hits(wildcards)),
+        counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+                         genome=species_with_hits(wildcards))
+    output:
+        stage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{stage_plot}.png'),
+                           stage_plot=['homology_ltr_concordance',
+                                       'probe_yield_funnel',
+                                       'ltr_structural_components',
+                                       'retrotransposon_domain_composition',
+                                       'refinement_funnel_per_genome',
+                                       'refinement_funnel_aggregate',
+                                       'multiplicity_m1_by_tier',
+                                       'multiplicity_m2_global'])
+    params:
+        ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
+        plot_dir=defaults.PATH_DICT['PLOT_DIR'],
+        config_yaml=defaults.CONFIG_FILE
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript scripts/stage_plot_generator.R \
+        --input {params.ranges_analysis_parquet_dir:q} \
+        --output {params.plot_dir:q} \
+        --config {params.config_yaml:q}
+        '''
+
+
+rule stage_plot_generator:
+    input:
+        plots=rules.stage_plot_generator_setup.output
+
+
 rule circle_plot_generator_setup:
     input:
         fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
-        hits= os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}_main.gff3'),
+        hits=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         ltrdigest=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     output:
         circle_plot_png=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),
@@ -417,7 +775,7 @@ rule circle_plot_generator_setup:
         '''
         Rscript scripts/circle_plot_generator.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}_main.gff3 \
+        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
         --config {params.config_file:q} \
         --output {params.circle_plot_dir:q}/{wildcards.genome:q}
@@ -425,15 +783,24 @@ rule circle_plot_generator_setup:
 
 rule circle_plot_generator:
     input:
-        circle_plots=expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=SPECIES_POST)
+        circle_plots=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=species_with_hits(wildcards))
 
 
 # TODO: SUFFIX PARSING
 rule hotspot_detector_setup:
     input:
-        tracks=rules.ranges_analysis.input
+        # Per-genome scoping (A5): previously this rule demanded
+        # rules.ranges_analysis.input — which expands across ALL species, so
+        # producing one genome's hotspots required every species's tracks.
+        # The hotspot_detector.R shell command below actually reads only
+        # {params.input_track_dir}/{wildcards.genome}.gff3 + {wildcards.genome}.fa.
+        # Declare those as inputs directly so Snakemake schedules the rule
+        # per-{genome} and per-species parallelism works.
+        fasta = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        track = os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3')
     output:
-        hotspot_csv=os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'),
+        hotspot_csv=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'),
+        hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_histogram_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'),
         hotspot_density_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'),
         hotspot_heatmap_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'),
@@ -441,12 +808,13 @@ rule hotspot_detector_setup:
     params:
         genomes_dir=defaults.PATH_DICT['SPECIES_DB'],
         input_track_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],          # For now
-        window_size=config.get('hotspot_window_size', 10000),
-        mask_size=config.get('hotspot_mask_size', 20),
-        mask_mismatch=config.get('hotspot_mask_mismatch', 2),
-        permutations=config.get('hotspot_permutations', 3),
-        pvalue_threshold=config.get('hotspot_pvalue_threshold', 0.05),
-        csv_dir=defaults.PATH_DICT['TABLE_HOTSPOT_DIR'],
+        window_size=config['parameters'].get('hotspot_window_size', 10000),
+        mask_size=config['parameters'].get('hotspot_mask_size', 20),
+        mask_mismatch=config['parameters'].get('hotspot_mask_mismatch', 2),
+        permutations=config['parameters'].get('hotspot_permutations', 3),
+        pvalue_threshold=config['parameters'].get('hotspot_pvalue_threshold', 0.05),
+        csv_dir=defaults.PATH_DICT['HOTSPOT_CSV_DIR'],
+        parquet_dir=defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'],
         pdf_dir=defaults.PATH_DICT['HOTSPOT_PDF_DIR'],
         track_dir=defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
         config_yaml = defaults.CONFIG_FILE
@@ -458,29 +826,31 @@ rule hotspot_detector_setup:
         --fasta {params.genomes_dir:q}/{wildcards.genome}.fa \
         --gff {params.input_track_dir:q}/{wildcards.genome}.gff3 \
         --config {params.config_yaml:q} \
-        --csv_output_dir {params.csv_dir:q} \
+        --parquet_dir {params.parquet_dir:q} \
+        --csv_dir {params.csv_dir:q} \
         --pdf_output_dir {params.pdf_dir:q} \
         --hotspot_output_dir {params.track_dir:q}
         '''
 
 rule hotspot_detector:
     input:
-        hotspot_csv=expand(os.path.join(defaults.PATH_DICT['TABLE_HOTSPOT_DIR'], '{genome}.csv'), genome=SPECIES_POST),
-        hotspot_histogram_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=SPECIES_POST),
-        hotspot_density_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=SPECIES_POST),
-        hotspot_heatmap_pdf=expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=SPECIES_POST),
-        hotspot_track=expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=SPECIES_POST)
+        hotspot_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
+        hotspot_histogram_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_histogram.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_density_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_density.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_heatmap_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_heatmap.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_track=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=species_with_hits(wildcards))
 
 
 rule pair_detector_setup:
     input:
         gff3_file=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
     output:
-        pair_table_csv=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'),
-        pair_table_parquet=os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.parquet')
+        pair_table_csv=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'),
+        pair_table_parquet=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet')
     params:
         config_yaml=defaults.CONFIG_FILE,
-        table_output_dir=defaults.PATH_DICT['TABLE_PAIR_DIR']
+        parquet_dir=defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'],
+        csv_dir=defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR']
     threads:
         workflow.cores
     shell:
@@ -488,9 +858,11 @@ rule pair_detector_setup:
         Rscript scripts/pair_detector.R \
         --config {params.config_yaml:q} \
         --gff {input.gff3_file:q} \
-        --table_output_dir {params.table_output_dir:q}
+        --parquet_dir {params.parquet_dir:q} \
+        --csv_dir {params.csv_dir:q}
         '''
 
 rule pair_detector:
     input:
-        pair_table=expand(os.path.join(defaults.PATH_DICT['TABLE_PAIR_DIR'], '{genome}.csv'), genome=SPECIES_POST)
+        pair_table_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
+        pair_table_parquet=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet'), genome=species_with_hits(wildcards))

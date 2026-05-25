@@ -102,8 +102,16 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--solo-ltr-detection',
+        action='store_true',
+        help='Run LTR_retriever over LTRharvest output (pre-filtered by valid_ranges), '
+             'annotate the resulting solo LTRs with probe labels from RetroSeek, and '
+             'compute per-family solo/intact ratios.'
+    )
+
+    parser.add_argument(
         '-skp',
-        '--skip_validation',
+        '--skip-validation',
         action='store_true',
         help='Skip input validation.'
     )
@@ -162,7 +170,17 @@ if __name__ == '__main__':
     if args.pair_detection:
         main_cmd.append('--pair-detection')
 
+    if args.solo_ltr_detection:
+        main_cmd.append('--solo-ltr-detection')
+
     if unknown:
         main_cmd.extend(unknown)
 
-    subprocess.run(main_cmd, cwd=script_dir)
+    # A normal `./RetroSeek` invocation always runs against the committed
+    # data/config/config.yaml. RETROSEEK_CONFIG is stripped from the child
+    # environment so `defaults.py` falls back to config.yaml regardless of
+    # what the ambient shell has exported (e.g. a value left over from a
+    # sweep run, which drives Snakemake directly via sweeps/sweep.py and is
+    # unaffected by this).
+    pipeline_env = {k: v for k, v in os.environ.items() if k != "RETROSEEK_CONFIG"}
+    subprocess.run(main_cmd, cwd=script_dir, env=pipeline_env)

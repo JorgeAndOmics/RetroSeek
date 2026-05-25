@@ -1,0 +1,17 @@
+# Hygiene-only pre-commit hooks. Linting, type checking, and tests run via
+# `make check` — kept out of hooks to avoid slow commits. Install once with
+# `pre-commit install` after activating the conda env.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^data/config/config\.yaml$  # Snakemake variables trip strict yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
