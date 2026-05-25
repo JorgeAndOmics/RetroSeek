@@ -1,5 +1,4 @@
-"""
-RetroSeeker_class.py
+"""RetroSeeker_class.py — sequence alignment + GenBank record holder.
 
 This module provides the core functionality for executing BLAST queries against local databases,
 parsing the results, and retrieving corresponding GenBank records. It defines a structured RetroSeeker
@@ -8,21 +7,30 @@ dataclass for holding sequence alignment information.
 Used as part of a larger pipeline for identifying endogenous viral elements (ERVs), this module
 supports reproducible, scalable, and programmatic BLAST processing and metadata enrichment.
 
+The ``HSP`` (high-scoring pair) acronym is upper-case throughout this
+file because it mirrors BioPython's ``Bio.Blast.Record.HSP`` class
+naming. Renaming would diverge the API from the upstream library every
+caller is reading. The N802/N803 ruff rules are silenced module-wide
+for that reason.
 
 Classes:
 - RetroSeeker: stores alignment, HSP, sequence, and metadata for each result.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Any
-from io import StringIO
-import pandas as pd
-import tempfile
+# ruff: noqa: N802, N803
+
 import logging
+import tempfile
+from dataclasses import dataclass, field
+from io import StringIO
+from typing import Any
+
+from Bio import SeqIO
 
 import defaults
 
-from Bio import SeqIO
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class RetroSeeker:
@@ -67,40 +75,43 @@ class RetroSeeker:
             display_gff: Displays the GFF record
             is_complete: Checks if the object contains Genbank, FASTA and GFF records
     """
-    label: str = field(default=None)
-    virus: str = field(default=None)
-    abbreviation: str = field(default=None)
-    species: str = field(default=None)
-    probe: str = field(default=None)
-    accession: str = field(default=None)
-    identifier: str = field(default=None)
-    alignment: Optional[Any] = field(default=None)
-    HSP: Optional[Any] = field(default=None)
-    genbank: Optional[Any] = field(default=None)
-    fasta: Optional[Any] = field(default=None, init=False, repr=False)
-    gff: Optional[Any] = field(default=None, init=False, repr=False)
-    strand: Optional[Any] = field(default=None, init=False, repr=False)
 
-    def __repr__(self):
-        return (f'{self.label},'
-                f'{self.virus},'
-                f'{self.abbreviation},'
-                f'{self.species},'
-                f'{self.probe},'
-                f'{self.accession},'
-                f'{self.identifier}')
+    label: str | None = field(default=None)
+    virus: str | None = field(default=None)
+    abbreviation: str | None = field(default=None)
+    species: str | None = field(default=None)
+    probe: str | None = field(default=None)
+    accession: str | None = field(default=None)
+    identifier: str | None = field(default=None)
+    alignment: Any | None = field(default=None)
+    HSP: Any | None = field(default=None)
+    genbank: Any | None = field(default=None)
+    fasta: Any | None = field(default=None, init=False, repr=False)
+    gff: Any | None = field(default=None, init=False, repr=False)
+    strand: Any | None = field(default=None, init=False, repr=False)
 
-    def __hash__(self):
+    def __repr__(self) -> str:
+        return (
+            f"{self.label},"
+            f"{self.virus},"
+            f"{self.abbreviation},"
+            f"{self.species},"
+            f"{self.probe},"
+            f"{self.accession},"
+            f"{self.identifier}"
+        )
+
+    def __hash__(self) -> int:
         return hash(self.identifier)
 
-    def __eq__(self, other):
-        if isinstance(other, Object):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, RetroSeeker):
             return self.identifier == other.identifier
         return False
 
     # Static Methods
     @staticmethod
-    def extract_fasta_from_genbank(genbank_record) -> str or None:
+    def extract_fasta_from_genbank(genbank_record: Any) -> str | None:
         """
         Extracts the FASTA file from the GenBank record.
 
@@ -116,15 +127,14 @@ class RetroSeeker:
 
         try:
             with StringIO() as handle:
-                SeqIO.write(genbank_record, handle, 'fasta')
-                fasta = handle.getvalue()
-            return fasta
+                SeqIO.write(genbank_record, handle, "fasta")
+                return handle.getvalue()
         except Exception as e:
-            logging.warning(f'Could not extract fasta: {e}')
+            logger.warning(f"Could not extract fasta: {e}")
             return None
 
     @staticmethod
-    def extract_gff_from_genbank(genbank_record) -> Optional[str]:
+    def extract_gff_from_genbank(genbank_record: Any) -> str | None:
         """
         Extracts the GFF file from the GenBank record.
 
@@ -140,16 +150,17 @@ class RetroSeeker:
         try:
             with StringIO() as handle:
                 for feature in genbank_record.features:
-                    gff_line = f'{genbank_record.id}\t{feature.type}\t{feature.location}\n'
+                    gff_line = (
+                        f"{genbank_record.id}\t{feature.type}\t{feature.location}\n"
+                    )
                     handle.write(gff_line)
-                gff = handle.getvalue()
-            return gff
+                return handle.getvalue()
         except Exception as e:
-            logging.warning(f'Could not extract gff: {e}')
+            logger.warning(f"Could not extract gff: {e}")
             return None
 
     @staticmethod
-    def extract_strand_from_HSP(HSP_obj) -> Optional[str]:
+    def extract_strand_from_HSP(HSP_obj: Any) -> str | None:
         """
         Extracts the strand information from the HSP object. If the HSP object contains frame information, it will
         return the strand based on the frame. If the frame is not available, it will return the strand based on the
@@ -167,21 +178,26 @@ class RetroSeeker:
         try:
             if HSP_obj.frame:
                 if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
-                    return '+'
+                    return "+"
                 if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
-                    return '-'
+                    return "-"
             else:
                 if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
-                    return '+'
+                    return "+"
                 if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
-                    return '-'
+                    return "-"
 
         except Exception as e:
-            logging.warning(f'Could not extract strand: {e}')
+            logger.warning(f"Could not extract strand: {e}")
             return None
+        # The try block can complete without returning (e.g. a zero frame, or
+        # equal sbjct_start/sbjct_end); make that implicit None explicit.
+        return None
 
     @staticmethod
-    def extract_seq2rec(seq_obj: str, obj_type: str, output_type: str = 'seqrecord'):
+    def extract_seq2rec(
+        seq_obj: Any, obj_type: str, output_type: str = "seqrecord"
+    ) -> Any:
         """
         Parse text (e.g. FASTA) into a SeqRecord object or a temporary file in tmp directory.
 
@@ -201,22 +217,23 @@ class RetroSeeker:
 
         """
         # Create a temporary file to write the FASTA text
-        with tempfile.NamedTemporaryFile(mode='w',
-                                         delete=False,
-                                         dir=defaults.PATH_DICT['TMP_DIR'],
-                                         suffix=f'.{obj_type}') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            delete=False,
+            dir=defaults.PATH_DICT["TMP_DIR"],
+            suffix=f".{obj_type}",
+        ) as tmp_file:
             tmp_file.write(seq_obj)
 
         # Determine the return type based on output_type parameter
-        if output_type == 'seqrecord':
-            return SeqIO.read(tmp_file.name, obj_type)
-        elif output_type == 'tempfile':
+        if output_type == "seqrecord":
+            return SeqIO.read(tmp_file.name, obj_type)  # type: ignore[no-untyped-call]
+        if output_type == "tempfile":
             return tmp_file.name
-        else:
-            raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
+        raise ValueError("Invalid output_type. Choose 'seqrecord' or 'tempfile'.")
 
     # Getters and Setters
-    def get_alignment(self) -> Optional[str]:
+    def get_alignment(self) -> Any:
         """
         Returns the Alignment file associated with the object.
 
@@ -228,7 +245,7 @@ class RetroSeeker:
         try:
             return self.alignment
         except Exception as e:
-            logging.warning(f'Could not retrieve alignment: {e}')
+            logger.warning(f"Could not retrieve alignment: {e}")
 
     def set_alignment(self, alignment_object: object) -> None:
         """
@@ -241,7 +258,7 @@ class RetroSeeker:
         """
         self.alignment = alignment_object
 
-    def get_HSP(self) -> object:
+    def get_HSP(self) -> Any:
         """
         Retrieves the HSP object.
 
@@ -253,10 +270,9 @@ class RetroSeeker:
         try:
             return self.HSP
         except Exception as e:
-            logging.warning(f'Could not retrieve HSP: {e}')
+            logger.warning(f"Could not retrieve HSP: {e}")
 
     def set_HSP(self, HSP_object: object) -> None:
-
         """
         Associates an HSP file with the object. Sets strand attribute from the HSP object.
 
@@ -268,7 +284,7 @@ class RetroSeeker:
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self, output_type=None) -> Optional[str]:
+    def get_genbank(self, output_type: str | None = None) -> Any:
         """
         Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
         record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
@@ -293,17 +309,18 @@ class RetroSeeker:
         if self.genbank:
             try:
                 if output_type:
-                    return self.extract_seq2rec(seq_obj=str(self.genbank),
-                                                obj_type='genbank',
-                                                output_type=output_type)
-                else:
-                    return self.genbank
+                    return self.extract_seq2rec(
+                        seq_obj=str(self.genbank),
+                        obj_type="genbank",
+                        output_type=output_type,
+                    )
+                return self.genbank
 
             except Exception as e:
-                logging.warning(f'Could not retrieve genbank: {e}')
+                logger.warning(f"Could not retrieve genbank: {e}")
 
         else:
-            logging.warning('Genbank not set. Could not retrieve genbank.')
+            logger.warning("Genbank not set. Could not retrieve genbank.")
             return None
 
     def set_genbank(self, genbank_obj: str) -> None:
@@ -318,13 +335,13 @@ class RetroSeeker:
         """
         try:
             handle = StringIO(genbank_obj)
-            self.genbank = SeqIO.read(handle, 'genbank')
+            self.genbank = SeqIO.read(handle, "genbank")  # type: ignore[no-untyped-call]
             self.fasta = self.extract_fasta_from_genbank(self.genbank)
             self.gff = self.extract_gff_from_genbank(self.genbank)
         except Exception as e:
-            logging.warning(f'Could not set genbank: {e}')
+            logger.warning(f"Could not set genbank: {e}")
 
-    def get_fasta(self, output_type=None):
+    def get_fasta(self, output_type: str | None = None) -> Any:
         """
         Returns the FASTA file associated with the object. If no output_type is provided, it will return the FASTA
         as string. If output_type is set to 'seqrecord', it will return the FASTA as a SeqRecord object. If output_type
@@ -342,19 +359,18 @@ class RetroSeeker:
         if self.genbank:
             try:
                 if output_type:
-                    return self.extract_seq2rec(seq_obj=self.fasta,
-                                                obj_type='fasta',
-                                                output_type=output_type)
-                else:
-                    return self.fasta
+                    return self.extract_seq2rec(
+                        seq_obj=self.fasta, obj_type="fasta", output_type=output_type
+                    )
+                return self.fasta
 
             except Exception as e:
-                logging.warning(f'Could not retrieve fasta: {e}')
+                logger.warning(f"Could not retrieve fasta: {e}")
         else:
-            logging.warning('Genbank not set. Could not retrieve fasta.')
+            logger.warning("Genbank not set. Could not retrieve fasta.")
             return None
 
-    def get_gff(self):
+    def get_gff(self) -> Any:
         """
         Returns the GFF file associated with the object.
 
@@ -368,9 +384,9 @@ class RetroSeeker:
             try:
                 return self.gff
             except Exception as e:
-                logging.warning(f'Could not retrieve gff: {e}')
+                logger.warning(f"Could not retrieve gff: {e}")
         else:
-            logging.warning('Genbank not set. Could not retrieve gff.')
+            logger.warning("Genbank not set. Could not retrieve gff.")
             return None
 
     # Display methods and Verifier methods
@@ -384,28 +400,34 @@ class RetroSeeker:
                 :returns: str or None: Object information.
 
         """
-        info = (f'Label: {self.label}\n'
-                f'Virus: {self.virus}\n'
-                f'Abbreviation: {self.abbreviation}\n'
-                f'Probe: {self.probe}\n'
-                f'Accession: {self.accession}\n')
+        info = (
+            f"Label: {self.label}\n"
+            f"Virus: {self.virus}\n"
+            f"Abbreviation: {self.abbreviation}\n"
+            f"Probe: {self.probe}\n"
+            f"Accession: {self.accession}\n"
+        )
 
         if self.species:
-            info += f'Species: {self.species}\n'
+            info += f"Species: {self.species}\n"
 
         if self.HSP:
-            info += (f'Identifier: {self.identifier}\n'
-                     f'HSP Start: {self.HSP.sbjct_start}\n'
-                     f'HSP End: {self.HSP.sbjct_end}\n'
-                     f'HSP Length: {self.HSP.align_length}\n'
-                     f'HSP Strand: {self.strand}\n')
+            info += (
+                f"Identifier: {self.identifier}\n"
+                f"HSP Start: {self.HSP.sbjct_start}\n"
+                f"HSP End: {self.HSP.sbjct_end}\n"
+                f"HSP Length: {self.HSP.align_length}\n"
+                f"HSP Strand: {self.strand}\n"
+            )
 
         if self.is_complete():
-            info += f'Complete Record: {self.alignment.hit_def}\n'
+            # is_complete() guarantees self.alignment is set; mypy can't narrow
+            # through the helper call.
+            info += f"Complete Record: {self.alignment.hit_def}\n"  # type: ignore[union-attr]
 
         return info
 
-    def display_alignment(self) -> Optional[str]:
+    def display_alignment(self) -> str | None:
         """
         Displays human-readable information about the object's alignment.
 
@@ -414,9 +436,9 @@ class RetroSeeker:
                 :returns: str or None: The instance's Alignment information.
 
         """
-        return f'Alignment:\n {self.alignment}\n'
+        return f"Alignment:\n {self.alignment}\n"
 
-    def display_HSP(self) -> Optional[str]:
+    def display_HSP(self) -> str | None:
         """
         Displays human-readable information about the object's HSP.
 
@@ -425,9 +447,9 @@ class RetroSeeker:
                 :returns: str or None: The instance's HSP information.
 
         """
-        return f'HSP:\n {self.HSP}\n'
+        return f"HSP:\n {self.HSP}\n"
 
-    def display_genbank(self) -> Optional[str]:
+    def display_genbank(self) -> str | None:
         """
         Displays human-readable information about the object's Genbank record.
 
@@ -436,9 +458,9 @@ class RetroSeeker:
                 :returns: str or None: The instance's Genbank information.
 
         """
-        return f'Genbank:\n {self.genbank}\n'
+        return f"Genbank:\n {self.genbank}\n"
 
-    def display_fasta(self) -> Optional[str]:
+    def display_fasta(self) -> str | None:
         """
         Displays human-readable information about the object's FASTA file.
 
@@ -447,9 +469,9 @@ class RetroSeeker:
                 :returns: str or None: The instance's FASTA file content.
 
         """
-        return f'Fasta:\n {self.fasta}\n'
+        return f"Fasta:\n {self.fasta}\n"
 
-    def display_gff(self) -> Optional[str]:
+    def display_gff(self) -> str | None:
         """
         Displays human-readable information about the GFF file associated with the object.
 
@@ -458,7 +480,7 @@ class RetroSeeker:
                 :returns: HSP or None: The GFF file content.
 
         """
-        return f'GFF:\n {self.gff}\n'
+        return f"GFF:\n {self.gff}\n"
 
     def is_complete(self) -> bool:
         """

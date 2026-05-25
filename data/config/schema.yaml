@@ -1,6 +1,7 @@
 blast: include('blast_schema')
 genome_tools: include('genome_tools_schema')
 parameters: include('parameters_schema')
+ltr_retriever: include('ltr_retriever_schema', required=False)
 logging: include('logging_schema')
 plots: include('plots_schema')
 execution: include('execution_schema')
@@ -23,6 +24,7 @@ genome_tools_schema:
   ltrdigest_optional_parameters: str(required=False)
 
 parameters_schema:
+  seed: int(min=0)
   identity_threshold: int(min=0)
   bitscore_threshold: num(min=0)
   ltr_resize: int(min=0)
@@ -38,6 +40,29 @@ parameters_schema:
   pair_max_gap: num(min=0)
   main_probes: list(str())
   probe_min_length: map(int(min=0), key=str())
+  aggregation: include('aggregation_schema', required=False)
+  solo_ltr_aggregation: include('solo_ltr_aggregation_schema', required=False)
+
+aggregation_schema:
+  virus: str(matches='^(list|concatenate|best|majority|first|strict)$')
+  label: str(matches='^(list|concatenate|best|majority|first|strict)$')
+  probe: str(matches='^(list|concatenate|best|majority|first|strict)$')
+  species: str(matches='^(list|concatenate|best|majority|first|strict)$')
+  best_tiebreaker: str(matches='^(bitscore|identity|align_length)$')
+  concat_separator: str()
+  strict_marker: str()
+
+solo_ltr_aggregation_schema:
+  probe: str(matches='^(list|concatenate|best|majority|first|strict)$')
+  best_tiebreaker: str(matches='^(consensus_members|bitscore|identity)$')
+
+ltr_retriever_schema:
+  substitution_rate:        num(min=0)
+  min_ltr_similarity:       num(min=0, max=100)
+  threads_per_genome:       int(min=1)
+  noanno:                   bool()
+  source_scn:               str(matches='^(retroviral|full)$')
+  nearest_erv_max_distance: int(min=0)
 
 
 logging_schema:
@@ -77,7 +102,10 @@ plots_schema:
   dpi: int(min=1)
   width: int(min=1)
   height: int(min=1)
-  omit_lower_percent: num(min=0)
+  bitscore_x_scale: str(matches='^(linear|log10)$', required=False)
+  sankey_top_n: any(int(min=1), null(), required=False)
+  sankey_other_label: str(required=False)
+  waffle_unit_hits: any(int(min=1), null(), required=False)
   circle_plot_bitscore_threshold: num(min=0)
 
 execution_schema:

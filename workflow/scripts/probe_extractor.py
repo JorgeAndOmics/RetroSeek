@@ -33,20 +33,22 @@ Usage:
 # =============================================================================
 # Imports and Logging Setup
 # =============================================================================
-from colored_logging import colored_logging
-import pandas as pd
-import logging
-import os
 
-from RetroSeeker_class import RetroSeeker
+from pathlib import Path
+
+import pandas as pd
+
+import defaults
 import seq_utils
 import utils
-import defaults
+from colored_logging import colored_logging
+from RetroSeeker_class import RetroSeeker
+
 
 # =============================================================================
 # 1. CSV Table Parser
 # =============================================================================
-def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
+def table_parser(input_csv_file: str | Path) -> dict[str, RetroSeeker]:
     """
     Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
 
@@ -71,12 +73,12 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
     # Build dictionary mapping accession IDs to Object instances
     probe_dict: dict[str, RetroSeeker] = {
         str(row["Accession"]): RetroSeeker(
-            label=str(row['Label']),
-            virus=str(row['Name']),
-            abbreviation=str(row['Abbreviation']),
-            probe=str(row['Probe']).upper(),
-            accession=str(row['Accession']),
-            identifier=utils.random_string_generator(6)  # Random 6-char unique ID
+            label=str(row["Label"]),
+            virus=str(row["Name"]),
+            abbreviation=str(row["Abbreviation"]),
+            probe=str(row["Probe"]).upper(),
+            accession=str(row["Accession"]),
+            identifier=utils.random_string_generator(6),  # Random 6-char unique ID
         )
         for _, row in probe_table.iterrows()
     }
@@ -87,25 +89,24 @@ def table_parser(input_csv_file: str) -> dict[str, RetroSeeker]:
 # =============================================================================
 # 2. Main Execution: Extraction and Serialization
 # =============================================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Initialize colored logging and write to log
-    colored_logging(log_file_name='probe_extractor.txt')
+    colored_logging(log_file_name="probe_extractor.txt")
 
     # Parse probe metadata from table
-    probe_dict: dict[str, RetroSeeker] = table_parser(
-        input_csv_file=defaults.PROBE_CSV)
+    probe_dict: dict[str, RetroSeeker] = table_parser(input_csv_file=defaults.PROBE_CSV)
 
     # Fetch sequence data from GenBank (or similar)
-    probe_extraction: dict[str, RetroSeeker] = seq_utils.gb_executor(
+    probe_extraction: dict[str, RetroSeeker] | None = seq_utils.gb_executor(
         object_dict=probe_dict,
-        online_database='protein',
+        online_database="protein",
         display_full_info=defaults.DISPLAY_OPERATION_INFO,
-        display_warning=defaults.DISPLAY_REQUESTS_WARNING
+        display_warning=defaults.DISPLAY_REQUESTS_WARNING,
     )
 
     # Save extracted probes to serialized file
     utils.pickler(
         data=probe_extraction,
-        output_directory_path=defaults.PATH_DICT['PICKLE_DIR'],
-        output_file_name='probe_dict.pkl'
+        output_directory_path=defaults.PATH_DICT["PICKLE_DIR"],
+        output_file_name="probe_dict.pkl",
     )

@@ -9,6 +9,7 @@ genome_tools:
   ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
 
 parameters:
+  seed: 67   # Master RNG seed for reproducibility (recorded in the run manifest)
   identity_threshold: 0    # 0 for no threshold
   bitscore_threshold: 0   # 0 for no threshold
   ltr_resize: 0   # 0 for no resize
@@ -34,6 +35,52 @@ parameters:
     VIF: 200
     N_protein: 200
 
+  # How metadata (virus / label / probe / species) is aggregated when overlapping
+  # ranges are collapsed via plyranges::reduce_ranges_directed. Every field below
+  # accepts one of the strategies: list | concatenate | best | majority | first | strict.
+  #   list        : native multi-value (CharacterList in R, list<string> in parquet,
+  #                 comma-separated in GFF3 attributes). No information lost, but
+  #                 inflates plot row counts (entry explosion) — plots warn.
+  #   concatenate : single string joined by concat_separator. Backward-compatible.
+  #   best        : single value from the row with the highest best_tiebreaker.
+  #                 Default — clean single-value output; deterministic tie-break
+  #                 (bitscore > query_coverage > identity > evalue > position > name).
+  #   majority    : mode; ties resolved by first alphabetical.
+  #   first       : alphabetical first. Deterministic but arbitrary.
+  #   strict      : single value if all contributors agree, else strict_marker.
+  aggregation:
+    virus: "best"
+    label: "best"
+    probe: "list"
+    species: "first"                 # per-genome pipeline — rows share one species
+    best_tiebreaker: "bitscore"      # bitscore | identity | align_length
+    concat_separator: "; "
+    strict_marker: "ambiguous"
+
+  # Probe-label propagation strategy for solo LTRs produced by the LTR_retriever
+  # workstream. Uses the same vocabulary as `aggregation` above; tiebreaker is
+  # specific to how solo-LTR contributors are ranked (count of ERVs contributing
+  # to the consensus family, or inherited from ERV evidence).
+  solo_ltr_aggregation:
+    probe: "list"
+    best_tiebreaker: "consensus_members"  # consensus_members | bitscore | identity
+
+# LTR_retriever post-processing of LTRharvest output for solo-LTR detection.
+# See docs/solo_ltr.md for the full mechanism (how LTR_retriever's three
+# stages work, what "family" means, how the pre-filter + label-propagation
+# couplings work).
+ltr_retriever:
+  substitution_rate: 1.3e-8         # bp substitutions per site per year; 1.3e-8 for mammals, 7e-9 for plants
+  min_ltr_similarity: 91            # LTR_retriever -miniden (%); LTR-pair similarity floor for intact ERVs
+  threads_per_genome: 4             # LTR_retriever -threads per-genome invocation
+  noanno: true                      # skip LTR_retriever's internal TE annotation (RetroSeek has its own via probes)
+  # Which SCN feeds LTR_retriever (Coupling A toggle):
+  #   retroviral — prefilter-restricted SCN (default; rows overlapping valid_ranges.gff3).
+  #   full       — unfiltered LTRharvest SCN (debugging / non-retroviral exploration).
+  # Both files are always materialised in data/ltr_scn/; this picks the consumer.
+  source_scn: retroviral
+  nearest_erv_max_distance: 10000   # bp window for the solo-LTR → valid ERV nearest-ERV label-propagation fallback
+
 logging:
   level_styles:
     debug: { color: 'white' }
@@ -55,7 +102,22 @@ plots:
   dpi: 300
   width: 15
   height: 12
-  omit_lower_percent: 0.05   # Percentage of lower count results to omit for Sankey plots. 0 to display all results.
+  # Density / raincloud x-axis scale. Bitscore distributions span ~3 orders of
+  # magnitude on real data; flip to log10 when the lower modes are crushed.
+  bitscore_x_scale: linear            # linear | log10
+  # Sankey long-tail handling. null = show every stratum (default). When set
+  # to a positive integer N, keep the top N strata per axis and fold the rest
+  # into a single labelled "Other (k)" stratum that records how many were
+  # collapsed. Combine with the count-based axis ordering for predictable
+  # placement of the bundle at the bottom of each axis.
+  sankey_top_n: null
+  sankey_other_label: 'Other'
+  # Waffle chart granularity. null (recommended) = auto-derive a unit that keeps
+  # total tile count near `target_squares` (~2,500) so the chart stays legible
+  # at any input scale. Set an integer (e.g. 10 = "1 square = 10 ranges") to
+  # force a fixed unit; the builder will still raise it if your value would
+  # exceed the legibility cap.
+  waffle_unit_hits: null
   circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
 
 execution:
@@ -66,10 +128,16 @@ execution:
   max_threadpool_workers: null  # null for None, take all available workers
   entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
 
-# TODO: REORGANIZE ALL PATHS TO BE CLOSER TO ROOT PATHS, AND ADJUST SCHEMA ACCORDINGLY
+# Paths default to repo-relative locations so a fresh clone runs portably
+# (CI, fixture-based tests, toy-genome smoke runs). For production runs
+# pointing at large external storage, copy this file to
+# `data/config/config.local.yaml` (gitignored) and override the four
+# `root` entries — then invoke RetroSeek with
+# `--configfile data/config/config.local.yaml`. See `data/config/config.example.yaml`
+# for an annotated template.
 
 input:
-  probe_csv: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data/tables/probes_TRUE.csv'
+  probe_csv: 'data/tables/probes.csv'
 
 display:
   display_snakemake_info: false
@@ -77,10 +145,10 @@ display:
   display_operation_info: true
 
 root:
-  db_root_folder: '/mnt/c/Users/Administrator/Documents/Databases/bat103/bat103-fasta'    # Root folder for databases
-  data_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/data'
-  results_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/results'
-  logs_root_folder: '/mnt/c/Users/Administrator/Documents/Projects/retroseek-bat103-debug/logs'
+  db_root_folder: 'data/species'                 # SPECIES_DB — genome FASTAs, BLAST DBs, suffix arrays
+  data_root_folder: 'data'                       # working intermediates (pickles, parquets, ltr_scn)
+  results_root_folder: 'results'                 # tracks, tables, plots, hotspots
+  logs_root_folder: 'logs'                       # per-rule run logs
 
 domains:
   POL:
