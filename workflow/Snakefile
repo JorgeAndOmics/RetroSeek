@@ -432,6 +432,8 @@ rule ranges_analysis_setup:
         counts_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.counts.csv'),
         erv_like_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
         erv_like_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_loci.csv'),
+        erv_like_members_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_members.parquet'),
+        erv_like_members_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_members.csv'),
         manifest=os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
         valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
     params:
@@ -753,6 +755,48 @@ rule stage_plot_generator_setup:
 rule stage_plot_generator:
     input:
         plots=rules.stage_plot_generator_setup.output
+
+
+# ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
+# tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
+# of PNGs into results/plots/erv-like/.
+rule erv_like_plot_generator_setup:
+    input:
+        erv_like_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
+                          genome=species_with_hits(wildcards)),
+        erv_like_members=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_members.parquet'),
+                          genome=species_with_hits(wildcards)),
+        counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+                          genome=species_with_hits(wildcards))
+    output:
+        erv_like_plots=expand(os.path.join(defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],'{erv_plot}.png'),
+                              erv_plot=['erv_like_probe_combinations',
+                                        'erv_like_completeness',
+                                        'erv_like_full_partial_by_virus',
+                                        'erv_like_composition_heatmap',
+                                        'erv_like_gene_order',
+                                        'erv_like_canonical',
+                                        'erv_like_length_distribution',
+                                        'erv_like_n_loci',
+                                        'erv_like_interprobe_gap'])
+    params:
+        ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
+        plot_dir=defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],
+        config_yaml=defaults.CONFIG_FILE
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript scripts/erv_like_plot_generator.R \
+        --input {params.ranges_analysis_parquet_dir:q} \
+        --output {params.plot_dir:q} \
+        --config {params.config_yaml:q}
+        '''
+
+
+rule erv_like_plot_generator:
+    input:
+        plots=rules.erv_like_plot_generator_setup.output
 
 
 rule circle_plot_generator_setup:

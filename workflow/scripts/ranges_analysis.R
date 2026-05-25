@@ -253,6 +253,7 @@ write_one("counts", tibble::tibble(
   value  = as.integer(unlist(.counts, use.names = FALSE))
 ))
 write_one("erv_like_loci", build_erv_like_df(erv_like$parents))
+write_one("erv_like_members", build_erv_like_members_df(erv_like$children))
 
 if (!is.null(args$manifest)) {
   emit_manifest(args, gen_ver, opts, args$manifest)

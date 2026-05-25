@@ -380,3 +380,44 @@ build_erv_like_df <- function(parents) {
     query_coverage        = as.numeric(m$query_coverage)
   )
 }
+
+
+# Per-member table (one row per constituent locus of each candidate). `gap_to_prev`
+# is the bp gap to the running-max end of the preceding members within the same
+# candidate (the exact chaining gap, so it never exceeds max_join_distance); the
+# first member of each candidate has NA. Feeds the inter-probe gap (tuning) plot.
+build_erv_like_members_df <- function(children) {
+  empty <- tibble::tibble(
+    Parent = character(0), ID = character(0), probe = character(0),
+    seqnames = character(0), start = integer(0), end = integer(0),
+    gap_to_prev = integer(0), virus = character(0), label = character(0)
+  )
+  if (length(children) == 0L) return(empty)
+
+  m <- S4Vectors::mcols(children)
+  df <- data.frame(
+    Parent   = as.character(m$Parent),
+    ID       = as.character(m$ID),
+    probe    = as.character(m$probe),
+    seqnames = as.character(GenomicRanges::seqnames(children)),
+    start    = as.integer(BiocGenerics::start(children)),
+    end      = as.integer(BiocGenerics::end(children)),
+    virus    = as.character(m$virus),
+    label    = as.character(m$label),
+    stringsAsFactors = FALSE
+  )
+  df <- df[order(df$Parent, df$start), , drop = FALSE]
+  gap <- rep(NA_integer_, nrow(df))
+  for (p in unique(df$Parent)) {
+    idx <- which(df$Parent == p)
+    if (length(idx) < 2L) next
+    st <- df$start[idx]; en <- df$end[idx]
+    running_end <- en[1]
+    for (j in 2:length(idx)) {
+      gap[idx[j]] <- as.integer(st[j] - running_end - 1L)
+      running_end <- max(running_end, en[j])
+    }
+  }
+  df$gap_to_prev <- gap
+  tibble::as_tibble(df)
+}
