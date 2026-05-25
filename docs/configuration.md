@@ -32,6 +32,17 @@ Every field in [`data/config/config.yaml`](../data/config/config.yaml) documente
 | `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Semantically a set — duplicates ignored. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. |
 | `probe_min_length` | map (string → int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
 
+### ERV-like assembly
+
+Chains ≥2 *distinct* **main** probe loci from the **unreduced** `valid` tier into composite ERV-like candidates — candidate conserved full ERVs, or the longest recoverable fragment (e.g. GAG+POL when ENV is absent). Purely additive: the `valid` output is unchanged and isolated single-gene loci stay there. Output: `results/tracks/erv_like/{genome}.gff3` (a parent `erv_like` feature per candidate + its child `erv_like_member` loci carrying `Parent=`), a child-locus `.bed`, and the `{genome}.erv_like_loci` table.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `erv_like.group_by` | `virus` \| `label` \| `none` | `virus` | Which loci may chain together. `virus`/`label` only chain probes sharing that attribute, so co-located different-group probes yield separate (possibly overlapping) candidates — **both retained**. `none` chains across all main loci in the window. **Strict enum** — typos fail validation. |
+| `erv_like.max_join_distance` | int ≥ 0 | `1500` | Maximum gap (bp) between adjacent main-probe loci to still chain them. Inclusive (a gap exactly equal to this still joins). |
+| `erv_like.require_canonical_order` | bool | `false` | When `true`, keep only candidates whose main probes occur in the order given by `main_probes` (forward on `+`, reversed on `-`, either on `*`). The `main_probes` list order *is* the canonical gene order. Dropped non-canonical candidates are still tallied (`erv_like_dropped_noncanonical` in `counts`) for the canonical-vs-rearranged plot. |
+| `erv_like.completeness_threshold` | number 0–1 | `1.0` | `is_full` = (`n_main_present` / number of `main_probes`) ≥ this. `1.0` requires every main probe. |
+
 ### Hotspot detection
 
 | Key | Type | Default | Meaning |

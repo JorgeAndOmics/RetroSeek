@@ -407,11 +407,12 @@ rule ranges_analysis_setup:
         probe_dict        = os.path.join(defaults.PATH_DICT['PROBE_DICT_PARQUET_DIR'], 'probe_dict.parquet')
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
-        original_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'], '{genome}.gff3'),
-        candidate_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+        # ERV-like composite candidates (parent + child members) + child-locus BED.
+        erv_like_tracks=os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'], '{genome}.gff3'),
+        erv_like_tracks_bed=os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'], '{genome}.bed'),
         # solo_ltr production has moved to the LTR_retriever-based workstream
         # (separate rule); the file is no longer produced by ranges_analysis.R.
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
@@ -429,9 +430,9 @@ rule ranges_analysis_setup:
         reduction_multiplicity_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.reduction_multiplicity.csv'),
         counts_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
         counts_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.counts.csv'),
+        erv_like_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
+        erv_like_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_loci.csv'),
         manifest=os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
-        original_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.bed'),
-        candidate_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.bed'),
         valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
@@ -445,6 +446,7 @@ rule ranges_analysis_setup:
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        erv_like_tracks_dir=defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
     threads:
@@ -459,11 +461,10 @@ rule ranges_analysis_setup:
         --probe_dict {input.probe_dict:q} \
         --config {params.yaml_config_file:q} \
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
-        --original_ranges_reduced {params.original_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}.gff3 \
-        --candidate_ranges_reduced {params.candidate_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
+        --erv_like_ranges {params.erv_like_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix_parquet {output.overlap_matrix_parquet:q} \
         --overlap_matrix_csv {output.overlap_matrix_csv:q} \
@@ -478,15 +479,15 @@ rule ranges_analysis:
     input:
         original_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
                                genome=species_with_hits(wildcards)),
-        original_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],'{genome}_reduced.gff3'),
-                               genome=species_with_hits(wildcards)),
         candidate_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}.gff3'),
-                                genome=species_with_hits(wildcards)),
-        candidate_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],'{genome}_reduced.gff3'),
                                 genome=species_with_hits(wildcards)),
         valid_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
                              genome=species_with_hits(wildcards)),
         valid_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+                                genome=species_with_hits(wildcards)),
+        erv_like_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'],'{genome}.gff3'),
+                                genome=species_with_hits(wildcards)),
+        erv_like_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
                                 genome=species_with_hits(wildcards)),
         # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
         # demand solo_ltr/{genome}.gff3 here.

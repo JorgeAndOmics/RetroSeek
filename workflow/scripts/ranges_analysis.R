@@ -45,6 +45,7 @@ source(file.path(.script_dir, "range_analysis", "granges_build.R"))
 source(file.path(.script_dir, "range_analysis", "filtering.R"))
 source(file.path(.script_dir, "range_analysis", "reductions.R"))
 source(file.path(.script_dir, "range_analysis", "validation.R"))
+source(file.path(.script_dir, "range_analysis", "erv_assembly.R"))
 source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
 source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
 source(file.path(.script_dir, "range_analysis", "exporters.R"))
@@ -64,11 +65,10 @@ parser$add_argument("--probe_dict",               required = TRUE,
                                  "per-hit query_coverage."))
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
-parser$add_argument("--original_ranges_reduced",  required = TRUE)
 parser$add_argument("--candidate_ranges",         required = TRUE)
-parser$add_argument("--candidate_ranges_reduced", required = TRUE)
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
+parser$add_argument("--erv_like_ranges",          required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
 parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
 parser$add_argument("--overlap_matrix_csv",       required = TRUE)
@@ -171,6 +171,17 @@ record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
 
+# ERV-like assembly: chain >=2 distinct main-probe loci from the UNREDUCED
+# valid tier into composite candidates. Additive — valid stays a full superset;
+# isolated single-gene loci are never emitted here.
+erv_like <- assemble_erv_like(
+  valid_hits, opts$main_probes, opts$erv_like_group_by,
+  opts$erv_like_max_join_distance, opts$erv_like_require_canonical_order,
+  opts$erv_like_completeness_threshold, opts
+)
+record_count("erv_like_candidates",           length(erv_like$parents))
+record_count("erv_like_dropped_noncanonical", erv_like$dropped_noncanonical)
+
 
 # ----------------------------------------------------------------------------
 # Phase 7. Plot dataframe + probe-category tagging
@@ -197,17 +208,20 @@ valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_
 log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
 gen_ver <- resolve_generator_version()
 
+# original + candidate tiers: unreduced GFF3 only. The reduced exports were
+# retired (only valid needs a reduced track); gr_global / candidate_hits_reduced
+# are still computed above because valid_hits_reduced and the reduction_
+# multiplicity table depend on them.
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
-track_exporter(gr_global,              args$original_ranges_reduced,  gen_ver)
-bed_exporter(  gr_global,              sub("\\.gff3$", ".bed", args$original_ranges_reduced))
-
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
-track_exporter(candidate_hits_reduced, args$candidate_ranges_reduced, gen_ver)
-bed_exporter(  candidate_hits_reduced, sub("\\.gff3$", ".bed", args$candidate_ranges_reduced))
 
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
 bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
+
+# erv_like: parent candidates + child member loci in one GFF3; child loci as BED.
+erv_like_track_exporter(erv_like$parents, erv_like$children, args$erv_like_ranges, gen_ver)
+bed_exporter(erv_like$children, sub("\\.gff3$", ".bed", args$erv_like_ranges))
 
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
@@ -238,6 +252,7 @@ write_one("counts", tibble::tibble(
   metric = names(.counts),
   value  = as.integer(unlist(.counts, use.names = FALSE))
 ))
+write_one("erv_like_loci", build_erv_like_df(erv_like$parents))
 
 if (!is.null(args$manifest)) {
   emit_manifest(args, gen_ver, opts, args$manifest)

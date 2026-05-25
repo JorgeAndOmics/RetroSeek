@@ -168,6 +168,9 @@ PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
 PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve()
 PATH_DICT["TRACK_CANDIDATES_DIR"] = (PATH_DICT["TRACK_DIR"] / "candidates").resolve()
 PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
+# ERV-like assembly tier — composite candidates chained from valid main-probe
+# loci (see assemble_erv_like in erv_assembly.R). Additive to the valid tier.
+PATH_DICT["TRACK_ERV_LIKE_DIR"] = (PATH_DICT["TRACK_DIR"] / "erv_like").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
 
 # === Results - LTR ===

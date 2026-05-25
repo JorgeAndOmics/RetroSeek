@@ -77,7 +77,8 @@ load_probe_lengths <- function(probe_dict_path) {
 read_pipeline_options <- function(config) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
 
-  agg <- config$parameters$aggregation %||% list()
+  agg  <- config$parameters$aggregation %||% list()
+  ervl <- config$parameters$erv_like    %||% list()
   list(
     seed                = config$parameters$seed %||% NA_integer_,
     probe_min_length    = unlist(config$parameters$probe_min_length),
@@ -85,6 +86,8 @@ read_pipeline_options <- function(config) {
     identity_threshold  = as.numeric(config$parameters$identity_threshold %||% 0),
     ltr_resize          = as.numeric(config$parameters$ltr_resize         %||% 0),
     merge_option        = config$parameters$merge_option %||% "virus",
+    # main_probes order is load-bearing: it defines the canonical gene order for
+    # erv_like assembly. unique() preserves first-seen order, so keep it.
     main_probes         = unique(config$parameters$main_probes),
     domains             = config$domains,
     agg_virus           = agg$virus            %||% "list",
@@ -93,6 +96,11 @@ read_pipeline_options <- function(config) {
     agg_species         = agg$species          %||% "first",
     agg_best_tiebreaker = agg$best_tiebreaker  %||% "bitscore",
     agg_concat_separator = agg$concat_separator %||% "; ",
-    agg_strict_marker   = agg$strict_marker    %||% "ambiguous"
+    agg_strict_marker   = agg$strict_marker    %||% "ambiguous",
+    # erv_like assembly (see assemble_erv_like in erv_assembly.R)
+    erv_like_group_by                = ervl$group_by                %||% "virus",
+    erv_like_max_join_distance       = as.integer(ervl$max_join_distance %||% 1500L),
+    erv_like_require_canonical_order = isTRUE(ervl$require_canonical_order %||% FALSE),
+    erv_like_completeness_threshold  = as.numeric(ervl$completeness_threshold %||% 1.0)
   )
 }

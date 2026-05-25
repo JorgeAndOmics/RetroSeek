@@ -37,6 +37,71 @@ track_exporter <- function(track, path, generator_version = "RetroSeek/unknown")
 }
 
 
+# GFF3 column template for the erv_like parent + child features. Parents and
+# children carry different mcols (parents: completeness/order descriptors;
+# children: Parent + source_id), so they are aligned to this shared, typed
+# schema before binding. Missing columns become typed NA, which rtracklayer
+# simply omits as an attribute for that feature.
+.ERV_GFF_COLS <- list(
+  ID = NA_character_, type = NA_character_, Parent = NA_character_,
+  source_id = NA_character_, probe = NA_character_, probes_present = NA_character_,
+  n_main_present = NA_integer_, n_main_expected = NA_integer_,
+  completeness_fraction = NA_real_, is_full = NA, observed_order = NA_character_,
+  is_canonical = NA, n_loci = NA_integer_, virus = NA_character_,
+  label = NA_character_, species = NA_character_,
+  max_bitscore = NA_real_, max_identity = NA_real_,
+  min_evalue = NA_real_, query_coverage = NA_real_
+)
+
+.align_erv_mcols <- function(gr) {
+  m <- S4Vectors::mcols(gr)
+  out <- S4Vectors::DataFrame(.placeholder = seq_len(length(gr)))
+  for (cn in names(.ERV_GFF_COLS)) {
+    out[[cn]] <- if (cn %in% names(m)) m[[cn]] else rep(.ERV_GFF_COLS[[cn]], length(gr))
+  }
+  out$.placeholder <- NULL
+  S4Vectors::mcols(gr) <- out
+  gr
+}
+
+
+# Write the erv_like assembly to GFF3: each parent candidate (type "erv_like")
+# immediately followed by its child member loci (type "erv_like_member",
+# Parent=<candidate ID>), grouped by parent genomic position. Mirrors
+# track_exporter's empty-but-valid + source-version-pragma contract.
+erv_like_track_exporter <- function(parents, children, path,
+                                    generator_version = "RetroSeek/unknown") {
+  if (length(parents) == 0L && length(children) == 0L) {
+    writeLines(
+      c("##gff-version 3", paste0("##source-version ", generator_version)),
+      path
+    )
+    return(invisible(path))
+  }
+
+  combined <- c(.align_erv_mcols(parents), .align_erv_mcols(children))
+  # Order: each parent before its own children, by parent genomic position.
+  grp      <- ifelse(is.na(combined$Parent), as.character(combined$ID),
+                     as.character(combined$Parent))
+  is_child <- as.integer(!is.na(combined$Parent))
+  pmatch   <- match(grp, as.character(parents$ID))
+  ord <- order(
+    as.character(GenomicRanges::seqnames(parents))[pmatch],
+    BiocGenerics::start(parents)[pmatch],
+    is_child
+  )
+  combined <- combined[ord]
+
+  rtracklayer::export(combined, path, format = "gff3")
+  lines <- readLines(path)
+  if (length(lines) >= 1L) {
+    lines <- c(lines[1], paste0("##source-version ", generator_version), lines[-1])
+    writeLines(lines, path)
+  }
+  invisible(path)
+}
+
+
 # Write a GRanges as 6-column BED. Score column uses max_bitscore where
 # available, falling back to 0; name column uses ID where available.
 bed_exporter <- function(track, path) {
