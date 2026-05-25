@@ -20,6 +20,8 @@ source(file.path(.scripts, "stage_plot_generator", "plots_concordance.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_structure.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_funnel.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_multiplicity.R"))
+source(file.path(.scripts, "stage_plot_generator", "plots_overlap.R"))
+source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
 
 
 .fake_hits_df <- function() {
@@ -123,4 +125,65 @@ test_that("warning_caption is accepted and still yields a ggplot", {
   expect_true(is_gg(concordance_plot(.fake_hits_df(), warning_caption = cap)))
   expect_true(is_gg(multiplicity_m1_plot(.fake_hits_df(), warning_caption = cap)))
   expect_true(is_gg(refinement_funnel_plot(.fake_counts_df(), warning_caption = cap)))
+})
+
+
+# ─────────────── overlap + LTR-interaction builders (new) ───────────────
+
+.ov_df <- function() tibble::tibble(
+  seqnames = "chr1", start = c(100, 150), end = c(400, 500),
+  width = c(301L, 351L), strand = "+", probe = c("GAG", "POL"),
+  virus = "HIV", label = "L", overlap_degree = c(1L, 1L),
+  max_reciprocal_fraction = c(0.8, 0.7))
+
+.li_df <- function() tibble::tibble(
+  seqnames = "chr1", start = c(100, 5000), end = c(400, 5100),
+  strand = c("+", "-"), probe = c("GAG", "POL"), virus = "HIV",
+  distance_to_nearest_retro = c(0, 600),
+  feature_class = c("domain_overlap", "flanking_ltr"),
+  relative_position_in_retro = c(0.3, NA), strand_concordant = c(TRUE, NA),
+  enclosing_retro_width = c(500L, NA))
+
+.pd_df  <- function() tibble::tibble(hit_probe = c("GAG", "POL", "POL"),
+                                     domain_probe = c("GAG", "GAG", "POL"))
+.cov_df <- function() tibble::tibble(
+  metric = c("total_bp_unreduced", "total_bp_reduced"), value = c(50000, 32000))
+.ltr_struct_df <- function() tibble::tibble(width = c(5000L, 8000L),
+                                            n_overlapping_hits = c(2L, 5L))
+
+test_that("overlap builders return ggplots", {
+  expect_s3_class(overlap_degree_plot(.ov_df()), "ggplot")
+  expect_s3_class(reciprocal_fraction_plot(.ov_df()), "ggplot")
+  expect_s3_class(reduction_fold_plot(tibble::tibble(probe = c("GAG", "POL")),
+                                      tibble::tibble(probe = "GAG")), "ggplot")
+  expect_s3_class(coverage_before_after_plot(.cov_df()), "ggplot")
+})
+
+test_that("LTR-interaction builders return ggplots", {
+  li <- .li_df()
+  expect_s3_class(distance_to_retro_plot(li), "ggplot")
+  expect_s3_class(ltr_feature_breakdown_plot(li), "ggplot")
+  expect_s3_class(strand_concordance_plot(li), "ggplot")
+  expect_s3_class(probe_domain_heatmap(.pd_df()), "ggplot")
+  expect_s3_class(retro_length_vs_hits_plot(.ltr_struct_df()), "ggplot")
+})
+
+test_that("new builders fall back to empty_plot on zero-row input", {
+  expect_equal(overlap_degree_plot(.ov_df()[0, ])$labels$title, "no data")
+  expect_equal(distance_to_retro_plot(.li_df()[0, ])$labels$title, "no data")
+  expect_equal(probe_domain_heatmap(.pd_df()[0, ])$labels$title, "no data")
+  expect_equal(coverage_before_after_plot(.cov_df()[0, ])$labels$title, "no data")
+  expect_equal(retro_length_vs_hits_plot(.ltr_struct_df()[0, ])$labels$title, "no data")
+})
+
+test_that("position_within_provirus needs >=2 inside-retrotransposon loci", {
+  # The fixture has one non-NA relative position -> placeholder.
+  expect_match(position_within_provirus_plot(.li_df())$labels$title, "too few")
+  li2 <- .li_df(); li2$relative_position_in_retro <- c(0.2, 0.8)
+  expect_s3_class(position_within_provirus_plot(li2), "ggplot")
+})
+
+test_that("reciprocal_fraction_plot placeholder when no locus overlaps another", {
+  ov0 <- .ov_df(); ov0$overlap_degree <- c(0L, 0L)
+  expect_match(reciprocal_fraction_plot(ov0)$labels$title, "no overlapping")
 })

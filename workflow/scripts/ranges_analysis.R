@@ -255,6 +255,20 @@ write_one("counts", tibble::tibble(
 write_one("erv_like_loci", build_erv_like_df(erv_like$parents))
 write_one("erv_like_members", build_erv_like_members_df(erv_like$children))
 
+# Provirus overlap / LTR-interaction tables — feed the new provirus plots.
+write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
+write_one("ltr_interaction",
+          build_stage_ltr_interaction_df(gr_virus, retrotransposons, domains_w_probes))
+write_one("probe_domain_overlap",
+          build_stage_probe_domain_df(gr_virus, domains_w_probes))
+# Pre/post-reduction total range length (bp) — numeric (not in the integer
+# counts table, to avoid overflow on large genomes).
+write_one("reduction_coverage", tibble::tibble(
+  metric = c("total_bp_unreduced", "total_bp_reduced"),
+  value  = c(sum(BiocGenerics::width(gr_virus)),
+             sum(BiocGenerics::width(gr_global)))
+))
+
 if (!is.null(args$manifest)) {
   emit_manifest(args, gen_ver, opts, args$manifest)
 }

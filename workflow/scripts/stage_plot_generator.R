@@ -64,6 +64,8 @@ source(file.path(.script_dir, "stage_plot_generator", "plots_concordance.R"))
 source(file.path(.script_dir, "stage_plot_generator", "plots_structure.R"))
 source(file.path(.script_dir, "stage_plot_generator", "plots_funnel.R"))
 source(file.path(.script_dir, "stage_plot_generator", "plots_multiplicity.R"))
+source(file.path(.script_dir, "stage_plot_generator", "plots_overlap.R"))
+source(file.path(.script_dir, "stage_plot_generator", "plots_ltr_interaction.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -122,8 +124,9 @@ main <- function() {
   }
 
   # ---------- Phase 1: load --------------------------------------------------
-  stage     <- load_stage_dataframes(args$input)
-  counts_df <- load_counts_table(args$input)
+  stage        <- load_stage_dataframes(args$input)
+  counts_df    <- load_counts_table(args$input)
+  coverage_df  <- load_reduction_coverage(args$input)
 
   # Tier notes: homology_loci is the original tier (first-reduced, non-reduced
   # track); reduction_multiplicity is the globally-reduced tier; ltr_structure
@@ -161,7 +164,35 @@ main <- function() {
        multiplicity_m2_plot(stage$reduced, warning_caption = warn_caption),
        "globally reduced loci")
 
-  log_section(sprintf("Done — wrote 8 PNGs to %s", args$output))
+  # ---------- Phase 6: pre-reduction overlap / redundancy --------------------
+  log_section("Rendering overlap / redundancy plots")
+  emit("provirus_overlap_degree.png",
+       overlap_degree_plot(stage$overlap, warning_caption = warn_caption), tier_original)
+  emit("provirus_reciprocal_overlap.png",
+       reciprocal_fraction_plot(stage$overlap, warning_caption = warn_caption), tier_original)
+  emit("provirus_reduction_fold.png",
+       reduction_fold_plot(stage$hits, stage$reduced, warning_caption = warn_caption),
+       "unreduced vs reduced")
+  emit("provirus_coverage_before_after.png",
+       coverage_before_after_plot(coverage_df, warning_caption = warn_caption),
+       "unreduced vs reduced")
+
+  # ---------- Phase 7: LTR feature interactions ------------------------------
+  log_section("Rendering LTR-interaction plots")
+  emit("ltr_distance_to_retro.png",
+       distance_to_retro_plot(stage$ltr_int, warning_caption = warn_caption), tier_original)
+  emit("ltr_position_within_provirus.png",
+       position_within_provirus_plot(stage$ltr_int, warning_caption = warn_caption), tier_original)
+  emit("ltr_feature_breakdown.png",
+       ltr_feature_breakdown_plot(stage$ltr_int, warning_caption = warn_caption), tier_original)
+  emit("ltr_strand_concordance.png",
+       strand_concordance_plot(stage$ltr_int, warning_caption = warn_caption), tier_original)
+  emit("ltr_probe_domain_overlap.png",
+       probe_domain_heatmap(stage$probe_domain, warning_caption = warn_caption), tier_original)
+  emit("ltr_retro_length_vs_hits.png",
+       retro_length_vs_hits_plot(stage$ltr, warning_caption = warn_caption), tier_ltr)
+
+  log_section(sprintf("Done — wrote 18 PNGs to %s", args$output))
 }
 
 
