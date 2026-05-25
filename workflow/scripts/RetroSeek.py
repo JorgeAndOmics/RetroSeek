@@ -296,11 +296,12 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
             )
 
         if args.generate_global_plots:
-            # --generate-global-plots produces the full panel: the 21-plot
-            # final-tier panel (plot_generator) plus the middle-stage panel
-            # (stage_plot_generator) — one DAG, shared ranges_analysis upstream.
+            # --generate-global-plots produces the full panel: the provirus
+            # panel (plot_generator final-tier + stage_plot_generator middle-
+            # stage) plus the erv-like candidate panel (erv_like_plot_generator)
+            # — one DAG, shared ranges_analysis upstream.
             run_snakemake_rule(
-                ["plot_generator", "stage_plot_generator"],
+                ["plot_generator", "stage_plot_generator", "erv_like_plot_generator"],
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,

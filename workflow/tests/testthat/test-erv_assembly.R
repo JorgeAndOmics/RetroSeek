@@ -285,3 +285,26 @@ test_that("build_erv_like_df returns a typed-empty tibble for no candidates", {
   expect_true(all(c("ID", "completeness_fraction", "is_full", "is_canonical")
                   %in% names(out)))
 })
+
+
+# ───────────────────────── build_erv_like_members_df ──────────────────────
+
+test_that("build_erv_like_members_df computes per-candidate running-max gaps", {
+  gr <- .valid_gr("chr1", c(100, 300, 700), c(200, 400, 800), "+",
+                  probe = c("GAG", "POL", "ENV"), virus = "HIV")
+  res <- .run(gr)
+  m <- build_erv_like_members_df(res$children)
+  expect_equal(nrow(m), 3L)
+  # First member of the candidate has NA; subsequent gaps are start - prev end - 1.
+  m <- m[order(m$start), ]
+  expect_true(is.na(m$gap_to_prev[1]))
+  expect_equal(m$gap_to_prev[2], 300L - 200L - 1L)   # 99
+  expect_equal(m$gap_to_prev[3], 700L - 400L - 1L)   # 299 (running max end = 400)
+})
+
+test_that("build_erv_like_members_df returns typed-empty on no children", {
+  out <- build_erv_like_members_df(.empty_erv_children())
+  expect_s3_class(out, "tbl_df")
+  expect_equal(nrow(out), 0L)
+  expect_true(all(c("Parent", "gap_to_prev", "probe") %in% names(out)))
+})

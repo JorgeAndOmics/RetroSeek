@@ -123,12 +123,27 @@ def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
 # erv_like assembly tier (additive) + retired original/candidate reduced exports
 # ---------------------------------------------------------------------
 def test_ranges_analysis_declares_erv_like_outputs(project_root: Path) -> None:
-    """``ranges_analysis_setup`` must emit the additive erv_like tier."""
+    """``ranges_analysis_setup`` must emit the additive erv_like tier + tables."""
     text = _read_snakefile(project_root)
     assert "TRACK_ERV_LIKE_DIR" in text
     assert "erv_like_tracks=" in text
     assert "{genome}.erv_like_loci.parquet" in text
+    assert "{genome}.erv_like_members.parquet" in text
     assert "--erv_like_ranges" in text
+
+
+def test_erv_like_plot_generator_rule_present(project_root: Path) -> None:
+    """The ERV-like plot panel rule must be in the workflow."""
+    rules = _all_rules(project_root)
+    assert "erv_like_plot_generator_setup" in rules
+    assert "erv_like_plot_generator" in rules
+    assert "ERV_LIKE_PLOT_DIR" in _read_snakefile(project_root)
+
+
+def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> None:
+    """--generate-global-plots must drive the erv-like panel alongside provirus."""
+    text = (project_root / "workflow" / "scripts" / "RetroSeek.py").read_text()
+    assert "erv_like_plot_generator" in text
 
 
 def test_original_candidate_reduced_exports_removed(project_root: Path) -> None:
