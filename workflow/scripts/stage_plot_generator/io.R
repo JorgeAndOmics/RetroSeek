@@ -33,10 +33,29 @@ load_stage_dataframes <- function(input_dir) {
   }
   log_section(sprintf("Loading stage dataframes from %s", input_dir))
   list(
-    hits    = read_table("homology_loci"),
-    ltr     = read_table("ltr_structure"),
-    reduced = read_table("reduction_multiplicity")
+    hits         = read_table("homology_loci"),
+    ltr          = read_table("ltr_structure"),
+    reduced      = read_table("reduction_multiplicity"),
+    overlap      = read_table("provirus_overlap"),
+    ltr_int      = read_table("ltr_interaction"),
+    probe_domain = read_table("probe_domain_overlap")
   )
+}
+
+
+# Sum the pre/post-reduction total-bp metrics across every
+# {genome}.reduction_coverage.parquet into a tidy (metric, value) tibble. Feeds
+# the cumulative-coverage before/after plot. Empty when no files are present.
+load_reduction_coverage <- function(input_dir) {
+  files <- list.files(input_dir, pattern = "\\.reduction_coverage\\.parquet$",
+                      full.names = TRUE)
+  if (length(files) == 0L) {
+    return(tibble::tibble(metric = character(0), value = numeric(0)))
+  }
+  rows <- purrr::map(files, arrow::read_parquet)
+  dplyr::bind_rows(rows) %>%
+    dplyr::group_by(metric) %>%
+    dplyr::summarise(value = sum(value), .groups = "drop")
 }
 
 

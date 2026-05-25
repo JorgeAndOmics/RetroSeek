@@ -146,6 +146,27 @@ def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> No
     assert "erv_like_plot_generator" in text
 
 
+def test_new_provirus_plots_and_tables_declared(project_root: Path) -> None:
+    """The new overlap / LTR-interaction provirus plots + their tables exist."""
+    text = _read_snakefile(project_root)
+    for plot in (
+        "provirus_overlap_degree",
+        "provirus_reduction_fold",
+        "provirus_coverage_before_after",
+        "ltr_distance_to_retro",
+        "ltr_probe_domain_overlap",
+        "ltr_retro_length_vs_hits",
+    ):
+        assert plot in text, f"stage plot {plot!r} missing from Snakefile"
+    for table in (
+        "provirus_overlap",
+        "ltr_interaction",
+        "probe_domain_overlap",
+        "reduction_coverage",
+    ):
+        assert f"{{genome}}.{table}.parquet" in text, f"table {table!r} not declared"
+
+
 def test_original_candidate_reduced_exports_removed(project_root: Path) -> None:
     """Only the valid tier keeps a reduced export; original/candidate dropped."""
     text = _read_snakefile(project_root)

@@ -191,3 +191,64 @@ test_that("build_stage_reduced_df returns a typed empty tibble for empty input",
   expect_equal(nrow(df), 0L)
   expect_true("n_loci" %in% colnames(df))
 })
+
+
+# ───── build_stage_overlap_df / ltr_interaction / probe_domain (new) ─────
+
+.fake_domains <- function() {
+  gr <- GenomicRanges::GRanges("chr1", IRanges::IRanges(110, 190), "+")
+  S4Vectors::mcols(gr) <- S4Vectors::DataFrame(probe = "POL", Parent = "retro_1")
+  gr
+}
+
+test_that("build_stage_overlap_df counts self-overlap degree + reciprocal fraction", {
+  gv <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 150, 9000), c(400, 500, 9300)), "+")
+  S4Vectors::mcols(gv) <- S4Vectors::DataFrame(
+    probe = c("GAG", "POL", "ENV"), virus = "HIV", label = "L")
+  out <- build_stage_overlap_df(gv)
+  expect_equal(out$overlap_degree, c(1L, 1L, 0L))
+  expect_gt(out$max_reciprocal_fraction[1], 0)
+  expect_equal(out$max_reciprocal_fraction[3], 0)
+})
+
+test_that("build_stage_overlap_df is typed-empty on empty input", {
+  out <- build_stage_overlap_df(GenomicRanges::GRanges())
+  expect_equal(nrow(out), 0L)
+  expect_true(all(c("overlap_degree", "max_reciprocal_fraction") %in% names(out)))
+})
+
+test_that("build_stage_ltr_interaction_df classifies features + position", {
+  out <- build_stage_ltr_interaction_df(.fake_gr_virus(), .fake_retros(),
+                                        .fake_domains())
+  expect_equal(nrow(out), 3L)
+  expect_equal(out$feature_class[1], "domain_overlap")   # POL overlaps POL domain
+  expect_equal(out$distance_to_nearest_retro[1], 0)
+  expect_false(is.na(out$relative_position_in_retro[1]))
+  expect_equal(out$feature_class[3], "disjoint")         # ENV far from any retro
+  expect_true(is.na(out$relative_position_in_retro[3]))
+})
+
+test_that("build_stage_ltr_interaction_df relative position is strand-aware", {
+  gv <- GenomicRanges::GRanges("chr1", IRanges::IRanges(120, 180), "+")
+  S4Vectors::mcols(gv) <- S4Vectors::DataFrame(probe = "POL", virus = "HIV")
+  retro <- GenomicRanges::GRanges("chr1", IRanges::IRanges(100, 1100), "-")
+  S4Vectors::mcols(retro) <- S4Vectors::DataFrame(ID = "R", Parent = "rr")
+  out <- build_stage_ltr_interaction_df(gv, retro, retro[0])
+  # On '-' strand a low-coordinate locus sits near the 3'-relative far end.
+  expect_gt(out$relative_position_in_retro[1], 0.8)
+  expect_true(out$strand_concordant[1] == FALSE)         # hit + vs retro -
+})
+
+test_that("build_stage_probe_domain_df emits one row per locus x domain overlap", {
+  out <- build_stage_probe_domain_df(.fake_gr_virus(), .fake_domains())
+  expect_equal(nrow(out), 1L)
+  expect_equal(out$hit_probe, "POL")
+  expect_equal(out$domain_probe, "POL")
+})
+
+test_that("build_stage_probe_domain_df is typed-empty when no domains", {
+  out <- build_stage_probe_domain_df(.fake_gr_virus(), GenomicRanges::GRanges())
+  expect_equal(nrow(out), 0L)
+  expect_true(all(c("hit_probe", "domain_probe") %in% names(out)))
+})

@@ -434,6 +434,14 @@ rule ranges_analysis_setup:
         erv_like_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_loci.csv'),
         erv_like_members_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_members.parquet'),
         erv_like_members_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_members.csv'),
+        provirus_overlap_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.provirus_overlap.parquet'),
+        provirus_overlap_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.provirus_overlap.csv'),
+        ltr_interaction_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_interaction.parquet'),
+        ltr_interaction_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.ltr_interaction.csv'),
+        probe_domain_overlap_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.probe_domain_overlap.parquet'),
+        probe_domain_overlap_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.probe_domain_overlap.csv'),
+        reduction_coverage_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
+        reduction_coverage_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.reduction_coverage.csv'),
         manifest=os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
         valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
     params:
@@ -726,6 +734,14 @@ rule stage_plot_generator_setup:
         reduction_multiplicity=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_multiplicity.parquet'),
                              genome=species_with_hits(wildcards)),
         counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+                         genome=species_with_hits(wildcards)),
+        provirus_overlap=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.provirus_overlap.parquet'),
+                         genome=species_with_hits(wildcards)),
+        ltr_interaction=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_interaction.parquet'),
+                         genome=species_with_hits(wildcards)),
+        probe_domain_overlap=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.probe_domain_overlap.parquet'),
+                         genome=species_with_hits(wildcards)),
+        reduction_coverage=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
                          genome=species_with_hits(wildcards))
     output:
         stage_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{stage_plot}.png'),
@@ -736,7 +752,17 @@ rule stage_plot_generator_setup:
                                        'refinement_funnel_per_genome',
                                        'refinement_funnel_aggregate',
                                        'multiplicity_m1_by_tier',
-                                       'multiplicity_m2_global'])
+                                       'multiplicity_m2_global',
+                                       'provirus_overlap_degree',
+                                       'provirus_reciprocal_overlap',
+                                       'provirus_reduction_fold',
+                                       'provirus_coverage_before_after',
+                                       'ltr_distance_to_retro',
+                                       'ltr_position_within_provirus',
+                                       'ltr_feature_breakdown',
+                                       'ltr_strand_concordance',
+                                       'ltr_probe_domain_overlap',
+                                       'ltr_retro_length_vs_hits'])
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
         plot_dir=defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],
