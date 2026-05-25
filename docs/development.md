@@ -14,7 +14,7 @@ The env provides Python 3.10, R 4.3, Snakemake 8, BLAST+, GenomeTools, NCBI Data
 
 ## Branching
 
-All work happens on the **`Experimental`** branch. `master` is the stable reference; do not commit to it directly. Merges from `Experimental` to `master` happen only after explicit review.
+All work happens on the **`Experimental`** branch. `main` is the stable trunk; do not commit to it directly. Merges from `Experimental` to `main` happen only after explicit review.
 
 ```bash
 git switch Experimental          # default working branch
@@ -22,8 +22,6 @@ git pull                         # stay current
 # ... work ...
 git push                         # pushes to origin/Experimental
 ```
-
-Note: if `git-lfs` is not installed locally, pass `-c core.hooksPath=/dev/null` to git operations that trigger LFS hooks (pull, push, checkout).
 
 ## Test-driven development
 

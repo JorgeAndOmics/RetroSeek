@@ -118,4 +118,3 @@ The pipeline also uses a true Snakemake **checkpoint** (`blast_pkl2parquet`) to 
 - **OOM in `ltr_index_generator`** — raise `genome_tools.suffix_array_parts`.
 - **`merge_option` validation failure** — check for typos; must be exactly `virus` or `label`.
 - **Silent missing species** — if `use_species_dict: false`, ensure `{genome}.fa` exists under `SPECIES_DB`. If `true`, ensure genome IDs in `config.species` match the expected file stems.
-- **`git-lfs` not installed** — repo uses LFS for `*.pkl`. Operations on code files still work; for LFS-backed files install `git-lfs` or bypass hooks (`git -c core.hooksPath=/dev/null ...`).
