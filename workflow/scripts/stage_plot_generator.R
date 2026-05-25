@@ -110,44 +110,56 @@ main <- function() {
   }
 
   # Local save wrapper — extracts the per-builder `intended_dims` attribute
-  # (set by auto-scaling builders) and threads it to io.R::save_plot.
-  emit <- function(name, plot) {
+  # (set by auto-scaling builders) and threads it to io.R::save_plot. `tier`
+  # stamps a reduced-state note so each PNG is clear about which range tier it
+  # shows; stage plots draw from different tiers, so it's passed per plot. Read
+  # intended_dims BEFORE stamping, since `+` drops attributes.
+  emit <- function(name, plot, tier = NULL) {
+    dims <- attr(plot, "intended_dims")
+    plot <- stamp_tier_note(plot, tier)
     save_plot(name, plot, args$output,
-              dims = attr(plot, "intended_dims"),
-              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+              dims = dims, base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
   # ---------- Phase 1: load --------------------------------------------------
   stage     <- load_stage_dataframes(args$input)
   counts_df <- load_counts_table(args$input)
 
+  # Tier notes: homology_loci is the original tier (first-reduced, non-reduced
+  # track); reduction_multiplicity is the globally-reduced tier; ltr_structure
+  # describes LTRdigest elements; counts are pipeline-wide.
+  tier_original <- "original tier (non-reduced)"
+  tier_ltr      <- "LTRdigest elements"
+  tier_counts   <- "pipeline counts (all tiers)"
+
   # ---------- Phase 2: concordance + per-probe yield -------------------------
   log_section("Rendering concordance plots (homology ↔ LTR)")
   emit("homology_ltr_concordance.png",
-       concordance_plot(stage$hits, warning_caption = warn_caption))
+       concordance_plot(stage$hits, warning_caption = warn_caption), tier_original)
   emit("probe_yield_funnel.png",
-       probe_yield_plot(stage$hits, warning_caption = warn_caption))
+       probe_yield_plot(stage$hits, warning_caption = warn_caption), tier_original)
 
   # ---------- Phase 3: LTR structure ----------------------------------------
   log_section("Rendering LTR structure plots")
   emit("ltr_structural_components.png",
-       ltr_structure_components_plot(stage$ltr, warning_caption = warn_caption))
+       ltr_structure_components_plot(stage$ltr, warning_caption = warn_caption), tier_ltr)
   emit("retrotransposon_domain_composition.png",
-       domain_composition_plot(stage$ltr, warning_caption = warn_caption))
+       domain_composition_plot(stage$ltr, warning_caption = warn_caption), tier_ltr)
 
   # ---------- Phase 4: refinement funnel ------------------------------------
   log_section("Rendering refinement funnel plots")
   emit("refinement_funnel_per_genome.png",
-       refinement_funnel_plot(counts_df, warning_caption = warn_caption))
+       refinement_funnel_plot(counts_df, warning_caption = warn_caption), tier_counts)
   emit("refinement_funnel_aggregate.png",
-       aggregate_funnel_plot(counts_df, warning_caption = warn_caption))
+       aggregate_funnel_plot(counts_df, warning_caption = warn_caption), tier_counts)
 
   # ---------- Phase 5: multiplicity -----------------------------------------
   log_section("Rendering multiplicity plots")
   emit("multiplicity_m1_by_tier.png",
-       multiplicity_m1_plot(stage$hits, warning_caption = warn_caption))
+       multiplicity_m1_plot(stage$hits, warning_caption = warn_caption), tier_original)
   emit("multiplicity_m2_global.png",
-       multiplicity_m2_plot(stage$reduced, warning_caption = warn_caption))
+       multiplicity_m2_plot(stage$reduced, warning_caption = warn_caption),
+       "globally reduced loci")
 
   log_section(sprintf("Done — wrote 8 PNGs to %s", args$output))
 }
