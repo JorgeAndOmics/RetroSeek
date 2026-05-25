@@ -33,7 +33,7 @@ genome list ──► genome_downloader (datasets) ──► {genome}.fa
                                    ├─► species_segmenter.R
                                    └─► ranges_analysis.R
                                              │
-                                             ├─► GFF3 tracks (original / candidate / valid + _reduced)
+                                             ├─► GFF3 tracks (original, candidate, valid [+valid _reduced], erv_like)
                                              ├─► overlap matrix (CSV)
                                              └─► plot dataframes (Parquet)
                                                    │
@@ -51,14 +51,14 @@ All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand
 **Indexing** — `blast_db_generator`, `ltr_index_generator`.
 **LTR discovery** — `ltr_harvester`, `ltr_digester` (depends on both LTR_harvest outputs and the Pfam HMM download).
 **BLAST search** — `probe_extractor`, `full_genome_blaster`, `blast_pkl2parquet`.
-**Integration & segmentation** — `species_segmenter`, `ranges_analysis` (phase-modular: `workflow/scripts/ranges_analysis.R` is a thin orchestrator over sibling modules in `workflow/scripts/range_analysis/{io,granges_build,filtering,reductions,validation,plot_dataframe,exporters}.R`).
+**Integration & segmentation** — `species_segmenter`, `ranges_analysis` (phase-modular: `workflow/scripts/ranges_analysis.R` is a thin orchestrator over sibling modules in `workflow/scripts/range_analysis/{io,granges_build,filtering,reductions,validation,erv_assembly,plot_dataframe,exporters}.R`).
 **Solo-LTR detection** — `ltr_retriever_prefilter`, `ltr_retriever`, `solo_ltr_integrator`, `solo_ltr_detector` (aggregate). Runs LTR_retriever over LTRharvest output pre-filtered by `valid_ranges.gff3`; propagates RetroSeek probe labels onto discovered solo LTRs. See [`docs/solo_ltr.md`](solo_ltr.md) for the full mechanism and [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md) for the pre-filter rationale.
 **Downstream analyses** — `plot_generator` (phase-modular: `workflow/scripts/plot2sort.R` is a slim orchestrator over sibling modules in `workflow/scripts/plot2sort/{helpers,io,plots_distribution,plots_categorical,plots_sankey}.R`; emits 21 PNGs with auto-scaled canvases driven by `auto_dims()`, opt-in long-tail collapse via `sankey_top_n`, and waffle auto-scaling), `circle_plot_generator`, `hotspot_detector`, `pair_detector`.
 
 ## Outputs
 
-- `results/tracks/` — GFF3 per stage (`original`, `candidate`, `valid`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`, `ltr_retriever/`), each with a `_reduced` variant (merged overlapping ranges) where applicable. `solo_ltr/{genome}.gff3` carries probe_labels propagated from valid ERVs (see `docs/solo_ltr.md`).
-- `results/tables/<name>/` — user-facing **CSV** copy of every table group, each in its own subdirectory (no loose files): `ranges_analysis` (`{genome}.{final_loci,homology_loci,ltr_structure,reduction_multiplicity,counts}.csv`), `overlap_matrix`, `segmented_species`, `probe_pairs`, `solo_intact_ratio`, `hotspots`, `probe_dict`, `full_genome_blast`.
+- `results/tracks/` — GFF3 per stage (`original`, `candidate`, `valid`, `erv_like`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`, `ltr_retriever/`). Only `valid` carries a `_reduced` variant (merged overlapping ranges); `original`/`candidate` are unreduced. `erv_like/{genome}.gff3` holds composite ERV-like candidates — a parent `erv_like` feature per candidate plus its child `erv_like_member` loci (`Parent=<candidate ID>`) — chained from valid main-probe loci, with a child-locus `.bed` alongside. `solo_ltr/{genome}.gff3` carries probe_labels propagated from valid ERVs (see `docs/solo_ltr.md`).
+- `results/tables/<name>/` — user-facing **CSV** copy of every table group, each in its own subdirectory (no loose files): `ranges_analysis` (`{genome}.{final_loci,homology_loci,ltr_structure,reduction_multiplicity,counts,erv_like_loci}.csv`), `overlap_matrix`, `segmented_species`, `probe_pairs`, `solo_intact_ratio`, `hotspots`, `probe_dict`, `full_genome_blast`.
 - `data/tables/<name>/` — the pipeline-internal **Parquet** copy of each of those table groups, mirroring the `results/tables/` layout. `data/tables/_input/` holds the user-provided probe CSV.
 - `results/manifest/` — per-genome run manifest YAMLs: provenance only (generator build, timestamp, input md5s, resolved parameters, seed).
 - `results/plots/` — 21 global PNGs from `plot2sort` (density, raincloud, query-coverage, bar, balloon, heatmap-probe×species, virus waffle, three Sankey variants, each split into `main` / `accessory` / `full` where applicable), plus per-genome Circos-style PNG + PDF.

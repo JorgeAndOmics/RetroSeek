@@ -117,3 +117,36 @@ def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
     text = (project_root / "data" / "config" / "config.yaml").read_text()
     assert "source_scn:" in text
     assert "restrict_to_retroviral" not in text
+
+
+# ---------------------------------------------------------------------
+# erv_like assembly tier (additive) + retired original/candidate reduced exports
+# ---------------------------------------------------------------------
+def test_ranges_analysis_declares_erv_like_outputs(project_root: Path) -> None:
+    """``ranges_analysis_setup`` must emit the additive erv_like tier."""
+    text = _read_snakefile(project_root)
+    assert "TRACK_ERV_LIKE_DIR" in text
+    assert "erv_like_tracks=" in text
+    assert "{genome}.erv_like_loci.parquet" in text
+    assert "--erv_like_ranges" in text
+
+
+def test_original_candidate_reduced_exports_removed(project_root: Path) -> None:
+    """Only the valid tier keeps a reduced export; original/candidate dropped."""
+    text = _read_snakefile(project_root)
+    assert "original_tracks_reduced" not in text
+    assert "candidate_tracks_reduced" not in text
+    assert "--original_ranges_reduced" not in text
+    assert "--candidate_ranges_reduced" not in text
+    # The valid reduced track and its CLI flag must remain.
+    assert "valid_tracks_reduced" in text
+    assert "--valid_ranges_reduced" in text
+
+
+def test_config_yaml_declares_erv_like_block(project_root: Path) -> None:
+    """The erv_like config block + its Yamale sub-schema must be present."""
+    config = (project_root / "data" / "config" / "config.yaml").read_text()
+    schema = (project_root / "data" / "config" / "schema.yaml").read_text()
+    assert "erv_like:" in config
+    assert "max_join_distance:" in config
+    assert "erv_like_schema:" in schema

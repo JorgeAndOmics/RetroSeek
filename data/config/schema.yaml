@@ -42,6 +42,7 @@ parameters_schema:
   probe_min_length: map(int(min=0), key=str())
   aggregation: include('aggregation_schema', required=False)
   solo_ltr_aggregation: include('solo_ltr_aggregation_schema', required=False)
+  erv_like: include('erv_like_schema', required=False)
 
 aggregation_schema:
   virus: str(matches='^(list|concatenate|best|majority|first|strict)$')
@@ -55,6 +56,12 @@ aggregation_schema:
 solo_ltr_aggregation_schema:
   probe: str(matches='^(list|concatenate|best|majority|first|strict)$')
   best_tiebreaker: str(matches='^(consensus_members|bitscore|identity)$')
+
+erv_like_schema:
+  group_by:                str(matches='^(virus|label|none)$')
+  max_join_distance:       int(min=0)
+  require_canonical_order: bool()
+  completeness_threshold:  num(min=0, max=1)
 
 ltr_retriever_schema:
   substitution_rate:        num(min=0)

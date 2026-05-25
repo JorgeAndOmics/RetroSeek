@@ -65,6 +65,31 @@ parameters:
     probe: "list"
     best_tiebreaker: "consensus_members"  # consensus_members | bitscore | identity
 
+  # ERV-like assembly. Chains adjacent MAIN-probe loci (from the unreduced valid
+  # tier) into composite "ERV-like" candidates — candidate conserved full ERVs or
+  # the longest recoverable fragment (e.g. GAG+POL when ENV is absent). Purely
+  # additive: isolated single-gene loci stay in the valid output untouched.
+  # Output: results/tracks/erv_like/{genome}.gff3 (parent candidate + child
+  # member loci) and .bed; table results/tables/ranges_analysis/{genome}.erv_like_loci.csv.
+  erv_like:
+    # Grouping that gates which loci may chain together:
+    #   virus — only loci sharing a virus (co-located different viruses stay as
+    #           separate, possibly overlapping candidates — both retained).
+    #   label — only loci sharing a label (genus/family).
+    #   none  — chain across all main loci in the window regardless of virus/label.
+    group_by: 'virus'              # virus | label | none
+    # Maximum gap (bp) between adjacent main-probe loci to still chain them.
+    # Inclusive (a gap exactly equal to this still joins).
+    max_join_distance: 1500
+    # When true, keep only candidates whose main probes occur in the order given
+    # by `main_probes` above (forward on +, reversed on -, either on *). The
+    # main_probes list order IS the canonical gene order. Candidates dropped for
+    # non-canonicity are still tallied for the canonical-vs-rearranged plot.
+    require_canonical_order: false
+    # is_full = (n_main_present / n_main_expected) >= this. n_main_expected is the
+    # number of configured main_probes. 1.0 = a candidate must carry every main probe.
+    completeness_threshold: 1.0
+
 # LTR_retriever post-processing of LTRharvest output for solo-LTR detection.
 # See docs/solo_ltr.md for the full mechanism (how LTR_retriever's three
 # stages work, what "family" means, how the pre-filter + label-propagation
