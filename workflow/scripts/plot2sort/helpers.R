@@ -112,6 +112,24 @@ add_titles <- function(p, title, subtitle, subset_label = NULL,
 }
 
 
+# Append a neutral tier / reduced-state note to a finished plot's subtitle so
+# each PNG is self-documenting about which range tier it shows and whether those
+# ranges are reduced (overlaps merged) or non-reduced. Stamped at the
+# orchestrator's emit() choke point — no per-builder change needed. Reads the
+# builder's existing subtitle from the ggplot object and appends to it; the
+# subtitle theme set by add_titles() then styles the whole line uniformly.
+stamp_tier_note <- function(p, tier) {
+  if (is.null(tier) || !nzchar(tier)) return(p)
+  existing <- p$labels$subtitle
+  combined <- if (!is.null(existing) && nzchar(existing)) {
+    paste0(existing, "  ·  ", tier)
+  } else {
+    tier
+  }
+  p + labs(subtitle = combined)
+}
+
+
 # Stamp a bold red warning caption onto a finished plot, or return it
 # unchanged when `caption` is NULL/empty. Single styling source shared by
 # add_titles() (stage_plot_generator builders) and plot2sort.R's emit()

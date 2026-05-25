@@ -111,8 +111,12 @@ main <- function() {
   #      auto-scaling builders) — read BEFORE stamping, since `+` drops attrs,
   #   3) stamps the multi-value aggregation warning caption when active,
   #   4) passes the captured dims to io.R::save_plot.
+  # Every plot2sort PNG is built from the `final_loci` table — i.e. the valid
+  # tier after global reduction — so a single reduced-state note is accurate for
+  # all 21. Read intended_dims BEFORE stamping, since `+` drops attributes.
   emit <- function(name, plot) {
     dims <- attr(plot, "intended_dims")
+    plot <- stamp_tier_note(plot, "valid tier (reduced)")
     plot <- stamp_warning_caption(plot, warn_caption)
     save_plot(name, plot, args$output,
               dims = dims, base_w = plot_width, base_h = plot_height,

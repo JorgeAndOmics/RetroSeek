@@ -160,6 +160,12 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 
 # === Results - Plots ===
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
+# Provirus panel: the per-probe / stage plots about individual proviral hits and
+# their LTR integration (plot2sort + stage_plot_generator) live under provirus/.
+PATH_DICT["PROVIRUS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "provirus").resolve()
+# ERV-like panel: plots about assembled erv_like candidates (composition,
+# completeness, gene order). Hyphenated per the output contract.
+PATH_DICT["ERV_LIKE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "erv-like").resolve()
 PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle_plots").resolve()
 PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve()
 

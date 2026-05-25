@@ -121,6 +121,27 @@ test_that("empty_plot forces a white plot.background", {
 })
 
 
+# ───────────────────────────── stamp_tier_note ────────────────────────────
+
+test_that("stamp_tier_note appends to an existing subtitle", {
+  p <- add_titles(empty_plot(), title = "T", subtitle = "Bitscore density")
+  out <- stamp_tier_note(p, "valid tier (reduced)")
+  expect_match(out$labels$subtitle, "Bitscore density")
+  expect_match(out$labels$subtitle, "valid tier \\(reduced\\)")
+})
+
+test_that("stamp_tier_note sets the subtitle when none exists", {
+  out <- stamp_tier_note(ggplot(), "original tier (non-reduced)")
+  expect_equal(out$labels$subtitle, "original tier (non-reduced)")
+})
+
+test_that("stamp_tier_note is a no-op for NULL / empty tier", {
+  p <- add_titles(empty_plot(), title = "T", subtitle = "S")
+  expect_identical(stamp_tier_note(p, NULL)$labels$subtitle, "S")
+  expect_identical(stamp_tier_note(p, "")$labels$subtitle, "S")
+})
+
+
 # ───────────────────────────── bar_plot ───────────────────────────────────
 
 test_that("bar_plot returns empty placeholder on zero-row input", {

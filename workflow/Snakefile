@@ -676,25 +676,25 @@ rule plot_generator_setup:
         final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
                                genome=species_with_hits(wildcards))
     output:
-        density_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{density_probe}_density.png'),
+        density_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
-        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
+        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
                                raincloud_probe=['main','accessory']),
-        bar_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{bar_probe}_bar.png'),
+        bar_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{bar_probe}_bar.png'),
                          bar_probe=['full', 'main','accessory']),
-        sankey_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
+        sankey_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
                             sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
-        balloon_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{balloon_probe}_balloon.png'),
+        balloon_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{balloon_probe}_balloon.png'),
                              balloon_probe=['main','accessory']),
-        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{qc_probe}_query_coverage.png'),
+        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{qc_probe}_query_coverage.png'),
                                     qc_probe=['main','accessory']),
-        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
+        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
                              hm_probe=['main','accessory']),
-        waffle_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
+        waffle_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
                             wf_probe=['main','accessory'])
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['PLOT_DIR'],
+        plot_dir=defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -726,7 +726,7 @@ rule stage_plot_generator_setup:
         counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
                          genome=species_with_hits(wildcards))
     output:
-        stage_plots=expand(os.path.join(defaults.PATH_DICT['PLOT_DIR'],'{stage_plot}.png'),
+        stage_plots=expand(os.path.join(defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],'{stage_plot}.png'),
                            stage_plot=['homology_ltr_concordance',
                                        'probe_yield_funnel',
                                        'ltr_structural_components',
@@ -737,7 +737,7 @@ rule stage_plot_generator_setup:
                                        'multiplicity_m2_global'])
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['PLOT_DIR'],
+        plot_dir=defaults.PATH_DICT['PROVIRUS_PLOT_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
