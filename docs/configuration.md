@@ -207,5 +207,5 @@ Map of genome ID → scientific name. Keys drive `expand(..., genome=SPECIES)` t
 
 ```yaml
 species:
-  HLartInt1A: "Artibeus intermedius"
+  example_genome_1: "Example species one"
 ```

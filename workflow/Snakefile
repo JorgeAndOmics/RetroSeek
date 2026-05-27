@@ -23,7 +23,7 @@ SPECIES = list(defaults.SPECIES)
 # whenever two rules write to the same directory with overlapping filename
 # patterns — e.g. ltr_harvester_setup ({genome}.scn) and
 # ltr_retriever_prefilter_setup ({genome}_retroviral.scn), where {genome}
-# would greedily absorb "Antrozous_pallidus_retroviral" for the first rule.
+# would greedily absorb "example_genome_retroviral" for the first rule.
 wildcard_constraints:
     genome = "|".join(re.escape(s) for s in SPECIES) if SPECIES else r"(?!x)x"
 

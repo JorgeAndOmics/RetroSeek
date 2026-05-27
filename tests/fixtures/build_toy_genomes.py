@@ -225,7 +225,7 @@ def build_species(spec: SpeciesSpec, rng: random.Random) -> list[SeqRecord]:
 def write_fasta(records: list[SeqRecord], destination: Path) -> int:
     """Write records to a FASTA file, following RetroSeek's SPECIES_DB layout.
 
-    RetroSeek's convention (matching bat-experimental) is FASTA flat at
+    RetroSeek's convention is a flat FASTA at
     ``SPECIES_DB/{genome}.fa`` with per-genome subdirectories reserved for
     tool-produced files (BLAST DB index, suffix-array index). Callers should
     pass ``destination`` as the flat path.

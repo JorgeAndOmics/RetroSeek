@@ -66,9 +66,10 @@ data/tmp/*
 !data/tmp/
 
 # ──────────────────────────────────────────────
-# Local config overrides (per-machine; see data/config/config.example.yaml)
+# Local config overrides + real study data (per-machine; never committed —
+# the committed config.yaml carries example values only)
 # ──────────────────────────────────────────────
-data/config/config.local.yaml
+data/config/*.local.yaml
 
 # ──────────────────────────────────────────────
 # Parameter-sweep tooling — internal development only, not versioned

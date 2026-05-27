@@ -19,7 +19,7 @@ Two ways to integrate this signal with LTR_retriever were considered:
 
 ## Decision
 
-Use the **pre-filter** approach. A new script `workflow/scripts/ltr_retriever_prefilter.py` produces `data/ltr_scn/{genome}_retroviral.scn` by intersecting LTRharvest's `.scn` with `valid_ranges.gff3`, and LTR_retriever is invoked on this filtered SCN. (The underscore-separator filename is deliberate: a dot separator — `{genome}.retroviral.scn` — collides with LTRharvest's own `{genome}.scn` output pattern under Snakemake wildcard matching, because `{genome}` would greedily absorb `Antrozous_pallidus.retroviral`.)
+Use the **pre-filter** approach. A new script `workflow/scripts/ltr_retriever_prefilter.py` produces `data/ltr_scn/{genome}_retroviral.scn` by intersecting LTRharvest's `.scn` with `valid_ranges.gff3`, and LTR_retriever is invoked on this filtered SCN. (The underscore-separator filename is deliberate: a dot separator — `{genome}.retroviral.scn` — collides with LTRharvest's own `{genome}.scn` output pattern under Snakemake wildcard matching, because `{genome}` would greedily absorb `example_genome.retroviral`.)
 
 Controlled by `config.ltr_retriever.source_scn` (`retroviral` | `full`, default `retroviral`). Setting `full` feeds the unfiltered LTRharvest SCN to LTR_retriever for debugging or non-retroviral exploratory use. (The original boolean `restrict_to_retroviral` was replaced by this enum during the LTR-Retriever audit — see [ADR-005](ADR-005-ltr-retriever-runner.md). The prefilter rule now always materialises both `_retroviral.scn` and `_full.scn` from a single read pass; the toggle picks which one feeds the runner.)
 

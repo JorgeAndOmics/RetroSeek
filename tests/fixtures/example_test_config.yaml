@@ -1,28 +1,21 @@
-# Bat-experimental end-to-end test config for RetroSeek.
+# Generic end-to-end test config for RetroSeek — EXAMPLE VALUES ONLY.
 #
-# Used to exercise the full pipeline on real mammalian data (one bat species)
-# with a small curated probe set. To run:
+# A full, schema-valid config for exercising the whole pipeline on your own
+# data without touching the committed data/config/config.yaml. Usage:
 #
-#   1) mamba env create -f data/config/environment.yml   # once
-#   2) Back up current config:
-#        cp data/config/config.yaml /tmp/retroseek-config-backup.yaml
-#   3) Drop this config in:
-#        cp tests/fixtures/bat_test_config.yaml data/config/config.yaml
-#   4) Place a test probe CSV at /tmp/probes_test.csv (see
-#      tests/fixtures/ for a generator or use a subset of
-#      data/tables/probes_TRUE.csv with the canonical Label header).
-#   5) Run stages (expected wall-times on 2GB mammalian genome, 8 cores):
-#        snakemake probe_extractor      --cores 4   # ~5 s
-#        snakemake ltr_harvester        --cores 8   # ~45 min suffixerator + ~20 min ltrharvest
-#        snakemake ltr_digester         --cores 8   # ~30 min Pfam download + ~10 min ltrdigest
-#        snakemake full_genome_blaster  --cores 8   # ~60 min per probe/genome
-#        snakemake ranges_analysis      --cores 4   # ~2 min
-#        snakemake solo_ltr_detector    --cores 8   # ~30 min LTR_retriever + ~1 min integrator
+#   1) mamba env create -f data/config/environment.yml          # once
+#   2) cp tests/fixtures/example_test_config.yaml \
+#         data/config/config.local.yaml                         # gitignored
+#   3) Edit config.local.yaml — set the four `root` paths, `input.probe_csv`,
+#      `execution.entrez_email`, and your real `species:` entries.
+#   4) Run stages with --configfile, e.g.:
+#        ./RetroSeek --probe-extractor     --configfile data/config/config.local.yaml
+#        ./RetroSeek --ltr-candidates      --configfile data/config/config.local.yaml --cores 8
+#        ./RetroSeek --ranges-analysis     --configfile data/config/config.local.yaml --cores 4
+#        ./RetroSeek --solo-ltr-detection  --configfile data/config/config.local.yaml --cores 8
 #
-# Or run it all under one target: `snakemake solo_ltr_detector --cores 8`.
-#
-# When done, restore the original config:
-#   cp /tmp/retroseek-config-backup.yaml data/config/config.yaml
+# Values below are illustrative; tune to your machine and dataset. Every field
+# is documented in docs/configuration.md (or: RetroSeek --config-help [KEY]).
 
 blast:
   e_value: 0.01
@@ -35,6 +28,7 @@ genome_tools:
   ltrdigest_optional_parameters: ''
 
 parameters:
+  seed: 67
   identity_threshold: 0
   bitscore_threshold: 50
   ltr_resize: 0
@@ -58,7 +52,6 @@ parameters:
     POL: 100
     ENV: 100
     PRO: 100
-
   aggregation:
     virus: "list"
     label: "list"
@@ -67,10 +60,14 @@ parameters:
     best_tiebreaker: "bitscore"
     concat_separator: "; "
     strict_marker: "ambiguous"
-
   solo_ltr_aggregation:
     probe: "list"
     best_tiebreaker: "consensus_members"
+  erv_like:
+    group_by: 'virus'
+    max_join_distance: 1500
+    require_canonical_order: false
+    completeness_threshold: 1.0
 
 ltr_retriever:
   substitution_rate: 1.3e-8
@@ -101,7 +98,10 @@ plots:
   dpi: 100
   width: 10
   height: 8
-  omit_lower_percent: 0.05
+  bitscore_x_scale: linear
+  sankey_top_n: null
+  sankey_other_label: 'Other'
+  waffle_unit_hits: null
   circle_plot_bitscore_threshold: 0
 
 execution:
@@ -113,7 +113,7 @@ execution:
   entrez_email: 'your.email@institution.example'
 
 input:
-  probe_csv: '/tmp/probes_test.csv'
+  probe_csv: '/path/to/your/probes.csv'
 
 display:
   display_snakemake_info: false
@@ -121,10 +121,10 @@ display:
   display_operation_info: true
 
 root:
-  db_root_folder: '/path/to/databases/bat-experimental'
-  data_root_folder: '/tmp/retroseek-bat-test/data'
-  results_root_folder: '/tmp/retroseek-bat-test/results'
-  logs_root_folder: '/tmp/retroseek-bat-test/logs'
+  db_root_folder: '/path/to/your/genomes'
+  data_root_folder: '/tmp/retroseek-test/data'
+  results_root_folder: '/tmp/retroseek-test/results'
+  logs_root_folder: '/tmp/retroseek-test/logs'
 
 domains:
   POL:
@@ -140,8 +140,9 @@ domains:
     - "coat"
     - "FP"
     - "HR1"
-  PRO:
+  PR15:
     - "PR15"
 
 species:
-  Antrozous_pallidus: "Antrozous pallidus"
+  # key = genome FASTA stem in SPECIES_DB; value = display name.
+  example_genome_1: "Example species one"

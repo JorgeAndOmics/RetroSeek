@@ -63,6 +63,13 @@ Three layers:
 - **R**: tidyverse style via `styler`, lint via `lintr`. Both installed in the env.
 - **Bash**: POSIX-compatible where possible; `shellcheck` if available.
 
+## Configuration data hygiene
+
+The committed `data/config/config.yaml` carries **example values only** — generic placeholder genomes, no machine paths, no real probe CSV. The same applies to tracked fixtures under `tests/fixtures/`. Keep real study data out of version control:
+
+- Real genome catalog (`species:`), the four `root` paths, `input.probe_csv`, and `execution.entrez_email` belong in `data/config/config.local.yaml` (gitignored via `data/config/*.local.yaml`); run with `--configfile data/config/config.local.yaml`.
+- When you add or change a config field, update the **placeholder** in `config.yaml` and the row in [`configuration.md`](configuration.md) — never paste real data into either.
+
 ## Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org/):
