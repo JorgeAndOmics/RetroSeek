@@ -10,6 +10,20 @@ suppressMessages({
 })
 
 # =============================================================================
+# 0b. Source pure helpers (partition + species-list logic; unit-tested)
+# =============================================================================
+.resolve_script_dir <- function() {
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- cmd_args[grepl("^--file=", cmd_args)]
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  "."
+}
+.script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "species_segmenter", "segment.R"))
+
+# =============================================================================
 # 1. Parse Command-Line Arguments
 # =============================================================================
 parser <- ArgumentParser(description = "Split a Parquet dataset by species")
@@ -48,14 +62,13 @@ config <- yaml::read_yaml(args$config_file)
 main_probe_names <- config$parameters$main_probes
 
 # =============================================================================
-# 3. Write Main & Accessory Parquet Outputs (Filter Once)
+# 3. Write Main & Accessory Parquet Outputs (partition once)
 # =============================================================================
-main_probes_df <- data %>% filter(probe %in% main_probe_names)
-accessory_probes_df <- data %>% filter(!probe %in% main_probe_names)
+segments <- segment_by_probe(data, main_probe_names)
 
 message("Writing full main and accessory tables.")
-write_both(main_probes_df, "all_main")
-write_both(accessory_probes_df, "all_accessory")
+write_both(segments$main, "all_main")
+write_both(segments$accessory, "all_accessory")
 
 # =============================================================================
 # 4. Split by Species and Write Per-Species Files
@@ -82,10 +95,8 @@ for (i in seq_along(species_list)) {
 # consume only the subset with hits (via species_with_hits(wildcards) at
 # runtime) but the per-genome rule outputs must exist for Snakemake to
 # resolve the dependency graph.
-all_species <- strsplit(args$species, ",", fixed = TRUE)[[1]]
-all_species <- trimws(all_species)
-all_species <- all_species[nzchar(all_species)]
-missing_species <- setdiff(all_species, written)
+all_species <- parse_species_list(args$species)
+missing_species <- species_to_backfill(all_species, written)
 if (length(missing_species) > 0L) {
   # Use the same schema as the input so readers don't need to branch on
   # missing-column edge cases. Zero-row slice preserves all column types.
