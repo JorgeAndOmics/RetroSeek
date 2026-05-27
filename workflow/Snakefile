@@ -857,7 +857,6 @@ rule circle_plot_generator:
         circle_plots=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=species_with_hits(wildcards))
 
 
-# TODO: SUFFIX PARSING
 rule hotspot_detector_setup:
     input:
         # Per-genome scoping (A5): previously this rule demanded
