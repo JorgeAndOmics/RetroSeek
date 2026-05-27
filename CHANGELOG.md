@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, format-check, type-check,
   fast Python tests, and the R `testthat` suite — mirroring `make check`.
-- `ROADMAP.md` recording per-stage feature maturity (stable / experimental).
 - Reproducible anonymized demo-figure generator
   (`workflow/scripts/demo_figures.R`) that rebuilds the README figures from real
   output with neutral placeholder labels.
@@ -24,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `main`, merged via PR once CI is green), replacing the retired
   `Experimental → main` flow.
 - README quick-start, screenshots (now anonymized demo figures), and signposting
-  (CI badge, CHANGELOG / ROADMAP links).
+  (CI badge, CHANGELOG link).
 - `hotspot_detector` and `circle_plot_generator` are now explicitly marked
   **experimental** (honest `skip()` test scaffolds instead of fake-passing stubs).
 
