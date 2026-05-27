@@ -8,13 +8,13 @@ rapid pipeline testing. Each "species" gets a multi-scaffold FASTA with:
   an internal region seeded with real retroviral ORF fragments).
 - Probe-matchable regions so tBLASTn produces non-trivial hits.
 
-Output goes to ``/mnt/v/databases/toy-genomes/<species>/<species>.fa`` by
+Output goes to ``/path/to/databases/toy-genomes/<species>/<species>.fa`` by
 default, alongside a small probe CSV at ``.../toy_probes.csv`` suitable for
 ``config.input.probe_csv``.
 
-Run inside the enERVate conda env::
+Run inside the retroseek conda env::
 
-    conda activate enERVate
+    conda activate retroseek
     python tests/fixtures/build_toy_genomes.py
 
 Pass ``--dest /somewhere/else`` to target a different directory, ``--force``
@@ -305,8 +305,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dest",
         type=Path,
-        default=Path("/mnt/v/databases/toy-genomes"),
-        help="Output root directory (default: /mnt/v/databases/toy-genomes).",
+        default=Path("/path/to/databases/toy-genomes"),
+        help="Output root directory (default: /path/to/databases/toy-genomes).",
     )
     parser.add_argument(
         "--seed",

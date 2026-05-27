@@ -8,11 +8,11 @@ Miniature inputs for integration and end-to-end tests. Keep everything here:
 
 ## Toy genome generator
 
-`build_toy_genomes.py` generates a deterministic, seeded set of synthetic ERV-containing genomes for rapid iteration. Default output: `/mnt/v/databases/toy-genomes/`.
+`build_toy_genomes.py` generates a deterministic, seeded set of synthetic ERV-containing genomes for rapid iteration. Default output: `/path/to/databases/toy-genomes/`.
 
 ```bash
-conda activate enERVate
-python tests/fixtures/build_toy_genomes.py              # default: /mnt/v/databases/toy-genomes, seed 1337
+conda activate retroseek
+python tests/fixtures/build_toy_genomes.py              # default: /path/to/databases/toy-genomes, seed 1337
 python tests/fixtures/build_toy_genomes.py --force      # overwrite existing
 python tests/fixtures/build_toy_genomes.py --dest /tmp  # elsewhere
 python tests/fixtures/build_toy_genomes.py --seed 42    # different seed
@@ -28,7 +28,7 @@ python tests/fixtures/build_toy_genomes.py --seed 42    # different seed
 
 ### Why outside the repo
 
-The genomes live at `/mnt/v/databases/toy-genomes/` — outside the repo, regeneratable anytime from the committed generator script. Keeps the repo small and version-controlled separately from runtime data.
+The genomes live at `/path/to/databases/toy-genomes/` — outside the repo, regeneratable anytime from the committed generator script. Keeps the repo small and version-controlled separately from runtime data.
 
 ## Conventions
 
