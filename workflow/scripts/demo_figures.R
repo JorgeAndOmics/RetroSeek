@@ -79,7 +79,16 @@ log_section <- function(name) {
 # columns only; probe/gene names and numbers are never mapped.
 make_label_map <- function(values, prefix) {
   u <- sort(unique(values[!is.na(values)]))
-  stopifnot(length(u) <= length(LETTERS))
+  if (length(u) > length(LETTERS)) {
+    stop(sprintf(
+      paste0(
+        "Cannot anonymise %d unique '%s' values with single-letter labels (max %d). ",
+        "Demo figures target a small, representative run — subset --input to a ",
+        "lighter cohort (a 100-category showcase plot is unreadable anyway)."
+      ),
+      length(u), prefix, length(LETTERS)
+    ), call. = FALSE)
+  }
   setNames(paste(prefix, LETTERS[seq_along(u)]), u)
 }
 
