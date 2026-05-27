@@ -14,14 +14,18 @@ The env provides Python 3.10, R 4.3, Snakemake 8, BLAST+, GenomeTools, NCBI Data
 
 ## Branching
 
-All work happens on the **`Experimental`** branch. `main` is the stable trunk; do not commit to it directly. Merges from `Experimental` to `main` happen only after explicit review.
+`main` is the stable trunk. Do routine work on a short-lived branch and merge it
+back via a pull request once `make check` passes locally and CI is green:
 
 ```bash
-git switch Experimental          # default working branch
-git pull                         # stay current
-# ... work ...
-git push                         # pushes to origin/Experimental
+git switch -c feat/<short-name> main   # or fix/<short-name>
+# ... work, committing as you go ...
+git push -u origin feat/<short-name>   # open a PR; CI runs the gate
+# ... merge once green, then delete the branch ...
 ```
+
+Trivial doc/typo fixes may go straight to `main`. Long-lived archival branches
+(e.g. `hotspot-v2-archive`) are kept deliberately — don't treat them as active.
 
 ## Test-driven development
 
@@ -96,10 +100,28 @@ make check                          # lint + format-check + typecheck + tests
 
 Mentally walk through:
 
-- On `Experimental`? (`git branch --show-current`)
+- On a short-lived `feat/*` / `fix/*` branch off `main`, not committing straight to the trunk? (`git branch --show-current`)
 - Tests updated first (TDD)?
 - Docs synchronised? ([`docs/architecture.md`](architecture.md), [`docs/usage.md`](usage.md), [`docs/configuration.md`](configuration.md), [`docs/solo_ltr.md`](solo_ltr.md) if the LTR chain was touched, this file, [`docs/adr/`](adr/), [`README.md`](../README.md))
 - Conventional Commit message?
+
+## Releasing
+
+RetroSeek follows [Semantic Versioning](https://semver.org) and keeps a curated
+[`CHANGELOG.md`](../CHANGELOG.md) in [Keep a Changelog](https://keepachangelog.com)
+format. Accumulate user-visible changes under `[Unreleased]` as you go, and cut a
+release when that section is worth publishing (patch = fixes, minor = new
+stages/features, major = breaking config or CLI changes).
+
+To cut version `X.Y.Z`:
+
+1. `make check` green locally and CI green on `main`.
+2. Move the `[Unreleased]` entries into a new `## [X.Y.Z] - YYYY-MM-DD` section and
+   update the compare links at the bottom of the changelog.
+3. Commit: `chore(release): vX.Y.Z`.
+4. Tag (annotated, matching the existing convention):
+   `git tag -a vX.Y.Z -m "RetroSeek vX.Y.Z"` then `git push --tags`.
+5. Optionally publish a GitHub Release from the tag, pasting the changelog section.
 
 ## Snakemake patterns to know
 
@@ -123,4 +145,4 @@ Use [`docs/adr/ADR-000-template.md`](adr/ADR-000-template.md) as the starting po
 
 ## Getting help
 
-Open an issue or email `jgonzlez@tcd.ie`.
+Open an issue on the project's GitHub repository.

@@ -1,0 +1,78 @@
+name: CI
+
+# Fast quality gate mirroring `make check` (lint + format-check + typecheck +
+# Python and R unit tests). The heavy bioinformatics integration tests (BLAST+,
+# GenomeTools, NCBI Datasets, full conda env) are intentionally left to local
+# `make check` — they are too slow/large to install on every push.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python — lint, type-check, fast tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install tooling + runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest \
+            snakemake biopython dill pandas pyarrow pandera tqdm coloredlogs pyyaml yamale
+      - name: Ruff lint
+        run: ruff check workflow/scripts tests workflow/tests
+      - name: Ruff format check
+        run: ruff format --check workflow/scripts tests workflow/tests
+      - name: Mypy (strict, workflow/scripts)
+        run: mypy workflow/scripts
+      - name: Pytest (fast subset — excludes slow/integration/network)
+        run: pytest -m "not slow and not integration and not network"
+
+  r:
+    name: R — testthat unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}   # login shell so the micromamba env is activated
+    steps:
+      - uses: actions/checkout@v4
+      # R + Bioconductor from conda/bioconda BINARIES (reliable, no source
+      # builds — pak/PPM source-built DelayedArray and failed). Mirrors the R
+      # subset of data/config/environment.yml.
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: ci-r
+          condarc: |
+            channels:
+              - conda-forge
+              - bioconda
+              - nodefaults
+          create-args: >-
+            r-base=4.3
+            r-testthat
+            r-tidyverse
+            r-arrow
+            r-ggalluvial
+            r-ggdist
+            r-ggsci
+            r-scales
+            r-yaml
+            r-argparse
+            bioconductor-genomicranges
+            bioconductor-iranges
+            bioconductor-s4vectors
+            bioconductor-plyranges
+            bioconductor-rtracklayer
+          cache-environment: true
+      - name: Run testthat suite
+        run: Rscript -e 'testthat::test_dir("workflow/tests/testthat", stop_on_failure = TRUE)'

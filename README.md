@@ -3,6 +3,7 @@
 
 ![Logo](https://i.postimg.cc/Vs3JLfVM/High-Resolution-Color-Logo-cropped.png)
 
+[![CI](https://github.com/JorgeAndOmics/RetroSeek/actions/workflows/ci.yml/badge.svg)](https://github.com/JorgeAndOmics/RetroSeek/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
 ![R](https://img.shields.io/badge/R-4.3-blue?logo=r&logoColor=white)
 ![Snakemake](https://img.shields.io/badge/Snakemake-8%2B-brightgreen)
@@ -20,8 +21,8 @@ Built for reproducibility, resilience, and scalable execution on workstations, H
 
 ```bash
 # 1. Clone
-git clone https://github.com/JorgeAndOmics/enERVate.git
-cd enERVate
+git clone https://github.com/JorgeAndOmics/RetroSeek.git
+cd RetroSeek
 
 # 2. Create and activate the conda/mamba env (single env, all deps)
 make env
@@ -55,6 +56,8 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Structured, colour-coded logging for audit; heartbeat log lines for long-running silent tools (suffixerator, ltrharvest) so progress is observable on multi-hour mammalian runs.
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
 - Intuitive CLI delegating to Snakemake — resume from checkpoints after interruption, compose with any Snakemake flag.
+
+> **Feature maturity:** `--hotspot-detection` and `--generate-circle-plots` are *experimental* — functional but lightly tested and subject to change.
 
 ## Requirements
 
@@ -118,14 +121,22 @@ Integrate BLAST + LTR evidence using an HPC profile:
 - [`docs/solo_ltr.md`](docs/solo_ltr.md) — how LTR_retriever works, how RetroSeek couples to it, and the biology of solo LTRs.
 - [`docs/development.md`](docs/development.md) — contributor guide: env, TDD, branch rules, commit style.
 - [`docs/adr/`](docs/adr/) — architectural decision records.
+- [`CHANGELOG.md`](CHANGELOG.md) — released changes (Keep a Changelog format).
 
-## Screenshots
+## Showcase
 
-![bar](data/images/bar.png)
-![density](data/images/density.png)
-![balloon](data/images/balloon.png)
-![sankey_a](data/images/sankey_a.png)
-![genome](data/images/genome.png)
+Figures are generated from a representative multi-genome run with **anonymised
+demo labels** (`Species A…`, `Provirus A…`, `Lineage A…`) — real organism and
+provirus names are replaced, while gene names (POL/GAG/ENV) and the underlying
+distributions are kept. Regenerate them with
+[`workflow/scripts/demo_figures.R`](workflow/scripts/demo_figures.R).
+
+![Range counts per species](data/images/bar.png)
+![Bitscore distribution per probe](data/images/raincloud.png)
+![Provirus by species hit balloon plot](data/images/balloon.png)
+![Provirus proportions waffle](data/images/waffle.png)
+![Species to probe alluvial](data/images/sankey_a.png)
+![ERV-like composition heatmap](data/images/erv_like_heatmap.png)
 
 ## Acknowledgements
 
@@ -135,7 +146,7 @@ Developed within the *Ní Leathlobhair* lab at Moyne Institute, Trinity College 
 
 ## Contributing
 
-See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — contact `jgonzlez@tcd.ie`.
+See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — please open a GitHub issue.
 
 ## License
 

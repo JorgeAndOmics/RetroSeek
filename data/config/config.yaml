@@ -151,7 +151,7 @@ execution:
   retrieval_time_lag: 0.3   # Time in seconds to wait between NCBI Entrez API requests for validation
   max_retrieval_attempts: 9   # Number of attempts to retrieve sequences from NCBI
   max_threadpool_workers: null  # null for None, take all available workers
-  entrez_email: 'jgonzlez@tcd.ie'   # Email address for NCBI Entrez API
+  entrez_email: 'your.email@institution.example'   # Email address for NCBI Entrez API (required by NCBI ToS)
 
 # Paths default to repo-relative locations so a fresh clone runs portably
 # (CI, fixture-based tests, toy-genome smoke runs). For production runs

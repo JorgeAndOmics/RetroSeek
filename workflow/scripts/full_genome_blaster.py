@@ -25,7 +25,6 @@ Usage:
         python full_genome_blaster.py --genome MyGenomeName [--num_threads 2]
 """
 
-# TODO: Export empty objects/tables in case of no BLAST hits
 # =============================================================================
 # Imports and Logging Setup
 # =============================================================================
@@ -88,6 +87,13 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 1.4 Serialize Results
     # -------------------------------------------------------------------------
+    # A genome with zero tBLASTn hits yields None; persist an empty dict instead
+    # so obj2dict.py loads every genome uniformly (calling .values() on None
+    # would raise). The blast_pkl2parquet checkpoint then simply omits this
+    # genome from species_with_hits() downstream.
+    if tblastn_results is None:
+        tblastn_results = {}
+
     utils.pickler(
         data=tblastn_results,
         output_directory_path=defaults.PATH_DICT["TBLASTN_PICKLE_DIR"],
