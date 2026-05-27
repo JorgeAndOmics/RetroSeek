@@ -5,6 +5,7 @@
 # -------------------
 
 import os
+import sys
 import subprocess
 import argparse
 from pathlib import Path
@@ -20,6 +21,16 @@ if __name__ == '__main__':
     # -----------------------------
     parser = argparse.ArgumentParser(
         description='RetroSeek: A tool for directed ERV detection and analysis.'
+    )
+
+    parser.add_argument(
+        '--config-help',
+        nargs='?',
+        const=None,
+        default=argparse.SUPPRESS,
+        metavar='KEY',
+        help="Print documentation for a config field (omit KEY to list every "
+             "field) and exit. Sourced from docs/configuration.md."
     )
 
     parser.add_argument(
@@ -117,6 +128,21 @@ if __name__ == '__main__':
     )
 
     args, unknown = parser.parse_known_args()
+
+    # -----------------------------
+    # CONFIG HELP (read-only, exits early)
+    # -----------------------------
+    # Handled here in the thin launcher so it never triggers the pipeline
+    # imports: `defaults.py` creates every output directory at import time and
+    # `RetroSeek.py` shells out to Snakemake. A `--config-help` lookup must
+    # stay side-effect free, so print and exit before any of that runs.
+    if hasattr(args, 'config_help'):
+        sys.path.insert(
+            0, str(Path(__file__).resolve().parent / 'workflow' / 'scripts')
+        )
+        import config_help
+        print(config_help.render(args.config_help))
+        raise SystemExit(0)
 
     # -----------------------------
     # DEFINE SCRIPT EXECUTION PATH

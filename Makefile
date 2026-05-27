@@ -39,8 +39,8 @@ test-py: ## pytest
 test-r: ## R testthat suite
 	Rscript -e 'testthat::test_dir("workflow/tests/testthat")'
 
-test-snakemake: ## Dry-run the Snakemake DAG against tests/fixtures
-	snakemake --configfile data/config/config.yaml -n --cores 1
+test-snakemake: ## Dry-run the genome-prep DAG (no probe CSV / network needed)
+	snakemake --configfile data/config/config.yaml -n --cores 1 genome_downloader blast_db_generator ltr_index_generator
 
 # ── combined gate ───────────────────────────────────────
 check: lint format-check typecheck test ## Run all quality gates (use before commit)

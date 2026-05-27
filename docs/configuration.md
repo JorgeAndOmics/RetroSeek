@@ -2,6 +2,8 @@
 
 Every field in [`data/config/config.yaml`](../data/config/config.yaml) documented. Validation rules live in [`data/config/schema.yaml`](../data/config/schema.yaml) and are enforced by `validator.py::validation_run()` at pipeline start.
 
+This page is the **canonical reference**: `config.yaml` itself is values-only, and `RetroSeek --config-help [KEY]` prints these field descriptions in the terminal by reading the tables below. Keep this file current and both the config and the CLI follow.
+
 ## `blast`
 
 | Key | Type | Default | Meaning |
@@ -24,6 +26,7 @@ Every field in [`data/config/config.yaml`](../data/config/config.yaml) documente
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
+| `seed` | int ≥ 0 | `67` | Master RNG seed for reproducibility. Recorded in the run manifest so a run's stochastic steps (e.g. permutation tests) can be reproduced. |
 | `identity_threshold` | int ≥ 0 | `0` | Minimum % identity for BLAST hits. `0` disables the filter. |
 | `bitscore_threshold` | number ≥ 0 | `0` | Minimum bit score. `0` disables the filter. |
 | `ltr_resize` | int ≥ 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
@@ -80,13 +83,13 @@ When overlapping ranges are collapsed via `plyranges::reduce_ranges_directed`, t
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `virus` | strategy | `best` | Strategy for `virus` column. |
-| `label` | strategy | `best` | Strategy for `label` column. |
-| `probe` | strategy | `list` | Strategy for `probe` column. Always a reduction grouping key, so single-valued in practice — strategy is effectively a no-op. |
-| `species` | strategy | `first` | Per-genome pipeline — all rows share one species. |
-| `best_tiebreaker` | `bitscore` \| `identity` \| `align_length` | `bitscore` | Column used to rank contributors when strategy is `best`. |
-| `concat_separator` | string | `"; "` | Separator used by `concatenate`. |
-| `strict_marker` | string | `"ambiguous"` | Value emitted by `strict` when contributors disagree. |
+| `aggregation.virus` | strategy | `best` | Strategy for `virus` column. |
+| `aggregation.label` | strategy | `best` | Strategy for `label` column. |
+| `aggregation.probe` | strategy | `list` | Strategy for `probe` column. Always a reduction grouping key, so single-valued in practice — strategy is effectively a no-op. |
+| `aggregation.species` | strategy | `first` | Per-genome pipeline — all rows share one species. |
+| `aggregation.best_tiebreaker` | `bitscore` \| `identity` \| `align_length` | `bitscore` | Column used to rank contributors when strategy is `best`. |
+| `aggregation.concat_separator` | string | `"; "` | Separator used by `concatenate`. |
+| `aggregation.strict_marker` | string | `"ambiguous"` | Value emitted by `strict` when contributors disagree. |
 
 **Deterministic `best` tie-break.** When several contributors to a merged
 range tie on `best_tiebreaker`, the winner is resolved by a fixed key chain
@@ -100,8 +103,8 @@ Separate block for solo-LTR probe-label propagation (produced by the LTR_retriev
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `probe` | strategy | `list` | Strategy for propagating probe labels from contributing ERVs to solo LTRs. |
-| `best_tiebreaker` | `consensus_members` \| `bitscore` \| `identity` | `consensus_members` | Column used when strategy is `best`. `consensus_members` = number of ERVs that seeded the consensus family. |
+| `solo_ltr_aggregation.probe` | strategy | `list` | Strategy for propagating probe labels from contributing ERVs to solo LTRs. |
+| `solo_ltr_aggregation.best_tiebreaker` | `consensus_members` \| `bitscore` \| `identity` | `consensus_members` | Column used when strategy is `best`. `consensus_members` = number of ERVs that seeded the consensus family. |
 
 #### Choosing a strategy
 

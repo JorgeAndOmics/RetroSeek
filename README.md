@@ -36,6 +36,8 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 #    Edit data/config/config.local.yaml — set the four `root` paths and
 #    `input.probe_csv` to your data, then pass --configfile to RetroSeek.
 #    config.local.yaml is gitignored.
+#    config.yaml is values-only; browse any field's docs in the terminal:
+#      ./RetroSeek --config-help [KEY]   (see docs/configuration.md)
 
 # 4. Run any stage via the CLI
 ./RetroSeek --probe-extractor

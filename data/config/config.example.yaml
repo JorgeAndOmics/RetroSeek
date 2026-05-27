@@ -39,3 +39,6 @@ execution:
 # Common ones to revisit on a new dataset:
 #   blast.e_value, parameters.bitscore_threshold, parameters.main_probes,
 #   ltr_retriever.threads_per_genome, ltr_retriever.source_scn.
+#
+# Every field's type, default, and meaning is in docs/configuration.md,
+# or in the terminal via:  RetroSeek --config-help [KEY]

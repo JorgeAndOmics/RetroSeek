@@ -1,28 +1,35 @@
+# RetroSeek configuration — values only.
+# Every field is documented in docs/configuration.md
+#   (or run `RetroSeek --config-help [KEY]` for a single field).
+# Types / enums / ranges are enforced by data/config/schema.yaml.
+# For production, override paths in data/config/config.local.yaml (gitignored)
+#   and pass `--configfile`; see data/config/config.example.yaml.
+
 blast:
-  e_value: 0.01   # E-value threshold for tBLASTn
-  optional_parameters: ''   # Additional parameters for tBLASTn
+  e_value: 0.01
+  optional_parameters: ''
 
 genome_tools:
   suffix_array_parts: 30
-  suffixerator_optional_parameters: ''    # Additional parameters for suffixerator
-  ltrharvest_optional_parameters: '' # Additional parameters for ltrharvest
-  ltrdigest_optional_parameters: ''    # Additional parameters for ltrdigest
+  suffixerator_optional_parameters: ''
+  ltrharvest_optional_parameters: ''
+  ltrdigest_optional_parameters: ''
 
 parameters:
-  seed: 67   # Master RNG seed for reproducibility (recorded in the run manifest)
-  identity_threshold: 0    # 0 for no threshold
-  bitscore_threshold: 0   # 0 for no threshold
-  ltr_resize: 0   # 0 for no resize
-  ltr_flank_margin: 0   # 0 for no margin
-  merge_option: 'virus'   # 'virus' or 'label'
-  hotspot_group_split: false   # true or false
-  hotspot_window_size: 10000   # at least 1
-  hotspot_mask_size: 20   # 0 for no masking
-  hotspot_mask_mismatch: 3    # 0 for no mask mismatch allowed
-  hotspot_permutations: 1   # 0 for no permutations
-  hotspot_pvalue_threshold: 0.05   # 0 for no p-value threshold
-  probe_to_pair: 'ENV'  # Probe to pair with for pair detection
-  pair_max_gap: 300000   # Maximum gap allowed between probes in a pair
+  seed: 67
+  identity_threshold: 0
+  bitscore_threshold: 0
+  ltr_resize: 0
+  ltr_flank_margin: 0
+  merge_option: 'virus'
+  hotspot_group_split: false
+  hotspot_window_size: 10000
+  hotspot_mask_size: 20
+  hotspot_mask_mismatch: 3
+  hotspot_permutations: 1
+  hotspot_pvalue_threshold: 0.05
+  probe_to_pair: 'ENV'
+  pair_max_gap: 300000
   main_probes:
     - 'POL'
     - 'GAG'
@@ -34,77 +41,30 @@ parameters:
     ENV: 200
     VIF: 200
     N_protein: 200
-
-  # How metadata (virus / label / probe / species) is aggregated when overlapping
-  # ranges are collapsed via plyranges::reduce_ranges_directed. Every field below
-  # accepts one of the strategies: list | concatenate | best | majority | first | strict.
-  #   list        : native multi-value (CharacterList in R, list<string> in parquet,
-  #                 comma-separated in GFF3 attributes). No information lost, but
-  #                 inflates plot row counts (entry explosion) — plots warn.
-  #   concatenate : single string joined by concat_separator. Backward-compatible.
-  #   best        : single value from the row with the highest best_tiebreaker.
-  #                 Default — clean single-value output; deterministic tie-break
-  #                 (bitscore > query_coverage > identity > evalue > position > name).
-  #   majority    : mode; ties resolved by first alphabetical.
-  #   first       : alphabetical first. Deterministic but arbitrary.
-  #   strict      : single value if all contributors agree, else strict_marker.
   aggregation:
     virus: "best"
     label: "best"
     probe: "list"
-    species: "first"                 # per-genome pipeline — rows share one species
-    best_tiebreaker: "bitscore"      # bitscore | identity | align_length
+    species: "first"
+    best_tiebreaker: "bitscore"
     concat_separator: "; "
     strict_marker: "ambiguous"
-
-  # Probe-label propagation strategy for solo LTRs produced by the LTR_retriever
-  # workstream. Uses the same vocabulary as `aggregation` above; tiebreaker is
-  # specific to how solo-LTR contributors are ranked (count of ERVs contributing
-  # to the consensus family, or inherited from ERV evidence).
   solo_ltr_aggregation:
     probe: "list"
-    best_tiebreaker: "consensus_members"  # consensus_members | bitscore | identity
-
-  # ERV-like assembly. Chains adjacent MAIN-probe loci (from the unreduced valid
-  # tier) into composite "ERV-like" candidates — candidate conserved full ERVs or
-  # the longest recoverable fragment (e.g. GAG+POL when ENV is absent). Purely
-  # additive: isolated single-gene loci stay in the valid output untouched.
-  # Output: results/tracks/erv_like/{genome}.gff3 (parent candidate + child
-  # member loci) and .bed; table results/tables/ranges_analysis/{genome}.erv_like_loci.csv.
+    best_tiebreaker: "consensus_members"
   erv_like:
-    # Grouping that gates which loci may chain together:
-    #   virus — only loci sharing a virus (co-located different viruses stay as
-    #           separate, possibly overlapping candidates — both retained).
-    #   label — only loci sharing a label (genus/family).
-    #   none  — chain across all main loci in the window regardless of virus/label.
-    group_by: 'virus'              # virus | label | none
-    # Maximum gap (bp) between adjacent main-probe loci to still chain them.
-    # Inclusive (a gap exactly equal to this still joins).
+    group_by: 'virus'
     max_join_distance: 1500
-    # When true, keep only candidates whose main probes occur in the order given
-    # by `main_probes` above (forward on +, reversed on -, either on *). The
-    # main_probes list order IS the canonical gene order. Candidates dropped for
-    # non-canonicity are still tallied for the canonical-vs-rearranged plot.
     require_canonical_order: false
-    # is_full = (n_main_present / n_main_expected) >= this. n_main_expected is the
-    # number of configured main_probes. 1.0 = a candidate must carry every main probe.
     completeness_threshold: 1.0
 
-# LTR_retriever post-processing of LTRharvest output for solo-LTR detection.
-# See docs/solo_ltr.md for the full mechanism (how LTR_retriever's three
-# stages work, what "family" means, how the pre-filter + label-propagation
-# couplings work).
 ltr_retriever:
-  substitution_rate: 1.3e-8         # bp substitutions per site per year; 1.3e-8 for mammals, 7e-9 for plants
-  min_ltr_similarity: 91            # LTR_retriever -miniden (%); LTR-pair similarity floor for intact ERVs
-  threads_per_genome: 4             # LTR_retriever -threads per-genome invocation
-  noanno: true                      # skip LTR_retriever's internal TE annotation (RetroSeek has its own via probes)
-  # Which SCN feeds LTR_retriever (Coupling A toggle):
-  #   retroviral — prefilter-restricted SCN (default; rows overlapping valid_ranges.gff3).
-  #   full       — unfiltered LTRharvest SCN (debugging / non-retroviral exploration).
-  # Both files are always materialised in data/ltr_scn/; this picks the consumer.
+  substitution_rate: 1.3e-8
+  min_ltr_similarity: 91
+  threads_per_genome: 4
+  noanno: true
   source_scn: retroviral
-  nearest_erv_max_distance: 10000   # bp window for the solo-LTR → valid ERV nearest-ERV label-propagation fallback
+  nearest_erv_max_distance: 10000
 
 logging:
   level_styles:
@@ -127,39 +87,19 @@ plots:
   dpi: 300
   width: 15
   height: 12
-  # Density / raincloud x-axis scale. Bitscore distributions span ~3 orders of
-  # magnitude on real data; flip to log10 when the lower modes are crushed.
-  bitscore_x_scale: linear            # linear | log10
-  # Sankey long-tail handling. null = show every stratum (default). When set
-  # to a positive integer N, keep the top N strata per axis and fold the rest
-  # into a single labelled "Other (k)" stratum that records how many were
-  # collapsed. Combine with the count-based axis ordering for predictable
-  # placement of the bundle at the bottom of each axis.
+  bitscore_x_scale: linear
   sankey_top_n: null
   sankey_other_label: 'Other'
-  # Waffle chart granularity. null (recommended) = auto-derive a unit that keeps
-  # total tile count near `target_squares` (~2,500) so the chart stays legible
-  # at any input scale. Set an integer (e.g. 10 = "1 square = 10 ranges") to
-  # force a fixed unit; the builder will still raise it if your value would
-  # exceed the legibility cap.
   waffle_unit_hits: null
-  circle_plot_bitscore_threshold: 0   # species bitscore threshold filter for circle plot display
+  circle_plot_bitscore_threshold: 0
 
 execution:
-  num_cores: 64   # Number of cores to use for parallel processing
-  use_species_dict: true   # true or false
-  retrieval_time_lag: 0.3   # Time in seconds to wait between NCBI Entrez API requests for validation
-  max_retrieval_attempts: 9   # Number of attempts to retrieve sequences from NCBI
-  max_threadpool_workers: null  # null for None, take all available workers
-  entrez_email: 'your.email@institution.example'   # Email address for NCBI Entrez API (required by NCBI ToS)
-
-# Paths default to repo-relative locations so a fresh clone runs portably
-# (CI, fixture-based tests, toy-genome smoke runs). For production runs
-# pointing at large external storage, copy this file to
-# `data/config/config.local.yaml` (gitignored) and override the four
-# `root` entries — then invoke RetroSeek with
-# `--configfile data/config/config.local.yaml`. See `data/config/config.example.yaml`
-# for an annotated template.
+  num_cores: 64
+  use_species_dict: true
+  retrieval_time_lag: 0.3
+  max_retrieval_attempts: 9
+  max_threadpool_workers: null
+  entrez_email: 'your.email@institution.example'
 
 input:
   probe_csv: 'data/tables/probes.csv'
@@ -170,17 +110,16 @@ display:
   display_operation_info: true
 
 root:
-  db_root_folder: 'data/species'                 # SPECIES_DB — genome FASTAs, BLAST DBs, suffix arrays
-  data_root_folder: 'data'                       # working intermediates (pickles, parquets, ltr_scn)
-  results_root_folder: 'results'                 # tracks, tables, plots, hotspots
-  logs_root_folder: 'logs'                       # per-rule run logs
+  db_root_folder: 'data/species'
+  data_root_folder: 'data'
+  results_root_folder: 'results'
+  logs_root_folder: 'logs'
 
 domains:
   POL:
     - "ase"
     - "RVT_1"
     - "RVT_2"
-
   GAG:
     - "Gag"
     - "gag"

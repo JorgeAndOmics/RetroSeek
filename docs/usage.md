@@ -50,6 +50,18 @@ Any argument not recognised as a stage flag is forwarded. Common examples:
 - `--dry-run` / `-n` — DAG-only, no execution.
 - `--configfile <path>` — override default config.
 
+### Inspecting config fields
+
+`./RetroSeek --config-help` prints the field reference in the terminal and exits without running anything (no validation, no Snakemake, no directories created). Pass a key for one field, or omit it to list every field:
+
+```bash
+./RetroSeek --config-help                 # list every field, grouped by section
+./RetroSeek --config-help merge_option    # one field: type, default, meaning
+./RetroSeek --config-help erv_like.group_by
+```
+
+The text is sourced directly from [`docs/configuration.md`](configuration.md), so the terminal help and the written reference cannot diverge.
+
 ## Configuration
 
 ### Local overrides for production paths
@@ -66,7 +78,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 
 ### Pipeline config — [`data/config/config.yaml`](../data/config/config.yaml)
 
-Top-level sections (fields inside each section — see file for full list):
+`config.yaml` is **values-only** — every field's type, default, and meaning lives in [`docs/configuration.md`](configuration.md) (the canonical reference), also reachable via `./RetroSeek --config-help [KEY]`. Top-level sections at a glance:
 
 - **`blast`** — `e_value`, `optional_parameters`.
 - **`genome_tools`** — `suffix_array_parts`, per-subcommand optional parameters.
