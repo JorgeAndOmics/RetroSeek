@@ -20,8 +20,8 @@ Built for reproducibility, resilience, and scalable execution on workstations, H
 
 ```bash
 # 1. Clone
-git clone https://github.com/JorgeAndOmics/enERVate.git
-cd enERVate
+git clone https://github.com/JorgeAndOmics/RetroSeek.git
+cd RetroSeek
 
 # 2. Create and activate the conda/mamba env (single env, all deps)
 make env
@@ -135,7 +135,7 @@ Developed within the *Ní Leathlobhair* lab at Moyne Institute, Trinity College 
 
 ## Contributing
 
-See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — contact `jgonzlez@tcd.ie`.
+See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — please open a GitHub issue.
 
 ## License
 

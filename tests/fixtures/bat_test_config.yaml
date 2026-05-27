@@ -110,7 +110,7 @@ execution:
   retrieval_time_lag: 0.3
   max_retrieval_attempts: 3
   max_threadpool_workers: 4
-  entrez_email: 'jgonzlez@tcd.ie'
+  entrez_email: 'your.email@institution.example'
 
 input:
   probe_csv: '/tmp/probes_test.csv'
@@ -121,7 +121,7 @@ display:
   display_operation_info: true
 
 root:
-  db_root_folder: '/mnt/v/databases/bat-experimental'
+  db_root_folder: '/path/to/databases/bat-experimental'
   data_root_folder: '/tmp/retroseek-bat-test/data'
   results_root_folder: '/tmp/retroseek-bat-test/results'
   logs_root_folder: '/tmp/retroseek-bat-test/logs'

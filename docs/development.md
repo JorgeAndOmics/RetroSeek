@@ -123,4 +123,4 @@ Use [`docs/adr/ADR-000-template.md`](adr/ADR-000-template.md) as the starting po
 
 ## Getting help
 
-Open an issue or email `jgonzlez@tcd.ie`.
+Open an issue on the project's GitHub repository.
