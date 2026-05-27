@@ -67,6 +67,7 @@ jobs:
             r-ggsci
             r-scales
             r-yaml
+            r-argparse
             bioconductor-genomicranges
             bioconductor-iranges
             bioconductor-s4vectors
