@@ -18,6 +18,20 @@ suppressMessages({
 })
 
 # -------------------------------
+# 1b. SOURCE PURE PAIRING HELPERS (get_5prime + find_pairs; unit-tested)
+# -------------------------------
+.resolve_script_dir <- function() {
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(ofile))
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- cmd_args[grepl("^--file=", cmd_args)]
+  if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
+  "."
+}
+.script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "pair_detector", "pairing.R"))
+
+# -------------------------------
 # 2. PARSE COMMAND-LINE ARGUMENTS
 # -------------------------------
 parser <- ArgumentParser(description = 'Process tBLASTn and LTRdigest integration overlaps')
@@ -68,80 +82,11 @@ if (!any(grepl(probe_to_pair, ranges$probe))) {
 # Remove duplicates from ranges
 ranges <- ranges[!duplicated(ranges)]
 
-# function to find all "self vs. other" pairs within max_gap base pairs
+# Maximum gap (bp) allowed between paired ranges, from config
 max_gap <- as.integer(config$parameters$pair_max_gap)
 
-# Get 5' end of range based on strand
-get_5prime <- function(start, end, strand) {
-  case_when(
-    strand == "+" ~ start,
-    strand == "-" ~ end,
-    strand == "*" ~ start,  # Treat unknown strand as +
-    TRUE ~ start
-  )
-}
-
-find_pairs <- function(ranges, max_gap) {
-  
-  # Find overlaps between the "probe" and other labels
-  self_ranges <- ranges[ranges$probe == probe_to_pair]
-  other_ranges <- ranges[ranges$probe != probe_to_pair]
-  
-  # 2. Find all overlaps (or up-to max_gap apart)
-  ov <- GenomicRanges::findOverlaps(self_ranges, other_ranges, maxgap = max_gap)
-  
-  # 3. Materialize a data.frame/tibble of exact coordinates
-  #    Note: seqnames() and strand() return Rle objects, so coerce to character.
-  pairs_df <- tibble(
-    self.seqname   = as.character(seqnames(self_ranges)[queryHits(ov)]),
-    other.seqname  = as.character(seqnames(other_ranges)[subjectHits(ov)]),
-    
-    self.start     = start(self_ranges)[queryHits(ov)],
-    other.start    = start(other_ranges)[subjectHits(ov)],
-    
-    self.end       = end(self_ranges)[queryHits(ov)],
-    other.end      = end(other_ranges)[subjectHits(ov)],
-    
-    self.strand    = as.character(strand(self_ranges)[queryHits(ov)]),
-    other.strand   = as.character(strand(other_ranges)[subjectHits(ov)]),
-    
-    self.label     = mcols(self_ranges)$label[queryHits(ov)],
-    other.label    = mcols(other_ranges)$label[subjectHits(ov)],
-    
-    self.virus     = mcols(self_ranges)$virus[queryHits(ov)],
-    other.virus    = mcols(other_ranges)$virus[subjectHits(ov)],
-    
-    self.probe     = mcols(self_ranges)$probe[queryHits(ov)],
-    other.probe    = mcols(other_ranges)$probe[subjectHits(ov)],
-  )
-  
-  # 4. Conditionally add `name` and `ID` columns if they exist in the GFF3 file
-  if ("name" %in% names(mcols(self_ranges))) {
-    pairs_df$self.domain <- mcols(self_ranges)$name[queryHits(ov)]
-    pairs_df$other.domain <- mcols(other_ranges)$name[subjectHits(ov)]
-  }
-  
-  if ("ID" %in% names(mcols(self_ranges))) {
-    pairs_df$self.ID <- mcols(self_ranges)$ID[queryHits(ov)]
-    pairs_df$other.ID <- mcols(other_ranges)$ID[subjectHits(ov)]
-  }
-
-  # 5. Add a column to indicate coordinate distance between the two ranges starts
-    pairs_df <- pairs_df %>% mutate(coord_distance = abs(self.start - other.start))
-
-  # 6. Add a column to indicate the biological distance between the two ranges, based on 5' ends
-  pairs_df$self.5prime <- get_5prime(pairs_df$self.start, pairs_df$self.end, pairs_df$self.strand)
-  pairs_df$other.5prime <- get_5prime(pairs_df$other.start, pairs_df$other.end, pairs_df$other.strand)
-  pairs_df$bio_distance <- abs(pairs_df$self.5prime - pairs_df$other.5prime)  # Distance between 5' ends according to strand
-  pairs_df <- pairs_df %>% select(-self.5prime, -other.5prime)
-
-  # 7. Add a column to indicate the span distance between the two ranges, ignoring strand
-  pairs_df <- pairs_df %>% mutate(span_distance = abs(pmax(self.end, other.end) - pmin(self.start, other.start)))
-
-  return(pairs_df)
-}
-
-pair_df <- find_pairs(ranges, max_gap)
+# Pairing logic (get_5prime + find_pairs) lives in pair_detector/pairing.R
+pair_df <- find_pairs(ranges, probe_to_pair, max_gap)
 
 
 # ------------------------------
