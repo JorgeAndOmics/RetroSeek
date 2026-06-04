@@ -23,14 +23,16 @@ REPRESENTATIVE_KEYS = [
     "merge_option",
     "aggregation.virus",
     "erv_like.group_by",
+    "hotspot.input",
     "source_scn",
     "seed",
 ]
 
-# The 12 top-level config sections, all of which the overview must list.
+# The 13 top-level config sections, all of which the overview must list.
 TOP_LEVEL_SECTIONS = [
     "blast",
     "genome_tools",
+    "hotspot",
     "parameters",
     "ltr_retriever",
     "logging",
@@ -68,6 +70,14 @@ def test_seed_drift_is_closed() -> None:
     out = config_help.render("seed")
     assert "default: 67" in out
     assert "manifest" in out.lower()
+
+
+def test_hotspot_input_resolves_with_enum_and_live_value() -> None:
+    """`hotspot.input` (a top-level dotted key) shows its enum and default."""
+    out = config_help.render("hotspot.input")
+    assert "erv_like | valid | original" in out
+    assert "default: erv_like" in out
+    assert "docs/configuration.md#" in out
 
 
 def test_list_mode_covers_all_sections() -> None:

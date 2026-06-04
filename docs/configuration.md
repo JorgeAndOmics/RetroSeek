@@ -20,13 +20,30 @@ This page is the **canonical reference**: `config.yaml` itself is values-only, a
 | `ltrharvest_optional_parameters` | string | `""` | Extra flags for `gt ltrharvest` (e.g., `-minlenltr 100 -maxlenltr 1000`). |
 | `ltrdigest_optional_parameters` | string | `""` | Extra flags for `gt ltrdigest`. |
 
+## `hotspot`
+
+Per-genome detection of windows enriched for ERV integrations beyond chance. A single **Negative-Binomial GLM** models per-window hit counts with a mask-aware offset (`log(effective_bp)`) and an optional per-chromosome baseline; per-window upper-tail p-values are BH-adjusted, thresholded, and merged into hotspot regions. The model is **deterministic** — identical inputs give identical results — so the run is reproducible by construction; the global `parameters.seed` is set and recorded in the manifest for provenance only (the core result does not draw on it). Outputs: per-window `{genome}.csv`/`.parquet`, a `{genome}.manifest.yaml`, merged-region `{genome}.gff3`/`.bed` tracks, and Manhattan/karyotype/Q-Q/summary PDFs.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `hotspot.input` | `erv_like` \| `valid` \| `original` | `erv_like` | Which upstream track tier feeds detection. `erv_like` = assembled multi-gene ERV chains; `valid` = domain-validated reduced loci (the `{genome}_reduced.gff3` track); `original` = raw unvalidated `tblastn` hits. **Strict enum** — typos fail validation. **Power note**: window enrichment needs density. The curated `erv_like` (default) and `valid` tiers are sparse — expect few/no hotspots and occasional NB convergence failures. Switch to `original` (with `strata_by_chromosome: false`) for genome-wide hotspot calling. |
+| `hotspot.group_split` | bool | `false` | When `true`, fit one NB model per retrovirus genus (`mcols$label`); when `false`, pool all hits into one `Ungrouped` model. |
+| `hotspot.window_size` | int ≥ 1 | `500000` | Tile width (bp). Sets resolution and the number of windows tested. Defaults to 500 kb because finer windows over a multi-Gb genome are ~99% empty, which collapses the NB dispersion (`theta`) and destroys power; 10 kb yields zero calls on real assemblies. |
+| `hotspot.mask_size` | int ≥ 0 | `20` | Length of the all-N run treated as an unsequenceable gap and subtracted from a window's callable `effective_bp`. `0` disables masking. |
+| `hotspot.mask_mismatch` | int ≥ 0 | `3` | Non-N bases tolerated inside the N-mask motif. |
+| `hotspot.pvalue_threshold` | number 0–1 | `0.05` | BH-adjusted q-value cutoff for calling a window significant. |
+| `hotspot.min_hits` | int ≥ 0 | `2` | Minimum total hits in a merged hotspot region (applied after merging). |
+| `hotspot.merge_gap` | int ≥ -1 | `0` | bp gap allowed when merging adjacent significant windows. `0` = merge strictly adjacent windows; `>0` = bridge gaps up to that size; `-1` = no merging (each significant window stays its own region). |
+| `hotspot.strata_by_chromosome` | bool | `true` | Include chromosome as an NB covariate so each chromosome gets its own baseline rate. The right value is **tier-dependent**: defaults `true` to match the sparse default `erv_like` tier, where the covariate is needed for the NB to converge (without it, fits fail on low-count genomes). **Set `false` when switching to a dense tier like `original`** on fragmented scaffold-level assemblies, where per-contig baselines instead absorb local enrichment and drain power. |
+| `hotspot.unplaced_min_factor` | int ≥ 1 | `10` | Scaffolds shorter than `this × window_size` are pooled into a single `Unplaced` stratum (avoids unstable per-scaffold coefficients). |
+
 ## `parameters`
 
 ### Thresholds
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `seed` | int ≥ 0 | `67` | Master RNG seed for reproducibility. Recorded in the run manifest so a run's stochastic steps (e.g. permutation tests) can be reproduced. |
+| `seed` | int ≥ 0 | `67` | Master RNG seed for reproducibility. Recorded in the run manifest for provenance and consumed by any stochastic step. (Hotspot detection is deterministic and does not draw on it.) |
 | `identity_threshold` | int ≥ 0 | `0` | Minimum % identity for BLAST hits. `0` disables the filter. |
 | `bitscore_threshold` | number ≥ 0 | `0` | Minimum bit score. `0` disables the filter. |
 | `ltr_resize` | int ≥ 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
@@ -45,17 +62,6 @@ Chains ≥2 *distinct* **main** probe loci from the **unreduced** `valid` tier i
 | `erv_like.max_join_distance` | int ≥ 0 | `1500` | Maximum gap (bp) between adjacent main-probe loci to still chain them. Inclusive (a gap exactly equal to this still joins). |
 | `erv_like.require_canonical_order` | bool | `false` | When `true`, keep only candidates whose main probes occur in the order given by `main_probes` (forward on `+`, reversed on `-`, either on `*`). The `main_probes` list order *is* the canonical gene order. Dropped non-canonical candidates are still tallied (`erv_like_dropped_noncanonical` in `counts`) for the canonical-vs-rearranged plot. |
 | `erv_like.completeness_threshold` | number 0–1 | `1.0` | `is_full` = (`n_main_present` / number of `main_probes`) ≥ this. `1.0` requires every main probe. |
-
-### Hotspot detection
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `hotspot_window_size` | int ≥ 1 | `10000` | Sliding window width (bp). |
-| `hotspot_mask_size` | int ≥ 0 | `20` | Length of the all-N mask used to exclude unsequenced regions. |
-| `hotspot_mask_mismatch` | int ≥ 0 | `3` | Mismatches allowed within the mask pattern. |
-| `hotspot_permutations` | int ≥ 1 | `1` | Number of permutations for `regioneR::permTest`. `1` is testing-only; use `1000+` for real results. |
-| `hotspot_pvalue_threshold` | number | `0.05` | p-value cutoff for calling a window a hotspot. |
-| `hotspot_group_split` | bool | `false` | Whether to split hotspot groups during permutation testing. |
 
 ### Pair detection
 

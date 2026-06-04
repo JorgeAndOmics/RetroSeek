@@ -65,6 +65,8 @@ dependencies:
   - r-ggdist
   - r-scales             # axis labellers; a ggplot2 dep but library()'d directly
   - r-waffle
+  - r-patchwork          # multi-panel composition (hotspot summary panel)
+  # NB: MASS (glm.nb, used by the hotspot NB GLM) ships with r-base — no separate pin needed.
 
   # ── R Bioconductor ──────────────────────────────────────
   - bioconductor-biostrings
@@ -73,7 +75,6 @@ dependencies:
   - bioconductor-s4vectors   # core S4 infra; dep of genomicranges, library()'d directly
   - bioconductor-rtracklayer
   - bioconductor-plyranges
-  - bioconductor-regioner
   - bioconductor-ggbio
 
   # ── dev / QA ────────────────────────────────────────────

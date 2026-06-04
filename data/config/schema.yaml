@@ -1,5 +1,6 @@
 blast: include('blast_schema')
 genome_tools: include('genome_tools_schema')
+hotspot: include('hotspot_schema', required=False)
 parameters: include('parameters_schema')
 ltr_retriever: include('ltr_retriever_schema', required=False)
 logging: include('logging_schema')
@@ -23,6 +24,18 @@ genome_tools_schema:
   ltrharvest_optional_parameters: str(required=False)
   ltrdigest_optional_parameters: str(required=False)
 
+hotspot_schema:
+  input: str(matches='^(erv_like|valid|original)$')
+  group_split: bool()
+  window_size: int(min=1)
+  mask_size: int(min=0)
+  mask_mismatch: int(min=0)
+  pvalue_threshold: num(min=0, max=1)
+  min_hits: int(min=0)
+  merge_gap: int(min=-1)
+  strata_by_chromosome: bool()
+  unplaced_min_factor: int(min=1)
+
 parameters_schema:
   seed: int(min=0)
   identity_threshold: int(min=0)
@@ -30,12 +43,6 @@ parameters_schema:
   ltr_resize: int(min=0)
   ltr_flank_margin: int(min=0)
   merge_option: str(matches='^(virus|label)$')
-  hotspot_group_split: bool()
-  hotspot_window_size: int(min=1)
-  hotspot_mask_size: int(min=0)
-  hotspot_mask_mismatch: int(min=0)
-  hotspot_permutations: int(min=1)
-  hotspot_pvalue_threshold: num(min=0)
   probe_to_pair: str(required=False)
   pair_max_gap: num(min=0)
   main_probes: list(str())

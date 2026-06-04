@@ -90,8 +90,8 @@ cp data/config/config.example.yaml data/config/config.local.yaml
   - `aggregation` — per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
   - `solo_ltr_aggregation` — separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - `erv_like` — ERV-like assembly knobs: `group_by` (`virus` | `label` | `none`), `max_join_distance` (bp), `require_canonical_order`, `completeness_threshold`. Chains ≥2 main-probe loci from the unreduced valid tier into composite candidates (`results/tracks/erv_like/`). See [`docs/configuration.md`](configuration.md#erv-like-assembly).
-  - Hotspot settings: `hotspot_window_size`, `hotspot_permutations`, `hotspot_pvalue_threshold`, etc.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
+- **`hotspot`** — deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`erv_like` | `valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
 - **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
 - **`logging`** — colour styles for console logging.
 - **`plots`** — DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.

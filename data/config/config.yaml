@@ -1,7 +1,3 @@
-# RetroSeek configuration — EXAMPLE VALUES ONLY.
-# This file is committed and public. Do NOT put real study data here (genome
-# catalog, machine paths, probe CSV): keep those in data/config/config.local.yaml
-# (gitignored) and run with `--configfile`. See data/config/config.example.yaml.
 # Every field is documented in docs/configuration.md
 #   (or run `RetroSeek --config-help [KEY]` for a single field).
 # Types / enums / ranges are enforced by data/config/schema.yaml.
@@ -16,6 +12,18 @@ genome_tools:
   ltrharvest_optional_parameters: ''
   ltrdigest_optional_parameters: ''
 
+hotspot:
+  input: erv_like
+  group_split: false
+  window_size: 500000
+  mask_size: 20
+  mask_mismatch: 3
+  pvalue_threshold: 0.05
+  min_hits: 2
+  merge_gap: 0
+  strata_by_chromosome: true
+  unplaced_min_factor: 10
+
 parameters:
   seed: 67
   identity_threshold: 0
@@ -23,12 +31,6 @@ parameters:
   ltr_resize: 0
   ltr_flank_margin: 0
   merge_option: 'virus'
-  hotspot_group_split: false
-  hotspot_window_size: 10000
-  hotspot_mask_size: 20
-  hotspot_mask_mismatch: 3
-  hotspot_permutations: 1
-  hotspot_pvalue_threshold: 0.05
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
   main_probes:

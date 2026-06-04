@@ -1,14 +1,21 @@
 # testthat scaffold for workflow/scripts/hotspot_detector.R
 #
-# hotspot_detector is an EXPERIMENTAL rule (regioneR permutation testing —
-# stochastic and slow). Real unit tests are deferred until the window-tiling
-# helper is extracted into a pure function. Skipped (not fake-passing) so the
-# coverage gap is honest rather than hidden behind expect_true(TRUE).
+# hotspot_detector.R is now an orchestrator only — every pure transform lives in
+# workflow/scripts/hotspot_analysis/*.R and is unit-tested directly:
+#   * test-hotspot_io.R          — config reader + FASTA/GFF loaders
+#   * test-hotspot_masking.R     — N-mask, effective_bp, scaffold pooling
+#   * test-hotspot_windowing.R   — tiling, counting, window-table assembly
+#   * test-hotspot_models.R      — NB GLM fit + scoring (deterministic)
+#   * test-hotspot_postprocess.R — select / merge / filter / id-assignment
+#
+# The end-to-end orchestrator (deterministic NB GLM) is exercised at the
+# integration layer by the Snakemake dry-run (`make test-snakemake`) and the
+# real-genome sanity check, so there is nothing left to fake-pass here.
 
 suppressMessages({
   library(testthat)
 })
 
-test_that("hotspot_detector unit tests are deferred (experimental)", {
-  skip("experimental rule — unit tests deferred")
+test_that("hotspot pure transforms are covered by the hotspot_analysis module tests", {
+  skip("orchestrator is integration-level; pure logic covered by test-hotspot_* module tests")
 })
