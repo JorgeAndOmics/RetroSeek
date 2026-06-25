@@ -184,8 +184,10 @@ PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
 # Provirus panel: the per-probe / stage plots about individual proviral hits and
 # their LTR integration (plot2sort + stage_plot_generator) live under provirus/.
 PATH_DICT["PROVIRUS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "provirus").resolve()
-# ERV-like panel: plots about assembled erv_like candidates (composition,
-# completeness, gene order). Hyphenated per the output contract.
+# ERV-like panel: structural views of the genus-founded ERV assembly
+# (completeness, canonical order, gene combinations, length). Built by
+# erv_like_plot_generator.R from the taxonomy_classify loci table. Hyphenated
+# per the output contract.
 PATH_DICT["ERV_LIKE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "erv-like").resolve()
 PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle_plots").resolve()
 PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve()
@@ -198,9 +200,6 @@ PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
 PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve()
 PATH_DICT["TRACK_CANDIDATES_DIR"] = (PATH_DICT["TRACK_DIR"] / "candidates").resolve()
 PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
-# ERV-like assembly tier — composite candidates chained from valid main-probe
-# loci (see assemble_erv_like in erv_assembly.R). Additive to the valid tier.
-PATH_DICT["TRACK_ERV_LIKE_DIR"] = (PATH_DICT["TRACK_DIR"] / "erv_like").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
 # Taxonomic-classification tier — per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.

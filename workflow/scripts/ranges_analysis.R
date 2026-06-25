@@ -45,7 +45,6 @@ source(file.path(.script_dir, "range_analysis", "granges_build.R"))
 source(file.path(.script_dir, "range_analysis", "filtering.R"))
 source(file.path(.script_dir, "range_analysis", "reductions.R"))
 source(file.path(.script_dir, "range_analysis", "validation.R"))
-source(file.path(.script_dir, "range_analysis", "erv_assembly.R"))
 source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
 source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
 source(file.path(.script_dir, "range_analysis", "exporters.R"))
@@ -68,7 +67,6 @@ parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--candidate_ranges",         required = TRUE)
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
-parser$add_argument("--erv_like_ranges",          required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
 parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
 parser$add_argument("--overlap_matrix_csv",       required = TRUE)
@@ -171,16 +169,10 @@ record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
 
-# ERV-like assembly: chain >=2 distinct main-probe loci from the UNREDUCED
-# valid tier into composite candidates. Additive — valid stays a full superset;
-# isolated single-gene loci are never emitted here.
-erv_like <- assemble_erv_like(
-  valid_hits, opts$main_probes, opts$erv_like_group_by,
-  opts$erv_like_max_join_distance, opts$erv_like_require_canonical_order,
-  opts$erv_like_completeness_threshold, opts
-)
-record_count("erv_like_candidates",           length(erv_like$parents))
-record_count("erv_like_dropped_noncanonical", erv_like$dropped_noncanonical)
+# NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
+# view of the genus-classified loci produced by the taxonomy_classify stage
+# (grouped by LTR element, labelled by genus call). See taxonomy_classify_loci.py
+# and the erv-like plot panel (erv_like_plot_generator.R reads the genus loci).
 
 
 # ----------------------------------------------------------------------------
@@ -219,10 +211,6 @@ track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
 bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
 
-# erv_like: parent candidates + child member loci in one GFF3; child loci as BED.
-erv_like_track_exporter(erv_like$parents, erv_like$children, args$erv_like_ranges, gen_ver)
-bed_exporter(erv_like$children, sub("\\.gff3$", ".bed", args$erv_like_ranges))
-
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
 overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits,
@@ -252,9 +240,6 @@ write_one("counts", tibble::tibble(
   metric = names(.counts),
   value  = as.integer(unlist(.counts, use.names = FALSE))
 ))
-write_one("erv_like_loci", build_erv_like_df(erv_like$parents))
-write_one("erv_like_members", build_erv_like_members_df(erv_like$children))
-
 # Provirus overlap / LTR-interaction tables — feed the new provirus plots.
 write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
 write_one("ltr_interaction",

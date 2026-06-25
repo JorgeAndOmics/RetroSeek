@@ -22,7 +22,7 @@ REPRESENTATIVE_KEYS = [
     "e_value",
     "merge_option",
     "aggregation.virus",
-    "erv_like.group_by",
+    "placement_genes",
     "hotspot.input",
     "source_scn",
     "seed",
@@ -75,8 +75,8 @@ def test_seed_drift_is_closed() -> None:
 def test_hotspot_input_resolves_with_enum_and_live_value() -> None:
     """`hotspot.input` (a top-level dotted key) shows its enum and default."""
     out = config_help.render("hotspot.input")
-    assert "erv_like | valid | original" in out
-    assert "default: erv_like" in out
+    assert "valid | original" in out
+    assert "default: valid" in out
     assert "docs/configuration.md#" in out
 
 
@@ -90,14 +90,14 @@ def test_list_mode_covers_all_sections() -> None:
 
 def test_bare_key_resolves_via_suffix() -> None:
     """A bare nested key resolves to its dotted doc entry."""
-    out = config_help.render("group_by")
-    assert "erv_like.group_by" in out
+    out = config_help.render("concat_separator")
+    assert "aggregation.concat_separator" in out
 
 
 def test_dotted_and_bare_forms_agree() -> None:
     """The dotted form and its unique bare suffix resolve to the same field."""
-    dotted = config_help.render("erv_like.group_by")
-    bare = config_help.render("group_by")
+    dotted = config_help.render("aggregation.concat_separator")
+    bare = config_help.render("concat_separator")
     assert dotted == bare
 
 

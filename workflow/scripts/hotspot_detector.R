@@ -68,7 +68,7 @@ parser <- ArgumentParser(
 )
 parser$add_argument("--fasta",            required = TRUE, help = "Genome FASTA")
 parser$add_argument("--gff",              required = TRUE,
-                    help = "Per-genome GFF3 of ERV-related hits (original / valid / erv_like track)")
+                    help = "Per-genome GFF3 of ERV-related hits (valid / original track)")
 parser$add_argument("--config",           required = TRUE, help = "Project YAML config")
 parser$add_argument("--parquet_dir",      required = TRUE,
                     help = "Output dir for pipeline-internal {species}.parquet / .manifest.yaml")

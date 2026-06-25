@@ -1,40 +1,40 @@
 # =============================================================================
-# erv_like_plot_generator.R — orchestrator
+# erv_like_plot_generator.R
 # =============================================================================
-# Builds RetroSeek's ERV-like panel: plots describing the composite ERV-like
-# candidates assembled by range_analysis/erv_assembly.R (composition,
-# completeness, observed gene order, canonical-vs-rearranged, length, member
-# count, inter-probe gap). Input is the per-genome `erv_like_loci` +
-# `erv_like_members` parquet tables (plus the `counts` table for the dropped-
-# non-canonical tally) that ranges_analysis.R writes to
-# `data/tables/ranges_analysis/`.
+# Builds RetroSeek's ERV-like *structural* panel: views of the genus-founded ERV
+# assembly produced by the taxonomy_classify stage. Each valid LTR-element locus
+# (one provirus, grouped by its LTR `Parent`) is one row of
+# `<genome>.loci.parquet`; this panel summarises their structure — how complete
+# they are, whether their genes sit in canonical order, which gene combinations
+# occur, their span, and how genus relates to the genes recovered.
 #
-# Shared infrastructure (theme, add_titles, stamp_tier_note, auto_dims,
-# empty_plot, save_plot, the aggregation-warning helper) is reused from
-# plot2sort/*.R — not duplicated — so the panel matches the existing plots.
+# This replaces the retired probe-label-chained erv_like tier: there is now one
+# canonical provirus object (the genus loci table), viewed two ways — the
+# taxonomic panel (taxonomy_plot_generator.R) and this structural panel.
 #
-# Phases:
-#   1. Load the erv_like_loci + erv_like_members tables + dropped-noncanon count.
-#   2. Composition & completeness (probe combinations, completeness, by-virus,
-#      probe × virus heatmap).
-#   3. Order & structure (observed gene order, canonical vs rearranged, length,
-#      member count, inter-probe gap vs join cutoff).
+# Plots (results/plots/erv-like/):
+#   1. erv_like_completeness        — fraction of main genes present per locus.
+#   2. erv_like_canonical_order     — canonical vs rearranged main-gene order.
+#   3. erv_like_gene_combinations   — frequency of each gene set (e.g. GAG,POL).
+#   4. erv_like_length_distribution — locus span (bp).
+#   5. erv_like_n_main_genes        — number of main genes per locus.
+#   6. erv_like_composition_heatmap — genus x gene (which genes each genus keeps).
 #
-# `testthat` sources this file; the `if (sys.nframe() == 0L) main()` guard keeps
-# the CLI block from firing during sourcing.
+# Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
+# plot2sort/*.R. `testthat` and demo_figures.R source this file for its builders;
+# the `if (sys.nframe() == 0L) main()` guard keeps the CLI block dormant then.
 
 suppressMessages({
-  library(argparse)     # Command-line argument parser
-  library(arrow)        # Parquet I/O
-  library(tidyverse)    # Data manipulation and visualisation
-  library(yaml)         # YAML config
-  library(ggsci)        # Scientific colour palettes (planet express)
-  library(scales)       # Axis labellers
+  library(argparse)
+  library(arrow)
+  library(tidyverse)
+  library(yaml)
+  library(ggsci)
 })
 
 
 # ----------------------------------------------------------------------------
-# Locate sibling scripts + source modules
+# Locate sibling scripts + source shared modules
 # ----------------------------------------------------------------------------
 .resolve_script_dir <- function() {
   for (i in rev(seq_len(sys.nframe()))) {
@@ -51,18 +51,12 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-# Reused from plot2sort: helpers (theme, add_titles, stamp_tier_note, auto_dims,
-# empty_plot, order_by_count, collapse_long_tail, aggregation_warning) + io
-# (save_plot). Then the erv-like-specific modules.
-source(file.path(.script_dir, "plot2sort", "helpers.R"))
-source(file.path(.script_dir, "plot2sort", "io.R"))
-source(file.path(.script_dir, "erv_like_plot_generator", "io.R"))
-source(file.path(.script_dir, "erv_like_plot_generator", "plots_composition.R"))
-source(file.path(.script_dir, "erv_like_plot_generator", "plots_order_structure.R"))
+source(file.path(.script_dir, "plot2sort", "helpers.R"))  # empty_plot, add_titles
+source(file.path(.script_dir, "plot2sort", "io.R"))       # save_plot
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation — same idiom as the other plot generators.
+# Pipeline instrumentation (save_plot calls log_section, so define it first).
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {
@@ -72,15 +66,148 @@ log_section <- function(name) {
 
 
 # ----------------------------------------------------------------------------
+# Load every per-genome genus-founded loci table, tagging each row with its
+# species (filename stem) and coercing the string-typed structural columns the
+# classifier emits (completeness / n_main_genes / canonical_order) to numbers.
+# Returns one tidy data frame (empty if none).
+# ----------------------------------------------------------------------------
+load_genus_loci <- function(input_dir) {
+  files <- list.files(input_dir, pattern = "\\.loci\\.parquet$", full.names = TRUE)
+  if (length(files) == 0L) return(tibble())
+  frames <- lapply(files, function(f) {
+    df <- as_tibble(arrow::read_parquet(f))
+    if (nrow(df) == 0L) return(NULL)
+    df$species <- sub("\\.loci$", "", tools::file_path_sans_ext(basename(f)))
+    df
+  })
+  frames <- Filter(Negate(is.null), frames)
+  if (length(frames) == 0L) return(tibble())
+  df <- bind_rows(frames)
+  df %>%
+    mutate(
+      completeness    = suppressWarnings(as.numeric(.data$completeness)),
+      n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),
+      canonical_order = toupper(as.character(.data$canonical_order)) == "TRUE",
+      span_bp         = suppressWarnings(as.numeric(.data$end) - as.numeric(.data$start) + 1)
+    )
+}
+
+
+# ----------------------------------------------------------------------------
+# Plot builders. Each takes the loci frame and returns a ggplot (or empty_plot()
+# when there is nothing to show). Defined at top level so demo_figures.R and the
+# tests can reuse them.
+# ----------------------------------------------------------------------------
+
+# Fraction of main genes present per locus (0..1), as a per-species histogram.
+completeness_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  d <- loci %>% filter(!is.na(.data$completeness))
+  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  p <- ggplot(d, aes(x = .data$completeness, fill = .data$species)) +
+    geom_histogram(bins = 20, colour = NA, alpha = 0.85, position = "stack") +
+    scale_fill_igv() +
+    labs(x = "main-gene completeness (fraction present)", y = "loci", fill = "species") +
+    theme_bw()
+  add_titles(p, "ERV-like completeness",
+             "Fraction of main genes present per LTR-element locus")
+}
+
+# Canonical vs rearranged main-gene order, counts per species.
+canonical_order_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  d <- loci %>%
+    mutate(order = ifelse(.data$canonical_order, "canonical", "rearranged")) %>%
+    count(.data$species, .data$order, name = "n")
+  p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
+    geom_col(position = "fill") +
+    scale_fill_manual(values = c(canonical = "#1b9e77", rearranged = "#d95f02")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of loci", fill = "gene order") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "ERV-like canonical gene order",
+             "Main genes in main_probes order vs rearranged")
+}
+
+# Frequency of each gene combination present (e.g. "GAG,POL", "POL").
+gene_combinations_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  d <- loci %>% filter(nzchar(.data$genes_present))
+  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  counts <- d %>% count(.data$genes_present, name = "n") %>% arrange(desc(.data$n))
+  counts <- counts %>%
+    mutate(genes_present = factor(.data$genes_present, levels = rev(.data$genes_present)))
+  p <- ggplot(counts, aes(x = .data$genes_present, y = .data$n)) +
+    geom_col(fill = "#386cb0", colour = "black", linewidth = 0.2) +
+    coord_flip() +
+    scale_y_continuous(labels = scales::label_comma()) +
+    labs(x = "genes present", y = "loci") +
+    theme_bw()
+  add_titles(p, "ERV-like gene combinations",
+             "Which main/diagnostic genes co-occur per locus")
+}
+
+# Locus span (bp) distribution, per species.
+length_distribution_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  d <- loci %>% filter(!is.na(.data$span_bp), .data$span_bp > 0)
+  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  p <- ggplot(d, aes(x = .data$span_bp, fill = .data$species)) +
+    geom_histogram(bins = 40, colour = NA, alpha = 0.85, position = "stack") +
+    scale_x_continuous(labels = scales::label_comma()) +
+    scale_fill_igv() +
+    labs(x = "locus span (bp)", y = "loci", fill = "species") +
+    theme_bw()
+  add_titles(p, "ERV-like length distribution",
+             "Genomic span of each LTR-element locus")
+}
+
+# Number of main genes per locus (small-integer bar).
+n_main_genes_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  d <- loci %>% filter(!is.na(.data$n_main_genes))
+  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  counts <- d %>% count(.data$n_main_genes, name = "n")
+  p <- ggplot(counts, aes(x = factor(.data$n_main_genes), y = .data$n)) +
+    geom_col(fill = "#386cb0", colour = "black", linewidth = 0.2) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    labs(x = "main genes per locus", y = "loci") +
+    theme_bw()
+  add_titles(p, "ERV-like main-gene count",
+             "Number of main genes recovered per LTR-element locus")
+}
+
+# Genus x gene composition heatmap: how often each gene is recovered per genus.
+# Unpacks genes_present into individual genes; counts (genus_call, gene) pairs.
+composition_heatmap_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("no genus-resolved loci"))
+  d <- loci %>% filter(.data$rank == "genus", nzchar(.data$genes_present))
+  if (nrow(d) == 0L) return(empty_plot("no genus-resolved loci"))
+  long <- d %>%
+    separate_rows("genes_present", sep = ",") %>%
+    filter(nzchar(.data$genes_present)) %>%
+    count(.data$genus_call, gene = .data$genes_present, name = "n")
+  p <- ggplot(long, aes(x = .data$gene, y = .data$genus_call, fill = .data$n)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = .data$n), size = 3) +
+    scale_fill_viridis_c(trans = "log10") +
+    labs(x = "gene", y = "genus", fill = "loci") +
+    theme_bw()
+  add_titles(p, "ERV-like genus x gene composition",
+             "Genes recovered per confident genus call")
+}
+
+
+# ----------------------------------------------------------------------------
 # main()
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
-    description = "Generate RetroSeek ERV-like panel (composite candidate plots)"
+    description = "Generate RetroSeek ERV-like structural panel (genus-founded assembly)"
   )
   parser$add_argument("--input", required = TRUE,
-                      help = paste("Directory with per-genome ranges-analysis parquet",
-                                   "tables (erv_like_loci / erv_like_members / counts)."))
+                      help = "Directory with per-genome <genome>.loci.parquet tables.")
   parser$add_argument("--output", required = TRUE,
                       help = "Directory to save output plots.")
   parser$add_argument("--config", required = TRUE,
@@ -91,60 +218,27 @@ main <- function() {
   plot_dpi    <- cfg$plots$dpi    %||% 300
   plot_height <- cfg$plots$height %||% 12
   plot_width  <- cfg$plots$width  %||% 15
-  top_n       <- cfg$plots$sankey_top_n              # NULL = show all
-  other_label <- cfg$plots$sankey_other_label %||% "Other"
-  sep         <- cfg$parameters$aggregation$concat_separator %||% "; "
-  max_join    <- cfg$parameters$erv_like$max_join_distance   %||% 1500
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
-  log_section(sprintf("RetroSeek erv-like plot generation (output: %s)", args$output))
+  log_section(sprintf("RetroSeek erv-like structural plots (output: %s)", args$output))
 
-  warn_caption <- aggregation_warning(cfg)
-  if (!is.null(warn_caption)) {
-    warning(warn_caption, call. = FALSE)
-    log_section(paste0("  ", warn_caption))
-  }
+  loci <- load_genus_loci(args$input)
+  log_section(sprintf("Loaded %d loci across %d species",
+                      nrow(loci), length(unique(loci$species))))
 
-  # Every erv-like plot describes the erv_like candidate tier; stamp it on each.
-  # Read intended_dims BEFORE stamping, since `+` drops attributes.
   emit <- function(name, plot) {
-    dims <- attr(plot, "intended_dims")
-    plot <- stamp_tier_note(plot, "erv-like candidates")
-    plot <- stamp_warning_caption(plot, warn_caption)
     save_plot(name, plot, args$output,
-              dims = dims, base_w = plot_width, base_h = plot_height,
-              dpi  = plot_dpi)
+              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  # ---------- Phase 1: load --------------------------------------------------
-  loci    <- load_erv_like_loci(args$input)
-  members <- load_erv_like_members(args$input)
-  dropped <- load_dropped_noncanonical(args$input)
-  log_section(sprintf("Loaded %d candidates, %d members, %d dropped (non-canonical)",
-                      nrow(loci), nrow(members), dropped))
+  emit("erv_like_completeness.png",        completeness_plot(loci))
+  emit("erv_like_canonical_order.png",     canonical_order_plot(loci))
+  emit("erv_like_gene_combinations.png",   gene_combinations_plot(loci))
+  emit("erv_like_length_distribution.png", length_distribution_plot(loci))
+  emit("erv_like_n_main_genes.png",        n_main_genes_plot(loci))
+  emit("erv_like_composition_heatmap.png", composition_heatmap_plot(loci))
 
-  # ---------- Phase 2: composition & completeness ----------------------------
-  log_section("Rendering composition & completeness plots")
-  emit("erv_like_probe_combinations.png",
-       probe_combination_plot(loci, top_n = top_n, other_label = other_label))
-  emit("erv_like_completeness.png", completeness_plot(loci))
-  emit("erv_like_full_partial_by_virus.png",
-       full_partial_by_virus_plot(loci, sep = sep))
-  emit("erv_like_composition_heatmap.png",
-       composition_heatmap_plot(loci, sep = sep))
-
-  # ---------- Phase 3: order & structure -------------------------------------
-  log_section("Rendering order & structure plots")
-  emit("erv_like_gene_order.png",
-       gene_order_plot(loci, top_n = top_n, other_label = other_label))
-  emit("erv_like_canonical.png",
-       canonical_plot(loci, dropped_noncanonical = dropped))
-  emit("erv_like_length_distribution.png", candidate_length_plot(loci))
-  emit("erv_like_n_loci.png", n_loci_plot(loci))
-  emit("erv_like_interprobe_gap.png",
-       interprobe_gap_plot(members, max_join_distance = max_join))
-
-  log_section(sprintf("Done — wrote 9 PNGs to %s", args$output))
+  log_section(sprintf("Done — wrote 6 PNGs to %s", args$output))
 }
 
 

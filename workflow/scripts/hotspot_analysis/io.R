@@ -52,7 +52,7 @@ load_genome_for_hotspot <- function(fasta_path) {
 }
 
 
-#' Load a hotspot input GFF3 (original / valid / erv_like track).
+#' Load a hotspot input GFF3 (valid / original track).
 #'
 #' Validates that `mcols$label` is present (this is the per-genus tag attached
 #' by ranges_analysis.R; without it we cannot per-label split). Aborts with a
@@ -117,7 +117,7 @@ read_hotspot_options <- function(config) {
   h <- config$hotspot
   list(
     seed                 = as.integer(config$parameters$seed     %||% 67L),
-    input                = h$input                                %||% "erv_like",
+    input                = h$input                                %||% "valid",
     group_split          = isTRUE(h$group_split                   %||% FALSE),
     window_size          = as.integer(h$window_size              %||% 500000L),
     mask_size            = as.integer(h$mask_size                %||% 20L),

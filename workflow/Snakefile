@@ -410,9 +410,6 @@ rule ranges_analysis_setup:
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'], '{genome}.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
-        # ERV-like composite candidates (parent + child members) + child-locus BED.
-        erv_like_tracks=os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'], '{genome}.gff3'),
-        erv_like_tracks_bed=os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'], '{genome}.bed'),
         # solo_ltr production has moved to the LTR_retriever-based workstream
         # (separate rule); the file is no longer produced by ranges_analysis.R.
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
@@ -430,10 +427,6 @@ rule ranges_analysis_setup:
         reduction_multiplicity_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.reduction_multiplicity.csv'),
         counts_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
         counts_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.counts.csv'),
-        erv_like_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
-        erv_like_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_loci.csv'),
-        erv_like_members_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_members.parquet'),
-        erv_like_members_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.erv_like_members.csv'),
         provirus_overlap_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.provirus_overlap.parquet'),
         provirus_overlap_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.provirus_overlap.csv'),
         ltr_interaction_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.ltr_interaction.parquet'),
@@ -456,7 +449,6 @@ rule ranges_analysis_setup:
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
-        erv_like_tracks_dir=defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
     threads:
@@ -474,7 +466,6 @@ rule ranges_analysis_setup:
         --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
-        --erv_like_ranges {params.erv_like_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix_parquet {output.overlap_matrix_parquet:q} \
         --overlap_matrix_csv {output.overlap_matrix_csv:q} \
@@ -494,10 +485,6 @@ rule ranges_analysis:
         valid_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
                              genome=species_with_hits(wildcards)),
         valid_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
-                                genome=species_with_hits(wildcards)),
-        erv_like_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'],'{genome}.gff3'),
-                                genome=species_with_hits(wildcards)),
-        erv_like_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
                                 genome=species_with_hits(wildcards)),
         # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
         # demand solo_ltr/{genome}.gff3 here.
@@ -786,27 +773,23 @@ rule stage_plot_generator:
 # ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
 # tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
 # of PNGs into results/plots/erv-like/.
+# ERV-like structural panel — views of the genus-founded ERV assembly (the
+# taxonomy_classify loci table): completeness, canonical order, gene
+# combinations, length, marker count, genus x gene composition.
 rule erv_like_plot_generator_setup:
     input:
-        erv_like_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_loci.parquet'),
-                          genome=species_with_hits(wildcards)),
-        erv_like_members=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.erv_like_members.parquet'),
-                          genome=species_with_hits(wildcards)),
-        counts=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.counts.parquet'),
+        loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],'{genome}.loci.parquet'),
                           genome=species_with_hits(wildcards))
     output:
         erv_like_plots=expand(os.path.join(defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],'{erv_plot}.png'),
-                              erv_plot=['erv_like_probe_combinations',
-                                        'erv_like_completeness',
-                                        'erv_like_full_partial_by_virus',
-                                        'erv_like_composition_heatmap',
-                                        'erv_like_gene_order',
-                                        'erv_like_canonical',
+                              erv_plot=['erv_like_completeness',
+                                        'erv_like_canonical_order',
+                                        'erv_like_gene_combinations',
                                         'erv_like_length_distribution',
-                                        'erv_like_n_loci',
-                                        'erv_like_interprobe_gap'])
+                                        'erv_like_n_main_genes',
+                                        'erv_like_composition_heatmap'])
     params:
-        ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
+        taxonomy_parquet_dir=defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         plot_dir=defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
@@ -814,7 +797,7 @@ rule erv_like_plot_generator_setup:
     shell:
         '''
         Rscript scripts/erv_like_plot_generator.R \
-        --input {params.ranges_analysis_parquet_dir:q} \
+        --input {params.taxonomy_parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q}
         '''
@@ -859,10 +842,11 @@ rule circle_plot_generator:
 
 # Hotspot input-tier router: `hotspot.input` selects which upstream track feeds
 # the detector. Each tier maps to (directory, per-genome filename) — note the
-# `valid` tier uses the `_reduced.gff3` filename, the other two use `{genome}.gff3`.
-_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'erv_like')
+# `valid` tier uses the `_reduced.gff3` filename, `original` uses `{genome}.gff3`.
+# (The retired erv_like tier is gone; the genus-founded assembly is a separate
+# stage and re-pointing hotspot at it is deferred to the hotspot rework.)
+_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'valid')
 _HOTSPOT_TRACK = {
-    'erv_like': (defaults.PATH_DICT['TRACK_ERV_LIKE_DIR'], '{genome}.gff3'),
     'valid':    (defaults.PATH_DICT['TRACK_VALID_DIR'],    '{genome}_reduced.gff3'),
     'original': (defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
 }

@@ -120,24 +120,32 @@ def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
 
 
 # ---------------------------------------------------------------------
-# erv_like assembly tier (additive) + retired original/candidate reduced exports
+# Retired erv_like assembly tier — its producer outputs must be GONE; the
+# erv-like plot panel now reads the genus-founded taxonomy loci table.
 # ---------------------------------------------------------------------
-def test_ranges_analysis_declares_erv_like_outputs(project_root: Path) -> None:
-    """``ranges_analysis_setup`` must emit the additive erv_like tier + tables."""
+def test_erv_like_producer_tier_retired(project_root: Path) -> None:
+    """``ranges_analysis`` must no longer build the probe-label erv_like tier."""
     text = _read_snakefile(project_root)
-    assert "TRACK_ERV_LIKE_DIR" in text
-    assert "erv_like_tracks=" in text
-    assert "{genome}.erv_like_loci.parquet" in text
-    assert "{genome}.erv_like_members.parquet" in text
-    assert "--erv_like_ranges" in text
+    assert "TRACK_ERV_LIKE_DIR" not in text
+    assert "erv_like_tracks=" not in text
+    assert "{genome}.erv_like_loci.parquet" not in text
+    assert "{genome}.erv_like_members.parquet" not in text
+    assert "--erv_like_ranges" not in text
+    # The producer module is deleted too.
+    assert not (
+        project_root / "workflow" / "scripts" / "range_analysis" / "erv_assembly.R"
+    ).exists()
 
 
-def test_erv_like_plot_generator_rule_present(project_root: Path) -> None:
-    """The ERV-like plot panel rule must be in the workflow."""
+def test_erv_like_plot_generator_reads_genus_loci(project_root: Path) -> None:
+    """The ERV-like plot panel survives, repointed at the taxonomy loci table."""
+    text = _read_snakefile(project_root)
     rules = _all_rules(project_root)
     assert "erv_like_plot_generator_setup" in rules
     assert "erv_like_plot_generator" in rules
-    assert "ERV_LIKE_PLOT_DIR" in _read_snakefile(project_root)
+    assert "ERV_LIKE_PLOT_DIR" in text
+    # Its input is now the genus-founded loci table, not ranges_analysis tables.
+    assert "TAXONOMY_TABLES_PARQUET_DIR" in text
 
 
 def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> None:
@@ -179,13 +187,15 @@ def test_original_candidate_reduced_exports_removed(project_root: Path) -> None:
     assert "--valid_ranges_reduced" in text
 
 
-def test_config_yaml_declares_erv_like_block(project_root: Path) -> None:
-    """The erv_like config block + its Yamale sub-schema must be present."""
+def test_erv_like_config_block_removed(project_root: Path) -> None:
+    """The retired erv_like assembly tier leaves no config/schema surface."""
     config = (project_root / "data" / "config" / "config.yaml").read_text()
     schema = (project_root / "data" / "config" / "schema.yaml").read_text()
-    assert "erv_like:" in config
-    assert "max_join_distance:" in config
-    assert "erv_like_schema:" in schema
+    assert "erv_like:" not in config
+    assert "max_join_distance:" not in config
+    assert "erv_like_schema:" not in schema
+    # hotspot input enum no longer offers the retired tier.
+    assert "erv_like" not in schema
 
 
 # ---------------------------------------------------------------------
