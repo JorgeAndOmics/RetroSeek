@@ -79,6 +79,7 @@ classification_schema:
   evalue:          num(min=0)
   top_percent:     num(min=0, max=1)
   min_orf:         int(min=0)
+  confidence_min:  num(min=0, max=1, required=False)
 
 
 logging_schema:

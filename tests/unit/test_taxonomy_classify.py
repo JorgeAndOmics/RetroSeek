@@ -177,6 +177,144 @@ class TestGappaParse:
         assert tplace._parse_gappa(tmp_path / "nope.tsv") == {}
 
 
+class TestConfidenceTag:
+    """confidence_tag (HC/LC) is derived from the locus confidence vs a
+    user-adjustable threshold (classification.confidence_min, default 0.5),
+    for every method alike."""
+
+    def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
+        return {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": "+",
+            "start": min(s for s, _ in genes.values()),
+            "end": max(e for _, e in genes.values()),
+            "genes": genes,
+            "probe_label_set": "",
+        }
+
+    def test_clean_call_is_high_confidence(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        hits = {"L0|POL": [("Lentivirus", 100.0)]}  # single genus -> conf 1.000
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10)[0]
+        assert rec["confidence"] == "1.000"
+        assert rec["confidence_tag"] == "HC"
+
+    def test_unclassified_is_low_confidence(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]  # no hits
+        assert rec["genus_call"] == tlca.UNCLASSIFIED
+        assert rec["confidence"] == "0.000"
+        assert rec["confidence_tag"] == "LC"
+
+    def test_threshold_is_inclusive_at_boundary(self) -> None:
+        # presence call has confidence exactly 1.000; threshold 1.0 -> still HC
+        loci = [self._locus({"REX": (100, 200)})]
+        rec = tcl._assemble(
+            loci,
+            {},
+            {},
+            "v",
+            ["POL"],
+            {"REX": "Deltaretrovirus"},
+            0.10,
+            confidence_min=1.0,
+        )[0]
+        assert rec["confidence"] == "1.000"
+        assert rec["confidence_tag"] == "HC"
+
+    def test_threshold_is_config_adjustable(self) -> None:
+        # a clean 1.000 call tagged LC only under an (extreme) threshold above 1
+        loci = [self._locus({"POL": (100, 200)})]
+        hits = {"L0|POL": [("Lentivirus", 100.0)]}
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10, confidence_min=1.5)[
+            0
+        ]
+        assert rec["confidence_tag"] == "LC"
+
+
+class TestBlastxEvidenceAndSource:
+    def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
+        return {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": "+",
+            "start": min(s for s, _ in genes.values()),
+            "end": max(e for _, e in genes.values()),
+            "genes": genes,
+            "probe_label_set": "",
+        }
+
+    def test_n_blastx_hits_counts_all_gene_hits(self) -> None:
+        loci = [self._locus({"POL": (100, 200), "GAG": (210, 300)})]
+        hits = {
+            "L0|POL": [("Gammaretrovirus", 100.0), ("Gammaretrovirus", 90.0)],
+            "L0|GAG": [("Gammaretrovirus", 80.0)],
+        }
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL", "GAG"], {}, 0.10)[0]
+        assert rec["n_blastx_hits"] == "3"
+
+    def test_no_blastx_hit_is_zero(self) -> None:
+        # the candidate-novel-retrovirus signal: valid structure, zero homology
+        loci = [self._locus({"POL": (100, 200)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]
+        assert rec["n_blastx_hits"] == "0"
+
+    def test_source_defaults_anchored(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]
+        assert rec["source"] == "anchored"
+
+    def test_source_is_stamped(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, source="fragment")[0]
+        assert rec["source"] == "fragment"
+
+
+class TestGateAndCounts:
+    def _rec(self, genus: str, n_hits: str) -> dict[str, str]:
+        return {"genus_call": genus, "n_blastx_hits": n_hits}
+
+    def test_gate_drops_only_unclassified(self) -> None:
+        recs = [
+            self._rec("Lentivirus", "5"),
+            self._rec(tlca.UNCLASSIFIED, "0"),
+            self._rec("Gammaretrovirus", "3"),
+        ]
+        kept = tcl.gate_classified(recs)
+        assert [r["genus_call"] for r in kept] == ["Lentivirus", "Gammaretrovirus"]
+
+    def test_anchored_counts(self) -> None:
+        recs = [
+            self._rec("Lentivirus", "5"),
+            self._rec(tlca.UNCLASSIFIED, "0"),
+            self._rec(tlca.UNCLASSIFIED, "2"),
+        ]
+        counts = {
+            c["metric"]: c["value"]
+            for c in tcl.classification_counts(recs, recs, "anchored")
+        }
+        assert counts["loci_total"] == 3
+        assert counts["loci_classified"] == 1
+        assert counts["loci_unclassified"] == 2
+        assert counts["loci_no_blastx_hit"] == 1  # only the n_hits == "0" one
+
+    def test_fragment_counts_use_pre_and_post_gate(self) -> None:
+        all_recs = [
+            self._rec("Lentivirus", "5"),
+            self._rec(tlca.UNCLASSIFIED, "0"),
+        ]
+        kept = tcl.gate_classified(all_recs)
+        counts = {
+            c["metric"]: c["value"]
+            for c in tcl.classification_counts(all_recs, kept, "fragment")
+        }
+        assert counts["fragments_total"] == 2
+        assert counts["fragments_recovered"] == 1
+
+
 def test_loci_columns_cover_record_keys() -> None:
     """The fixed parquet schema must include every key the assembler emits."""
     loci = [

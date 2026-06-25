@@ -239,6 +239,8 @@ def classify(
     threads: int = 1,
     top_percent: float = 0.10,
     min_orf: int = 30,
+    confidence_min: float = 0.5,
+    source: str = "anchored",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
@@ -305,6 +307,8 @@ def classify(
         main_probes,
         diagnostic,
         top_percent,
+        confidence_min=confidence_min,
+        source=source,
     )
 
 
@@ -364,6 +368,8 @@ def _assemble(
     main_probes: list[str],
     diagnostic: dict[str, str],
     top_percent: float,
+    confidence_min: float = 0.5,
+    source: str = "anchored",
 ) -> list[dict[str, str]]:
     # gene reliability + mosaic set derived from the user's ordered main_probes (no hard-coding)
     gene_priority = {g: i for i, g in enumerate(main_probes)}
@@ -448,6 +454,13 @@ def _assemble(
             )
         ]
         canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
+        # blastx evidence depth for this locus (summed over its gene regions). Zero
+        # means the locus carries valid LTR structure but NO protein homology to the
+        # reference — the candidate-novel-retrovirus signal the loss analysis surfaces.
+        n_blastx_hits = sum(len(hits.get(f"{lc['id']}|{g}", [])) for g in lc["genes"])
+        # confidence tag: HC/LC against a user-adjustable floor (classification.confidence_min).
+        # Threshold is inclusive — conf == floor is still High Confidence.
+        confidence_tag = "LC" if float(conf) < confidence_min else "HC"
         records.append(
             {
                 "id": lc["id"],
@@ -465,6 +478,8 @@ def _assemble(
                 "genus_call": genus_call,
                 "rank": rank,
                 "confidence": conf,
+                "confidence_tag": confidence_tag,
+                "n_blastx_hits": str(n_blastx_hits),
                 "method": method,
                 "per_gene": ";".join(
                     f"{g}:{c['genus_call']}({c['method']},{c['confidence']})"
@@ -481,9 +496,65 @@ def _assemble(
                 "erv_class": tlca.ERV_CLASS.get(genus_call, ""),
                 "probe_label_set": lc["probe_label_set"],
                 "ref_version": ref_version,
+                "source": source,
             }
         )
     return records
+
+
+def gate_classified(records: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Keep only records that earned a taxonomic call (drop UNCLASSIFIED).
+
+    This is the fragment-recovery gate: a non-LTR-associated fragment is retained
+    only if blastx resolved it to a genus/family/etc. — earning a classification
+    *is* the evidence it is a real (possibly novel) retroviral fragment.
+    """
+    return [r for r in records if r["genus_call"] != tlca.UNCLASSIFIED]
+
+
+def write_counts(
+    records: list[dict[str, str]],
+    kept: list[dict[str, str]],
+    source: str,
+    out_counts: Path,
+) -> None:
+    """Write the blastx-stage loss counts CSV (metric,value)."""
+    out_counts.parent.mkdir(parents=True, exist_ok=True)
+    with out_counts.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=["metric", "value"])
+        w.writeheader()
+        w.writerows(classification_counts(records, kept, source))
+
+
+def classification_counts(
+    records: list[dict[str, str]], kept: list[dict[str, str]], source: str
+) -> list[dict[str, Any]]:
+    """Blastx-stage loss counters, emitted in the same (metric, value) shape as
+    ranges_analysis.R's counts table so the two UNION into one loss funnel.
+
+    For the gated fragments run, ``records`` is the pre-gate set and ``kept`` the
+    post-gate (recovered) set; for the anchored run the two are identical.
+    """
+    if source == "fragment":
+        return [
+            {"metric": "fragments_total", "value": len(records)},
+            {"metric": "fragments_recovered", "value": len(kept)},
+        ]
+    return [
+        {"metric": "loci_total", "value": len(records)},
+        {
+            "metric": "loci_classified",
+            "value": sum(r["genus_call"] != tlca.UNCLASSIFIED for r in records),
+        },
+        {
+            "metric": "loci_unclassified",
+            "value": sum(r["genus_call"] == tlca.UNCLASSIFIED for r in records),
+        },
+        {
+            "metric": "loci_no_blastx_hit",
+            "value": sum(r["n_blastx_hits"] == "0" for r in records),
+        },
+    ]
 
 
 def summarise(records: list[dict[str, str]]) -> str:
@@ -521,6 +592,8 @@ LOCI_COLUMNS = [
     "genus_call",
     "rank",
     "confidence",
+    "confidence_tag",
+    "n_blastx_hits",
     "method",
     "per_gene",
     "is_mosaic",
@@ -528,6 +601,7 @@ LOCI_COLUMNS = [
     "erv_class",
     "probe_label_set",
     "ref_version",
+    "source",
 ]
 
 
@@ -549,6 +623,7 @@ def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
             attrs = (
                 f"ID={r['id']};genus={r['genus_call']};rank={r['rank']};"
                 f"method={r['method']};confidence={r['confidence']};"
+                f"confidence_tag={r['confidence_tag']};"
                 f"mosaic={r['is_mosaic']};erv_class={r['erv_class']};"
                 f"genes={r['genes_present']}"
             )
@@ -594,6 +669,25 @@ def main() -> int:
         default=30,
         help="min translated marker length (aa) to place",
     )
+    p.add_argument(
+        "--confidence-min",
+        type=float,
+        default=0.5,
+        help="confidence floor below which a locus call is tagged 'LC' (low "
+        "confidence); at or above it is 'HC'. classification.confidence_min.",
+    )
+    p.add_argument(
+        "--source",
+        default="anchored",
+        help="provenance stamp for every record ('anchored' LTR loci vs "
+        "recovered 'fragment'). Lets downstream union/report split the two tiers.",
+    )
+    p.add_argument(
+        "--gate-classified",
+        action="store_true",
+        help="drop UNCLASSIFIED records before writing (the fragment-recovery "
+        "gate: keep a fragment only if it earned a taxonomic call).",
+    )
     p.add_argument("--threads", type=int, default=1, help="blastx threads")
     p.add_argument("--workdir", type=Path, default=Path("/tmp/taxonomy_classify"))
     # Ad-hoc single-CSV output (trial reproduction) — or the production output set:
@@ -605,6 +699,12 @@ def main() -> int:
     )
     p.add_argument(
         "--out-bed", type=Path, default=None, help="genome-coordinate BED track"
+    )
+    p.add_argument(
+        "--out-counts",
+        type=Path,
+        default=None,
+        help="blastx-stage loss counts CSV (metric,value) for the loss funnel",
     )
     a = p.parse_args()
 
@@ -628,8 +728,18 @@ def main() -> int:
         threads=a.threads,
         top_percent=a.top_percent,
         min_orf=a.min_orf,
+        confidence_min=a.confidence_min,
+        source=a.source,
     )
-    print(summarise(records))
+    # Fragment-recovery gate: keep only loci that earned a taxonomic call. Counts
+    # are computed over the PRE-gate set so the loss funnel can report what was
+    # recovered vs. discarded. For the anchored run the gate is a no-op.
+    kept = gate_classified(records) if a.gate_classified else records
+    print(summarise(kept))
+    if a.out_counts:
+        write_counts(records, kept, a.source, a.out_counts)
+        print(f"wrote counts -> {a.out_counts}", file=sys.stderr)
+    records = kept
 
     if a.out and records:  # ad-hoc single CSV (back-compat for trial docs)
         with a.out.open("w", newline="", encoding="utf-8") as fh:

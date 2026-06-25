@@ -137,6 +137,7 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | `evalue` | number ≥ 0 | `0.001` | blastx e-value cutoff for marker → reference hits. |
 | `top_percent` | number 0–1 | `0.1` | Weighted-LCA bitscore band: hits within this fraction of the best bitscore per marker vote on the lowest-common-ancestor call. Smaller = stricter (fewer, higher-confidence ancestors). |
 | `min_orf` | int ≥ 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
+| `confidence_min` | number 0–1 | `0.5` | Confidence floor for the high/low confidence tag. A locus whose call confidence is **below** this value is tagged `LC` (low confidence) in the `confidence_tag` column of the loci/fragments tables; at or above it is `HC`. The threshold is inclusive (`conf == confidence_min` ⇒ `HC`) and applies to every method (placement, weighted-LCA, presence). Raise it to flag more marginal calls. |
 
 ## `logging`
 

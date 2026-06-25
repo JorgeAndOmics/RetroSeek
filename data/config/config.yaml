@@ -72,6 +72,7 @@ classification:
   evalue: 0.001
   top_percent: 0.10
   min_orf: 30
+  confidence_min: 0.5
 
 logging:
   level_styles:
