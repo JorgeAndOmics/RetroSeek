@@ -105,6 +105,33 @@ pick_novel_candidates <- function(loci_df) {
 }
 
 
+# Per-genome novel-candidate burden from the funnel: how many loci had zero
+# blastx homology (loci_no_blastx_hit) and what fraction of all loci that is.
+# Empty-safe; guards a zero/absent total so frac is 0 (never NaN).
+novel_burden_table <- function(funnel) {
+  empty <- tibble::tibble(
+    genome = character(), n_novel = double(), n_total = double(), frac = double()
+  )
+  if (nrow(funnel) == 0L) return(empty)
+  wide <- funnel %>%
+    dplyr::filter(.data$metric %in% c("loci_total", "loci_no_blastx_hit")) %>%
+    dplyr::select("genome", "metric", "value") %>%
+    tidyr::pivot_wider(names_from = "metric", values_from = "value")
+  if (nrow(wide) == 0L) return(empty)
+  if (!"loci_no_blastx_hit" %in% names(wide)) wide$loci_no_blastx_hit <- 0
+  if (!"loci_total" %in% names(wide)) wide$loci_total <- 0
+  wide %>%
+    dplyr::transmute(
+      genome  = .data$genome,
+      n_novel = dplyr::coalesce(.data$loci_no_blastx_hit, 0),
+      n_total = dplyr::coalesce(.data$loci_total, 0),
+      frac    = dplyr::if_else(dplyr::coalesce(.data$loci_total, 0) > 0,
+                               dplyr::coalesce(.data$loci_no_blastx_hit, 0) /
+                                 .data$loci_total, 0)
+    )
+}
+
+
 # ----------------------------------------------------------------------------
 # I/O helpers — read every `<genome>.<suffix>.csv` in a directory into one long
 # (genome, metric, value) frame. Missing dir / no files => empty frame.
@@ -140,6 +167,89 @@ loss_funnel_plot <- function(funnel) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   add_titles(p, "Pipeline loss funnel",
              "Surviving ranges/loci per stage (incl. recovered fragments)")
+}
+
+
+# Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
+# surviving. The single most actionable funnel view — it localises the worst
+# attrition per species. raw_blast_hits (no parent, NA retention) is dropped.
+step_retention_plot <- function(funnel) {
+  d <- funnel %>% dplyr::filter(!is.na(.data$step_retained))
+  if (nrow(d) == 0L) return(empty_plot("no step-retention data"))
+  d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
+  p <- ggplot(d, aes(x = .data$label, y = .data$genome, fill = .data$step_retained)) +
+    geom_tile(colour = "white") +
+    geom_text(aes(label = sprintf("%.0f%%", 100 * .data$step_retained)), size = 2.8) +
+    scale_fill_gradient2(low = "#D73027", mid = "#FEE08B", high = "#1A9850",
+                         midpoint = 0.5, limits = c(0, 1),
+                         oob = scales::squish, labels = scales::percent) +
+    labs(x = NULL, y = NULL, fill = "step\nretained") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  add_titles(p, "Per-step retention", "Fraction of the prior stage surviving each step")
+}
+
+
+# Fragment recovery yield: per genome, unanchored fragments vs the subset that
+# earned a taxonomic call (recovered), with the recovered fraction annotated.
+fragment_recovery_plot <- function(funnel) {
+  d <- funnel %>% dplyr::filter(.data$metric %in% c("unanchored_fragments", "fragments_recovered"))
+  if (nrow(d) == 0L) return(empty_plot("no fragments"))
+  bars <- d %>% dplyr::mutate(metric = factor(
+    .data$metric, levels = c("unanchored_fragments", "fragments_recovered"),
+    labels = c("unanchored", "recovered")))
+  fr <- d %>%
+    dplyr::select("genome", "metric", "value") %>%
+    tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
+    dplyr::mutate(frac = dplyr::if_else(
+      dplyr::coalesce(.data$unanchored_fragments, 0) > 0,
+      dplyr::coalesce(.data$fragments_recovered, 0) / .data$unanchored_fragments, 0))
+  p <- ggplot(bars, aes(x = .data$genome, y = .data$value, fill = .data$metric)) +
+    geom_col(position = position_dodge(width = 0.8)) +
+    geom_text(data = fr, inherit.aes = FALSE,
+              aes(x = .data$genome, y = .data$fragments_recovered,
+                  label = scales::percent(.data$frac, accuracy = 1)),
+              vjust = -0.4, size = 2.8) +
+    scale_fill_manual(values = c(unanchored = "#9E9E9E", recovered = "#1A9850")) +
+    labs(x = NULL, y = "fragments", fill = NULL) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Fragment recovery", "Non-LTR fragments recovered as classified loci")
+}
+
+
+# Novel-candidate burden: per-genome count of loci with zero blastx homology
+# (candidate novel retroviruses), labelled with their fraction of all loci.
+novel_burden_plot <- function(funnel) {
+  bt <- novel_burden_table(funnel)
+  if (nrow(bt) == 0L) return(empty_plot("no loci"))
+  p <- ggplot(bt, aes(x = .data$genome, y = .data$n_novel)) +
+    geom_col(fill = "#762A83") +
+    geom_text(aes(label = scales::percent(.data$frac, accuracy = 1)),
+              vjust = -0.4, size = 2.8) +
+    labs(x = NULL, y = "loci with no blastx hit") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Novel-candidate burden",
+             "Valid loci with zero blastx homology (% = share of all loci)")
+}
+
+
+# Loss waterfall: the main-chain survival counts per genome, ordered by stage,
+# with the absolute count on each bar. Cleaner single-genome funnel than the
+# all-branch overview in loss_funnel.png.
+loss_waterfall_plot <- function(funnel) {
+  d <- funnel %>% dplyr::filter(.data$branch == "main")
+  if (nrow(d) == 0L) return(empty_plot("no funnel"))
+  d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
+  p <- ggplot(d, aes(x = .data$label, y = .data$value)) +
+    geom_col(fill = "#4575B4") +
+    geom_text(aes(label = .data$value), vjust = -0.3, size = 2.6) +
+    facet_wrap(~ .data$genome, scales = "free_y") +
+    labs(x = NULL, y = "surviving ranges / loci") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  add_titles(p, "Loss waterfall", "Surviving ranges along the main chain (per genome)")
 }
 
 
@@ -193,8 +303,15 @@ main <- function() {
   }
   log_section(sprintf("Wrote novel candidates for %d genomes", length(loci_files)))
 
-  save_plot("loss_funnel.png", loss_funnel_plot(funnel), args$plot_dir,
-            base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  emit <- function(name, plot) {
+    save_plot(name, plot, args$plot_dir,
+              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  }
+  emit("loss_funnel.png",      loss_funnel_plot(funnel))
+  emit("step_retention.png",   step_retention_plot(funnel))
+  emit("fragment_recovery.png", fragment_recovery_plot(funnel))
+  emit("novel_burden.png",     novel_burden_plot(funnel))
+  emit("loss_waterfall.png",   loss_waterfall_plot(funnel))
   log_section("Done")
 }
 

@@ -83,3 +83,31 @@ test_that("pick_novel_candidates tolerates missing column / empty frame", {
   expect_equal(nrow(pick_novel_candidates(tibble())), 0L)
   expect_equal(nrow(pick_novel_candidates(tibble(id = "L0"))), 0L)
 })
+
+
+test_that("novel_burden_table computes per-genome novel count + fraction", {
+  funnel <- build_loss_funnel(tribble(
+    ~genome, ~metric,              ~value,
+    "g1",    "loci_total",          100,
+    "g1",    "loci_no_blastx_hit",   25,
+    "g2",    "loci_total",           40,
+    "g2",    "loci_no_blastx_hit",    0
+  ))
+  bt <- novel_burden_table(funnel)
+  g1 <- bt[bt$genome == "g1", ]
+  expect_equal(g1$n_novel, 25)
+  expect_equal(g1$n_total, 100)
+  expect_equal(g1$frac, 0.25)
+  expect_equal(bt$frac[bt$genome == "g2"], 0)
+})
+
+test_that("novel_burden_table guards zero/absent totals and empty funnel", {
+  expect_equal(nrow(novel_burden_table(build_loss_funnel(tibble()))), 0L)
+  # total present but zero -> frac 0, not NaN
+  funnel <- build_loss_funnel(tribble(
+    ~genome, ~metric,              ~value,
+    "g1",    "loci_total",           0,
+    "g1",    "loci_no_blastx_hit",   0
+  ))
+  expect_equal(novel_burden_table(funnel)$frac, 0)
+})

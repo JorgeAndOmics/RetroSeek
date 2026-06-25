@@ -1136,7 +1136,13 @@ rule taxonomy_plot_generator_setup:
                                  'method_mix',
                                  'erv_class_composition',
                                  'mosaic_alluvial',
-                                 'confidence']),
+                                 'confidence',
+                                 'evidence_depth',
+                                 'confidence_density',
+                                 'confidence_vs_evidence',
+                                 'novel_structure',
+                                 'source_yield',
+                                 'genus_by_source']),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
@@ -1184,7 +1190,12 @@ rule loss_analysis_setup:
     output:
         table_parquet = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_PARQUET_DIR'], 'loss_analysis.parquet'),
         table_csv     = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_CSV_DIR'], 'loss_analysis.csv'),
-        funnel_plot   = os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], 'loss_funnel.png')
+        plots         = expand(os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], '{loss_plot}.png'),
+                               loss_plot=['loss_funnel',
+                                          'step_retention',
+                                          'fragment_recovery',
+                                          'novel_burden',
+                                          'loss_waterfall'])
     params:
         ranges_counts_dir = defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],
         class_counts_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'],

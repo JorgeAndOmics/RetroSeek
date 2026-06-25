@@ -250,6 +250,113 @@ confidence_plot <- function(combined) {
   add_titles(p, "Call confidence", "High vs low confidence (< confidence_min) per species")
 }
 
+# Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
+# (unit-tested): 0 / 1 / 2–5 / 6+. Robust to numeric (non-integer) input.
+bucket_evidence <- function(n) {
+  n <- as.integer(n)
+  out <- dplyr::case_when(
+    is.na(n) ~ NA_character_,
+    n <= 0L  ~ "0",
+    n == 1L  ~ "1",
+    n <= 5L  ~ "2–5",
+    TRUE     ~ "6+"
+  )
+  factor(out, levels = c("0", "1", "2–5", "6+"))
+}
+
+# Per-locus blastx evidence depth; the zero bin is the candidate-novel-retrovirus
+# pile. Pseudo-log x so the long tail of well-supported loci stays readable.
+evidence_depth_plot <- function(combined) {
+  if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
+  d <- combined %>% mutate(is_novel = .data$n_hits == 0L)
+  n_novel <- sum(d$is_novel, na.rm = TRUE)
+  p <- ggplot(d, aes(x = .data$n_hits, fill = .data$is_novel)) +
+    geom_histogram(binwidth = 1, colour = "grey30", linewidth = 0.2) +
+    scale_x_continuous(trans = scales::pseudo_log_trans(base = 10)) +
+    scale_fill_manual(values = c("FALSE" = "#4575B4", "TRUE" = "#D73027"),
+                      labels = c("FALSE" = "has homology", "TRUE" = "novel (0 hits)")) +
+    facet_wrap(~ .data$source, scales = "free_y") +
+    labs(x = "blastx hits per locus (pseudo-log)", y = "loci", fill = NULL) +
+    theme_bw()
+  add_titles(p, "Blastx evidence depth",
+             sprintf("Per-locus homology — %d novel candidates (0 hits)", n_novel))
+}
+
+# Raw confidence distribution split by method, with the HC/LC threshold line.
+# A calibration view of where the 0.5 (confidence_min) cut falls per method.
+confidence_density_plot <- function(combined, confidence_min = 0.5) {
+  d <- combined %>% filter(!is.na(.data$confidence_num))
+  if (nrow(d) == 0L) return(empty_plot("no confidence values"))
+  p <- ggplot(d, aes(x = .data$confidence_num, fill = .data$method)) +
+    geom_density(alpha = 0.5) +
+    geom_vline(xintercept = confidence_min, linetype = "dashed", colour = "grey20") +
+    scale_fill_aaas() +
+    labs(x = "call confidence", y = "density", fill = "method") +
+    theme_bw()
+  add_titles(p, "Confidence calibration",
+             sprintf("Confidence by method; dashed = confidence_min (%.2f)", confidence_min))
+}
+
+# Call confidence across blastx evidence-depth buckets — does more homology mean
+# a more confident call?
+confidence_vs_evidence_plot <- function(combined) {
+  d <- combined %>%
+    filter(!is.na(.data$confidence_num), !is.na(.data$n_hits)) %>%
+    mutate(bucket = bucket_evidence(.data$n_hits))
+  if (nrow(d) == 0L) return(empty_plot("no data"))
+  p <- ggplot(d, aes(x = .data$bucket, y = .data$confidence_num)) +
+    geom_boxplot(fill = "#74ADD1", outlier.size = 0.6) +
+    labs(x = "blastx hits per locus", y = "call confidence") +
+    theme_bw()
+  add_titles(p, "Confidence vs evidence", "Call confidence across blastx hit-count buckets")
+}
+
+# Structure of novel candidates (0 blastx hits) vs classified loci — are novels
+# degraded singletons or full-length ORFs worth chasing?
+novel_structure_plot <- function(combined) {
+  d <- combined %>%
+    filter(!is.na(.data$completeness_num)) %>%
+    mutate(group = if_else(.data$n_hits == 0L, "novel (0 hits)", "classified"))
+  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  p <- ggplot(d, aes(x = .data$completeness_num, fill = .data$group)) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = c("classified" = "#4575B4", "novel (0 hits)" = "#D73027")) +
+    labs(x = "completeness (main genes present)", y = "density", fill = NULL) +
+    theme_bw()
+  add_titles(p, "Novel-candidate structure", "Completeness of novel vs classified loci")
+}
+
+# Yield boost from the fragments tier — loci recovered per tier, per species.
+source_yield_plot <- function(combined) {
+  if (nrow(combined) == 0L) return(empty_plot("no loci"))
+  counts <- combined %>% count(.data$species, .data$source, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$source)) +
+    geom_col(position = position_dodge(width = 0.8)) +
+    scale_fill_manual(values = c("anchored" = "#1F78B4", "fragment" = "#33A02C")) +
+    labs(x = NULL, y = "loci", fill = "tier") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Anchored vs fragment yield", "Loci recovered per tier, per species")
+}
+
+# Genus composition split by tier — surfaces genera present only in the fragment
+# tier (the novel-lineage check). Long genus tail folded via collapse_long_tail.
+genus_by_source_plot <- function(combined) {
+  d <- combined %>% filter(.data$rank == "genus")
+  if (nrow(d) == 0L) return(empty_plot("no confident genus calls"))
+  d <- collapse_long_tail(d, "genus_call", top_n = 20)
+  counts <- d %>% count(.data$species, .data$source, .data$genus_call, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$genus_call)) +
+    geom_col() +
+    facet_wrap(~ .data$source, scales = "free_x") +
+    scale_fill_igv() +
+    labs(x = NULL, y = "genus-resolved loci", fill = "genus") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Genus composition by tier",
+             "Genera per species, anchored vs fragment (new-lineage check)")
+}
+
 
 # ----------------------------------------------------------------------------
 # main()
@@ -269,9 +376,10 @@ main <- function() {
   args <- parser$parse_args()
 
   cfg <- yaml::read_yaml(args$config)
-  plot_dpi    <- cfg$plots$dpi    %||% 300
-  plot_height <- cfg$plots$height %||% 12
-  plot_width  <- cfg$plots$width  %||% 15
+  plot_dpi       <- cfg$plots$dpi    %||% 300
+  plot_height    <- cfg$plots$height %||% 12
+  plot_width     <- cfg$plots$width  %||% 15
+  confidence_min <- cfg$classification$confidence_min %||% 0.5
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek taxonomy plot generation (output: %s)", args$output))
@@ -279,6 +387,16 @@ main <- function() {
   loci <- load_loci(args$input)
   fragments <- load_fragments(args$input)
   combined <- bind_rows(loci, fragments)
+  # numeric companions for the evidence/confidence plots (the loci tables store
+  # every column as a string). Guarded so an all-empty input stays well-formed.
+  if (nrow(combined) > 0L) {
+    combined <- combined %>%
+      mutate(
+        confidence_num   = suppressWarnings(as.numeric(.data$confidence)),
+        n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),
+        completeness_num = suppressWarnings(as.numeric(.data$completeness))
+      )
+  }
   log_section(sprintf("Loaded %d anchored loci + %d recovered fragments across %d species",
                       nrow(loci), nrow(fragments), length(unique(combined$species))))
 
@@ -296,12 +414,20 @@ main <- function() {
   emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
   emit("confidence.png",            confidence_plot(combined))
 
+  # Evidence / confidence / fragments panel (spans both tiers).
+  emit("evidence_depth.png",        evidence_depth_plot(combined))
+  emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
+  emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
+  emit("novel_structure.png",       novel_structure_plot(combined))
+  emit("source_yield.png",          source_yield_plot(combined))
+  emit("genus_by_source.png",       genus_by_source_plot(combined))
+
   # Tidy report: counts by genus / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 
-  log_section(sprintf("Done — wrote 6 PNGs to %s + report %s",
+  log_section(sprintf("Done — wrote 12 PNGs to %s + report %s",
                       args$output, args$report_csv))
 }
 
