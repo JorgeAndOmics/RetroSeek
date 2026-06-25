@@ -134,3 +134,53 @@ test_that("find_valid_hits attaches Parent = greatest-overlap retrotransposon", 
   expect_equal(length(valid), 2L)
   expect_equal(as.character(S4Vectors::mcols(valid)$Parent), c("retroA", "retroB"))
 })
+
+
+# ---------------------------------------------------------------------------
+# find_unanchored_hits is the exact strand-aware complement of
+# find_candidate_hits: the reduced BLAST hits overlapping NO retrotransposon.
+# These are the non-LTR-associated fragments recovered into the fragments tier.
+# ---------------------------------------------------------------------------
+test_that("find_unanchored_hits returns hits overlapping no retrotransposon", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
+  )
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(150, 1000), c(300, 1100)), strand = "+",
+    probe = c("POL", "ENV")
+  )
+  # hit 1 overlaps retroA (anchored); hit 2 is far away (unanchored)
+  un <- find_unanchored_hits(hits, retros)
+  expect_equal(length(un), 1L)
+  expect_equal(IRanges::start(un), 1000L)
+  # complement invariant: candidate + unanchored partition the input exactly
+  cand <- find_candidate_hits(hits, retros)
+  expect_equal(length(cand) + length(un), length(hits))
+})
+
+test_that("find_unanchored_hits keeps everything when there are no retrotransposons", {
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(1, 1000), c(99, 1100)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  retros <- GenomicRanges::GRanges()
+  expect_equal(length(find_unanchored_hits(hits, retros)), 2L)
+})
+
+test_that("find_unanchored_hits is strand-aware (opposite-strand retro does not anchor)", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "-", ID = "retroA"
+  )
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(150, 300), strand = "+", probe = "POL"
+  )
+  # + hit vs - retro: no strand-aware overlap -> the hit is unanchored
+  expect_equal(length(find_unanchored_hits(hits, retros)), 1L)
+})
+
+test_that("find_unanchored_hits on empty input returns empty", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
+  )
+  expect_equal(length(find_unanchored_hits(GenomicRanges::GRanges(), retros)), 0L)
+})

@@ -1,0 +1,85 @@
+# testthat coverage for loss_analysis.R pure aggregation functions.
+# Sources only the script (the CLI/plot block is guarded by sys.nframe()), so no
+# plot environment is needed.
+
+suppressMessages({
+  library(testthat)
+  library(tibble)
+  library(dplyr)
+})
+
+.script_dir <- file.path("..", "..", "scripts")
+source(file.path(.script_dir, "loss_analysis.R"))
+
+
+test_that("build_loss_funnel orders stages and computes step retention", {
+  counts <- tribble(
+    ~genome, ~metric,                ~value,
+    "g1",    "raw_blast_hits",        1000,
+    "g1",    "filtered_blast_hits",    600,
+    "g1",    "global_reduced_ranges",  300,
+    "g1",    "candidate_ranges",       120,
+    "g1",    "valid_ranges",            60,
+    "g1",    "unanchored_fragments",   180,
+    "g1",    "fragments_recovered",     45
+  )
+  f <- build_loss_funnel(counts)
+
+  # stages come back in funnel order
+  expect_equal(f$metric[f$genome == "g1"][1], "raw_blast_hits")
+  expect_true(all(diff(f$stage_order[f$genome == "g1"]) > 0))
+
+  # step retention is value / parent value
+  filt <- f %>% filter(metric == "filtered_blast_hits")
+  expect_equal(filt$step_retained, 0.6)            # 600 / 1000
+  cand <- f %>% filter(metric == "candidate_ranges")
+  expect_equal(cand$step_retained, 120 / 300)      # vs global_reduced parent
+
+  # frac_of_input is value / raw hits
+  expect_equal((f %>% filter(metric == "valid_ranges"))$frac_of_input, 0.06)
+
+  # the fragments branch is anchored to the global-reduced parent
+  frag <- f %>% filter(metric == "unanchored_fragments")
+  expect_equal(frag$branch, "fragments")
+  expect_equal(frag$step_retained, 180 / 300)
+  rec <- f %>% filter(metric == "fragments_recovered")
+  expect_equal(rec$step_retained, 45 / 180)
+})
+
+test_that("build_loss_funnel ignores unknown metrics and tolerates empties", {
+  counts <- tribble(
+    ~genome, ~metric,          ~value,
+    "g1",    "raw_blast_hits",   100,
+    "g1",    "some_other_thing",  50
+  )
+  f <- build_loss_funnel(counts)
+  expect_false("some_other_thing" %in% f$metric)
+  expect_equal(nrow(build_loss_funnel(counts[0, ])), 0L)
+})
+
+test_that("build_loss_funnel guards against zero/absent parents", {
+  counts <- tribble(
+    ~genome, ~metric,               ~value,
+    "g1",    "filtered_blast_hits",   10   # no raw_blast_hits present
+  )
+  f <- build_loss_funnel(counts)
+  expect_true(is.na((f %>% filter(metric == "filtered_blast_hits"))$step_retained))
+  expect_true(is.na((f %>% filter(metric == "filtered_blast_hits"))$frac_of_input))
+})
+
+test_that("pick_novel_candidates keeps only zero-blastx-hit loci", {
+  loci <- tribble(
+    ~id,  ~genus_call,        ~n_blastx_hits,
+    "L0", "Gammaretrovirus",  "5",
+    "L1", "UNCLASSIFIED",     "0",
+    "L2", "UNCLASSIFIED",     "0",
+    "L3", "Lentivirus",       "2"
+  )
+  novel <- pick_novel_candidates(loci)
+  expect_equal(novel$id, c("L1", "L2"))
+})
+
+test_that("pick_novel_candidates tolerates missing column / empty frame", {
+  expect_equal(nrow(pick_novel_candidates(tibble())), 0L)
+  expect_equal(nrow(pick_novel_candidates(tibble(id = "L0"))), 0L)
+})

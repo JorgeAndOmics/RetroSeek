@@ -171,6 +171,13 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
     PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
 ) = table_dirs("taxonomy_classification")
+# Loss-analysis tables — the unified per-stage loss funnel + per-genome novel
+# candidates (valid loci with zero blastx homology). Built by loss_analysis.R
+# from the ranges-analysis counts and the blastx-stage classification counts.
+(
+    PATH_DICT["LOSS_ANALYSIS_PARQUET_DIR"],
+    PATH_DICT["LOSS_ANALYSIS_CSV_DIR"],
+) = table_dirs("loss_analysis")
 # Run manifest — provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
@@ -194,6 +201,8 @@ PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve(
 # Taxonomy panel: per-locus genus-call composition, rank/method resolution, and
 # mosaic plots (taxonomy_plot_generator.R). Built from the classification tables.
 PATH_DICT["TAXONOMY_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "taxonomy").resolve()
+# Loss panel: the per-stage retained/lost attrition funnel (loss_analysis.R).
+PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "loss").resolve()
 
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
@@ -204,6 +213,9 @@ PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve(
 # Taxonomic-classification tier — per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
 PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
+# Fragments tier — non-LTR-associated hits recovered + classified by their own
+# sequence (parallel to taxonomy; only fragments that earn a taxonomic call).
+PATH_DICT["TRACK_FRAGMENTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "fragments").resolve()
 
 # === Results - LTR ===
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()

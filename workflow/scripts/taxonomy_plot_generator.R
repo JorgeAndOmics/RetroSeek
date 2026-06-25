@@ -84,6 +84,62 @@ load_loci <- function(input_dir) {
 }
 
 
+# Load every per-genome fragments table (the recovered non-LTR tier). Same schema
+# as the loci tables (source == "fragment"); empty if none.
+load_fragments <- function(input_dir) {
+  files <- list.files(input_dir, pattern = "\\.fragments\\.parquet$", full.names = TRUE)
+  if (length(files) == 0L) return(tibble())
+  frames <- lapply(files, function(f) {
+    df <- as_tibble(arrow::read_parquet(f))
+    if (nrow(df) == 0L) return(NULL)
+    df$species <- sub("\\.fragments$", "", tools::file_path_sans_ext(basename(f)))
+    df
+  })
+  frames <- Filter(Negate(is.null), frames)
+  if (length(frames) == 0L) return(tibble())
+  bind_rows(frames)
+}
+
+
+# Build the tidy classification report from the combined (anchored + fragment)
+# loci frame: counts by genus, by confidence, by method, plus mosaic and
+# integration totals — split by `source` so the two tiers stay distinguishable.
+# Returns a long tibble (source, dimension, level, count); empty-safe.
+build_report <- function(combined) {
+  if (nrow(combined) == 0L) {
+    return(tibble(
+      source = character(), dimension = character(),
+      level = character(), count = integer()
+    ))
+  }
+  cols <- c("source", "dimension", "level", "count")
+  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  per_source <- function(df, src) {
+    genus <- df %>% filter(.data$rank == "genus") %>%
+      count(level = .data$genus_call, name = "count") %>%
+      mutate(dimension = "genus")
+    conf <- df %>%
+      count(level = .data$confidence_tag, name = "count") %>%
+      mutate(dimension = "confidence")
+    method <- df %>% filter(.data$rank == "genus") %>%
+      count(level = .data$method, name = "count") %>%
+      mutate(dimension = "method")
+    summary <- tibble(
+      dimension = "summary",
+      level     = c("mosaic", "integrations"),
+      count     = c(sum(df$is_mosaic == "True"), nrow(df))
+    )
+    bind_rows(genus, conf, method, summary) %>%
+      mutate(source = src) %>%
+      select(all_of(cols))
+  }
+  combined %>%
+    group_split(.data$source) %>%
+    lapply(function(df) per_source(df, df$source[1])) %>%
+    bind_rows()
+}
+
+
 # ----------------------------------------------------------------------------
 # Plot builders. Each takes the combined loci frame and returns a ggplot (or
 # empty_plot() when there is nothing to show), so the orchestrator stays flat.
@@ -176,6 +232,24 @@ mosaic_alluvial_plot <- function(loci) {
   add_titles(p, "Mosaic composition", "Per-gene genus calls within mosaic loci")
 }
 
+# Confidence-tag composition per species (HC/LC), faceted by tier so anchored
+# loci and recovered fragments are both visible. Reads the combined frame.
+confidence_plot <- function(combined) {
+  if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
+  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  counts <- combined %>%
+    count(.data$species, .data$source, .data$confidence_tag, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$confidence_tag)) +
+    geom_col(position = "fill") +
+    facet_wrap(~ .data$source) +
+    scale_fill_manual(values = c(HC = "#1B9E77", LC = "#D95F02")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of loci", fill = "confidence") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Call confidence", "High vs low confidence (< confidence_min) per species")
+}
+
 
 # ----------------------------------------------------------------------------
 # main()
@@ -190,6 +264,8 @@ main <- function() {
                       help = "Directory to save output plots.")
   parser$add_argument("--config", required = TRUE,
                       help = "YAML config file with plot parameters.")
+  parser$add_argument("--report_csv", required = TRUE,
+                      help = "Output path for the tidy classification report CSV.")
   args <- parser$parse_args()
 
   cfg <- yaml::read_yaml(args$config)
@@ -201,21 +277,32 @@ main <- function() {
   log_section(sprintf("RetroSeek taxonomy plot generation (output: %s)", args$output))
 
   loci <- load_loci(args$input)
-  log_section(sprintf("Loaded %d classified loci across %d species",
-                      nrow(loci), length(unique(loci$species))))
+  fragments <- load_fragments(args$input)
+  combined <- bind_rows(loci, fragments)
+  log_section(sprintf("Loaded %d anchored loci + %d recovered fragments across %d species",
+                      nrow(loci), nrow(fragments), length(unique(combined$species))))
 
   emit <- function(name, plot) {
     save_plot(name, plot, args$output,
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
+  # Taxonomy composition plots stay on the anchored loci (the genus-founded
+  # assembly); the confidence plot spans both tiers.
   emit("genus_composition.png",     genus_composition_plot(loci))
   emit("rank_resolution.png",       rank_resolution_plot(loci))
   emit("method_mix.png",            method_mix_plot(loci))
   emit("erv_class_composition.png", erv_class_composition_plot(loci))
   emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
+  emit("confidence.png",            confidence_plot(combined))
 
-  log_section(sprintf("Done — wrote 5 PNGs to %s", args$output))
+  # Tidy report: counts by genus / confidence / method + mosaic + integrations,
+  # split by tier. Concordant with the plots (same combined frame).
+  dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
+  readr::write_csv(build_report(combined), args$report_csv)
+
+  log_section(sprintf("Done — wrote 6 PNGs to %s + report %s",
+                      args$output, args$report_csv))
 }
 
 

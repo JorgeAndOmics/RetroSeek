@@ -35,6 +35,21 @@ find_candidate_hits <- function(gr_hits, retrotransposons) {
 }
 
 
+# The strand-aware complement of find_candidate_hits: reduced BLAST hits that
+# overlap NO retrotransposon. These are the non-LTR-associated fragments — solo
+# ORFs, degraded proviruses, and candidate novel retroviruses whose LTRs are too
+# diverged for LTRharvest to pair. They are recovered into the fragments tier and
+# classified by their own sequence (taxonomy_classify_loci.py --source fragment).
+# With no retrotransposons, every hit is unanchored.
+find_unanchored_hits <- function(gr_hits, retrotransposons) {
+  if (length(gr_hits) == 0L) return(gr_hits[FALSE])
+  if (length(retrotransposons) == 0L) return(gr_hits)
+  ov <- GenomicRanges::findOverlaps(gr_hits, retrotransposons, ignore.strand = FALSE)
+  anchored <- unique(S4Vectors::queryHits(ov))
+  gr_hits[setdiff(seq_along(gr_hits), anchored)]
+}
+
+
 # Build a list mapping each retrotransposon (by its ID attribute) to the set
 # of probes assigned to its child Pfam domains. Domains carry a `Parent`
 # attribute pointing to their enclosing retrotransposon's ID; we group by

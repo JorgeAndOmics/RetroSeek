@@ -65,6 +65,10 @@ parser$add_argument("--probe_dict",               required = TRUE,
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--candidate_ranges",         required = TRUE)
+parser$add_argument("--fragments_ranges",         required = TRUE,
+                    help = paste("GFF3 of non-LTR-associated fragments (reduced",
+                                 "BLAST hits overlapping no retrotransposon).",
+                                 "Recovered + classified as the fragments tier."))
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
@@ -169,6 +173,13 @@ record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
 
+# Non-LTR-associated fragments: the complement of the candidate set on the
+# globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
+# fragments). Recovered into the fragments tier and classified by their own
+# sequence. Counted here so the loss funnel sees what falls outside every LTR.
+unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
+record_count("unanchored_fragments",       length(unanchored_hits))
+
 # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
 # view of the genus-classified loci produced by the taxonomy_classify stage
 # (grouped by LTR element, labelled by genus call). See taxonomy_classify_loci.py
@@ -192,6 +203,7 @@ candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_
 candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
 valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
 valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
+unanchored_hits        <- attach_probe_category(unanchored_hits,      opts$main_probes, opts$agg_concat_separator)
 
 
 # ----------------------------------------------------------------------------
@@ -206,6 +218,11 @@ gen_ver <- resolve_generator_version()
 # multiplicity table depend on them.
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
+
+# Fragments tier: unanchored hits exported with the same probe=/label= GFF3
+# attributes as the valid track but NO Parent= — so the classifier's build_loci
+# treats each fragment as its own singleton (orphan) locus.
+track_exporter(unanchored_hits,        args$fragments_ranges,         gen_ver)
 
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
