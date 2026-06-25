@@ -103,5 +103,24 @@ find_valid_hits <- function(gr_candidates, retrotransposons, domains_with_probes
     q <- candidate_idx[k]
     valid_mask[q] <- length(intersect(probes_split[[q]], per_candidate_set[[k]])) > 0L
   }
-  gr_candidates[valid_mask]
+
+  # Attach the enclosing LTR_retrotransposon id as `Parent` (greatest-overlap
+  # retro per candidate). This is the natural anchor the taxonomic classifier
+  # groups a locus's per-gene hits by — emitted natively here so no downstream
+  # overlap-reconstruction (and no off-by-one) is needed. See taxonomy_classify_loci.py.
+  ov_widths <- IRanges::width(GenomicRanges::pintersect(
+    gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE))
+  parent_of <- rep(NA_character_, length(gr_candidates))
+  best_w    <- rep(-1L, length(gr_candidates))
+  for (i in seq_along(qhits)) {
+    q <- qhits[i]
+    if (ov_widths[i] > best_w[q]) {
+      best_w[q]    <- ov_widths[i]
+      parent_of[q] <- retro_ids_per_subj[i]
+    }
+  }
+
+  out <- gr_candidates[valid_mask]
+  S4Vectors::mcols(out)$Parent <- parent_of[valid_mask]
+  out
 }

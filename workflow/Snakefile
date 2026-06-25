@@ -945,3 +945,160 @@ rule pair_detector:
     input:
         pair_table_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
         pair_table_parquet=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet'), genome=species_with_hits(wildcards))
+
+
+# ───────────────────────────── Taxonomic classification ──────────────────────
+# Per-locus ERV genus calls (canonical taxonomy): each valid LTR-element locus is
+# reclassified from its own marker sequence against a pinned, genus-comprehensive
+# reference — POL/GAG by phylogenetic placement, weighted-LCA otherwise — replacing
+# best-bitscore probe-label transfer. The loci table is the genus-founded ERV
+# assembly (consensus genus + mosaic + structure). See docs/configuration.md
+# (`classification`), docs/taxonomy_classification/, and the ADR.
+_CLASSIFICATION = config.get('classification', {})
+_PLACEMENT_GENES = [g.upper() for g in _CLASSIFICATION.get('placement_genes', ['POL'])]
+_MAIN_PROBES = ",".join(config['parameters'].get('main_probes', []))
+_TAX_SEED = config['parameters'].get('seed', 0)
+
+
+# Build the reference package: genus-comprehensive proteins + accession→genus/gene
+# table (Entrez), NCBI-derived taxonomy.tsv, the curated erv_class.tsv (copied from
+# the tracked source), and a provenance manifest. Network rule; build-once cache,
+# rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
+rule taxonomy_reference:
+    output:
+        faa       = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'retro_reference.faa'),
+        csv       = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'retro_reference.csv'),
+        taxonomy  = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv'),
+        erv_class = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'erv_class.tsv'),
+        manifest  = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'manifest.yaml')
+    params:
+        ref_dir       = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
+        email         = defaults.ENTREZ_EMAIL,
+        erv_class_src = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'erv_class.tsv')
+    threads: 1
+    shell:
+        '''
+        python scripts/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} && \
+        python scripts/taxonomy_build_hierarchy.py {output.csv:q} {params.email:q} && \
+        cp {params.erv_class_src:q} {output.erv_class:q}
+        '''
+
+
+# Per-placement-gene tree package (MAFFT -> IQ-TREE -> raxml-ng --evaluate ->
+# hmmbuild -> taxon map). Seeded from parameters.seed for byte-reproducible trees.
+rule taxonomy_reference_trees_setup:
+    input:
+        faa      = rules.taxonomy_reference.output.faa,
+        csv      = rules.taxonomy_reference.output.csv,
+        taxonomy = rules.taxonomy_reference.output.taxonomy
+    output:
+        afa        = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.afa'),
+        treefile   = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.treefile'),
+        best_model = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestModel'),
+        best_tree  = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestTree'),
+        hmm        = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.hmm'),
+        taxon      = os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.taxon.tsv')
+    params:
+        ref_dir = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
+        seed    = _TAX_SEED
+    wildcard_constraints:
+        gene = "[A-Za-z0-9]+"
+    threads: config.get('rule_threads', 2)
+    shell:
+        '''
+        python scripts/taxonomy_build_tree.py {wildcards.gene} \
+            --ref-dir {params.ref_dir:q} --seed {params.seed} --threads {threads}
+        '''
+
+
+# `make reference` target — full reference package + every placement-gene tree.
+rule taxonomy_reference_trees:
+    input:
+        expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestTree'),
+               gene=_PLACEMENT_GENES),
+        rules.taxonomy_reference.output.manifest
+
+
+rule taxonomy_classify_setup:
+    input:
+        valid     = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        faa       = rules.taxonomy_reference.output.faa,
+        csv       = rules.taxonomy_reference.output.csv,
+        taxonomy  = rules.taxonomy_reference.output.taxonomy,
+        erv_class = rules.taxonomy_reference.output.erv_class,
+        trees     = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestTree'),
+                           gene=_PLACEMENT_GENES)
+    output:
+        loci_parquet = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
+        loci_csv     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
+        gff3         = os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.gff3'),
+        bed          = os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.bed')
+    params:
+        ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
+        main_probes     = _MAIN_PROBES,
+        placement_genes = ",".join(_PLACEMENT_GENES),
+        evalue          = _CLASSIFICATION.get('evalue', 0.001),
+        top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
+        min_orf         = _CLASSIFICATION.get('min_orf', 30),
+        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy')
+    threads: config.get('rule_threads', 1)
+    shell:
+        '''
+        python scripts/taxonomy_classify_loci.py {input.valid:q} {input.genome:q} \
+            --ref-dir {params.ref_dir:q} \
+            --main-probes {params.main_probes:q} \
+            --placement-genes {params.placement_genes:q} \
+            --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
+            --threads {threads} \
+            --workdir {params.workdir:q}/{wildcards.genome:q} \
+            --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
+            --out-gff3 {output.gff3:q} --out-bed {output.bed:q}
+        '''
+
+
+# Aggregate target. Honours `classification.enable`: when false, demands nothing
+# (the stage is skipped and the pipeline keeps legacy probe-label provenance only).
+rule taxonomy_classify:
+    input:
+        loci = lambda wildcards: (
+            expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
+                   genome=species_with_hits(wildcards))
+            if _CLASSIFICATION.get('enable', True) else []),
+        tracks = lambda wildcards: (
+            expand(os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.gff3'),
+                   genome=species_with_hits(wildcards))
+            if _CLASSIFICATION.get('enable', True) else [])
+
+
+# Taxonomy plot panel — genus composition, rank/method resolution, mosaic. Derived
+# from the loci tables (so plots and tables are concordant by construction).
+rule taxonomy_plot_generator_setup:
+    input:
+        loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
+                                        genome=species_with_hits(wildcards))
+    output:
+        plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
+                       tax_plot=['genus_composition',
+                                 'rank_resolution',
+                                 'method_mix',
+                                 'erv_class_composition',
+                                 'mosaic_alluvial'])
+    params:
+        parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
+        plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
+        config_yaml = defaults.CONFIG_FILE
+    threads:
+        workflow.cores
+    shell:
+        '''
+        Rscript scripts/taxonomy_plot_generator.R \
+        --input {params.parquet_dir:q} \
+        --output {params.plot_dir:q} \
+        --config {params.config_yaml:q}
+        '''
+
+
+rule taxonomy_plot_generator:
+    input:
+        plots=rules.taxonomy_plot_generator_setup.output

@@ -108,3 +108,29 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
   qcov <- S4Vectors::mcols(gr)$query_coverage
   expect_equal(qcov, c(50/500, 75/300, 60/400, 90/900))
 })
+
+
+# ---------------------------------------------------------------------------
+# find_valid_hits must emit a native `Parent` mcol (the enclosing
+# LTR_retrotransposon, greatest overlap) — the anchor the taxonomic
+# classifier groups loci by. See range_analysis/validation.R + ADR-007.
+# ---------------------------------------------------------------------------
+source(file.path(.script_dir, "validation.R"))
+
+test_that("find_valid_hits attaches Parent = greatest-overlap retrotransposon", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 1000), c(500, 1500)), strand = "+",
+    ID = c("retroA", "retroB")
+  )
+  domains <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(120, 1020), c(200, 1100)), strand = "+",
+    Parent = c("retroA", "retroB"), probe = c("POL", "GAG")
+  )
+  candidates <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(150, 1100), c(300, 1200)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  valid <- find_valid_hits(candidates, retros, domains)
+  expect_equal(length(valid), 2L)
+  expect_equal(as.character(S4Vectors::mcols(valid)$Parent), c("retroA", "retroB"))
+})

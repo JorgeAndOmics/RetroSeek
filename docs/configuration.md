@@ -136,6 +136,19 @@ Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr
 
 Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
 
+## `classification`
+
+Per-locus ERV taxonomic classification — turns each valid LTR-element locus into a calibrated genus call (with rank, confidence, mosaic flag, and ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. Each gene is classified independently against a pinned, genus-comprehensive reference: POL/GAG by phylogenetic placement (MAFFT → EPA-ng → gappa) when a tree resolves a genus, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADR for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set), and `execution.entrez_email` (reference build).
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `enable` | bool | `true` | Master switch for the classification stage. When `false`, the `taxonomy_classify` target produces nothing and the pipeline keeps the legacy probe-label provenance only. |
+| `placement_genes` | list of str | `[POL]` | Genes classified by phylogenetic placement onto a per-gene reference tree; every other gene uses weighted-LCA. `POL` is the reliable tree; `GAG` is shipped but opt-in (its reference alignment is low-identity ~19.7%, so its placements are low-confidence). Genes here must have a built tree package under `data/taxonomy_reference/trees/`. |
+| `search` | str (`blastx`) | `blastx` | Translated-search engine mapping each locus marker region to reference proteins. `blastx` reuses the BLAST+ already in the env (no extra dependency). |
+| `evalue` | number ≥ 0 | `0.001` | blastx e-value cutoff for marker → reference hits. |
+| `top_percent` | number 0–1 | `0.1` | Weighted-LCA bitscore band: hits within this fraction of the best bitscore per marker vote on the lowest-common-ancestor call. Smaller = stricter (fewer, higher-confidence ancestors). |
+| `min_orf` | int ≥ 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
+
 ## `logging`
 
 `level_styles` and `field_styles` are passed through to `coloredlogs`. See `coloredlogs.install()` documentation for accepted style dicts. Keys: `color`, `bold`, `background`.

@@ -1,7 +1,7 @@
-.PHONY: help env env-update lint format format-check typecheck test test-py test-r test-snakemake check clean
+.PHONY: help env env-update reference lint format format-check typecheck test test-py test-r test-snakemake check clean
 
 ENV_FILE := data/config/environment.yml
-ENV_NAME := retroseek
+ENV_NAME := RetroSeek
 PY_SRC   := workflow/scripts
 PY_TESTS := tests workflow/tests
 
@@ -15,6 +15,10 @@ env: ## Create the conda/mamba env from data/config/environment.yml
 
 env-update: ## Update the conda/mamba env in place
 	mamba env update -f $(ENV_FILE) -n $(ENV_NAME) --prune || conda env update -f $(ENV_FILE) -n $(ENV_NAME) --prune
+
+# ── taxonomic-classification reference (build-once) ──────
+reference: ## Build the genus-classification reference (Entrez fetch + placement trees)
+	snakemake --configfile data/config/config.yaml --cores 4 taxonomy_reference_trees
 
 # ── linting / formatting / typing ───────────────────────
 lint: ## Run ruff lint on Python sources

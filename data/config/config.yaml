@@ -69,6 +69,15 @@ ltr_retriever:
   source_scn: retroviral
   nearest_erv_max_distance: 10000
 
+classification:
+  enable: true
+  placement_genes:
+    - 'POL'
+  search: blastx
+  evalue: 0.001
+  top_percent: 0.10
+  min_orf: 30
+
 logging:
   level_styles:
     debug: { color: 'white' }

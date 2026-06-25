@@ -6,7 +6,7 @@ Contributor guide for RetroSeek.
 
 ```bash
 make env              # Create the conda/mamba env from data/config/environment.yml
-conda activate retroseek
+conda activate RetroSeek
 make env-update       # Update env in place (after pulling changes)
 ```
 

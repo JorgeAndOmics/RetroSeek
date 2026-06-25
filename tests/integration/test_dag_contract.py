@@ -186,3 +186,63 @@ def test_config_yaml_declares_erv_like_block(project_root: Path) -> None:
     assert "erv_like:" in config
     assert "max_join_distance:" in config
     assert "erv_like_schema:" in schema
+
+
+# ---------------------------------------------------------------------
+# Taxonomic-classification stage (reference build + per-locus genus calls)
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "rule_name",
+    [
+        "taxonomy_reference",
+        "taxonomy_reference_trees_setup",
+        "taxonomy_reference_trees",
+        "taxonomy_classify_setup",
+        "taxonomy_classify",
+        "taxonomy_plot_generator_setup",
+        "taxonomy_plot_generator",
+    ],
+)
+def test_taxonomy_rule_present(project_root: Path, rule_name: str) -> None:
+    """Every taxonomic-classification rule must be in the workflow."""
+    assert rule_name in _all_rules(project_root)
+
+
+def test_taxonomy_classify_declares_outputs(project_root: Path) -> None:
+    """The classify rule emits the genus-founded loci tables + IGV tracks."""
+    text = _read_snakefile(project_root)
+    assert "{genome}.loci.parquet" in text
+    assert "TRACK_TAXONOMY_DIR" in text
+    assert "TAXONOMY_TABLES_PARQUET_DIR" in text
+
+
+def test_taxonomy_reference_seed_from_config(project_root: Path) -> None:
+    """Placement trees must be seeded from parameters.seed (reproducibility)."""
+    text = _read_snakefile(project_root)
+    assert "_TAX_SEED" in text
+    assert "config['parameters'].get('seed'" in text
+
+
+def test_classify_cli_flags_present(project_root: Path) -> None:
+    """RetroSeek CLI exposes --build-reference and --classify."""
+    text = (project_root / "workflow" / "scripts" / "RetroSeek.py").read_text()
+    assert "--build-reference" in text
+    assert "--classify" in text
+    assert "taxonomy_reference_trees" in text
+    assert "taxonomy_classify" in text
+
+
+def test_classification_config_and_schema(project_root: Path) -> None:
+    """The classification config block + its Yamale sub-schema must be present."""
+    config = (project_root / "data" / "config" / "config.yaml").read_text()
+    schema = (project_root / "data" / "config" / "schema.yaml").read_text()
+    assert "classification:" in config
+    assert "placement_genes:" in config
+    assert "classification_schema:" in schema
+
+
+def test_curated_erv_class_committed(project_root: Path) -> None:
+    """The one curated reference piece (erv_class.tsv) is tracked under data/config."""
+    erv_class = project_root / "data" / "config" / "erv_class.tsv"
+    assert erv_class.exists()
+    assert "erv_class" in erv_class.read_text()

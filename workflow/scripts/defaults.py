@@ -96,6 +96,20 @@ PATH_DICT["PICKLE_DIR"] = (PATH_DICT["DATA_DIR"] / "pickles").resolve()
 PATH_DICT["TMP_DIR"] = (PATH_DICT["DATA_DIR"] / "tmp").resolve()
 PATH_DICT["TBLASTN_PICKLE_DIR"] = (PATH_DICT["PICKLE_DIR"] / "tblastn").resolve()
 
+# === Taxonomic-classification reference ===
+# Pinned, build-once reference for per-locus genus calls: the genus-comprehensive
+# protein set (.faa) + accession→genus/gene table (.csv), data-derived taxonomy.tsv,
+# curated erv_class.tsv, the per-gene placement tree packages (trees/), and a
+# provenance manifest. Lives under /data because it is a reusable input, not a
+# per-run output. Rebuilt only when missing (or via `make reference`). The small
+# blastx DB is built on the fly in each run's workdir (383 proteins — instant).
+PATH_DICT["TAXONOMY_REFERENCE_DIR"] = (
+    PATH_DICT["DATA_DIR"] / "taxonomy_reference"
+).resolve()
+PATH_DICT["TAXONOMY_TREES_DIR"] = (
+    PATH_DICT["TAXONOMY_REFERENCE_DIR"] / "trees"
+).resolve()
+
 # === Results - Tables ===
 PATH_DICT["TABLE_OUTPUT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tables").resolve()
 
@@ -150,6 +164,13 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["FULL_GENOME_BLAST_PARQUET_DIR"],
     PATH_DICT["FULL_GENOME_BLAST_CSV_DIR"],
 ) = table_dirs("full_genome_blast")
+# Taxonomic-classification output table — per genome <g>.loci (per-locus genus
+# calls; the genus-founded ERV assembly, with per-gene evidence + mosaic packed
+# in-row). Plot summaries are derived from this table, so they stay concordant.
+(
+    PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
+    PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
+) = table_dirs("taxonomy_classification")
 # Run manifest — provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
@@ -168,6 +189,9 @@ PATH_DICT["PROVIRUS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "provirus").resolve()
 PATH_DICT["ERV_LIKE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "erv-like").resolve()
 PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle_plots").resolve()
 PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve()
+# Taxonomy panel: per-locus genus-call composition, rank/method resolution, and
+# mosaic plots (taxonomy_plot_generator.R). Built from the classification tables.
+PATH_DICT["TAXONOMY_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "taxonomy").resolve()
 
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
@@ -178,6 +202,9 @@ PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
 # loci (see assemble_erv_like in erv_assembly.R). Additive to the valid tier.
 PATH_DICT["TRACK_ERV_LIKE_DIR"] = (PATH_DICT["TRACK_DIR"] / "erv_like").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
+# Taxonomic-classification tier — per-locus genus calls projected to genome
+# coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
+PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
 
 # === Results - LTR ===
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()

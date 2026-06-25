@@ -9,10 +9,10 @@
 # Standard workflows:
 #   make env         # first-time creation (calls mamba env create)
 #   make env-update  # in-place sync after editing this file
-#   conda activate retroseek
+#   conda activate RetroSeek
 #   make check       # full lint + format-check + typecheck + tests
 
-name: retroseek
+name: RetroSeek
 channels:
   - conda-forge
   - bioconda
@@ -35,6 +35,15 @@ dependencies:
                          #   pulls Perl + HMMER + TRF as transitive deps;
                          #   used by workflow/scripts/ltr_retriever_prefilter.py
                          #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
+  # ── taxonomic classification (per-locus genus calls; see docs/configuration.md) ──
+  - bedtools             # getfasta — extract per-locus marker sequences
+  - hmmer                # hmmbuild/hmmalign — gene profiles + query alignment (also via ltr_retriever)
+  - mafft                # reference MSA + aligning query markers into it
+  - iqtree               # per-gene reference tree (placement scaffold)
+  - raxml-ng             # --evaluate: optimise the placement model/branch lengths
+  - epa-ng               # phylogenetic placement of query markers onto the reference tree
+  - gappa                # turn placements (.jplace) into taxonomic calls
+                         #   blastx (from blast above) is the default translated search — no diamond.
 
   # ── python libs ─────────────────────────────────────────
   # biopython is version-pinned for reproducibility: the tBLASTn pickle cache

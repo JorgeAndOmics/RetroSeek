@@ -198,6 +198,22 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     )
 
     parser.add_argument(
+        "--build-reference",
+        action="store_true",
+        help="Build the taxonomic-classification reference (Entrez fetch of the "
+        "genus-comprehensive proteins + NCBI taxonomy + per-gene placement trees). "
+        "Network; build-once cache under data/taxonomy_reference/ (same as `make reference`).",
+    )
+
+    parser.add_argument(
+        "--classify",
+        action="store_true",
+        help="Per-locus ERV taxonomic classification: assigns each valid LTR-element "
+        "locus a calibrated genus call (placement + weighted-LCA), emits the "
+        "genus-founded loci tables, IGV tracks, and the taxonomy plot panel.",
+    )
+
+    parser.add_argument(
         "--skip-validation", "-skp", action="store_true", help="Skip input validation."
     )
 
@@ -334,6 +350,24 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.solo_ltr_detection:
             run_snakemake_rule(
                 "solo_ltr_detector",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.build_reference:
+            run_snakemake_rule(
+                "taxonomy_reference_trees",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.classify:
+            # Genus calls + the derived taxonomy plot panel in one DAG (shared
+            # taxonomy_classify upstream). Reference must exist (--build-reference).
+            run_snakemake_rule(
+                ["taxonomy_classify", "taxonomy_plot_generator"],
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,
