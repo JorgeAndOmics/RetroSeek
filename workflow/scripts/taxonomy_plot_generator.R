@@ -283,15 +283,20 @@ evidence_depth_plot <- function(combined) {
 }
 
 # Raw confidence distribution split by method, with the HC/LC threshold line.
-# A calibration view of where the 0.5 (confidence_min) cut falls per method.
+# A histogram (not a KDE): confidence values pile up at discrete points — most
+# at exactly 1.000 — so a density estimate smears mass past the [0,1] domain and
+# drops single-value groups (e.g. presence, always 1.0). Faceting by method keeps
+# the very different scales legible; the dashed line marks confidence_min.
 confidence_density_plot <- function(combined, confidence_min = 0.5) {
   d <- combined %>% filter(!is.na(.data$confidence_num))
   if (nrow(d) == 0L) return(empty_plot("no confidence values"))
   p <- ggplot(d, aes(x = .data$confidence_num, fill = .data$method)) +
-    geom_density(alpha = 0.5) +
+    geom_histogram(binwidth = 0.05, boundary = 0, colour = "grey30", linewidth = 0.15) +
     geom_vline(xintercept = confidence_min, linetype = "dashed", colour = "grey20") +
-    scale_fill_aaas() +
-    labs(x = "call confidence", y = "density", fill = "method") +
+    facet_wrap(~ .data$method, scales = "free_y", ncol = 1) +
+    scale_fill_aaas(guide = "none") +
+    scale_x_continuous(limits = c(-0.02, 1.02)) +
+    labs(x = "call confidence", y = "loci") +
     theme_bw()
   add_titles(p, "Confidence calibration",
              sprintf("Confidence by method; dashed = confidence_min (%.2f)", confidence_min))
@@ -311,19 +316,31 @@ confidence_vs_evidence_plot <- function(combined) {
   add_titles(p, "Confidence vs evidence", "Call confidence across blastx hit-count buckets")
 }
 
-# Structure of novel candidates (0 blastx hits) vs classified loci — are novels
-# degraded singletons or full-length ORFs worth chasing?
-novel_structure_plot <- function(combined) {
-  d <- combined %>%
-    filter(!is.na(.data$completeness_num)) %>%
-    mutate(group = if_else(.data$n_hits == 0L, "novel (0 hits)", "classified"))
-  if (nrow(d) == 0L) return(empty_plot("no loci"))
-  p <- ggplot(d, aes(x = .data$completeness_num, fill = .data$group)) +
-    geom_density(alpha = 0.5) +
-    scale_fill_manual(values = c("classified" = "#4575B4", "novel (0 hits)" = "#D73027")) +
-    labs(x = "completeness (main genes present)", y = "density", fill = NULL) +
+# Structural completeness by tier — how many main genes each locus carries,
+# anchored proviruses vs recovered fragments. (Replaces a novel-vs-classified
+# view: 0-hit "novel" loci are essentially absent here — they are domain-validated
+# so they have homology — so that comparison was empty. This populated view is
+# the useful one: it shows fragments are structurally simpler, mostly single
+# markers, while anchored loci carry more of the gag/pol/env complement.)
+# Counts are shown as a fraction within each tier so the two tiers' very
+# different sizes don't swamp the comparison.
+structure_by_tier_plot <- function(combined) {
+  if (nrow(combined) == 0L || !"completeness_num" %in% names(combined)) {
+    return(empty_plot("no loci"))
+  }
+  d <- combined %>% filter(!is.na(.data$completeness_num))
+  if (nrow(d) == 0L) return(empty_plot("no completeness data"))
+  p <- ggplot(d, aes(x = .data$completeness_num, y = after_stat(.data$density),
+                     fill = .data$source)) +
+    geom_histogram(binwidth = 0.1, boundary = 0, position = "identity",
+                   alpha = 0.5, colour = "grey40", linewidth = 0.15) +
+    scale_fill_manual(values = c("anchored" = "#1F78B4", "fragment" = "#33A02C")) +
+    scale_x_continuous(labels = scales::percent) +
+    labs(x = "completeness (fraction of main genes present)",
+         y = "within-tier density", fill = "tier") +
     theme_bw()
-  add_titles(p, "Novel-candidate structure", "Completeness of novel vs classified loci")
+  add_titles(p, "Structural completeness by tier",
+             "Anchored proviruses carry more genes; fragments are mostly single markers")
 }
 
 # Yield boost from the fragments tier — loci recovered per tier, per species.
@@ -418,7 +435,7 @@ main <- function() {
   emit("evidence_depth.png",        evidence_depth_plot(combined))
   emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
   emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
-  emit("novel_structure.png",       novel_structure_plot(combined))
+  emit("structure_by_tier.png",     structure_by_tier_plot(combined))
   emit("source_yield.png",          source_yield_plot(combined))
   emit("genus_by_source.png",       genus_by_source_plot(combined))
 

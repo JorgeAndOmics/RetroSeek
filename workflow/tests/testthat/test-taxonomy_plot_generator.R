@@ -92,7 +92,7 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
     evidence_depth_plot(combined),
     confidence_density_plot(combined, 0.5),
     confidence_vs_evidence_plot(combined),
-    novel_structure_plot(combined),
+    structure_by_tier_plot(combined),
     source_yield_plot(combined),
     genus_by_source_plot(combined)
   )

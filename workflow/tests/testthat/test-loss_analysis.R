@@ -17,9 +17,10 @@ test_that("build_loss_funnel orders stages and computes step retention", {
     ~genome, ~metric,                ~value,
     "g1",    "raw_blast_hits",        1000,
     "g1",    "filtered_blast_hits",    600,
-    "g1",    "global_reduced_ranges",  300,
-    "g1",    "candidate_ranges",       120,
+    "g1",    "first_reduced_ranges",   500,
+    "g1",    "candidate_ranges",       300,
     "g1",    "valid_ranges",            60,
+    "g1",    "global_reduced_ranges",  250,
     "g1",    "unanchored_fragments",   180,
     "g1",    "fragments_recovered",     45
   )
@@ -32,16 +33,25 @@ test_that("build_loss_funnel orders stages and computes step retention", {
   # step retention is value / parent value
   filt <- f %>% filter(metric == "filtered_blast_hits")
   expect_equal(filt$step_retained, 0.6)            # 600 / 1000
+
+  # candidate descends from FIRST reduction (anchored spine), not global reduction
   cand <- f %>% filter(metric == "candidate_ranges")
-  expect_equal(cand$step_retained, 120 / 300)      # vs global_reduced parent
+  expect_equal(cand$branch, "main")
+  expect_equal(cand$step_retained, 300 / 500)      # vs first_reduced parent -> <= 1
+  expect_true(cand$step_retained <= 1)
 
   # frac_of_input is value / raw hits
   expect_equal((f %>% filter(metric == "valid_ranges"))$frac_of_input, 0.06)
 
-  # the fragments branch is anchored to the global-reduced parent
+  # global reduction heads the fragments branch (sibling of candidate)
+  glob <- f %>% filter(metric == "global_reduced_ranges")
+  expect_equal(glob$branch, "fragments")
+  expect_equal(glob$step_retained, 250 / 500)      # vs first_reduced parent
+
+  # fragments are anchored to the global-reduced parent
   frag <- f %>% filter(metric == "unanchored_fragments")
   expect_equal(frag$branch, "fragments")
-  expect_equal(frag$step_retained, 180 / 300)
+  expect_equal(frag$step_retained, 180 / 250)
   rec <- f %>% filter(metric == "fragments_recovered")
   expect_equal(rec$step_retained, 45 / 180)
 })

@@ -1140,7 +1140,7 @@ rule taxonomy_plot_generator_setup:
                                  'evidence_depth',
                                  'confidence_density',
                                  'confidence_vs_evidence',
-                                 'novel_structure',
+                                 'structure_by_tier',
                                  'source_yield',
                                  'genus_by_source']),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv')

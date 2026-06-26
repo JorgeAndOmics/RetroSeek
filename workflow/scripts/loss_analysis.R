@@ -33,24 +33,30 @@ suppressMessages({
 
 # ----------------------------------------------------------------------------
 # Funnel specification — the ordered stages and each stage's PARENT (the stage
-# it is measured against for step retention). Reductions (first/global) are
-# merges, not data loss; they are kept in the funnel for completeness but their
-# step_retained reflects merging, not dropping. Branch tags let the plot and the
-# report separate the main chain, the recovered fragments, and the blastx stage.
+# it is measured against for step retention). The pipeline has TWO reduction
+# branches off `first_reduced_ranges` (gr_virus): the anchored spine
+# (candidate -> valid -> loci) descends from gr_virus directly, while the
+# fragments branch descends from `global_reduced_ranges` (gr_global, a second,
+# stronger reduction). So `candidate`'s parent is `first_reduced_ranges`, NOT
+# `global_reduced_ranges` — and `global_reduced_ranges` is the head of the
+# fragments branch, a SIBLING of `candidate`, not a step in the anchored spine.
+# Getting this wrong makes candidate/global > 100% and a non-monotonic funnel.
+# `branch` tags let the plot separate the anchored spine, the fragments branch,
+# and the classification tier (the last is grouping/quality, not attrition).
 # ----------------------------------------------------------------------------
 .STAGE_SPEC <- tibble::tribble(
-  ~metric,                ~stage_order, ~branch,          ~parent,                ~label,
-  "raw_blast_hits",        1L,          "main",           NA_character_,          "raw tBLASTn hits",
-  "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",       "quality-filtered",
-  "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",  "first reduction",
-  "global_reduced_ranges", 4L,          "main",           "first_reduced_ranges", "global reduction",
-  "candidate_ranges",      5L,          "main",           "global_reduced_ranges","LTR-overlapping (candidate)",
-  "valid_ranges",          6L,          "main",           "candidate_ranges",     "domain-validated (valid)",
-  "unanchored_fragments",  7L,          "fragments",      "global_reduced_ranges","non-LTR fragments",
-  "fragments_recovered",   8L,          "fragments",      "unanchored_fragments", "fragments recovered",
-  "loci_total",            9L,          "classification", "valid_ranges",         "anchored loci",
-  "loci_classified",      10L,          "classification", "loci_total",           "loci classified",
-  "loci_no_blastx_hit",   11L,          "classification", "loci_total",           "loci w/ no blastx hit"
+  ~metric,                ~stage_order, ~branch,          ~parent,                 ~label,
+  "raw_blast_hits",        1L,          "main",           NA_character_,           "raw tBLASTn hits",
+  "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
+  "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
+  "candidate_ranges",      4L,          "main",           "first_reduced_ranges",  "LTR-overlapping (candidate)",
+  "valid_ranges",          5L,          "main",           "candidate_ranges",      "domain-validated (valid)",
+  "global_reduced_ranges", 6L,          "fragments",      "first_reduced_ranges",  "global reduction",
+  "unanchored_fragments",  7L,          "fragments",      "global_reduced_ranges", "non-LTR fragments",
+  "fragments_recovered",   8L,          "fragments",      "unanchored_fragments",  "fragments recovered",
+  "loci_total",            9L,          "classification", "valid_ranges",          "anchored loci (grouped)",
+  "loci_classified",      10L,          "classification", "loci_total",            "loci classified",
+  "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "loci w/ no blastx hit"
 )
 
 
@@ -171,22 +177,25 @@ loss_funnel_plot <- function(funnel) {
 
 
 # Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
-# surviving. The single most actionable funnel view — it localises the worst
-# attrition per species. raw_blast_hits (no parent, NA retention) is dropped.
+# surviving. Restricted to the genuine attrition/reduction steps (the anchored
+# spine + the fragments branch) — the classification tier is grouping/quality,
+# not retention, so it is excluded to keep one consistent semantic on the scale.
+# Every cell is now a true subset/reduction ratio, so all are <= 100%.
 step_retention_plot <- function(funnel) {
-  d <- funnel %>% dplyr::filter(!is.na(.data$step_retained))
+  d <- funnel %>%
+    dplyr::filter(.data$branch %in% c("main", "fragments"), !is.na(.data$step_retained))
   if (nrow(d) == 0L) return(empty_plot("no step-retention data"))
   d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
   p <- ggplot(d, aes(x = .data$label, y = .data$genome, fill = .data$step_retained)) +
     geom_tile(colour = "white") +
     geom_text(aes(label = sprintf("%.0f%%", 100 * .data$step_retained)), size = 2.8) +
     scale_fill_gradient2(low = "#D73027", mid = "#FEE08B", high = "#1A9850",
-                         midpoint = 0.5, limits = c(0, 1),
-                         oob = scales::squish, labels = scales::percent) +
+                         midpoint = 0.5, limits = c(0, 1), labels = scales::percent) +
     labs(x = NULL, y = NULL, fill = "step\nretained") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  add_titles(p, "Per-step retention", "Fraction of the prior stage surviving each step")
+  add_titles(p, "Per-step retention",
+             "Fraction of the prior stage surviving each attrition/reduction step")
 }
 
 
@@ -218,20 +227,26 @@ fragment_recovery_plot <- function(funnel) {
 }
 
 
-# Novel-candidate burden: per-genome count of loci with zero blastx homology
-# (candidate novel retroviruses), labelled with their fraction of all loci.
+# Novel-candidate burden: per-genome SHARE of loci with zero blastx homology
+# (candidate novel retroviruses). Plotted as a fraction (not a raw count) so a
+# single novel locus among thousands reads as ~0 rather than filling the panel;
+# the absolute count is kept on the bar label. The y-axis is the per-locus
+# novelty RATE, which also exposes which genome is relatively more novel-rich.
 novel_burden_plot <- function(funnel) {
   bt <- novel_burden_table(funnel)
   if (nrow(bt) == 0L) return(empty_plot("no loci"))
-  p <- ggplot(bt, aes(x = .data$genome, y = .data$n_novel)) +
+  p <- ggplot(bt, aes(x = .data$genome, y = .data$frac)) +
     geom_col(fill = "#762A83") +
-    geom_text(aes(label = scales::percent(.data$frac, accuracy = 1)),
+    geom_text(aes(label = sprintf("n=%d (%.2f%%)", as.integer(.data$n_novel),
+                                  100 * .data$frac)),
               vjust = -0.4, size = 2.8) +
-    labs(x = NULL, y = "loci with no blastx hit") +
+    scale_y_continuous(labels = scales::percent,
+                       expand = expansion(mult = c(0, 0.18))) +
+    labs(x = NULL, y = "share of loci with no blastx hit") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Novel-candidate burden",
-             "Valid loci with zero blastx homology (% = share of all loci)")
+             "Anchored loci with zero blastx homology (label = count; bar = share of all loci)")
 }
 
 
