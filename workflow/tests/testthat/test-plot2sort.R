@@ -545,3 +545,13 @@ test_that("relabel_species maps stems to display names and passes through unknow
   expect_equal(relabel_species(c("a", "b"), NULL), c("a", "b"))
   expect_equal(relabel_species(character(), m), character())
 })
+
+test_that("attach_species_name delegates to relabel_species (maps + passes through)", {
+  m <- list(Homo_sapiens = "Homo sapiens")
+  df <- tibble::tibble(species = c("Homo_sapiens", "Antrozous_pallidus"), n = c(1L, 2L))
+  out <- attach_species_name(df, m)
+  # column name preserved; mapped stem relabelled, unmapped stem passed through
+  expect_equal(out$species, c("Homo sapiens", "Antrozous_pallidus"))
+  expect_equal(out$n, c(1L, 2L))            # other columns untouched
+  expect_setequal(names(out), c("species", "n"))
+})

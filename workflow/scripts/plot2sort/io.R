@@ -47,18 +47,13 @@ verify_required_columns <- function(df, required_cols, source_label = "input") {
 }
 
 
-# Replace the per-row `species` accession code with the readable species name
-# from the YAML config map. The result keeps the column name `species`; the
-# accession code is dropped.
+# Replace the per-row `species` accession/stem with the readable species name
+# from the YAML config map. Dataframe-level convenience over relabel_species()
+# (the single mapping primitive in helpers.R) — keeps the column name `species`;
+# stems absent from the map pass through unchanged (no silent NA labels).
 attach_species_name <- function(df, species_map) {
-  species_df <- tibble::tibble(
-    species      = names(species_map),
-    species_name = unname(unlist(species_map))
-  )
-  df %>%
-    dplyr::left_join(species_df, by = "species") %>%
-    dplyr::select(-species) %>%
-    dplyr::rename(species = species_name)
+  df$species <- relabel_species(df$species, species_map)
+  df
 }
 
 
