@@ -318,15 +318,20 @@ main <- function() {
   }
   log_section(sprintf("Wrote novel candidates for %d genomes", length(loci_files)))
 
+  # Relabel genome stems to config display names for the PLOTS only; the written
+  # table + novel-candidate files keep the stem key for downstream joins.
+  funnel_disp <- funnel
+  funnel_disp$genome <- relabel_species(funnel_disp$genome, cfg$species)
+
   emit <- function(name, plot) {
     save_plot(name, plot, args$plot_dir,
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
-  emit("loss_funnel.png",      loss_funnel_plot(funnel))
-  emit("step_retention.png",   step_retention_plot(funnel))
-  emit("fragment_recovery.png", fragment_recovery_plot(funnel))
-  emit("novel_burden.png",     novel_burden_plot(funnel))
-  emit("loss_waterfall.png",   loss_waterfall_plot(funnel))
+  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp))
+  emit("step_retention.png",   step_retention_plot(funnel_disp))
+  emit("fragment_recovery.png", fragment_recovery_plot(funnel_disp))
+  emit("novel_burden.png",     novel_burden_plot(funnel_disp))
+  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp))
   log_section("Done")
 }
 

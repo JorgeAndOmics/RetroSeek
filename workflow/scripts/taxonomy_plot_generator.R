@@ -403,6 +403,11 @@ main <- function() {
 
   loci <- load_loci(args$input)
   fragments <- load_fragments(args$input)
+  # Relabel genome stems to the config display names (species: map) for all axes.
+  if (nrow(loci) > 0L) loci$species <- relabel_species(loci$species, cfg$species)
+  if (nrow(fragments) > 0L) {
+    fragments$species <- relabel_species(fragments$species, cfg$species)
+  }
   combined <- bind_rows(loci, fragments)
   # numeric companions for the evidence/confidence plots (the loci tables store
   # every column as a string). Guarded so an all-empty input stays well-formed.

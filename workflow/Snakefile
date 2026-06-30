@@ -1,3 +1,20 @@
+# =============================================================================
+# RetroSeek — Snakemake workflow
+# =============================================================================
+# Rule sections (in dependency order; search the banners to jump between them):
+#   1. Genome acquisition & preparation   (download, normalise, Pfam, BLAST db, LTR index)
+#   2. LTR discovery                       (LTRharvest / LTRdigest)
+#   3. Probe extraction & homology search  (tBLASTn → pickle → parquet → segmentation)
+#   4. Range analysis                      (tBLASTn × LTR integration → valid/fragments tracks)
+#   5. Solo-LTR workstream                 (LTR_retriever prefilter / detect / integrate)
+#   6. Provirus & structural plots         (plot2sort, stage, erv-like, circle panels)
+#   7. Hotspot & pair detection
+#   8. Taxonomic classification            (reference build, classify, fragments tier, plots)
+#   9. Loss analysis                       (per-stage funnel + novel candidates)
+# Each rule is split into a `*_setup` worker (per-genome) + an aggregate target,
+# following the project-wide setup/aggregate convention.
+# =============================================================================
+
 import os
 import math
 import re
@@ -58,6 +75,11 @@ def species_with_hits(wildcards):
 configfile: defaults.CONFIG_FILE
 
 
+# =============================================================================
+# 1. GENOME ACQUISITION & PREPARATION
+#    download genomes, normalise FASTA extensions, fetch Pfam, build BLAST dbs
+#    and the GenomeTools suffix-array index.
+# =============================================================================
 rule genome_downloader_setup:
     output:
         species=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
@@ -204,6 +226,10 @@ rule ltr_index_generator:
                      ext=LTR_INDEX_EXT)
 
 
+# =============================================================================
+# 2. LTR DISCOVERY — LTRharvest / LTRdigest
+#    detect paired-LTR retrotransposon structures and annotate their Pfam domains.
+# =============================================================================
 rule ltr_harvester_setup:
     input:
         rules.ltr_index_generator.input
@@ -291,6 +317,11 @@ rule ltr_digester:
                            genome=SPECIES, ext=['gff3'])
 
 
+# =============================================================================
+# 3. PROBE EXTRACTION & HOMOLOGY SEARCH — tBLASTn
+#    fetch probe sequences, tBLASTn against each genome, cache to pickle, convert
+#    to parquet (checkpoint → species_with_hits), and segment per species.
+# =============================================================================
 rule probe_extractor:
     input:
         probe_csv=defaults.PROBE_CSV
@@ -393,6 +424,11 @@ rule species_segmenter:
         rules.species_segmenter_setup.output
 
 
+# =============================================================================
+# 4. RANGE ANALYSIS — tBLASTn × LTR integration
+#    integrate homology hits with LTRdigest structure into the original /
+#    candidate / valid / fragments tiers (+ per-genome counts for the funnel).
+# =============================================================================
 rule ranges_analysis_setup:
     input:
         # Per-genome scoping (A4): each invocation of this rule needs only
@@ -515,6 +551,11 @@ rule ranges_analysis:
 # LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
 # derived from the retained intact ERVs. See docs/solo_ltr.md for full
 # mechanism and the LTR_retriever stages.
+# =============================================================================
+# 5. SOLO-LTR WORKSTREAM — LTR_retriever
+#    prefilter LTRharvest SCN to retroviral elements, run LTR_retriever, and
+#    integrate solo vs intact LTRs (solo/intact ratio). See docs/solo_ltr.md.
+# =============================================================================
 rule ltr_retriever_prefilter_setup:
     input:
         scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
@@ -671,6 +712,11 @@ rule solo_ltr_detector:
         all_species = rules.solo_intact_ratio_aggregate.output.all_species_csv
 
 
+# =============================================================================
+# 6. PROVIRUS & STRUCTURAL PLOTS
+#    plot2sort provirus panel, middle-stage concordance, erv-like structural
+#    panel, and Circos-style circle plots.
+# =============================================================================
 rule plot_generator_setup:
     input:
         final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
@@ -860,6 +906,10 @@ if _HOTSPOT_INPUT not in _HOTSPOT_TRACK:
 _HOTSPOT_INPUT_DIR, _HOTSPOT_INPUT_FILE = _HOTSPOT_TRACK[_HOTSPOT_INPUT]
 
 
+# =============================================================================
+# 7. HOTSPOT & PAIR DETECTION
+#    NB-GLM detection of integration hotspots, and tBLASTn↔LTRdigest pair overlaps.
+# =============================================================================
 rule hotspot_detector_setup:
     input:
         # Per-genome scoping (A5): declare the genome FASTA + the selected input
@@ -951,6 +1001,11 @@ _TAX_SEED = config['parameters'].get('seed', 0)
 # table (Entrez), NCBI-derived taxonomy.tsv, the curated erv_class.tsv (copied from
 # the tracked source), and a provenance manifest. Network rule; build-once cache,
 # rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
+# =============================================================================
+# 8. TAXONOMIC CLASSIFICATION — per-locus genus calls
+#    build the genus-comprehensive reference + placement trees, classify anchored
+#    loci, recover + classify the fragments tier, and render the taxonomy panel.
+# =============================================================================
 rule taxonomy_reference:
     output:
         faa       = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'retro_reference.faa'),
@@ -1170,6 +1225,11 @@ rule taxonomy_plot_generator:
 # the per-genome novel candidates (loci with zero blastx homology), and renders
 # the funnel plot. Aggregate rule: demands every genome's counts + loci so the
 # funnel is complete.
+# =============================================================================
+# 9. LOSS ANALYSIS — per-stage funnel + novel candidates
+#    union the ranges-analysis and blastx-stage counts into one attrition funnel,
+#    export per-genome novel candidates, and render the loss panel.
+# =============================================================================
 rule loss_analysis_setup:
     input:
         ranges_counts = lambda wildcards: expand(

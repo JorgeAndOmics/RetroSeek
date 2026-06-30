@@ -533,3 +533,15 @@ test_that("stamp_warning_caption attaches the caption when supplied", {
   expect_true(inherits(p, "ggplot"))
   expect_equal(p$labels$caption, "watch out")
 })
+
+
+test_that("relabel_species maps stems to display names and passes through unknowns", {
+  m <- list(Homo_sapiens = "Homo sapiens", Mus_musculus = "Mus musculus")
+  expect_equal(relabel_species(c("Homo_sapiens", "Mus_musculus"), m),
+               c("Homo sapiens", "Mus musculus"))
+  # unmapped stem is preserved as-is
+  expect_equal(relabel_species("Antrozous_pallidus", m), "Antrozous_pallidus")
+  # null / empty map is a no-op
+  expect_equal(relabel_species(c("a", "b"), NULL), c("a", "b"))
+  expect_equal(relabel_species(character(), m), character())
+})

@@ -17,6 +17,20 @@ futurama_unlimited_palette <- function(input_colour_number = 12, output_colour_n
 }
 
 
+# Map genome FASTA stems to their display names from the config `species:` map
+# (stem -> "Display name"). Unmapped stems pass through unchanged, so the plot
+# still renders if a genome is missing from the map. Vectorised; the caller
+# assigns the result back to a `species` / `genome` column before plotting.
+relabel_species <- function(values, species_map) {
+  values <- as.character(values)
+  if (is.null(species_map) || length(species_map) == 0L) return(values)
+  vapply(values, function(v) {
+    nm <- species_map[[v]]
+    if (is.null(nm) || !nzchar(as.character(nm))) v else as.character(nm)
+  }, character(1), USE.NAMES = FALSE)
+}
+
+
 # Return the levels of `col` ordered by total count (or summed `weight`)
 # descending, ties broken alphabetically. Used to factor a column so plots
 # render largest-first.
