@@ -36,7 +36,9 @@ dependencies:
                          #   used by workflow/scripts/ltr_retriever_prefilter.py
                          #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
   # ── taxonomic classification (per-locus genus calls; see docs/configuration.md) ──
-  - bedtools             # getfasta — extract per-locus marker sequences
+  # NB: per-locus marker regions are cut with Biostrings (see Bioconductor block
+  # below + extract_region_fasta.R), not bedtools — range/sequence work stays in
+  # Bioconductor.
   - hmmer                # hmmbuild/hmmalign — gene profiles + query alignment (also via ltr_retriever)
   - mafft                # reference MSA + aligning query markers into it
   - iqtree               # per-gene reference tree (placement scaffold)

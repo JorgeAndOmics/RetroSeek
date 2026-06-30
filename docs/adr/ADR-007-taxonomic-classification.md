@@ -44,7 +44,7 @@ The resulting per-locus table **is the genus-founded ERV assembly**: each LTR-el
 
 **Negative / costs**
 
-- Adds external tools (`mafft`, `iqtree`, `raxml-ng`, `epa-ng`, `gappa`, `bedtools`) to the env.
+- Adds external tools (`mafft`, `iqtree`, `raxml-ng`, `epa-ng`, `gappa`) to the env. Per-locus marker regions are cut with Biostrings (Bioconductor, `extract_region_fasta.R`), not bedtools — range/sequence work stays in Bioconductor.
 - A one-time network reference build (`make reference` / `RetroSeek --build-reference`) is required before `--classify`.
 - GAG placement is low-confidence (kept opt-in); ENV stays an LCA-only marker.
 

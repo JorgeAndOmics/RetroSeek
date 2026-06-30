@@ -6,7 +6,7 @@ Classifies ERV loci from their own sequence, per gene, with a method cascade:
 
     full valid GFF3 (per-hit features w/ probe=gene, Parent=LTR_retrotransposon)
       -> LTR-element-anchored loci (group by Parent; gene-partitioned regions)
-      -> extract each (locus, gene) region (bedtools getfasta)
+      -> extract each (locus, gene) region (Biostrings; extract_region_fasta.R)
       -> blastx region vs independent reference  -> per-gene (genus, bitscore) evidence
       -> per gene: placement (POL/GAG, if a tree exists) else weighted-LCA  [+ presence for REX/TAX]
       -> combine per-gene calls -> locus genus_call + rank + confidence + method
@@ -22,6 +22,7 @@ import argparse
 import bisect
 import csv
 import hashlib
+import logging
 import re
 import subprocess
 import sys
@@ -34,10 +35,15 @@ from Bio.Seq import Seq
 
 import taxonomy_lca as tlca
 import taxonomy_placement
+from colored_logging import colored_logging
+
+logger = logging.getLogger(__name__)
 
 BLASTX = "blastx"  # translated search; all tools resolved from PATH (RetroSeek env)
 MAKEBLASTDB = "makeblastdb"
-BEDTOOLS = "bedtools"
+# Per-locus marker regions are cut with a Bioconductor (Biostrings) helper rather
+# than bedtools — RetroSeek keeps all range/sequence work inside Bioconductor.
+_EXTRACT_R = Path(__file__).resolve().parent / "extract_region_fasta.R"
 
 _PROBE = re.compile(r"probe=([^;\t]+)")
 _PARENT = re.compile(r"Parent=([^;\t]+)")
@@ -249,17 +255,17 @@ def classify(
     db = workdir / "ref_db"
     hits_path = workdir / "hits.tsv"
     write_region_bed(loci, bed)
+    # strand-aware region extraction via Biostrings (Bioconductor), replacing
+    # `bedtools getfasta -s -nameOnly`.
     run(
         [
-            BEDTOOLS,
-            "getfasta",
-            "-fi",
+            "Rscript",
+            str(_EXTRACT_R),
+            "--genome",
             str(genome),
-            "-bed",
+            "--bed",
             str(bed),
-            "-s",
-            "-nameOnly",
-            "-fo",
+            "--out",
             str(fna),
         ]
     )
@@ -708,6 +714,11 @@ def main() -> int:
     )
     a = p.parse_args()
 
+    # Per-(genome, tier) log file so the parallel per-genome invocations don't
+    # clobber one another's log.
+    colored_logging(log_file_name=f"taxonomy_classify_{a.gff3.stem}_{a.source}.txt")
+    logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
+
     tax = a.ref_dir / "taxonomy.tsv"
     if tax.exists():
         tlca.load_taxonomy(tax)
@@ -735,10 +746,10 @@ def main() -> int:
     # are computed over the PRE-gate set so the loss funnel can report what was
     # recovered vs. discarded. For the anchored run the gate is a no-op.
     kept = gate_classified(records) if a.gate_classified else records
-    print(summarise(kept))
+    logger.info("classification summary\n%s", summarise(kept))
     if a.out_counts:
         write_counts(records, kept, a.source, a.out_counts)
-        print(f"wrote counts -> {a.out_counts}", file=sys.stderr)
+        logger.info("wrote counts -> %s", a.out_counts)
     records = kept
 
     if a.out and records:  # ad-hoc single CSV (back-compat for trial docs)
@@ -746,13 +757,13 @@ def main() -> int:
             w = csv.DictWriter(fh, fieldnames=list(records[0].keys()))
             w.writeheader()
             w.writerows(records)
-        print(f"\nwrote -> {a.out}", file=sys.stderr)
+        logger.info("wrote -> %s", a.out)
     if a.out_parquet and a.out_csv:  # production dual-table output
         write_tables(records, a.out_parquet, a.out_csv)
-        print(f"wrote tables -> {a.out_parquet}, {a.out_csv}", file=sys.stderr)
+        logger.info("wrote tables -> %s, %s", a.out_parquet, a.out_csv)
     if a.out_gff3 and a.out_bed:  # production IGV track
         write_track(records, a.out_gff3, a.out_bed)
-        print(f"wrote track -> {a.out_gff3}", file=sys.stderr)
+        logger.info("wrote track -> %s", a.out_gff3)
     return 0
 
 

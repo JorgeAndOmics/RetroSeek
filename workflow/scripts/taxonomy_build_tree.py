@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +30,9 @@ from typing import Any
 from Bio import SeqIO
 
 import taxonomy_lca as tlca
+from colored_logging import colored_logging
+
+logger = logging.getLogger(__name__)
 
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 IQTREE = "iqtree"
@@ -120,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--threads", type=int, default=2, help="tree-building threads")
     a = p.parse_args(argv)
     gene = a.gene.upper()
+    colored_logging(log_file_name=f"taxonomy_build_tree_{gene}.txt")
     ref_dir = a.ref_dir
     trees = ref_dir / "trees"
     trees.mkdir(parents=True, exist_ok=True)
@@ -138,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         [MAFFT, "--maxiterate", "1000", "--localpair", "--anysymbol", str(gene_faa)],
         stdout=afa.open("w", encoding="utf-8"),
     )
-    print(f"[{gene}] alignment: {alignment_quality(afa)}", file=sys.stderr)
+    logger.info("[%s] alignment: %s", gene, alignment_quality(afa))
 
     prefix = trees / gene
     # fixed standard protein model (LG+F+G4) — skips slow ModelFinder; gives the topology.
@@ -186,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     run([HMMBUILD, "--amino", str(trees / f"{gene}.hmm"), str(afa)])
     taxon_map(acc_genus, trees / f"{gene}.taxon.tsv")
-    print(f"[{gene}] tree package written -> {trees}/{gene}.*", file=sys.stderr)
+    logger.info("[%s] tree package written -> %s/%s.*", gene, trees, gene)
     return 0
 
 

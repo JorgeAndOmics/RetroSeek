@@ -27,8 +27,8 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import logging
 import re
-import sys
 import time
 from collections import Counter
 from pathlib import Path
@@ -36,6 +36,10 @@ from pathlib import Path
 import Bio
 from Bio import Entrez, SeqIO
 from Bio.SeqRecord import SeqRecord
+
+from colored_logging import colored_logging
+
+logger = logging.getLogger(__name__)
 
 # The 7 ICTV retroviral genera — the classification axis (probe-agnostic: these are
 # reference genera, independent of whatever probes a run declares).
@@ -154,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         help="reference package directory (faa/csv/manifest written here)",
     )
     a = p.parse_args(argv)
+    colored_logging(log_file_name="taxonomy_reference_builder.txt")
     a.out_dir.mkdir(parents=True, exist_ok=True)
 
     all_rows: list[tuple[str, str, str, str]] = []
@@ -165,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         by_gene: dict[str, int] = {}
         for _, _, gene, _ in rows:
             by_gene[gene] = by_gene.get(gene, 0) + 1
-        print(f"{genus:20s} kept {len(rows):3d}  {by_gene}", file=sys.stderr)
+        logger.info("%-20s kept %3d  %s", genus, len(rows), by_gene)
 
     faa = a.out_dir / "retro_reference.faa"
     meta = a.out_dir / "retro_reference.csv"
@@ -178,8 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerow(["accession", "genus", "gene", "defline"])
         writer.writerows(all_rows)
     write_manifest(all_rows, meta, a.out_dir / "manifest.yaml")
-    print(f"\nwrote {len(all_rows)} reference proteins -> {faa}", file=sys.stderr)
-    print(f"wrote taxonomy map -> {meta}", file=sys.stderr)
+    logger.info("wrote %d reference proteins -> %s", len(all_rows), faa)
+    logger.info("wrote taxonomy map -> %s", meta)
     return 0
 
 

@@ -19,11 +19,16 @@ ERV class (I/II/III) is NOT emitted here: it is a curated biological grouping
 from __future__ import annotations
 
 import csv
+import logging
 import sys
 import time
 from pathlib import Path
 
 from Bio import Entrez
+
+from colored_logging import colored_logging
+
+logger = logging.getLogger(__name__)
 
 ROOT = "Retroviridae"  # keep the subtree from this node down
 
@@ -55,7 +60,7 @@ def build(
     for genus in genera:
         chain = lineage_for(genus, email)
         if not chain:
-            print(f"WARN: no NCBI taxid for {genus}", file=sys.stderr)
+            logger.warning("no NCBI taxid for %s", genus)
             continue
         names = [c[0] for c in chain]
         if ROOT in names:  # trim to the retroviral subtree
@@ -77,17 +82,18 @@ def main(argv: list[str]) -> int:
     )
     email = argv[2] if len(argv) > 2 else "retroseek@example.org"
     out = ref_csv.parent / "taxonomy.tsv"
+    colored_logging(log_file_name="taxonomy_build_hierarchy.txt")
 
     genera = genera_from_reference(ref_csv)
     parent, rank = build(genera, email)
     if not parent:
-        print("ERROR: no taxonomy resolved", file=sys.stderr)
+        logger.error("no taxonomy resolved")
         return 1
     with out.open("w", encoding="utf-8") as fh:
         fh.write("name\tparent\trank\n")
         for name, par in parent.items():
             fh.write(f"{name}\t{par or ''}\t{rank.get(name, 'no rank')}\n")
-    print(f"wrote {len(parent)} taxonomy nodes -> {out}", file=sys.stderr)
+    logger.info("wrote %d taxonomy nodes -> %s", len(parent), out)
     return 0
 
 
