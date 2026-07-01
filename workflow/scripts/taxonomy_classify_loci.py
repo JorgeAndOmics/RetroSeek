@@ -7,9 +7,9 @@ Classifies ERV loci from their own sequence, per gene, with a method cascade:
     full valid GFF3 (per-hit features w/ probe=gene, Parent=LTR_retrotransposon)
       -> LTR-element-anchored loci (group by Parent; gene-partitioned regions)
       -> extract each (locus, gene) region (Biostrings; extract_region_fasta.R)
-      -> blastx region vs independent reference  -> per-gene (genus, bitscore) evidence
+      -> blastx region vs independent reference  -> per-gene (taxon, bitscore) evidence
       -> per gene: placement (POL/GAG, if a tree exists) else weighted-LCA  [+ presence for REX/TAX]
-      -> combine per-gene calls -> locus genus_call + rank + confidence + method
+      -> combine per-gene calls -> locus taxon_call + rank + confidence + method
          + is_mosaic + mosaic_composition + erv_class + detection provenance + ref_version
 
 LCA is the universal default; placement is a dispatcher branch for configured genes.
@@ -272,21 +272,23 @@ def classify(
     build_db(ref_dir / "retro_reference.faa", db)
     search(fna, db, hits_path, evalue, threads)
 
-    genus_of, gene_of = _ref_maps(ref_dir / "retro_reference.csv")
-    diagnostic = auto_diagnostic(gene_of, genus_of)  # genes present in only one genus
+    taxon_of, gene_of, axis = _ref_maps(ref_dir / "retro_reference.csv")
+    diagnostic = auto_diagnostic(
+        gene_of, taxon_of
+    )  # genes present in only one axis taxon
     region_seq = _load_regions(fna)
-    # per region (locus|gene): genus hits + best frame
+    # per region (locus|gene): taxon hits + best frame
     hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
     best_frame: dict[str, tuple[float, int]] = {}
     with hits_path.open(encoding="utf-8") as fh:
         for line in fh:
             qid, sid, bits, frame = line.rstrip("\n").split("\t")
             qid = qid.split("(")[0]
-            genus = genus_of.get(sid.split()[0])
-            if not genus:
+            taxon = taxon_of.get(sid.split()[0])
+            if not taxon:
                 continue
             b = float(bits)
-            hits[qid].append((genus, b))
+            hits[qid].append((taxon, b))
             if qid not in best_frame or b > best_frame[qid][0]:
                 best_frame[qid] = (b, int(frame))
 
@@ -313,30 +315,36 @@ def classify(
         main_probes,
         diagnostic,
         top_percent,
+        axis,
         confidence_min=confidence_min,
         source=source,
     )
 
 
-def _ref_maps(ref_csv: Path) -> tuple[dict[str, str], dict[str, str]]:
-    genus_of, gene_of = {}, {}
+def _ref_maps(ref_csv: Path) -> tuple[dict[str, str], dict[str, str], set[str]]:
+    """Return (accession->taxon, accession->gene, axis) from the reference CSV.
+
+    ``axis`` is the set of declared reference taxa (any rank); a locus is 'resolved'
+    when its call lands on an axis member (ADR-008), replacing the old rank=='genus' test.
+    """
+    taxon_of, gene_of = {}, {}
     with ref_csv.open(encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            genus_of[r["accession"]] = r["genus"]
+            taxon_of[r["accession"]] = r["taxon"]
             gene_of[r["accession"]] = r["gene"]
-    return genus_of, gene_of
+    return taxon_of, gene_of, set(taxon_of.values())
 
 
 def auto_diagnostic(
-    gene_of: dict[str, str], genus_of: dict[str, str]
+    gene_of: dict[str, str], taxon_of: dict[str, str]
 ) -> dict[str, str]:
-    """Genes whose reference members all belong to ONE genus -> {gene: genus} (presence-diagnostic).
+    """Genes whose reference members all belong to ONE axis taxon -> {gene: taxon} (presence-diagnostic).
 
     Data-derived (e.g. REX/TAX -> Deltaretrovirus), not hard-coded — so any probe set works.
     """
     by_gene: dict[str, set[str]] = defaultdict(set)
     for acc, gene in gene_of.items():
-        by_gene[gene].add(genus_of[acc])
+        by_gene[gene].add(taxon_of[acc])
     return {
         g: next(iter(gs)) for g, gs in by_gene.items() if len(gs) == 1 and g != "OTHER"
     }
@@ -374,6 +382,7 @@ def _assemble(
     main_probes: list[str],
     diagnostic: dict[str, str],
     top_percent: float,
+    axis: set[str],
     confidence_min: float = 0.5,
     source: str = "anchored",
 ) -> list[dict[str, str]]:
@@ -388,13 +397,13 @@ def _assemble(
             qid = f"{lc['id']}|{gene}"
             pl = placement.get(qid)
             if (
-                pl and pl["rank"] == "genus"
-            ):  # placement refines ONLY when it resolves a genus
+                pl and pl["taxon_call"] in axis
+            ):  # placement refines ONLY when it resolves an axis taxon (ADR-008)
                 per_gene[gene] = pl
             elif gene in diagnostic:
                 node = diagnostic[gene]
                 per_gene[gene] = {
-                    "genus_call": node,
+                    "taxon_call": node,
                     "rank": tlca.rank_of(node),
                     "confidence": "1.000",
                     "method": "presence",
@@ -402,14 +411,15 @@ def _assemble(
             else:
                 node, wconf = tlca.weighted_lca(hits.get(qid, []), top_percent)
                 per_gene[gene] = {
-                    "genus_call": node,
+                    "taxon_call": node,
                     "rank": tlca.rank_of(node),
                     "confidence": f"{wconf:.3f}",
                     "method": "lca",
                 }
         # locus summary: choose by marker reliability (POL>GAG>…>ENV), placement preferred,
         # then confidence — NOT raw confidence (which is competition-dependent and favours ENV).
-        confident = {g: c for g, c in per_gene.items() if c["rank"] == "genus"}
+        # 'confident' = resolved to an axis taxon (ADR-008), replacing the old rank=='genus'.
+        confident = {g: c for g, c in per_gene.items() if c["taxon_call"] in axis}
         if confident:
             best_gene = min(
                 confident,
@@ -420,35 +430,35 @@ def _assemble(
                 ),
             )
             call = confident[best_gene]
-            genus_call, rank, conf, method = (
-                call["genus_call"],
+            taxon_call, rank, conf, method = (
+                call["taxon_call"],
                 call["rank"],
                 call["confidence"],
                 call["method"],
             )
         else:
-            # no genus resolved -> best non-unclassified by rank, else unclassified
+            # no axis taxon resolved -> best non-unclassified by rank, else unclassified
             ranked = [
-                c for c in per_gene.values() if c["genus_call"] != tlca.UNCLASSIFIED
+                c for c in per_gene.values() if c["taxon_call"] != tlca.UNCLASSIFIED
             ]
             call = (
                 ranked[0]
                 if ranked
                 else {
-                    "genus_call": tlca.UNCLASSIFIED,
+                    "taxon_call": tlca.UNCLASSIFIED,
                     "rank": "none",
                     "confidence": "0.000",
                     "method": "lca",
                 }
             )
-            genus_call, rank, conf, method = (
-                call["genus_call"],
+            taxon_call, rank, conf, method = (
+                call["taxon_call"],
                 call["rank"],
                 call["confidence"],
                 call["method"],
             )
         # mosaic only over main genes (exclude OTHER; ENV noisy but kept as a main gene)
-        distinct = {c["genus_call"] for g, c in confident.items() if g in main_set}
+        distinct = {c["taxon_call"] for g, c in confident.items() if g in main_set}
         # structural metrics — this loci table IS the genus-founded ERV assembly, so it
         # carries the same structure the legacy erv_like tier reported: how many main
         # genes are present (completeness) and whether they sit in canonical genomic order.
@@ -481,25 +491,30 @@ def _assemble(
                 if main_probes
                 else "0.000",
                 "canonical_order": str(canonical),
-                "genus_call": genus_call,
+                "taxon_call": taxon_call,
                 "rank": rank,
+                # resolved = the call landed on a declared axis taxon (ADR-008),
+                # vs an honest LCA-backoff to an interior ancestor. Rank-agnostic
+                # 'confident' flag for downstream consumers (default axis=genera
+                # -> resolved iff rank=='genus', so plots stay identical).
+                "resolved": str(taxon_call in axis),
                 "confidence": conf,
                 "confidence_tag": confidence_tag,
                 "n_blastx_hits": str(n_blastx_hits),
                 "method": method,
                 "per_gene": ";".join(
-                    f"{g}:{c['genus_call']}({c['method']},{c['confidence']})"
+                    f"{g}:{c['taxon_call']}({c['method']},{c['confidence']})"
                     for g, c in sorted(per_gene.items())
                 ),
                 "is_mosaic": str(len(distinct) > 1),
                 "mosaic_composition": (
                     ";".join(
-                        f"{g}:{c['genus_call']}" for g, c in sorted(confident.items())
+                        f"{g}:{c['taxon_call']}" for g, c in sorted(confident.items())
                     )
                     if len(distinct) > 1
                     else ""
                 ),
-                "erv_class": tlca.ERV_CLASS.get(genus_call, ""),
+                "erv_class": tlca.ERV_CLASS.get(taxon_call, ""),
                 "probe_label_set": lc["probe_label_set"],
                 "ref_version": ref_version,
                 "source": source,
@@ -512,10 +527,10 @@ def gate_classified(records: list[dict[str, str]]) -> list[dict[str, str]]:
     """Keep only records that earned a taxonomic call (drop UNCLASSIFIED).
 
     This is the fragment-recovery gate: a non-LTR-associated fragment is retained
-    only if blastx resolved it to a genus/family/etc. — earning a classification
-    *is* the evidence it is a real (possibly novel) retroviral fragment.
+    only if blastx resolved it to a taxon (axis member/backoff) — earning a
+    classification *is* the evidence it is a real (possibly novel) retroviral fragment.
     """
-    return [r for r in records if r["genus_call"] != tlca.UNCLASSIFIED]
+    return [r for r in records if r["taxon_call"] != tlca.UNCLASSIFIED]
 
 
 def write_counts(
@@ -550,11 +565,11 @@ def classification_counts(
         {"metric": "loci_total", "value": len(records)},
         {
             "metric": "loci_classified",
-            "value": sum(r["genus_call"] != tlca.UNCLASSIFIED for r in records),
+            "value": sum(r["taxon_call"] != tlca.UNCLASSIFIED for r in records),
         },
         {
             "metric": "loci_unclassified",
-            "value": sum(r["genus_call"] == tlca.UNCLASSIFIED for r in records),
+            "value": sum(r["taxon_call"] == tlca.UNCLASSIFIED for r in records),
         },
         {
             "metric": "loci_no_blastx_hit",
@@ -565,19 +580,19 @@ def classification_counts(
 
 def summarise(records: list[dict[str, str]]) -> str:
     total = len(records)
-    placed = [r for r in records if r["genus_call"] != tlca.UNCLASSIFIED]
+    placed = [r for r in records if r["taxon_call"] != tlca.UNCLASSIFIED]
     by_rank = Counter(r["rank"] for r in placed)
-    genera = Counter(r["genus_call"] for r in placed if r["rank"] == "genus")
-    methods = Counter(r["method"] for r in placed if r["rank"] == "genus")
+    taxa = Counter(r["taxon_call"] for r in placed)
+    methods = Counter(r["method"] for r in placed)
     mosaic = sum(r["is_mosaic"] == "True" for r in records)
     lines = [
         f"loci: {total}   classified: {len(placed)}   mosaic: {mosaic}",
         "rank: " + ", ".join(f"{k}={v}" for k, v in by_rank.items()),
-        "genus-call method: " + ", ".join(f"{k}={v}" for k, v in methods.items()),
-        "confident genera:",
+        "call method: " + ", ".join(f"{k}={v}" for k, v in methods.items()),
+        "resolved taxa:",
     ]
-    for g, n in genera.most_common():
-        lines.append(f"  {g:18s} {n:6d}  [{tlca.ERV_CLASS.get(g, '')}]")
+    for t, n in taxa.most_common():
+        lines.append(f"  {t:18s} {n:6d}  [{tlca.ERV_CLASS.get(t, '')}]")
     return "\n".join(lines)
 
 
@@ -595,8 +610,9 @@ LOCI_COLUMNS = [
     "n_main_genes",
     "completeness",
     "canonical_order",
-    "genus_call",
+    "taxon_call",
     "rank",
+    "resolved",
     "confidence",
     "confidence_tag",
     "n_blastx_hits",
@@ -612,7 +628,7 @@ LOCI_COLUMNS = [
 
 
 def write_tables(records: list[dict[str, str]], parquet: Path, csv_path: Path) -> None:
-    """Write the per-locus genus-call table as dual parquet + csv (always, even if empty)."""
+    """Write the per-locus taxon-call table as dual parquet + csv (always, even if empty)."""
     df = pd.DataFrame(records, columns=LOCI_COLUMNS)
     parquet.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -621,13 +637,13 @@ def write_tables(records: list[dict[str, str]], parquet: Path, csv_path: Path) -
 
 
 def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
-    """Project per-locus calls to genome coordinates: IGV GFF3 + BED (colour-by-genus)."""
+    """Project per-locus calls to genome coordinates: IGV GFF3 + BED (colour-by-taxon)."""
     gff3.parent.mkdir(parents=True, exist_ok=True)
     with gff3.open("w", encoding="utf-8") as g, bed.open("w", encoding="utf-8") as b:
         g.write("##gff-version 3\n")
         for r in records:
             attrs = (
-                f"ID={r['id']};genus={r['genus_call']};rank={r['rank']};"
+                f"ID={r['id']};taxon={r['taxon_call']};rank={r['rank']};"
                 f"method={r['method']};confidence={r['confidence']};"
                 f"confidence_tag={r['confidence_tag']};"
                 f"mosaic={r['is_mosaic']};erv_class={r['erv_class']};"
@@ -637,10 +653,10 @@ def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
                 f"{r['seqname']}\tRetroSeek\tERV_locus\t{r['start']}\t{r['end']}\t"
                 f"{r['confidence']}\t{r['strand']}\t.\t{attrs}\n"
             )
-            # BED is 0-based half-open; name carries the genus call for IGV colour-by-name.
+            # BED is 0-based half-open; name carries the taxon call for IGV colour-by-name.
             b.write(
                 f"{r['seqname']}\t{int(r['start']) - 1}\t{r['end']}\t"
-                f"{r['id']}|{r['genus_call']}\t0\t{r['strand']}\n"
+                f"{r['id']}|{r['taxon_call']}\t0\t{r['strand']}\n"
             )
 
 

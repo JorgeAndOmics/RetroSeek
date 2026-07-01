@@ -14,28 +14,28 @@ source(file.path(.script_dir, "taxonomy_plot_generator.R"))
 
 .fake_loci <- function(source) {
   tribble(
-    ~species, ~genus_call,       ~rank,    ~confidence_tag, ~method,     ~is_mosaic, ~source,
-    "g1",     "Gammaretrovirus", "genus",  "HC",            "placement", "False",    source,
-    "g1",     "Betaretrovirus",  "genus",  "LC",            "lca",       "True",     source,
-    "g1",     "UNCLASSIFIED",    "none",   "LC",            "lca",       "False",    source
+    ~species, ~taxon_call,       ~rank,    ~resolved, ~confidence_tag, ~method,     ~is_mosaic, ~source,
+    "g1",     "Gammaretrovirus", "genus",  "True",    "HC",            "placement", "False",    source,
+    "g1",     "Betaretrovirus",  "genus",  "True",    "LC",            "lca",       "True",     source,
+    "g1",     "UNCLASSIFIED",    "none",   "False",   "LC",            "lca",       "False",    source
   )
 }
 
 
-test_that("build_report counts by genus, confidence, method + mosaic/integrations", {
+test_that("build_report counts by taxon, confidence, method + mosaic/integrations", {
   rep <- build_report(.fake_loci("anchored"))
 
-  # genus counts only over genus-rank rows
-  genus <- rep %>% filter(dimension == "genus")
-  expect_setequal(genus$level, c("Gammaretrovirus", "Betaretrovirus"))
-  expect_true(all(genus$count == 1))
+  # taxon counts only over axis-resolved rows
+  taxon <- rep %>% filter(dimension == "taxon")
+  expect_setequal(taxon$level, c("Gammaretrovirus", "Betaretrovirus"))
+  expect_true(all(taxon$count == 1))
 
   # confidence spans all rows (HC=1, LC=2)
   conf <- rep %>% filter(dimension == "confidence")
   expect_equal(conf$count[conf$level == "HC"], 1L)
   expect_equal(conf$count[conf$level == "LC"], 2L)
 
-  # method only over genus-rank rows
+  # method only over axis-resolved rows
   method <- rep %>% filter(dimension == "method")
   expect_setequal(method$level, c("placement", "lca"))
 
@@ -76,11 +76,11 @@ test_that("bucket_evidence handles empty and is robust to numeric input", {
 
 test_that("new plot builders return ggplot on data and empty_plot on empty", {
   combined <- tribble(
-    ~species, ~genus_call,       ~rank,   ~confidence, ~confidence_tag, ~method,
+    ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag, ~method,
     ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~source,
-    "g1", "Gammaretrovirus", "genus", "0.95", "HC", "placement", "False", "8", "0.667", "2", "anchored",
-    "g1", "UNCLASSIFIED",    "none",  "0.00", "LC", "lca",       "False", "0", "0.333", "1", "anchored",
-    "g1", "Betaretrovirus",  "genus", "0.40", "LC", "lca",       "False", "3", "0.333", "1", "fragment"
+    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "anchored",
+    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "anchored",
+    "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "fragment"
   )
   # main() adds the numeric helper columns; mirror that here.
   combined <- dplyr::mutate(combined,
@@ -94,12 +94,12 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
     confidence_vs_evidence_plot(combined),
     structure_by_tier_plot(combined),
     source_yield_plot(combined),
-    genus_by_source_plot(combined)
+    taxon_by_source_plot(combined)
   )
   for (p in builders) expect_s3_class(p, "ggplot")
 
   empty <- combined[0, ]
   expect_s3_class(evidence_depth_plot(empty), "ggplot")
   expect_s3_class(confidence_density_plot(empty, 0.5), "ggplot")
-  expect_s3_class(genus_by_source_plot(empty), "ggplot")
+  expect_s3_class(taxon_by_source_plot(empty), "ggplot")
 })

@@ -3,7 +3,7 @@ Phylogenetic placement of marker sequences (POL/GAG) onto a reference tree
 =========================================================================
 
 `place()` takes a batch of per-locus marker proteins for one gene plus that gene's
-pinned tree package, and returns a genus call (+ rank + confidence + taxopath) per
+pinned tree package, and returns a taxon call (+ rank + confidence + taxopath) per
 locus by:
 
     queries --mafft --add --keeplength--> aligned into the reference's exact columns
@@ -132,10 +132,11 @@ def place(
     queries: dict[str, str], ref_dir: Path, gene: str, workdir: Path
 ) -> dict[str, dict[str, str]]:
     """
-    Place query markers for `gene`; return query_id -> {genus_call, rank, confidence}.
+    Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
 
-    genus_call = deepest node of the assigned taxopath that is in the taxonomy
-    (genus if resolved, else a higher rank); rank via taxonomy_lca.rank_of.
+    taxon_call = deepest node of the assigned taxopath that is in the taxonomy
+    (an axis taxon if resolved, else a higher rank); rank via taxonomy_lca.rank_of.
+    The caller accepts the placement only when taxon_call is an axis member (ADR-008).
     """
     workdir.mkdir(parents=True, exist_ok=True)
     trees = ref_dir / "trees"
@@ -203,7 +204,7 @@ def place(
                 node = n
                 break
         results[qid] = {
-            "genus_call": node,
+            "taxon_call": node,
             "rank": tlca.rank_of(node),
             "confidence": f"{conf:.3f}",
             "method": "placement",

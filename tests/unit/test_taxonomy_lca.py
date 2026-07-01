@@ -78,7 +78,7 @@ class TestLoadTaxonomy:
             "Gammaretrovirus\tOrthoretrovirinae\tgenus\n"
             "Betaretrovirus\tOrthoretrovirinae\tgenus\n"
         )
-        saved = dict(tlca.RETRO_PARENT)
+        saved_parent, saved_rank = dict(tlca.RETRO_PARENT), dict(tlca.RANK_OF)
         try:
             tlca.load_taxonomy(tsv)
             assert (
@@ -88,7 +88,8 @@ class TestLoadTaxonomy:
             # a genus absent from the loaded file is now unknown -> ignored
             assert tlca.lca({"Gammaretrovirus", "Spumaretrovirus"}) == "Gammaretrovirus"
         finally:
-            tlca.RETRO_PARENT = saved  # restore built-in default for other tests
+            # restore BOTH built-in defaults so test order can't leak state
+            tlca.RETRO_PARENT, tlca.RANK_OF = saved_parent, saved_rank
 
 
 class TestRankOf:
@@ -98,14 +99,46 @@ class TestRankOf:
         assert tlca.rank_of("Retroviridae") == "family"
 
 
-class TestParseGenusSet:
+class TestParseTaxonSet:
     def test_decodes_escaped_semicolons(self) -> None:
         field = "Betaretrovirus%3b Deltaretrovirus%3b Gammaretrovirus"
-        assert tlca.parse_genus_set(field) == {
+        assert tlca.parse_taxon_set(field) == {
             "Betaretrovirus",
             "Deltaretrovirus",
             "Gammaretrovirus",
         }
 
     def test_single_value(self) -> None:
-        assert tlca.parse_genus_set("Gammaretrovirus") == {"Gammaretrovirus"}
+        assert tlca.parse_taxon_set("Gammaretrovirus") == {"Gammaretrovirus"}
+
+
+class TestMixedRankAxis:
+    """Rank-agnostic LCA (ADR-008): the engine resolves axis taxa at whatever rank
+    they sit, and backs off to their true common ancestor across ranks."""
+
+    def test_family_and_genus_axis_resolve_each_at_own_rank(self, tmp_path) -> None:
+        # An axis spanning a non-retroviral family (Bornaviridae) and a retroviral
+        # genus (Lentivirus), under a shared root — the trim-free hierarchy ADR-008
+        # produces. Each resolves at its own rank; together they back off to the root.
+        tsv = tmp_path / "taxonomy.tsv"
+        tsv.write_text(
+            "name\tparent\trank\n"
+            "Riboviria\t\trealm\n"
+            "Retroviridae\tRiboviria\tfamily\n"
+            "Orthoretrovirinae\tRetroviridae\tsubfamily\n"
+            "Lentivirus\tOrthoretrovirinae\tgenus\n"
+            "Bornaviridae\tRiboviria\tfamily\n"
+        )
+        saved_parent, saved_rank = dict(tlca.RETRO_PARENT), dict(tlca.RANK_OF)
+        try:
+            tlca.load_taxonomy(tsv)
+            # each axis taxon resolves to itself, at its own (different) rank
+            assert tlca.lca({"Lentivirus"}) == "Lentivirus"
+            assert tlca.rank_of("Lentivirus") == "genus"
+            assert tlca.lca({"Bornaviridae"}) == "Bornaviridae"
+            assert tlca.rank_of("Bornaviridae") == "family"
+            # a mixed-rank set backs off to the honest common ancestor (the realm)
+            assert tlca.lca({"Lentivirus", "Bornaviridae"}) == "Riboviria"
+            assert tlca.rank_of("Riboviria") == "realm"
+        finally:
+            tlca.RETRO_PARENT, tlca.RANK_OF = saved_parent, saved_rank

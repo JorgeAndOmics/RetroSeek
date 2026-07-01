@@ -73,6 +73,11 @@ classification:
   top_percent: 0.10
   min_orf: 30
   confidence_min: 0.5
+  # Classification axis (ADR-008, rank-agnostic): the taxa — at ANY rank — the
+  # reference is built at and that a locus can resolve to. Empty (or absent) derives
+  # the axis from the distinct probeset Label values; set an explicit list to decouple
+  # the classifier from the probeset (e.g. ['Lentivirus', 'Gammaretrovirus']).
+  reference_taxa: []
 
 logging:
   level_styles:

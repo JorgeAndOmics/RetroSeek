@@ -194,11 +194,11 @@ main <- function() {
   emit("bar.png",
        bar_plot(all.counted_probe, subset_label = "All probes"))
 
-  # 6. ERV-like composition heatmap: genus x gene, from the genus-founded loci
-  #    table (taxonomy_classify output). Genus + gene names are public taxonomy,
+  # 6. ERV-like composition heatmap: taxon x gene, from the taxon-founded loci
+  #    table (taxonomy_classify output). Taxon + gene names are public taxonomy,
   #    so nothing here needs anonymising. The table lives in a sibling dir.
   taxonomy_dir <- file.path(dirname(args$input), "taxonomy_classification")
-  loci <- load_genus_loci(taxonomy_dir)
+  loci <- load_taxon_loci(taxonomy_dir)
   emit("erv_like_heatmap.png", composition_heatmap_plot(loci))
 
   message("Done — wrote 6 anonymised demo figures to ", args$output)

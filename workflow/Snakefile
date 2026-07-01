@@ -822,9 +822,9 @@ rule stage_plot_generator:
 # ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
 # tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
 # of PNGs into results/plots/erv-like/.
-# ERV-like structural panel — views of the genus-founded ERV assembly (the
+# ERV-like structural panel — views of the taxon-founded ERV assembly (the
 # taxonomy_classify loci table): completeness, canonical order, gene
-# combinations, length, marker count, genus x gene composition.
+# combinations, length, marker count, taxon x gene composition.
 rule erv_like_plot_generator_setup:
     input:
         loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],'{genome}.loci.parquet'),
@@ -892,7 +892,7 @@ rule circle_plot_generator:
 # Hotspot input-tier router: `hotspot.input` selects which upstream track feeds
 # the detector. Each tier maps to (directory, per-genome filename) — note the
 # `valid` tier uses the `_reduced.gff3` filename, `original` uses `{genome}.gff3`.
-# (The retired erv_like tier is gone; the genus-founded assembly is a separate
+# (The retired erv_like tier is gone; the taxon-founded assembly is a separate
 # stage and re-pointing hotspot at it is deferred to the hotspot rework.)
 _HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'valid')
 _HOTSPOT_TRACK = {
@@ -985,25 +985,29 @@ rule pair_detector:
 
 
 # ───────────────────────────── Taxonomic classification ──────────────────────
-# Per-locus ERV genus calls (canonical taxonomy): each valid LTR-element locus is
-# reclassified from its own marker sequence against a pinned, genus-comprehensive
-# reference — POL/GAG by phylogenetic placement, weighted-LCA otherwise — replacing
-# best-bitscore probe-label transfer. The loci table is the genus-founded ERV
-# assembly (consensus genus + mosaic + structure). See docs/configuration.md
-# (`classification`), docs/taxonomy_classification/, and the ADR.
+# Per-locus ERV taxon calls (rank-agnostic axis; ADR-008): each valid LTR-element
+# locus is reclassified from its own marker sequence against a pinned,
+# taxon-comprehensive reference — POL/GAG by phylogenetic placement, weighted-LCA
+# otherwise — replacing best-bitscore probe-label transfer. The loci table is the
+# taxon-founded ERV assembly (consensus taxon_call + rank + mosaic + structure). See
+# docs/configuration.md (`classification`), docs/taxonomy_classification/, and the ADRs.
 _CLASSIFICATION = config.get('classification', {})
 _PLACEMENT_GENES = [g.upper() for g in _CLASSIFICATION.get('placement_genes', ['POL'])]
 _MAIN_PROBES = ",".join(config['parameters'].get('main_probes', []))
 _TAX_SEED = config['parameters'].get('seed', 0)
+# Classification axis (ADR-008, rank-agnostic): explicit reference_taxa (any rank)
+# override the default, which is the distinct probeset Label values (via --probe-csv).
+_REFERENCE_TAXA = ",".join(_CLASSIFICATION.get('reference_taxa', []) or [])
+_PROBE_CSV = config['input']['probe_csv']
 
 
-# Build the reference package: genus-comprehensive proteins + accession→genus/gene
+# Build the reference package: taxon-comprehensive proteins + accession→taxon/gene
 # table (Entrez), NCBI-derived taxonomy.tsv, the curated erv_class.tsv (copied from
 # the tracked source), and a provenance manifest. Network rule; build-once cache,
 # rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
 # =============================================================================
-# 8. TAXONOMIC CLASSIFICATION — per-locus genus calls
-#    build the genus-comprehensive reference + placement trees, classify anchored
+# 8. TAXONOMIC CLASSIFICATION — per-locus taxon calls (rank-agnostic axis)
+#    build the taxon-comprehensive reference + placement trees, classify anchored
 #    loci, recover + classify the fragments tier, and render the taxonomy panel.
 # =============================================================================
 rule taxonomy_reference:
@@ -1014,13 +1018,16 @@ rule taxonomy_reference:
         erv_class = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'erv_class.tsv'),
         manifest  = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'manifest.yaml')
     params:
-        ref_dir       = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
-        email         = defaults.ENTREZ_EMAIL,
-        erv_class_src = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'erv_class.tsv')
+        ref_dir        = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
+        email          = defaults.ENTREZ_EMAIL,
+        reference_taxa = _REFERENCE_TAXA,
+        probe_csv      = _PROBE_CSV,
+        erv_class_src  = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'erv_class.tsv')
     threads: 1
     shell:
         '''
-        python scripts/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} && \
+        python scripts/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} \
+            --taxa {params.reference_taxa:q} --probe-csv {params.probe_csv:q} && \
         python scripts/taxonomy_build_hierarchy.py {output.csv:q} {params.email:q} && \
         cp {params.erv_class_src:q} {output.erv_class:q}
         '''
@@ -1176,7 +1183,7 @@ rule taxonomy_fragments:
             if _CLASSIFICATION.get('enable', True) else [])
 
 
-# Taxonomy plot panel — genus composition, rank/method resolution, mosaic. Derived
+# Taxonomy plot panel — taxon composition, rank/method resolution, mosaic. Derived
 # from the loci tables (so plots and tables are concordant by construction).
 rule taxonomy_plot_generator_setup:
     input:
@@ -1186,7 +1193,7 @@ rule taxonomy_plot_generator_setup:
                                              genome=species_with_hits(wildcards))
     output:
         plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
-                       tax_plot=['genus_composition',
+                       tax_plot=['taxon_composition',
                                  'rank_resolution',
                                  'method_mix',
                                  'erv_class_composition',
@@ -1197,7 +1204,7 @@ rule taxonomy_plot_generator_setup:
                                  'confidence_vs_evidence',
                                  'structure_by_tier',
                                  'source_yield',
-                                 'genus_by_source']),
+                                 'taxon_by_source']),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],

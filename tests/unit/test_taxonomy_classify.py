@@ -2,9 +2,10 @@
 
 These pin the data-derived, gene-agnostic contract: diagnostic genes are
 discovered from the reference (never hard-coded), loci are grouped by their
-LTR-element ``Parent``, and the assembled record carries the genus-founded
-structural metrics (completeness, canonical order, mosaic). A separate test
-covers the gappa-output parser used by the placement branch.
+LTR-element ``Parent``, and the assembled record carries the taxon-founded
+structural metrics (completeness, canonical order, mosaic). A locus is 'resolved'
+when its call lands on a declared axis taxon (ADR-008, rank-agnostic). A separate
+test covers the gappa-output parser used by the placement branch.
 """
 
 from __future__ import annotations
@@ -13,27 +14,55 @@ import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
 import taxonomy_placement as tplace
 
+# Default (retroviral-genus) axis used by most tests — matches the fallback taxonomy.
+_AXIS = {
+    "Alpharetrovirus",
+    "Betaretrovirus",
+    "Gammaretrovirus",
+    "Deltaretrovirus",
+    "Epsilonretrovirus",
+    "Lentivirus",
+    "Spumaretrovirus",
+}
+
 
 class TestAutoDiagnostic:
-    def test_single_genus_gene_is_diagnostic(self) -> None:
+    def test_single_taxon_gene_is_diagnostic(self) -> None:
         gene_of = {"a1": "REX", "a2": "REX", "a3": "POL"}
-        genus_of = {
+        taxon_of = {
             "a1": "Deltaretrovirus",
             "a2": "Deltaretrovirus",
             "a3": "Gammaretrovirus",
         }
-        diag = tcl.auto_diagnostic(gene_of, genus_of)
+        diag = tcl.auto_diagnostic(gene_of, taxon_of)
         assert diag["REX"] == "Deltaretrovirus"
 
-    def test_multi_genus_gene_not_diagnostic(self) -> None:
+    def test_multi_taxon_gene_not_diagnostic(self) -> None:
         gene_of = {"a1": "POL", "a2": "POL"}
-        genus_of = {"a1": "Gammaretrovirus", "a2": "Betaretrovirus"}
-        assert "POL" not in tcl.auto_diagnostic(gene_of, genus_of)
+        taxon_of = {"a1": "Gammaretrovirus", "a2": "Betaretrovirus"}
+        assert "POL" not in tcl.auto_diagnostic(gene_of, taxon_of)
 
     def test_other_catchall_never_diagnostic(self) -> None:
         gene_of = {"a1": "OTHER"}
-        genus_of = {"a1": "Lentivirus"}
-        assert "OTHER" not in tcl.auto_diagnostic(gene_of, genus_of)
+        taxon_of = {"a1": "Lentivirus"}
+        assert "OTHER" not in tcl.auto_diagnostic(gene_of, taxon_of)
+
+
+class TestRefMaps:
+    def test_returns_taxon_gene_maps_and_axis(self, tmp_path) -> None:
+        csv = tmp_path / "retro_reference.csv"
+        csv.write_text(
+            "accession,taxon,gene,defline\n"
+            "A1,Lentivirus,POL,pol protein\n"
+            "A2,Gammaretrovirus,GAG,gag protein\n"
+            "A3,Lentivirus,ENV,env protein\n",
+            encoding="utf-8",
+        )
+        taxon_of, gene_of, axis = tcl._ref_maps(csv)
+        assert taxon_of["A1"] == "Lentivirus"
+        assert gene_of["A2"] == "GAG"
+        # axis = the distinct declared reference taxa (any rank)
+        assert axis == {"Lentivirus", "Gammaretrovirus"}
 
 
 class TestBuildLoci:
@@ -133,11 +162,14 @@ class TestAssembleStructure:
             "L0|POL": [("Gammaretrovirus", 100.0)],
             "L0|GAG": [("Gammaretrovirus", 90.0)],
         }
-        rec = tcl._assemble(loci, hits, {}, "vTEST", ["POL", "GAG", "ENV"], {}, 0.10)[0]
+        rec = tcl._assemble(
+            loci, hits, {}, "vTEST", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS
+        )[0]
         assert rec["completeness"] == f"{2 / 3:.3f}"
         assert rec["canonical_order"] == "True"
         assert rec["n_main_genes"] == "2"
-        assert rec["genus_call"] == "Gammaretrovirus"
+        assert rec["taxon_call"] == "Gammaretrovirus"
+        assert rec["resolved"] == "True"
         assert rec["is_mosaic"] == "False"
 
     def test_mosaic_flagged_when_genes_disagree(self) -> None:
@@ -146,7 +178,7 @@ class TestAssembleStructure:
             "L0|POL": [("Gammaretrovirus", 100.0)],
             "L0|GAG": [("Betaretrovirus", 100.0)],
         }
-        rec = tcl._assemble(loci, hits, {}, "vTEST", ["POL", "GAG"], {}, 0.10)[0]
+        rec = tcl._assemble(loci, hits, {}, "vTEST", ["POL", "GAG"], {}, 0.10, _AXIS)[0]
         assert rec["is_mosaic"] == "True"
         assert "POL:Gammaretrovirus" in rec["mosaic_composition"]
         assert "GAG:Betaretrovirus" in rec["mosaic_composition"]
@@ -154,10 +186,67 @@ class TestAssembleStructure:
     def test_diagnostic_gene_calls_by_presence(self) -> None:
         loci = [self._locus({"REX": (100, 200)})]
         rec = tcl._assemble(
-            loci, {}, {}, "vTEST", ["POL"], {"REX": "Deltaretrovirus"}, 0.10
+            loci, {}, {}, "vTEST", ["POL"], {"REX": "Deltaretrovirus"}, 0.10, _AXIS
         )[0]
-        assert rec["genus_call"] == "Deltaretrovirus"
+        assert rec["taxon_call"] == "Deltaretrovirus"
         assert rec["method"] == "presence"
+
+
+class TestAxisResolution:
+    """ADR-008: 'resolved' = the call landed on a declared axis taxon, at whatever
+    rank, replacing the old rank=='genus' test. Off-axis LCA-backoffs are recorded
+    (taxon_call + rank) but not marked resolved."""
+
+    def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
+        return {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": "+",
+            "start": min(s for s, _ in genes.values()),
+            "end": max(e for _, e in genes.values()),
+            "genes": genes,
+            "probe_label_set": "",
+        }
+
+    def test_axis_member_is_resolved(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        hits = {"L0|POL": [("Lentivirus", 100.0)]}
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10, {"Lentivirus"})[0]
+        assert rec["taxon_call"] == "Lentivirus"
+        assert rec["resolved"] == "True"
+
+    def test_backoff_off_axis_is_not_resolved(self) -> None:
+        # Near-tie Gamma/Beta -> weighted-LCA backs off to Orthoretrovirinae
+        # (a subfamily, NOT an axis member) -> recorded but resolved == False.
+        loci = [self._locus({"POL": (100, 200)})]
+        hits = {"L0|POL": [("Gammaretrovirus", 600.0), ("Betaretrovirus", 590.0)]}
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
+        assert rec["taxon_call"] == "Orthoretrovirinae"
+        assert rec["rank"] == "subfamily"
+        assert rec["resolved"] == "False"
+
+    def test_non_genus_axis_member_resolves(self, tmp_path) -> None:
+        # A family-rank axis member (Bornaviridae) is a first-class resolved call —
+        # the rank-agnostic guarantee. Requires the taxon in the loaded taxonomy.
+        tsv = tmp_path / "taxonomy.tsv"
+        tsv.write_text(
+            "name\tparent\trank\nRiboviria\t\trealm\nBornaviridae\tRiboviria\tfamily\n",
+            encoding="utf-8",
+        )
+        saved_parent, saved_rank = dict(tlca.RETRO_PARENT), dict(tlca.RANK_OF)
+        try:
+            tlca.load_taxonomy(tsv)
+            loci = [self._locus({"POL": (100, 200)})]
+            hits = {"L0|POL": [("Bornaviridae", 100.0)]}
+            rec = tcl._assemble(
+                loci, hits, {}, "v", ["POL"], {}, 0.10, {"Bornaviridae"}
+            )[0]
+            assert rec["taxon_call"] == "Bornaviridae"
+            assert rec["rank"] == "family"
+            assert rec["resolved"] == "True"
+        finally:
+            tlca.RETRO_PARENT, tlca.RANK_OF = saved_parent, saved_rank
 
 
 class TestGappaParse:
@@ -189,13 +278,19 @@ class TestPlaceableQuery:
 
     def test_enough_sites_is_placeable(self) -> None:
         assert tplace._is_placeable("A" * tplace._MIN_PLACEMENT_SITES)
-        assert tplace._is_placeable("-A-" * tplace._MIN_PLACEMENT_SITES)  # gaps interspersed
+        assert tplace._is_placeable(
+            "-A-" * tplace._MIN_PLACEMENT_SITES
+        )  # gaps interspersed
 
     def test_degenerate_rows_dropped(self) -> None:
-        assert not tplace._is_placeable("---------")          # all gap
-        assert not tplace._is_placeable("XXXX")               # translated all-stop -> X
-        assert not tplace._is_placeable("-" * 2000 + "F" + "-" * 800)  # the L8113 case: 1 site
-        assert not tplace._is_placeable("A" * (tplace._MIN_PLACEMENT_SITES - 1))  # just under
+        assert not tplace._is_placeable("---------")  # all gap
+        assert not tplace._is_placeable("XXXX")  # translated all-stop -> X
+        assert not tplace._is_placeable(
+            "-" * 2000 + "F" + "-" * 800
+        )  # the L8113 case: 1 site
+        assert not tplace._is_placeable(
+            "A" * (tplace._MIN_PLACEMENT_SITES - 1)
+        )  # just under
         assert not tplace._is_placeable("")
 
 
@@ -218,15 +313,15 @@ class TestConfidenceTag:
 
     def test_clean_call_is_high_confidence(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
-        hits = {"L0|POL": [("Lentivirus", 100.0)]}  # single genus -> conf 1.000
-        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10)[0]
+        hits = {"L0|POL": [("Lentivirus", 100.0)]}  # single taxon -> conf 1.000
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
         assert rec["confidence"] == "1.000"
         assert rec["confidence_tag"] == "HC"
 
     def test_unclassified_is_low_confidence(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
-        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]  # no hits
-        assert rec["genus_call"] == tlca.UNCLASSIFIED
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]  # no hits
+        assert rec["taxon_call"] == tlca.UNCLASSIFIED
         assert rec["confidence"] == "0.000"
         assert rec["confidence_tag"] == "LC"
 
@@ -241,6 +336,7 @@ class TestConfidenceTag:
             ["POL"],
             {"REX": "Deltaretrovirus"},
             0.10,
+            _AXIS,
             confidence_min=1.0,
         )[0]
         assert rec["confidence"] == "1.000"
@@ -250,9 +346,9 @@ class TestConfidenceTag:
         # a clean 1.000 call tagged LC only under an (extreme) threshold above 1
         loci = [self._locus({"POL": (100, 200)})]
         hits = {"L0|POL": [("Lentivirus", 100.0)]}
-        rec = tcl._assemble(loci, hits, {}, "v", ["POL"], {}, 0.10, confidence_min=1.5)[
-            0
-        ]
+        rec = tcl._assemble(
+            loci, hits, {}, "v", ["POL"], {}, 0.10, _AXIS, confidence_min=1.5
+        )[0]
         assert rec["confidence_tag"] == "LC"
 
 
@@ -275,29 +371,31 @@ class TestBlastxEvidenceAndSource:
             "L0|POL": [("Gammaretrovirus", 100.0), ("Gammaretrovirus", 90.0)],
             "L0|GAG": [("Gammaretrovirus", 80.0)],
         }
-        rec = tcl._assemble(loci, hits, {}, "v", ["POL", "GAG"], {}, 0.10)[0]
+        rec = tcl._assemble(loci, hits, {}, "v", ["POL", "GAG"], {}, 0.10, _AXIS)[0]
         assert rec["n_blastx_hits"] == "3"
 
     def test_no_blastx_hit_is_zero(self) -> None:
         # the candidate-novel-retrovirus signal: valid structure, zero homology
         loci = [self._locus({"POL": (100, 200)})]
-        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
         assert rec["n_blastx_hits"] == "0"
 
     def test_source_defaults_anchored(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
-        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10)[0]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
         assert rec["source"] == "anchored"
 
     def test_source_is_stamped(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
-        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, source="fragment")[0]
+        rec = tcl._assemble(
+            loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS, source="fragment"
+        )[0]
         assert rec["source"] == "fragment"
 
 
 class TestGateAndCounts:
-    def _rec(self, genus: str, n_hits: str) -> dict[str, str]:
-        return {"genus_call": genus, "n_blastx_hits": n_hits}
+    def _rec(self, taxon: str, n_hits: str) -> dict[str, str]:
+        return {"taxon_call": taxon, "n_blastx_hits": n_hits}
 
     def test_gate_drops_only_unclassified(self) -> None:
         recs = [
@@ -306,7 +404,7 @@ class TestGateAndCounts:
             self._rec("Gammaretrovirus", "3"),
         ]
         kept = tcl.gate_classified(recs)
-        assert [r["genus_call"] for r in kept] == ["Lentivirus", "Gammaretrovirus"]
+        assert [r["taxon_call"] for r in kept] == ["Lentivirus", "Gammaretrovirus"]
 
     def test_anchored_counts(self) -> None:
         recs = [
@@ -352,10 +450,11 @@ def test_loci_columns_cover_record_keys() -> None:
         }
     ]
     rec = tcl._assemble(
-        loci, {"L0|POL": [("Lentivirus", 50.0)]}, {}, "v", ["POL"], {}, 0.10
+        loci, {"L0|POL": [("Lentivirus", 50.0)]}, {}, "v", ["POL"], {}, 0.10, _AXIS
     )[0]
     assert set(rec).issubset(set(tcl.LOCI_COLUMNS))
     # erv_class resolves through the loaded/fallback map
     assert "erv_class" in rec
-    assert rec["genus_call"] == "Lentivirus"
+    assert rec["taxon_call"] == "Lentivirus"
+    assert rec["resolved"] == "True"
     assert tlca.rank_of("Lentivirus") == "genus"

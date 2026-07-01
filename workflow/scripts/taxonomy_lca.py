@@ -2,9 +2,9 @@
 Taxonomy LCA for ERV locus classification
 ==========================================
 
-Resolves the taxonomic identity of an ERV locus from the *set* of retroviral
-genera supported by its evidence, using a lowest-common-ancestor (LCA) walk over
-a small curated retroviral taxonomy.
+Resolves the taxonomic identity of an ERV locus from the *set* of axis taxa
+(any rank; ADR-008) supported by its evidence, using a lowest-common-ancestor
+(LCA) walk over a data-derived taxonomy.
 
 Motivation
 ----------
@@ -17,13 +17,13 @@ dumps the whole genus set (``concatenate`` — uninterpretable). Neither classif
 This module replaces that with LCA backoff (the MEGAN / detectEVE paradigm,
 expressed over a taxonomy rather than a tree):
 
-* genus set collapses to a single genus  -> assign that **genus** (confident);
-* genus set spans several genera          -> assign their **LCA** (subfamily /
-  family — an honest higher rank);
-* nothing retroviral supported            -> ``unclassified``.
+* taxon set collapses to a single axis taxon -> assign that **taxon** (confident);
+* taxon set spans several axis taxa           -> assign their **LCA** (a higher rank
+  — an honest backoff);
+* nothing supported                           -> ``unclassified``.
 
-It is intentionally probe-agnostic: it operates on whatever genus labels the
-evidence carries, never on a fixed marker.
+It is intentionally probe- and rank-agnostic: it operates on whatever axis-taxon
+labels the evidence carries, at whatever rank, never on a fixed marker or rank.
 
 This is the *unweighted* baseline (presence/absence of genus support). The
 weighted variant (blastx bitscore-weighted LCA against an independent reference)
@@ -171,14 +171,14 @@ def weighted_lca(
     """
     Bitscore-weighted LCA over a locus's hits (MEGAN top-percent paradigm).
 
-    ``hits`` is ``[(genus, bitscore), ...]``. Only hits whose bitscore is within
-    ``top_percent`` of the locus's best bitscore count toward the LCA — so a genus
+    ``hits`` is ``[(taxon, bitscore), ...]``. Only hits whose bitscore is within
+    ``top_percent`` of the locus's best bitscore count toward the LCA — so a taxon
     supported only by weak hits does **not** drag the assignment up to a higher
     rank. This is the fix for unweighted LCA's over-backoff.
 
     Returns ``(node, confidence)`` where confidence is the bitscore-mass fraction
-    carried by the dominant genus among the retained (top) hits: ~1.0 for a clean
-    single-genus call, ~1/k when k genera tie near the top.
+    carried by the dominant taxon among the retained (top) hits: ~1.0 for a clean
+    single-taxon call, ~1/k when k taxa tie near the top.
     """
     known = [(g, s) for g, s in hits if g in RETRO_PARENT and s > 0]
     if not known:
@@ -204,9 +204,9 @@ _LABEL_RE = re.compile(r"label=([^;\t]+)")
 _PROBE_RE = re.compile(r"probe=([^;\t]+)")
 
 
-def parse_genus_set(label_field: str) -> set[str]:
+def parse_taxon_set(label_field: str) -> set[str]:
     """
-    Parse a GFF3 ``label=`` value into a set of genus names.
+    Parse a GFF3 ``label=`` value into a set of taxon names.
 
     Values are GFF3-escaped (``%3b`` = ``;``) and joined by ``"; "`` when the
     run used list/concatenate aggregation.
@@ -235,16 +235,16 @@ def classify_gff3(gff3_path: str | Path) -> list[dict[str, str]]:
             probe_match = _PROBE_RE.search(attrs)
             if not label_match:
                 continue
-            genus_set = parse_genus_set(label_match.group(1))
-            node = lca(genus_set)
+            taxon_set = parse_taxon_set(label_match.group(1))
+            node = lca(taxon_set)
             records.append(
                 {
                     "seqname": fields[0],
                     "start": fields[3],
                     "end": fields[4],
                     "probe": probe_match.group(1) if probe_match else "",
-                    "n_genera": str(len(genus_set)),
-                    "genus_set": ";".join(sorted(genus_set)),
+                    "n_taxa": str(len(taxon_set)),
+                    "taxon_set": ";".join(sorted(taxon_set)),
                     "lca_node": node,
                     "lca_rank": rank_of(node),
                     "erv_class": ERV_CLASS.get(node, ""),

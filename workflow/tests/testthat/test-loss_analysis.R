@@ -79,7 +79,7 @@ test_that("build_loss_funnel guards against zero/absent parents", {
 
 test_that("pick_novel_candidates keeps only zero-blastx-hit loci", {
   loci <- tribble(
-    ~id,  ~genus_call,        ~n_blastx_hits,
+    ~id,  ~taxon_call,        ~n_blastx_hits,
     "L0", "Gammaretrovirus",  "5",
     "L1", "UNCLASSIFIED",     "0",
     "L2", "UNCLASSIFIED",     "0",

@@ -3,7 +3,7 @@ Build a per-gene reference tree package for phylogenetic placement
 =================================================================
 
 For one gene (e.g. POL, GAG), builds the artifacts EPA-ng/gappa need, from the
-gene's subset of the genus-comprehensive reference:
+gene's subset of the taxon-comprehensive reference:
 
     gene refs (faa)  --MAFFT-->  <gene>.afa      reference MSA
                      --IQ-TREE-> <gene>.treefile + <gene>.model   tree + substitution model
@@ -57,12 +57,12 @@ def run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]:
 def gene_subset(
     ref_csv: Path, ref_faa: Path, gene: str, out_faa: Path
 ) -> dict[str, str]:
-    """Write the gene's reference proteins to out_faa; return accession->genus."""
+    """Write the gene's reference proteins to out_faa; return accession->taxon."""
     wanted = {}
     with ref_csv.open(encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             if r["gene"] == gene:
-                wanted[r["accession"]] = r["genus"]
+                wanted[r["accession"]] = r["taxon"]
     n = 0
     with out_faa.open("w", encoding="utf-8") as out:
         for rec in SeqIO.parse(str(ref_faa), "fasta"):  # type: ignore[no-untyped-call]
@@ -98,11 +98,11 @@ def alignment_quality(afa: Path) -> str:
     return f"n={len(seqs)} cols={ncol} gap={100 * gap:.0f}% mean_pident={mpi:.1f}% -> {flag}"
 
 
-def taxon_map(acc_genus: dict[str, str], out_tsv: Path) -> None:
-    """tip(accession) -> 'Family;Subfamily;Genus' lineage for gappa."""
+def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
+    """tip(accession) -> 'root;…;taxon' lineage for gappa (any rank; ADR-008)."""
     with out_tsv.open("w", encoding="utf-8") as fh:
-        for acc, genus in acc_genus.items():
-            lineage = ";".join(reversed(tlca.ancestors(genus)))  # root..genus
+        for acc, taxon in acc_taxon.items():
+            lineage = ";".join(reversed(tlca.ancestors(taxon)))  # root..taxon
             fh.write(f"{acc}\t{lineage}\n")
 
 
@@ -134,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
         tlca.load_taxonomy(tax)
 
     gene_faa = trees / f"{gene}.faa"
-    acc_genus = gene_subset(
+    acc_taxon = gene_subset(
         ref_dir / "retro_reference.csv", ref_dir / "retro_reference.faa", gene, gene_faa
     )
 
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         ]
     )
     run([HMMBUILD, "--amino", str(trees / f"{gene}.hmm"), str(afa)])
-    taxon_map(acc_genus, trees / f"{gene}.taxon.tsv")
+    taxon_map(acc_taxon, trees / f"{gene}.taxon.tsv")
     logger.info("[%s] tree package written -> %s/%s.*", gene, trees, gene)
     return 0
 

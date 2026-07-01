@@ -1,20 +1,20 @@
 # =============================================================================
 # taxonomy_plot_generator.R
 # =============================================================================
-# Builds RetroSeek's taxonomy panel: per-locus ERV genus-call composition and
+# Builds RetroSeek's taxonomy panel: per-locus ERV taxon-call composition and
 # resolution plots, derived from the per-genome `<genome>.loci.parquet` tables
 # that taxonomy_classify_loci.py writes to data/tables/taxonomy_classification/.
 # Because every plot is computed from those same loci tables, the panel is
 # concordant with the tables by construction.
 #
 # Plots:
-#   1. genus_composition      — per-species stacked counts of confident genus calls.
+#   1. taxon_composition      — per-species stacked counts of confident (axis-resolved) taxon calls.
 #   2. rank_resolution        — per-species resolved-rank distribution (genus /
 #                               subfamily / family / unclassified).
-#   3. method_mix             — how genus calls were made (placement / lca / presence).
+#   3. method_mix             — how taxon calls were made (placement / lca / presence).
 #   4. erv_class_composition  — per-species Class I/II/III composition (the
 #                               literature anchor: bats+human Class I, mouse Class II).
-#   5. mosaic_alluvial        — gene -> genus flows across mosaic loci (ggalluvial).
+#   5. mosaic_alluvial        — gene -> taxon flows across mosaic loci (ggalluvial).
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R — not duplicated — so the panel matches the existing plots.
@@ -115,13 +115,13 @@ build_report <- function(combined) {
   cols <- c("source", "dimension", "level", "count")
   if (!"source" %in% names(combined)) combined$source <- "anchored"
   per_source <- function(df, src) {
-    genus <- df %>% filter(.data$rank == "genus") %>%
-      count(level = .data$genus_call, name = "count") %>%
-      mutate(dimension = "genus")
+    taxon <- df %>% filter(.data$resolved == "True") %>%
+      count(level = .data$taxon_call, name = "count") %>%
+      mutate(dimension = "taxon")
     conf <- df %>%
       count(level = .data$confidence_tag, name = "count") %>%
       mutate(dimension = "confidence")
-    method <- df %>% filter(.data$rank == "genus") %>%
+    method <- df %>% filter(.data$resolved == "True") %>%
       count(level = .data$method, name = "count") %>%
       mutate(dimension = "method")
     summary <- tibble(
@@ -129,7 +129,7 @@ build_report <- function(combined) {
       level     = c("mosaic", "integrations"),
       count     = c(sum(df$is_mosaic == "True"), nrow(df))
     )
-    bind_rows(genus, conf, method, summary) %>%
+    bind_rows(taxon, conf, method, summary) %>%
       mutate(source = src) %>%
       select(all_of(cols))
   }
@@ -145,18 +145,18 @@ build_report <- function(combined) {
 # empty_plot() when there is nothing to show), so the orchestrator stays flat.
 # ----------------------------------------------------------------------------
 
-# Confident (genus-rank) calls, stacked per species and coloured by genus.
-genus_composition_plot <- function(loci) {
-  d <- loci %>% filter(.data$rank == "genus")
-  if (nrow(d) == 0L) return(empty_plot("no confident genus calls"))
-  counts <- d %>% count(.data$species, .data$genus_call, name = "n")
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$genus_call)) +
+# Confident (axis-resolved) calls, stacked per species and coloured by taxon.
+taxon_composition_plot <- function(loci) {
+  d <- loci %>% filter(.data$resolved == "True")
+  if (nrow(d) == 0L) return(empty_plot("no confident taxon calls"))
+  counts <- d %>% count(.data$species, .data$taxon_call, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon_call)) +
     geom_col() +
     scale_fill_igv() +
-    labs(x = NULL, y = "loci (genus-resolved)", fill = "genus") +
+    labs(x = NULL, y = "loci (axis-resolved)", fill = "taxon") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "ERV genus composition", "Confident (genus-rank) calls per species")
+  add_titles(p, "ERV taxon composition", "Confident (axis-resolved) calls per species")
 }
 
 # Resolved-rank distribution per species (how deep the call goes).
@@ -177,18 +177,18 @@ rank_resolution_plot <- function(loci) {
   add_titles(p, "Taxonomic resolution", "Resolved rank per species")
 }
 
-# How each genus call was made (placement vs weighted-LCA vs presence).
+# How each taxon call was made (placement vs weighted-LCA vs presence).
 method_mix_plot <- function(loci) {
-  d <- loci %>% filter(.data$rank == "genus")
-  if (nrow(d) == 0L) return(empty_plot("no confident genus calls"))
+  d <- loci %>% filter(.data$resolved == "True")
+  if (nrow(d) == 0L) return(empty_plot("no confident taxon calls"))
   counts <- d %>% count(.data$species, .data$method, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$method)) +
     geom_col() +
     scale_fill_aaas() +
-    labs(x = NULL, y = "genus calls", fill = "method") +
+    labs(x = NULL, y = "taxon calls", fill = "method") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Genus-call method mix", "Placement vs weighted-LCA vs presence")
+  add_titles(p, "Taxon-call method mix", "Placement vs weighted-LCA vs presence")
 }
 
 # ERV class (I/II/III) composition per species — the literature anchor.
@@ -207,29 +207,29 @@ erv_class_composition_plot <- function(loci) {
              "Class I / II / III per species (Jern/Blomberg)")
 }
 
-# Gene -> genus flows across mosaic loci (loci whose member genes disagree).
-# mosaic_composition is packed as "GENE:Genus;GENE:Genus"; unpack to flows.
+# Gene -> taxon flows across mosaic loci (loci whose member genes disagree).
+# mosaic_composition is packed as "GENE:Taxon;GENE:Taxon"; unpack to flows.
 mosaic_alluvial_plot <- function(loci) {
   d <- loci %>% filter(.data$is_mosaic == "True", nzchar(.data$mosaic_composition))
   if (nrow(d) == 0L) return(empty_plot("no mosaic loci"))
   flows <- d %>%
     mutate(.locus = row_number()) %>%
     separate_rows("mosaic_composition", sep = ";") %>%
-    separate("mosaic_composition", into = c("gene", "genus"),
+    separate("mosaic_composition", into = c("gene", "taxon"),
              sep = ":", fill = "right", extra = "merge") %>%
-    filter(nzchar(.data$gene), nzchar(.data$genus))
+    filter(nzchar(.data$gene), nzchar(.data$taxon))
   if (nrow(flows) == 0L) return(empty_plot("no mosaic loci"))
-  counts <- flows %>% count(.data$gene, .data$genus, name = "n")
+  counts <- flows %>% count(.data$gene, .data$taxon, name = "n")
   p <- ggplot(counts,
-              aes(axis1 = .data$gene, axis2 = .data$genus, y = .data$n)) +
-    geom_alluvium(aes(fill = .data$genus)) +
+              aes(axis1 = .data$gene, axis2 = .data$taxon, y = .data$n)) +
+    geom_alluvium(aes(fill = .data$taxon)) +
     geom_stratum() +
     geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-    scale_x_discrete(limits = c("gene", "genus"), expand = c(0.1, 0.1)) +
+    scale_x_discrete(limits = c("gene", "taxon"), expand = c(0.1, 0.1)) +
     scale_fill_igv() +
-    labs(y = "mosaic-locus gene calls", fill = "genus") +
+    labs(y = "mosaic-locus gene calls", fill = "taxon") +
     theme_bw()
-  add_titles(p, "Mosaic composition", "Per-gene genus calls within mosaic loci")
+  add_titles(p, "Mosaic composition", "Per-gene taxon calls within mosaic loci")
 }
 
 # Confidence-tag composition per species (HC/LC), faceted by tier so anchored
@@ -356,22 +356,22 @@ source_yield_plot <- function(combined) {
   add_titles(p, "Anchored vs fragment yield", "Loci recovered per tier, per species")
 }
 
-# Genus composition split by tier — surfaces genera present only in the fragment
-# tier (the novel-lineage check). Long genus tail folded via collapse_long_tail.
-genus_by_source_plot <- function(combined) {
-  d <- combined %>% filter(.data$rank == "genus")
-  if (nrow(d) == 0L) return(empty_plot("no confident genus calls"))
-  d <- collapse_long_tail(d, "genus_call", top_n = 20)
-  counts <- d %>% count(.data$species, .data$source, .data$genus_call, name = "n")
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$genus_call)) +
+# Taxon composition split by tier — surfaces taxa present only in the fragment
+# tier (the novel-lineage check). Long taxon tail folded via collapse_long_tail.
+taxon_by_source_plot <- function(combined) {
+  d <- combined %>% filter(.data$resolved == "True")
+  if (nrow(d) == 0L) return(empty_plot("no confident taxon calls"))
+  d <- collapse_long_tail(d, "taxon_call", top_n = 20)
+  counts <- d %>% count(.data$species, .data$source, .data$taxon_call, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon_call)) +
     geom_col() +
     facet_wrap(~ .data$source, scales = "free_x") +
     scale_fill_igv() +
-    labs(x = NULL, y = "genus-resolved loci", fill = "genus") +
+    labs(x = NULL, y = "axis-resolved loci", fill = "taxon") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Genus composition by tier",
-             "Genera per species, anchored vs fragment (new-lineage check)")
+  add_titles(p, "Taxon composition by tier",
+             "Taxa per species, anchored vs fragment (new-lineage check)")
 }
 
 
@@ -380,7 +380,7 @@ genus_by_source_plot <- function(combined) {
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
-    description = "Generate RetroSeek taxonomy panel (per-locus genus-call plots)"
+    description = "Generate RetroSeek taxonomy panel (per-locus taxon-call plots)"
   )
   parser$add_argument("--input", required = TRUE,
                       help = "Directory with per-genome <genome>.loci.parquet tables.")
@@ -427,9 +427,9 @@ main <- function() {
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  # Taxonomy composition plots stay on the anchored loci (the genus-founded
+  # Taxonomy composition plots stay on the anchored loci (the taxon-founded
   # assembly); the confidence plot spans both tiers.
-  emit("genus_composition.png",     genus_composition_plot(loci))
+  emit("taxon_composition.png",     taxon_composition_plot(loci))
   emit("rank_resolution.png",       rank_resolution_plot(loci))
   emit("method_mix.png",            method_mix_plot(loci))
   emit("erv_class_composition.png", erv_class_composition_plot(loci))
@@ -442,9 +442,9 @@ main <- function() {
   emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
   emit("structure_by_tier.png",     structure_by_tier_plot(combined))
   emit("source_yield.png",          source_yield_plot(combined))
-  emit("genus_by_source.png",       genus_by_source_plot(combined))
+  emit("taxon_by_source.png",       taxon_by_source_plot(combined))
 
-  # Tidy report: counts by genus / confidence / method + mosaic + integrations,
+  # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
