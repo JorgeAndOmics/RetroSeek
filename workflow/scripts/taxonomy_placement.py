@@ -54,6 +54,19 @@ def _read_model(iqtree_file: Path, default: str = "LG+F+G4") -> str:
     return default
 
 
+# Standard 20 amino acids. A post-alignment query row must contain at least one
+# of these to be placeable — epa-ng aborts the WHOLE run on any query that has
+# "no non-gap sites", and it treats gaps (-, .) AND fully-ambiguous residues
+# (X, *, ?) alike as non-informative. An all-X row (a fragment whose translated
+# marker was all stop-codons -> X) passes a gaps-only filter but crashes epa-ng.
+_STANDARD_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
+
+
+def _has_informative_residues(seq: str) -> bool:
+    """True if the (possibly aligned) sequence has >=1 standard amino acid."""
+    return bool(_STANDARD_AA & set(seq.upper()))
+
+
 def _align_queries(
     queries: dict[str, str], ref_afa: Path, workdir: Path
 ) -> Path | None:
@@ -67,14 +80,15 @@ def _align_queries(
         [MAFFT, "--add", str(q_faa), "--keeplength", "--anysymbol", str(ref_afa)],
         stdout=combined.open("w", encoding="utf-8"),
     )
-    # keep only the query rows (same columns as ref); DROP all-gap rows (no homology to
-    # the reference columns) — EPA-ng aborts on a query with no non-gap sites.
+    # keep only the query rows (same columns as ref); DROP rows with no informative
+    # residues (all-gap OR all-X) — EPA-ng aborts the whole run on a query with no
+    # non-gap sites, so one degenerate fragment must not take down the placement.
     q_aln = workdir / "query_aln.afa"
     qids = set(queries)
     kept = 0
     with q_aln.open("w", encoding="utf-8") as out:
         for rec in SeqIO.parse(str(combined), "fasta"):  # type: ignore[no-untyped-call]
-            if rec.id.split()[0] in qids and str(rec.seq).replace("-", "").strip():
+            if rec.id.split()[0] in qids and _has_informative_residues(str(rec.seq)):
                 out.write(f">{rec.id.split()[0]}\n{rec.seq!s}\n")
                 kept += 1
     return q_aln if kept else None

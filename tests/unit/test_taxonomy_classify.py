@@ -177,6 +177,21 @@ class TestGappaParse:
         assert tplace._parse_gappa(tmp_path / "nope.tsv") == {}
 
 
+class TestInformativeResidues:
+    """A placement query must carry >=1 standard amino acid; an all-gap or
+    all-X (degenerate) row crashes epa-ng ('no non-gap sites'), so it is dropped."""
+
+    def test_standard_residues_are_informative(self) -> None:
+        assert tplace._has_informative_residues("--M-K-P--")
+        assert tplace._has_informative_residues("acdefg")  # lowercase counts
+
+    def test_all_gap_or_all_X_is_dropped(self) -> None:
+        assert not tplace._has_informative_residues("---------")
+        assert not tplace._has_informative_residues("XXXX")  # translated all-stop -> X
+        assert not tplace._has_informative_residues("-X-.X*?-")  # gaps + ambiguous only
+        assert not tplace._has_informative_residues("")
+
+
 class TestConfidenceTag:
     """confidence_tag (HC/LC) is derived from the locus confidence vs a
     user-adjustable threshold (classification.confidence_min, default 0.5),
