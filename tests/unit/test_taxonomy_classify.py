@@ -177,19 +177,26 @@ class TestGappaParse:
         assert tplace._parse_gappa(tmp_path / "nope.tsv") == {}
 
 
-class TestInformativeResidues:
-    """A placement query must carry >=1 standard amino acid; an all-gap or
-    all-X (degenerate) row crashes epa-ng ('no non-gap sites'), so it is dropped."""
+class TestPlaceableQuery:
+    """A placement query must overlap the reference at >= _MIN_PLACEMENT_SITES
+    standard-AA columns; degenerate rows (all-gap, all-X, or a single residue)
+    crash epa-ng ('no non-gap sites'), so they are dropped and fall back to LCA."""
 
-    def test_standard_residues_are_informative(self) -> None:
-        assert tplace._has_informative_residues("--M-K-P--")
-        assert tplace._has_informative_residues("acdefg")  # lowercase counts
+    def test_informative_site_count_ignores_gaps_and_ambiguous(self) -> None:
+        assert tplace._informative_site_count("--M-K-P--") == 3
+        assert tplace._informative_site_count("acdefg") == 6  # lowercase counts
+        assert tplace._informative_site_count("---X-*.?-") == 0
 
-    def test_all_gap_or_all_X_is_dropped(self) -> None:
-        assert not tplace._has_informative_residues("---------")
-        assert not tplace._has_informative_residues("XXXX")  # translated all-stop -> X
-        assert not tplace._has_informative_residues("-X-.X*?-")  # gaps + ambiguous only
-        assert not tplace._has_informative_residues("")
+    def test_enough_sites_is_placeable(self) -> None:
+        assert tplace._is_placeable("A" * tplace._MIN_PLACEMENT_SITES)
+        assert tplace._is_placeable("-A-" * tplace._MIN_PLACEMENT_SITES)  # gaps interspersed
+
+    def test_degenerate_rows_dropped(self) -> None:
+        assert not tplace._is_placeable("---------")          # all gap
+        assert not tplace._is_placeable("XXXX")               # translated all-stop -> X
+        assert not tplace._is_placeable("-" * 2000 + "F" + "-" * 800)  # the L8113 case: 1 site
+        assert not tplace._is_placeable("A" * (tplace._MIN_PLACEMENT_SITES - 1))  # just under
+        assert not tplace._is_placeable("")
 
 
 class TestConfidenceTag:

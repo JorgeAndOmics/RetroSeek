@@ -54,17 +54,25 @@ def _read_model(iqtree_file: Path, default: str = "LG+F+G4") -> str:
     return default
 
 
-# Standard 20 amino acids. A post-alignment query row must contain at least one
-# of these to be placeable — epa-ng aborts the WHOLE run on any query that has
-# "no non-gap sites", and it treats gaps (-, .) AND fully-ambiguous residues
-# (X, *, ?) alike as non-informative. An all-X row (a fragment whose translated
-# marker was all stop-codons -> X) passes a gaps-only filter but crashes epa-ng.
+# Standard 20 amino acids. A post-alignment query row must overlap the reference
+# columns at enough informative sites to be placeable. epa-ng ABORTS THE WHOLE
+# RUN on a query it considers to have "no non-gap sites", and it fires this even
+# for a query aligning at a single residue (observed: an all-gap-but-one-'F' POL
+# fragment). Gaps (-, .) and fully-ambiguous residues (X, *, ?) are all
+# non-informative. Below the threshold a query carries no phylogenetic signal
+# anyway, so it is dropped from placement and falls back to weighted-LCA.
 _STANDARD_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
+_MIN_PLACEMENT_SITES = 10  # min standard-AA columns for a meaningful placement
 
 
-def _has_informative_residues(seq: str) -> bool:
-    """True if the (possibly aligned) sequence has >=1 standard amino acid."""
-    return bool(_STANDARD_AA & set(seq.upper()))
+def _informative_site_count(seq: str) -> int:
+    """Number of standard-amino-acid columns in a (possibly aligned) sequence."""
+    return sum(ch in _STANDARD_AA for ch in seq.upper())
+
+
+def _is_placeable(seq: str) -> bool:
+    """True if the aligned query has enough informative sites to place (>= min)."""
+    return _informative_site_count(seq) >= _MIN_PLACEMENT_SITES
 
 
 def _align_queries(
@@ -88,7 +96,7 @@ def _align_queries(
     kept = 0
     with q_aln.open("w", encoding="utf-8") as out:
         for rec in SeqIO.parse(str(combined), "fasta"):  # type: ignore[no-untyped-call]
-            if rec.id.split()[0] in qids and _has_informative_residues(str(rec.seq)):
+            if rec.id.split()[0] in qids and _is_placeable(str(rec.seq)):
                 out.write(f">{rec.id.split()[0]}\n{rec.seq!s}\n")
                 kept += 1
     return q_aln if kept else None
