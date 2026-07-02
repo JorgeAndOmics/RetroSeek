@@ -169,10 +169,13 @@ def main(argv: list[str] | None = None) -> int:
     # raxml-ng --evaluate: optimise model params + branch lengths on the fixed topology ->
     # <gene>.raxml.bestModel + .bestTree, which EPA-ng uses for calibrated placement.
     # raxml-ng appends ".raxml.<suffix>" to --prefix, so prefix=<gene> -> <gene>.raxml.bestModel
+    # --redo overwrites stale <gene>.raxml.* from a prior build; without it raxml-ng aborts
+    # on any rebuild ("file already exists"), unlike the idempotent iqtree (-redo) call.
     run(
         [
             RAXML,
             "--evaluate",
+            "--redo",
             "--msa",
             str(afa),
             "--tree",
