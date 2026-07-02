@@ -1,4 +1,4 @@
-# testthat tests for workflow/scripts/range_analysis/reductions.R
+# testthat tests for workflow/scripts/ranges/reductions.R
 #
 # Focus areas:
 #   * attach_tiebreak_rank() — the per-row deterministic rank that makes the
@@ -23,7 +23,7 @@ suppressMessages({
 
 .script_dir <- file.path("..", "..", "scripts")
 source(file.path(.script_dir, "range_aggregation_strategies.R"))
-source(file.path(.script_dir, "range_analysis", "reductions.R"))
+source(file.path(.script_dir, "ranges", "reductions.R"))
 
 
 # Filtered-BLAST-like GRanges carrying exactly the mcols reduce_first reads.

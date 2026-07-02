@@ -10,7 +10,7 @@ suppressMessages({
 })
 
 source("../../scripts/utils/chrom_names.R")
-source("../../scripts/hotspot_analysis/io.R")
+source("../../scripts/hotspot/io.R")
 
 
 # ──────────────────────── normalise_chrom_names ─────────────────────────

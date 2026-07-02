@@ -51,12 +51,12 @@ suppressMessages({
 }
 .script_dir <- .resolve_script_dir()
 source(file.path(.script_dir, "utils",            "chrom_names.R"))
-source(file.path(.script_dir, "hotspot_analysis", "io.R"))
-source(file.path(.script_dir, "hotspot_analysis", "masking.R"))
-source(file.path(.script_dir, "hotspot_analysis", "windowing.R"))
-source(file.path(.script_dir, "hotspot_analysis", "models.R"))
-source(file.path(.script_dir, "hotspot_analysis", "postprocess.R"))
-source(file.path(.script_dir, "hotspot_analysis", "plots.R"))
+source(file.path(.script_dir, "hotspot", "io.R"))
+source(file.path(.script_dir, "hotspot", "masking.R"))
+source(file.path(.script_dir, "hotspot", "windowing.R"))
+source(file.path(.script_dir, "hotspot", "models.R"))
+source(file.path(.script_dir, "hotspot", "postprocess.R"))
+source(file.path(.script_dir, "hotspot", "plots.R"))
 source(file.path(.script_dir, "range_analysis",   "exporters.R"))
 
 

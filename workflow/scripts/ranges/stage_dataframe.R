@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / stage_dataframe.R
+# ranges / stage_dataframe.R
 # -----------------------------------------------------------------------------
 # Build the per-genome "middle stage" dataframes consumed by
 # stage_plot_generator.R. Where plot_dataframe.R characterises the final

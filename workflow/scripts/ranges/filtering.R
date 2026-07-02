@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / filtering.R
+# ranges / filtering.R
 # -----------------------------------------------------------------------------
 # Threshold-based filtering of the BLAST GRanges. Per-probe minimum lengths
 # are looked up by abbreviation; unknown probes get a fallback of 0 (no length

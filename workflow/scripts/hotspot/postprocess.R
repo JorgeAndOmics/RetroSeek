@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot_analysis / postprocess.R
+# hotspot / postprocess.R
 # -----------------------------------------------------------------------------
 # Convert per-window scored tibbles into hotspot regions:
 #   1. Select windows whose qval is below threshold.

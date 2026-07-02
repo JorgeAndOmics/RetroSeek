@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / plot_dataframe.R
+# ranges / plot_dataframe.R
 # -----------------------------------------------------------------------------
 # Build the per-row tibble consumed by plot2sort.R / circle_plot_generator.R /
 # pair_detector.R. Replaces the pre-refactor three-file fanout (main /

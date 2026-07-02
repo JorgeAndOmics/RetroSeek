@@ -1,4 +1,4 @@
-# testthat tests for workflow/scripts/range_analysis/stage_dataframe.R
+# testthat tests for workflow/scripts/ranges/stage_dataframe.R
 #
 # The three builders that produce the per-genome middle-stage parquets
 # consumed by stage_plot_generator.R: spatial concordance + M1 (hits),
@@ -11,7 +11,7 @@ suppressMessages({
   library(S4Vectors)
 })
 
-.script_dir <- file.path("..", "..", "scripts", "range_analysis")
+.script_dir <- file.path("..", "..", "scripts", "ranges")
 source(file.path(.script_dir, "stage_dataframe.R"))
 
 

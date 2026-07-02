@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / granges_build.R
+# ranges / granges_build.R
 # -----------------------------------------------------------------------------
 # Convert tabular / GFF3 inputs into well-typed GRanges objects with the
 # metadata the downstream phases expect. Pure construction — no filtering or

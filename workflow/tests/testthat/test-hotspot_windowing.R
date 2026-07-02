@@ -9,7 +9,7 @@ suppressMessages({
   library(S4Vectors)
 })
 
-source("../../scripts/hotspot_analysis/windowing.R")
+source("../../scripts/hotspot/windowing.R")
 
 
 # ─────────────────────────── tile_genome_for_hotspot ───────────────────────

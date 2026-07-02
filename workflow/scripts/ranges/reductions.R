@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / reductions.R
+# ranges / reductions.R
 # -----------------------------------------------------------------------------
 # Two-stage reduction of the filtered BLAST GRanges:
 #   1. `reduce_first(gr, ...)`: merge overlapping ranges per (probe, virus)

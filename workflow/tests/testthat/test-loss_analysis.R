@@ -9,7 +9,7 @@ suppressMessages({
 })
 
 .script_dir <- file.path("..", "..", "scripts")
-source(file.path(.script_dir, "loss_analysis.R"))
+source(file.path(.script_dir, "taxonomy", "loss_analysis.R"))
 
 
 test_that("build_loss_funnel orders stages and computes step retention", {

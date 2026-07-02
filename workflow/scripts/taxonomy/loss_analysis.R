@@ -354,8 +354,8 @@ main <- function() {
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
-  source(file.path(.script_dir, "plot2sort", "helpers.R"))
-  source(file.path(.script_dir, "plot2sort", "io.R"))
+  source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
+  source(file.path(.script_dir, "..", "plot2sort", "io.R"))
   .t0 <- Sys.time()
   log_section <- function(name) {
     elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))

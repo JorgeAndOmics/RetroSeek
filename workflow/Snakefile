@@ -90,7 +90,7 @@ rule genome_downloader_setup:
         workflow.cores / 3
     shell:
         '''
-        bash scripts/genome_downloader.sh {wildcards.genome:q} {params.SPECIES_DB:q} {params.DOWNLOAD_LOG:q}
+        bash scripts/blast_search/genome_downloader.sh {wildcards.genome:q} {params.SPECIES_DB:q} {params.DOWNLOAD_LOG:q}
         '''
 
 
@@ -105,7 +105,7 @@ rule genome_downloader:
 # selected source so every downstream rule's `.fa` input contract holds
 # regardless of upstream filename. Idempotent — a real `{genome}.fa`
 # already in place is left untouched. Refuses on multi-extension
-# ambiguity (see workflow/scripts/genome_fasta_normalizer.py docstring).
+# ambiguity (see workflow/scripts/blast_search/genome_fasta_normalizer.py docstring).
 #
 # Ruleorder below pins this rule to win over `genome_downloader_setup`
 # when both can produce the same `{genome}.fa` output: if a user has a
@@ -121,7 +121,7 @@ rule genome_fasta_normalizer_setup:
     threads: 1
     shell:
         '''
-        python scripts/genome_fasta_normalizer.py \
+        PYTHONPATH=scripts python scripts/blast_search/genome_fasta_normalizer.py \
             --genome-name {wildcards.genome:q} \
             --species-dir {params.species_dir:q} \
             --output {output.canonical_fa:q} \
@@ -356,7 +356,7 @@ rule full_genome_blaster_setup:
     threads: config.get('rule_threads',1)
     shell:
         '''
-        python scripts/full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
+        PYTHONPATH=scripts python scripts/blast_search/full_genome_blaster.py --genome {wildcards.genome} --num_threads {params.num_threads}
         '''
 
 
@@ -569,7 +569,7 @@ rule ltr_retriever_prefilter_setup:
     threads: 1
     shell:
         '''
-        python scripts/ltr_retriever_prefilter.py \
+        PYTHONPATH=scripts python scripts/solo_ltr/ltr_retriever_prefilter.py \
             --scn {input.scn:q} \
             --des {input.des:q} \
             --valid-ranges {input.valid_ranges:q} \
@@ -615,7 +615,7 @@ rule ltr_retriever_setup:
     threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
     shell:
         '''
-        python scripts/run_ltr_retriever.py \
+        PYTHONPATH=scripts python scripts/solo_ltr/run_ltr_retriever.py \
             --genome-fa {input.genome_fa:q} \
             --retroviral-scn {input.retroviral_scn:q} \
             --full-scn {input.full_scn:q} \
@@ -662,7 +662,7 @@ rule solo_ltr_integrator_setup:
     threads: 1
     shell:
         '''
-        python scripts/solo_ltr_integrator.py \
+        PYTHONPATH=scripts python scripts/solo_ltr/solo_ltr_integrator.py \
             --nmtf-pass-list {input.nmtf:q} \
             --ltr-library {input.ltr_library:q} \
             --valid-ranges {input.valid_ranges:q} \
@@ -845,7 +845,7 @@ rule erv_like_plot_generator_setup:
         workflow.cores
     shell:
         '''
-        Rscript scripts/erv_like_plot_generator.R \
+        Rscript scripts/taxonomy/erv_like_plot_generator.R \
         --input {params.taxonomy_parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q}
@@ -1026,9 +1026,9 @@ rule taxonomy_reference:
     threads: 1
     shell:
         '''
-        python scripts/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} \
             --taxa {params.reference_taxa:q} --probe-csv {params.probe_csv:q} && \
-        python scripts/taxonomy_build_hierarchy.py {output.csv:q} {params.email:q} && \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_hierarchy.py {output.csv:q} {params.email:q} && \
         cp {params.erv_class_src:q} {output.erv_class:q}
         '''
 
@@ -1055,7 +1055,7 @@ rule taxonomy_reference_trees_setup:
     threads: config.get('rule_threads', 2)
     shell:
         '''
-        python scripts/taxonomy_build_tree.py {wildcards.gene} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_tree.py {wildcards.gene} \
             --ref-dir {params.ref_dir:q} --seed {params.seed} --threads {threads}
         '''
 
@@ -1096,7 +1096,7 @@ rule taxonomy_classify_setup:
     threads: config.get('rule_threads', 1)
     shell:
         '''
-        python scripts/taxonomy_classify_loci.py {input.valid:q} {input.genome:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.valid:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
@@ -1157,7 +1157,7 @@ rule taxonomy_fragments_setup:
     threads: config.get('rule_threads', 1)
     shell:
         '''
-        python scripts/taxonomy_classify_loci.py {input.fragments:q} {input.genome:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.fragments:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
@@ -1214,7 +1214,7 @@ rule taxonomy_plot_generator_setup:
         workflow.cores
     shell:
         '''
-        Rscript scripts/taxonomy_plot_generator.R \
+        Rscript scripts/taxonomy/taxonomy_plot_generator.R \
         --input {params.parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q} \
@@ -1274,7 +1274,7 @@ rule loss_analysis_setup:
         workflow.cores
     shell:
         '''
-        Rscript scripts/loss_analysis.R \
+        Rscript scripts/taxonomy/loss_analysis.R \
         --ranges_counts_dir {params.ranges_counts_dir:q} \
         --classification_counts_dir {params.class_counts_dir:q} \
         --loci_dir {params.loci_dir:q} \

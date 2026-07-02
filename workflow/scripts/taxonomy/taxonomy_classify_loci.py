@@ -31,10 +31,10 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from Bio.Seq import Seq
-
 import taxonomy_lca as tlca
 import taxonomy_placement
+from Bio.Seq import Seq
+
 from colored_logging import colored_logging
 
 logger = logging.getLogger(__name__)

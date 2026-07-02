@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / exporters.R
+# ranges / exporters.R
 # -----------------------------------------------------------------------------
 # Output writers: GFF3 tracks, BED6, parquet plot dataframe, YAML manifest.
 # All functions produce empty-but-valid files when given empty GRanges so

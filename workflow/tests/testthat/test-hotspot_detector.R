@@ -1,7 +1,7 @@
 # testthat scaffold for workflow/scripts/hotspot_detector.R
 #
 # hotspot_detector.R is now an orchestrator only — every pure transform lives in
-# workflow/scripts/hotspot_analysis/*.R and is unit-tested directly:
+# workflow/scripts/hotspot/*.R and is unit-tested directly:
 #   * test-hotspot_io.R          — config reader + FASTA/GFF loaders
 #   * test-hotspot_masking.R     — N-mask, effective_bp, scaffold pooling
 #   * test-hotspot_windowing.R   — tiling, counting, window-table assembly

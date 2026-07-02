@@ -9,7 +9,7 @@ suppressMessages({
 })
 
 .script_dir <- file.path("..", "..", "scripts")
-source(file.path(.script_dir, "taxonomy_plot_generator.R"))
+source(file.path(.script_dir, "taxonomy", "taxonomy_plot_generator.R"))
 
 
 .fake_loci <- function(source) {

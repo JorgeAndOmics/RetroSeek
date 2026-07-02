@@ -9,7 +9,7 @@ suppressMessages({
   library(IRanges)
 })
 
-source("../../scripts/hotspot_analysis/masking.R")
+source("../../scripts/hotspot/masking.R")
 
 
 # ─────────────────────────── build_n_mask ───────────────────────────

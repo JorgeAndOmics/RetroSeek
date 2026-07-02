@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / io.R
+# ranges / io.R
 # -----------------------------------------------------------------------------
 # Loaders + config-readers for the ranges_analysis pipeline. Each function
 # returns plain R structures (tibbles, named vectors, lists, GRanges) and

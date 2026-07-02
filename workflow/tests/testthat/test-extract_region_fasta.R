@@ -8,7 +8,7 @@ suppressMessages({
 })
 
 .script_dir <- file.path("..", "..", "scripts")
-source(file.path(.script_dir, "extract_region_fasta.R"))
+source(file.path(.script_dir, "taxonomy", "extract_region_fasta.R"))
 
 
 test_that("extract_region_fasta cuts the right span and respects strand", {

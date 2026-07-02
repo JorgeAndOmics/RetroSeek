@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot_analysis / models.R
+# hotspot / models.R
 # -----------------------------------------------------------------------------
 # Per-label enrichment model: a Negative-Binomial GLM on per-window counts,
 # mask-aware via an offset and optionally chromosome-stratified.

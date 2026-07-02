@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot_analysis / windowing.R
+# hotspot / windowing.R
 # -----------------------------------------------------------------------------
 # Tile the genome into fixed-width windows, count per-window hits, and
 # assemble the per-window tibble that the NB GLM consumes.

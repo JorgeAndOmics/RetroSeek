@@ -40,14 +40,14 @@ suppressMessages({
 }
 .script_dir <- .resolve_script_dir()
 source(file.path(.script_dir, "range_aggregation_strategies.R"))
-source(file.path(.script_dir, "range_analysis", "io.R"))
-source(file.path(.script_dir, "range_analysis", "granges_build.R"))
-source(file.path(.script_dir, "range_analysis", "filtering.R"))
-source(file.path(.script_dir, "range_analysis", "reductions.R"))
-source(file.path(.script_dir, "range_analysis", "validation.R"))
-source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
-source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
-source(file.path(.script_dir, "range_analysis", "exporters.R"))
+source(file.path(.script_dir, "ranges", "io.R"))
+source(file.path(.script_dir, "ranges", "granges_build.R"))
+source(file.path(.script_dir, "ranges", "filtering.R"))
+source(file.path(.script_dir, "ranges", "reductions.R"))
+source(file.path(.script_dir, "ranges", "validation.R"))
+source(file.path(.script_dir, "ranges", "plot_dataframe.R"))
+source(file.path(.script_dir, "ranges", "stage_dataframe.R"))
+source(file.path(.script_dir, "ranges", "exporters.R"))
 
 
 # ----------------------------------------------------------------------------

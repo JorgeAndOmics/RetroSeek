@@ -1,11 +1,11 @@
 # -----------------------------------------------------------------------------
-# hotspot_analysis / io.R
+# hotspot / io.R
 # -----------------------------------------------------------------------------
 # Loaders + config-readers for hotspot_detector.R. Each function returns plain
 # R structures (named integer vectors, GRanges, lists) and does no analysis —
 # that lives in the other modules.
 #
-# Mirrors the shape of range_analysis/io.R: a thin yaml::read_yaml wrapper, a
+# Mirrors the shape of ranges/io.R: a thin yaml::read_yaml wrapper, a
 # `read_hotspot_options()` helper that centralises the `%||%` defaults, plus
 # loaders for the FASTA + GFF3 inputs.
 

@@ -17,7 +17,7 @@ suppressMessages({
   library(IRanges)
 })
 
-source("../../scripts/hotspot_analysis/models.R")
+source("../../scripts/hotspot/models.R")
 
 
 # Helper: synthetic per-window tibble with a Poisson-ish baseline plus a

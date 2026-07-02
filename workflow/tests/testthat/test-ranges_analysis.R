@@ -1,4 +1,4 @@
-# testthat coverage for workflow/scripts/range_analysis/*.R
+# testthat coverage for workflow/scripts/ranges/*.R
 #
 # Focused on the per-hit `query_coverage` path introduced after the broken
 # probe_lengths lookup was retired. Sources only the leaf modules so we
@@ -13,7 +13,7 @@ suppressMessages({
   library(tibble)
 })
 
-.script_dir <- file.path("..", "..", "scripts", "range_analysis")
+.script_dir <- file.path("..", "..", "scripts", "ranges")
 source(file.path(.script_dir, "granges_build.R"))
 
 

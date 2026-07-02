@@ -27,9 +27,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import taxonomy_lca as tlca
 from Bio import SeqIO
 
-import taxonomy_lca as tlca
 from colored_logging import colored_logging
 
 logger = logging.getLogger(__name__)

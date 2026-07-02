@@ -22,9 +22,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from Bio import SeqIO
-
 import taxonomy_lca as tlca
+from Bio import SeqIO
 
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 EPA_NG = "epa-ng"

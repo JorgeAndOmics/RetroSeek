@@ -34,8 +34,13 @@ import pytest
 # directory on ``sys.path``.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "workflow" / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+# Stage scripts now live in per-stage subdirs (e.g. taxonomy/); the scripts still
+# cross-import by bare name, so both the package root (shared infra: defaults,
+# colored_logging, …) and each stage dir tests import from must be on sys.path.
+_STAGE_DIRS = ("taxonomy", "solo_ltr", "blast_search")
+for _p in (SCRIPTS_DIR, *(SCRIPTS_DIR / d for d in _STAGE_DIRS)):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 
 # ── 2. Stub ``defaults`` before any production module imports it ────────

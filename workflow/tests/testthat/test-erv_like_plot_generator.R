@@ -1,5 +1,5 @@
 # testthat tests for the ERV-like structural plot builders
-# (workflow/scripts/erv_like_plot_generator.R).
+# (workflow/scripts/taxonomy/erv_like_plot_generator.R).
 #
 # The panel now reads the taxon-founded loci table produced by taxonomy_classify
 # (one row per LTR-element locus). Builder contract: each returns a ggplot and
@@ -14,7 +14,7 @@ suppressMessages({
 
 # Sourcing the generator loads tidyverse + shared helpers + the builders (the
 # bottom-of-file main() guard keeps the CLI from firing under source()).
-source("../../scripts/erv_like_plot_generator.R")
+source("../../scripts/taxonomy/erv_like_plot_generator.R")
 
 # A minimal taxon-founded loci frame, mirroring the classifier's LOCI_COLUMNS
 # (structural columns arrive as strings from parquet; load_taxon_loci coerces).

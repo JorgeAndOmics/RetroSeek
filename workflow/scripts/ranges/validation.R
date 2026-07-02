@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# range_analysis / validation.R
+# ranges / validation.R
 # -----------------------------------------------------------------------------
 # Two refinement steps applied to the reduced BLAST GRanges:
 #

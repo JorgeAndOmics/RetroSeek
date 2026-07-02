@@ -51,8 +51,8 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "plot2sort", "helpers.R"))  # empty_plot, add_titles
-source(file.path(.script_dir, "plot2sort", "io.R"))       # save_plot
+source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
+source(file.path(.script_dir, "..", "plot2sort", "io.R"))       # save_plot
 
 
 # ----------------------------------------------------------------------------
