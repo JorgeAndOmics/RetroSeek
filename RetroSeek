@@ -199,14 +199,31 @@ if __name__ == '__main__':
     if args.solo_ltr_detection:
         main_cmd.append('--solo-ltr-detection')
 
+    # Resolve an explicit `--configfile` to an ABSOLUTE path so both halves of the
+    # pipeline agree on it: `defaults.py` (which reads RETROSEEK_CONFIG to build
+    # paths + the species list at import time) and the child Snakemake (which runs
+    # with cwd=workflow/, where a *relative* --configfile would misresolve). Without
+    # this, `./RetroSeek --classify --configfile config.local.yaml` sent config.local
+    # to Snakemake but left defaults.py on the placeholder config.yaml (split-brain).
+    config_override = None
+    for i, tok in enumerate(unknown):
+        if tok == '--configfile' and i + 1 < len(unknown):
+            config_override = str(Path(unknown[i + 1]).resolve())
+            unknown[i + 1] = config_override
+            break
+        if tok.startswith('--configfile='):
+            config_override = str(Path(tok.split('=', 1)[1]).resolve())
+            unknown[i] = f'--configfile={config_override}'
+            break
+
     if unknown:
         main_cmd.extend(unknown)
 
-    # A normal `./RetroSeek` invocation always runs against the committed
-    # data/config/config.yaml. RETROSEEK_CONFIG is stripped from the child
-    # environment so `defaults.py` falls back to config.yaml regardless of
-    # what the ambient shell has exported (e.g. a value left over from a
-    # sweep run, which drives Snakemake directly via sweeps/sweep.py and is
-    # unaffected by this).
+    # A plain `./RetroSeek` (no --configfile) still runs against the committed
+    # data/config/config.yaml: RETROSEEK_CONFIG is dropped so a stale ambient value
+    # (e.g. left over from a sweep, which drives Snakemake directly via sweeps/
+    # sweep.py) can't leak in. An explicit --configfile takes precedence for both.
     pipeline_env = {k: v for k, v in os.environ.items() if k != "RETROSEEK_CONFIG"}
+    if config_override:
+        pipeline_env["RETROSEEK_CONFIG"] = config_override
     subprocess.run(main_cmd, cwd=script_dir, env=pipeline_env)
