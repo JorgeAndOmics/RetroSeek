@@ -107,3 +107,30 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
   expect_s3_class(domain_tier_composition_plot(empty), "ggplot")
   expect_s3_class(structure_class_composition_plot(empty), "ggplot")
 })
+
+
+test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {
+  loci <- tribble(
+    ~species, ~is_mosaic, ~mosaic_composition,
+    "g1", "True",  "POL:Betaretrovirus;GAG:Betaretrovirus;ENV:Gammaretrovirus",
+    "g1", "True",  "POL:Gammaretrovirus;ENV:Betaretrovirus",
+    "g2", "True",  "POL:Alpharetrovirus;GAG:Gammaretrovirus",
+    "g1", "False", ""   # non-mosaic locus present for the burden denominator
+  )
+  for (p in list(
+    mosaic_burden_plot(loci),
+    mosaic_taxon_pairs_plot(loci),
+    mosaic_gene_discordance_plot(loci),
+    mosaic_composition_by_species_plot(loci)
+  )) expect_s3_class(p, "ggplot")
+
+  # burden splits mosaic vs single-lineage; discordance flags ENV as odd-one-out
+  disc <- mosaic_gene_discordance_plot(loci)
+  expect_s3_class(disc, "ggplot")
+
+  # empty-safe: no mosaic rows -> labelled placeholder (still a ggplot)
+  none <- loci[loci$is_mosaic == "False", ]
+  expect_match(mosaic_taxon_pairs_plot(none)$labels$title, "no mosaic loci")
+  expect_match(mosaic_gene_discordance_plot(none)$labels$title, "no mosaic loci")
+  expect_s3_class(mosaic_burden_plot(loci[0, ]), "ggplot")
+})

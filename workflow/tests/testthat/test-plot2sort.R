@@ -164,6 +164,28 @@ test_that("bar_plot reorders species levels by total count descending", {
 })
 
 
+# ───────────────────────────── bar_virus_plot ─────────────────────────────
+
+test_that("bar_virus_plot returns empty placeholder on zero-row input", {
+  p <- bar_virus_plot(tibble::tibble(species = character(0), virus = character(0),
+                                     count = integer(0)))
+  expect_s3_class(p, "ggplot")
+  expect_equal(p$labels$title, "no data")
+})
+
+test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
+  df <- tibble::tibble(
+    species = rep("S1", 4),
+    virus   = c("HIV", "MLV", "BLV", "FFV"),
+    count   = c(  40,    30,    20,   10)
+  )
+  p <- bar_virus_plot(df, top_n = 2L)   # keep HIV, MLV; fold BLV+FFV -> "Other (2)"
+  expect_s3_class(p, "ggplot")
+  expect_true("Other (2)" %in% levels(p$data$virus))
+  expect_true(all(c("HIV", "MLV") %in% levels(p$data$virus)))
+})
+
+
 # ─────────────────────── balloon_virus_species_plot ───────────────────────
 
 test_that("balloon plot returns empty placeholder on zero-row input", {

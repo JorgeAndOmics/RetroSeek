@@ -53,6 +53,49 @@ bar_plot <- function(data, subset_label = NULL) {
 }
 
 
+# Stacked bar of range counts per species coloured by the DETECTED VIRUS (the
+# probeset `virus` identity, finer than the `label`/genus used by bar_plot). The
+# long virus tail (many low-count viruses) is folded into "Other (k)" via
+# collapse_long_tail so the stack stays legible; the unlimited Futurama ramp
+# supplies enough distinct fills. Species ordered largest-first.
+bar_virus_plot <- function(data, top_n = 15L, subset_label = NULL) {
+  if (nrow(data) == 0L) return(empty_plot())
+  data <- collapse_long_tail(data, "virus", top_n = top_n, weight = "count") %>%
+    group_by(species, virus) %>%
+    summarise(count = sum(count), .groups = "drop")
+
+  ordered_species <- order_by_count(data, "species", weight = "count")
+  ordered_virus   <- order_by_count(data, "virus",   weight = "count")
+  data <- data %>%
+    mutate(species = factor(species, levels = ordered_species),
+           virus   = factor(virus,   levels = ordered_virus))
+
+  n_species <- length(ordered_species)
+  n_virus   <- length(ordered_virus)
+  label_angle <- if (n_species > .BAR_VERTICAL_LABEL_THRESHOLD) 90 else 45
+
+  p <- ggplot(data) +
+    aes(x = species, y = count, fill = virus) +
+    geom_col(color = "black", linewidth = 0.2) +
+    scale_fill_manual(values = futurama_unlimited_palette(output_colour_number = n_virus)) +
+    theme_void() +
+    labs(fill = "Virus", y = "Count") +
+    theme(
+      axis.title  = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(size = 11, angle = label_angle, hjust = 1),
+      axis.text.y = element_text(size = 11)
+    )
+  out <- add_titles(p,
+                    title    = "Virus composition per species",
+                    subtitle = sprintf(
+                      "Stacked by detected virus (top %d + Other); species ordered by total count",
+                      top_n),
+                    subset_label = subset_label)
+  attr(out, "intended_dims") <- auto_dims(n_species, axis = "x")
+  out
+}
+
+
 balloon_virus_species_plot <- function(data, subset_label = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
   manual_colours <- futurama_unlimited_palette(5, length(unique(data$probe)))

@@ -188,9 +188,11 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 
 # === Results - Plots ===
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
-# Provirus panel: the per-probe / stage plots about individual proviral hits and
-# their LTR integration (plot2sort + stage_plot_generator) live under provirus/.
-PATH_DICT["PROVIRUS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "provirus").resolve()
+# Ranges panel: the per-probe BLAST-hit distributions + the middle-stage
+# LTR-integration diagnostics (plot2sort + stage_plot_generator) live under
+# ranges/ — they characterise the homology hit landscape and its LTR integration,
+# not assembled proviruses (renamed from provirus/, ADR-009 follow-up).
+PATH_DICT["RANGES_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "ranges").resolve()
 # ERV-like panel: structural views of the genus-founded ERV assembly
 # (completeness, canonical order, gene combinations, length). Built by
 # erv_like_plot_generator.R from the taxonomy_classify loci table. Hyphenated

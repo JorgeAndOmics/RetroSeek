@@ -14,7 +14,12 @@
 #   3. method_mix             — how taxon calls were made (placement / lca / presence).
 #   4. erv_class_composition  — per-species Class I/II/III composition (the
 #                               literature anchor: bats+human Class I, mouse Class II).
-#   5. mosaic_alluvial        — gene -> taxon flows across mosaic loci (ggalluvial).
+#   5. mosaic sub-panel       — recombination views over mosaic loci:
+#                               mosaic_alluvial (gene -> taxon flows), mosaic_burden
+#                               (per-species mosaic fraction), mosaic_taxon_pairs
+#                               (recombination-partner heatmap), mosaic_gene_discordance
+#                               (odd-one-out gene), mosaic_composition_by_species.
+# Plus the confidence / evidence / domain-tier / structure-class panels (18 PNGs total).
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R — not duplicated — so the panel matches the existing plots.
@@ -246,6 +251,104 @@ mosaic_alluvial_plot <- function(loci) {
     labs(y = "mosaic-locus gene calls", fill = "taxon") +
     theme_bw()
   add_titles(p, "Mosaic composition", "Per-gene taxon calls within mosaic loci")
+}
+
+# Unpack mosaic_composition ("GENE:Taxon;GENE:Taxon") to a long gene→taxon frame
+# with a per-locus id (.locus). Shared by the mosaic sub-panel builders below.
+.unpack_mosaic <- function(loci) {
+  loci %>%
+    filter(.data$is_mosaic == "True", nzchar(.data$mosaic_composition)) %>%
+    mutate(.locus = dplyr::row_number()) %>%
+    separate_rows("mosaic_composition", sep = ";") %>%
+    separate("mosaic_composition", into = c("gene", "taxon"),
+             sep = ":", fill = "right", extra = "merge") %>%
+    filter(nzchar(.data$gene), nzchar(.data$taxon))
+}
+
+# Mosaic burden: fraction of anchored loci per species whose member genes
+# disagree on their axis taxon (a recombination-load proxy). Orphans are
+# single-gene and never mosaic, so this reads the anchored loci frame.
+mosaic_burden_plot <- function(loci) {
+  if (nrow(loci) == 0L || !"is_mosaic" %in% names(loci)) return(empty_plot("no loci"))
+  counts <- loci %>%
+    mutate(kind = ifelse(.data$is_mosaic == "True", "mosaic", "single-lineage")) %>%
+    count(.data$species, .data$kind, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$kind)) +
+    geom_col(position = "fill") +
+    scale_fill_manual(values = c(mosaic = "#D95F02", `single-lineage` = "#7570B3")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of anchored loci", fill = NULL) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Mosaic burden",
+             "Fraction of loci with discordant gene taxa, per species")
+}
+
+# Recombination-partner heatmap: within mosaic loci, how often each unordered
+# pair of axis taxa co-occurs (which lineages recombine, e.g. Beta×Gamma). Upper
+# triangle via the taxon.x < taxon.y filter on a per-locus self-join.
+mosaic_taxon_pairs_plot <- function(loci) {
+  flows <- .unpack_mosaic(loci) %>% distinct(.data$.locus, .data$taxon)
+  if (nrow(flows) == 0L) return(empty_plot("no mosaic loci"))
+  pairs <- flows %>%
+    dplyr::inner_join(flows, by = ".locus", relationship = "many-to-many") %>%
+    filter(.data$taxon.x < .data$taxon.y) %>%
+    count(.data$taxon.x, .data$taxon.y, name = "n")
+  if (nrow(pairs) == 0L) return(empty_plot("no co-occurring taxon pairs"))
+  p <- ggplot(pairs, aes(x = .data$taxon.x, y = .data$taxon.y, fill = .data$n)) +
+    geom_tile(colour = "grey80") +
+    geom_text(aes(label = .data$n), size = 3, fontface = "bold") +
+    scale_fill_viridis_c(trans = "log10") +
+    labs(x = NULL, y = NULL, fill = "mosaic loci") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Recombination partners",
+             "Co-occurring axis-taxon pairs within mosaic loci")
+}
+
+# Per-gene discordance: within each mosaic locus, the majority (consensus) taxon
+# is the backbone; genes calling a different taxon are the recombinant signal.
+# Fraction discordant per gene surfaces env-capture (ENV usually highest).
+mosaic_gene_discordance_plot <- function(loci) {
+  flows <- .unpack_mosaic(loci)
+  if (nrow(flows) == 0L) return(empty_plot("no mosaic loci"))
+  consensus <- flows %>%
+    count(.data$.locus, .data$taxon, name = "n") %>%
+    group_by(.data$.locus) %>%
+    dplyr::slice_max(.data$n, n = 1, with_ties = FALSE) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(".locus", consensus = "taxon")
+  disc <- flows %>%
+    dplyr::left_join(consensus, by = ".locus") %>%
+    group_by(.data$gene) %>%
+    summarise(frac = mean(.data$taxon != .data$consensus), n = dplyr::n(),
+              .groups = "drop")
+  p <- ggplot(disc, aes(x = stats::reorder(.data$gene, -.data$frac), y = .data$frac)) +
+    geom_col(fill = "#D95F02") +
+    geom_text(aes(label = .data$n), vjust = -0.3, size = 3) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.1))) +
+    labs(x = "gene", y = "fraction discordant vs locus consensus") +
+    theme_bw()
+  add_titles(p, "Per-gene discordance",
+             "How often each gene breaks from its locus's consensus taxon (n = gene occurrences)")
+}
+
+# Per-species mosaic composition: within mosaic loci only, the stacked axis-taxon
+# mix per species — which genera drive the chimeras in each host.
+mosaic_composition_by_species_plot <- function(loci) {
+  flows <- .unpack_mosaic(loci)
+  if (nrow(flows) == 0L) return(empty_plot("no mosaic loci"))
+  flows <- collapse_long_tail(flows, "taxon", top_n = 20)
+  counts <- flows %>% count(.data$species, .data$taxon, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon)) +
+    geom_col(position = "fill") +
+    scale_fill_igv() +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of mosaic gene calls", fill = "taxon") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Mosaic composition by species",
+             "Axis-taxon mix within mosaic loci, per host")
 }
 
 # Confidence-tag composition per species (HC/LC), faceted by tier so anchored
@@ -496,6 +599,12 @@ main <- function() {
   emit("method_mix.png",            method_mix_plot(loci))
   emit("erv_class_composition.png", erv_class_composition_plot(loci))
   emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
+  # Mosaic sub-panel (recombination): burden, partner heatmap, per-gene
+  # discordance, per-species composition.
+  emit("mosaic_burden.png",              mosaic_burden_plot(loci))
+  emit("mosaic_taxon_pairs.png",         mosaic_taxon_pairs_plot(loci))
+  emit("mosaic_gene_discordance.png",    mosaic_gene_discordance_plot(loci))
+  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci))
   emit("confidence.png",            confidence_plot(combined))
 
   # Evidence / confidence / fragments panel (spans both tiers).
@@ -516,7 +625,7 @@ main <- function() {
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 
-  log_section(sprintf("Done — wrote 14 PNGs to %s + report %s",
+  log_section(sprintf("Done — wrote 18 PNGs to %s + report %s",
                       args$output, args$report_csv))
 }
 
