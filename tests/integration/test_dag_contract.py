@@ -138,18 +138,18 @@ def test_erv_like_producer_tier_retired(project_root: Path) -> None:
 
 
 def test_erv_like_plot_generator_reads_genus_loci(project_root: Path) -> None:
-    """The ERV-like plot panel survives, repointed at the taxonomy loci table."""
+    """The structure plot panel survives, repointed at the taxonomy loci table."""
     text = _read_snakefile(project_root)
     rules = _all_rules(project_root)
     assert "erv_like_plot_generator_setup" in rules
     assert "erv_like_plot_generator" in rules
-    assert "ERV_LIKE_PLOT_DIR" in text
+    assert "STRUCTURE_PLOT_DIR" in text  # panel renamed erv-like -> structure
     # Its input is now the genus-founded loci table, not ranges_analysis tables.
     assert "TAXONOMY_TABLES_PARQUET_DIR" in text
 
 
 def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> None:
-    """--generate-global-plots must drive the erv-like panel alongside provirus."""
+    """--generate-global-plots must drive the structure panel alongside ranges."""
     text = (project_root / "workflow" / "scripts" / "RetroSeek.py").read_text()
     assert "erv_like_plot_generator" in text
 

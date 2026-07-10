@@ -722,26 +722,26 @@ rule plot_generator_setup:
         final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
                                genome=species_with_hits(wildcards))
     output:
-        density_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{density_probe}_density.png'),
+        density_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{density_probe}_density.png'),
                              density_probe=['main','accessory']),
-        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
+        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
                                raincloud_probe=['main','accessory']),
-        bar_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{bar_probe}_bar.png'),
+        bar_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{bar_probe}_bar.png'),
                          bar_probe=['full', 'main','accessory']),
-        virus_bar_plot=os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'virus_by_species_bar.png'),
-        sankey_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
+        virus_bar_plot=os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'virus_by_species_bar.png'),
+        sankey_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
                             sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
-        balloon_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{balloon_probe}_balloon.png'),
+        balloon_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{balloon_probe}_balloon.png'),
                              balloon_probe=['main','accessory']),
-        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{qc_probe}_query_coverage.png'),
+        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{qc_probe}_query_coverage.png'),
                                     qc_probe=['main','accessory']),
-        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
+        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
                              hm_probe=['main','accessory']),
-        waffle_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
+        waffle_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
                             wf_probe=['main','accessory'])
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['RANGES_PLOT_DIR'],
+        plot_dir=defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -781,7 +781,7 @@ rule stage_plot_generator_setup:
         reduction_coverage=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
                          genome=species_with_hits(wildcards))
     output:
-        stage_plots=expand(os.path.join(defaults.PATH_DICT['RANGES_PLOT_DIR'],'{stage_plot}.png'),
+        stage_plots=expand(os.path.join(defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],'{stage_plot}.png'),
                            stage_plot=['homology_ltr_concordance',
                                        'probe_yield_funnel',
                                        'ltr_structural_components',
@@ -802,7 +802,7 @@ rule stage_plot_generator_setup:
                                        'ltr_retro_length_vs_hits'])
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['RANGES_PLOT_DIR'],
+        plot_dir=defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -831,17 +831,17 @@ rule erv_like_plot_generator_setup:
         loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],'{genome}.loci.parquet'),
                           genome=species_with_hits(wildcards))
     output:
-        erv_like_plots=expand(os.path.join(defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],'{erv_plot}.png'),
-                              erv_plot=['erv_like_completeness',
-                                        'erv_like_canonical_order',
-                                        'erv_like_gene_combinations',
-                                        'erv_like_length_distribution',
-                                        'erv_like_n_main_genes',
-                                        'erv_like_composition_heatmap',
-                                        'erv_like_structure_class'])
+        structure_plots=expand(os.path.join(defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],'{structure_plot}.png'),
+                               structure_plot=['completeness',
+                                               'canonical_order',
+                                               'gene_combinations',
+                                               'length_distribution',
+                                               'n_main_genes',
+                                               'composition_heatmap',
+                                               'structure_class'])
     params:
         taxonomy_parquet_dir=defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],
+        plot_dir=defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -923,16 +923,16 @@ rule hotspot_detector_setup:
         hotspot_csv=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'),
         hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_manifest=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.manifest.yaml'),
-        hotspot_manhattan_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_manhattan.pdf'),
-        hotspot_karyotype_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_karyotype.pdf'),
-        hotspot_qq_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_qq.pdf'),
-        hotspot_summary_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_summary.pdf'),
+        hotspot_manhattan_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'),
+        hotspot_karyotype_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'),
+        hotspot_qq_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'),
+        hotspot_summary_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'),
         hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),
         hotspot_bed=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed')
     params:
         csv_dir=defaults.PATH_DICT['HOTSPOT_CSV_DIR'],
         parquet_dir=defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'],
-        pdf_dir=defaults.PATH_DICT['HOTSPOT_PDF_DIR'],
+        pdf_dir=defaults.PATH_DICT['HOTSPOT_PLOT_DIR'],
         track_dir=defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
@@ -952,10 +952,10 @@ rule hotspot_detector_setup:
 rule hotspot_detector:
     input:
         hotspot_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
-        hotspot_manhattan_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_manhattan.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_karyotype_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_karyotype.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_qq_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_qq.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_summary_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PDF_DIR'], '{genome}_summary.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_manhattan_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_karyotype_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_qq_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_summary_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'), genome=species_with_hits(wildcards)),
         hotspot_track=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=species_with_hits(wildcards))
 
 

@@ -12,14 +12,14 @@
 # canonical provirus object (the taxon loci table), viewed two ways — the
 # taxonomic panel (taxonomy_plot_generator.R) and this structural panel.
 #
-# Plots (results/plots/erv-like/):
-#   1. erv_like_completeness        — fraction of main genes present per locus.
-#   2. erv_like_canonical_order     — canonical vs rearranged main-gene order.
-#   3. erv_like_gene_combinations   — frequency of each gene set (e.g. GAG,POL).
-#   4. erv_like_length_distribution — locus span (bp).
-#   5. erv_like_n_main_genes        — number of main genes per locus.
-#   6. erv_like_composition_heatmap — taxon x gene (which genes each taxon keeps).
-#   7. erv_like_structure_class     — discrete full / partial / gene per species.
+# Plots (results/plots/classification/structure/ — the 'structure' panel):
+#   1. completeness        — fraction of main genes present per locus.
+#   2. canonical_order     — canonical vs rearranged main-gene order.
+#   3. gene_combinations   — frequency of each gene set (e.g. GAG,POL).
+#   4. length_distribution — locus span (bp).
+#   5. n_main_genes        — number of main genes per locus.
+#   6. composition_heatmap — taxon x gene (which genes each taxon keeps).
+#   7. structure_class     — discrete full / partial / gene per species.
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R. `testthat` and demo_figures.R source this file for its builders;
@@ -245,7 +245,7 @@ main <- function() {
   plot_width  <- cfg$plots$width  %||% 15
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
-  log_section(sprintf("RetroSeek erv-like structural plots (output: %s)", args$output))
+  log_section(sprintf("RetroSeek structure panel — ERV structural plots (output: %s)", args$output))
 
   loci <- load_taxon_loci(args$input)
   log_section(sprintf("Loaded %d loci across %d species",
@@ -256,13 +256,14 @@ main <- function() {
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  emit("erv_like_completeness.png",        completeness_plot(loci))
-  emit("erv_like_canonical_order.png",     canonical_order_plot(loci))
-  emit("erv_like_gene_combinations.png",   gene_combinations_plot(loci))
-  emit("erv_like_length_distribution.png", length_distribution_plot(loci))
-  emit("erv_like_n_main_genes.png",        n_main_genes_plot(loci))
-  emit("erv_like_composition_heatmap.png", composition_heatmap_plot(loci))
-  emit("erv_like_structure_class.png",     structure_class_plot(loci))
+  # Bare filenames — the structure/ dir already names the panel (no erv_like_ prefix).
+  emit("completeness.png",        completeness_plot(loci))
+  emit("canonical_order.png",     canonical_order_plot(loci))
+  emit("gene_combinations.png",   gene_combinations_plot(loci))
+  emit("length_distribution.png", length_distribution_plot(loci))
+  emit("n_main_genes.png",        n_main_genes_plot(loci))
+  emit("composition_heatmap.png", composition_heatmap_plot(loci))
+  emit("structure_class.png",     structure_class_plot(loci))
 
   log_section(sprintf("Done — wrote 7 PNGs to %s", args$output))
 }

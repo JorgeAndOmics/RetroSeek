@@ -187,24 +187,45 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
 
 # === Results - Plots ===
+# Layout mirrors the pipeline stages so the filesystem is self-documenting:
+#
+#   plots/
+#     ranges/                 the ranges_analysis stage (pre-classification)
+#       homology/             plot2sort: per-probe/virus/species hit distributions
+#       integration/          stage_plot_generator: hit↔LTR-element integration + reduction
+#     classification/         the taxonomy stage (per-locus assembly + calls)
+#       taxonomy/             taxonomy_plot_generator: calls, confidence, mosaic, tiers
+#       structure/            structural views of the assembly (completeness, structure_class)
+#       loss/                 loss_analysis: per-stage attrition funnel
+#     circle/                 per-genome Circos overviews
+#     hotspot/                integration-hotspot enrichment (Manhattan / QQ / karyotype)
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
-# Ranges panel: the per-probe BLAST-hit distributions + the middle-stage
-# LTR-integration diagnostics (plot2sort + stage_plot_generator) live under
-# ranges/ — they characterise the homology hit landscape and its LTR integration,
-# not assembled proviruses (renamed from provirus/, ADR-009 follow-up).
+
+# --- Ranges stage ---
 PATH_DICT["RANGES_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "ranges").resolve()
-# ERV-like panel: structural views of the genus-founded ERV assembly
-# (completeness, canonical order, gene combinations, length). Built by
-# erv_like_plot_generator.R from the taxonomy_classify loci table. Hyphenated
-# per the output contract.
-PATH_DICT["ERV_LIKE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "erv-like").resolve()
-PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle_plots").resolve()
-PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve()
-# Taxonomy panel: per-locus genus-call composition, rank/method resolution, and
-# mosaic plots (taxonomy_plot_generator.R). Built from the classification tables.
-PATH_DICT["TAXONOMY_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "taxonomy").resolve()
-# Loss panel: the per-stage retained/lost attrition funnel (loss_analysis.R).
-PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "loss").resolve()
+PATH_DICT["HOMOLOGY_PLOT_DIR"] = (PATH_DICT["RANGES_PLOT_DIR"] / "homology").resolve()
+PATH_DICT["INTEGRATION_PLOT_DIR"] = (
+    PATH_DICT["RANGES_PLOT_DIR"] / "integration"
+).resolve()
+
+# --- Classification stage ---
+PATH_DICT["CLASSIFICATION_PLOT_DIR"] = (
+    PATH_DICT["PLOT_DIR"] / "classification"
+).resolve()
+PATH_DICT["TAXONOMY_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "taxonomy"
+).resolve()
+# Structural views of the genus-founded ERV assembly (completeness, canonical
+# order, structure_class). Built by erv_like_plot_generator.R from the loci table;
+# the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.
+PATH_DICT["STRUCTURE_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "structure"
+).resolve()
+PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "loss").resolve()
+
+# --- Standalone analyses ---
+PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle").resolve()
+PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
