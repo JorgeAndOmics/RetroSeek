@@ -109,6 +109,22 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
+test_that("reconcile_catalog drops orphans overlapping an anchored locus (anchored precedence)", {
+  combined <- tribble(
+    ~species, ~source,    ~seqname, ~start, ~end,   ~id,
+    "g1",     "anchored", "chr1",   "1000", "2000", "A1",
+    "g1",     "orphan",   "chr1",   "1500", "1800", "O1",   # overlaps A1 -> drop
+    "g1",     "orphan",   "chr1",   "5000", "5300", "O2",   # clear -> keep
+    "g1",     "orphan",   "chr2",   "1500", "1800", "O3"    # different seqname -> keep
+  )
+  out <- reconcile_catalog(combined)
+  expect_setequal(out$id, c("A1", "O2", "O3"))          # O1 dropped
+  expect_true(all(out$source[out$id == "A1"] == "anchored"))
+  # empty-safe + single-tier passthrough
+  expect_equal(nrow(reconcile_catalog(combined[0, ])), 0L)
+  expect_equal(nrow(reconcile_catalog(combined[combined$source == "anchored", ])), 1L)
+})
+
 test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {
   loci <- tribble(
     ~species, ~is_mosaic, ~mosaic_composition,

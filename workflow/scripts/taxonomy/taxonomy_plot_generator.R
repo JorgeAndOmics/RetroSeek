@@ -33,6 +33,7 @@ suppressMessages({
   library(yaml)         # YAML config
   library(ggsci)        # Scientific colour palettes
   library(ggalluvial)   # Alluvial flows for the mosaic plot
+  library(GenomicRanges)  # catalog reconciliation (anchored-precedence overlap)
 })
 
 
@@ -91,14 +92,14 @@ load_loci <- function(input_dir) {
 
 # Load every per-genome orphan table (the recovered non-LTR tier). Same schema
 # as the loci tables (source == "orphan"); the on-disk file keeps its historical
-# `.fragments.parquet` name. Empty if none.
-load_fragments <- function(input_dir) {
-  files <- list.files(input_dir, pattern = "\\.fragments\\.parquet$", full.names = TRUE)
+# `.orphans.parquet` name. Empty if none.
+load_orphans <- function(input_dir) {
+  files <- list.files(input_dir, pattern = "\\.orphans\\.parquet$", full.names = TRUE)
   if (length(files) == 0L) return(tibble())
   frames <- lapply(files, function(f) {
     df <- as_tibble(arrow::read_parquet(f))
     if (nrow(df) == 0L) return(NULL)
-    df$species <- sub("\\.fragments$", "", tools::file_path_sans_ext(basename(f)))
+    df$species <- sub("\\.orphans$", "", tools::file_path_sans_ext(basename(f)))
     df
   })
   frames <- Filter(Negate(is.null), frames)
@@ -107,7 +108,32 @@ load_fragments <- function(input_dir) {
 }
 
 
-# Build the tidy classification report from the combined (anchored + fragment)
+# Reconcile the unified catalog to a fully non-overlapping record set with
+# ANCHORED PRECEDENCE: within each (species, seqname), drop any orphan locus
+# whose span overlaps an anchored locus. Anchored loci are LTR-confirmed;
+# orphan loci are proximity-inferred, and a proximity cluster can bridge OVER an
+# anchored provirus (its member hits flank the element). Where they collide the
+# LTR-confirmed call wins. Orphan-orphan and anchored-anchored are already
+# non-overlapping (clustering + one-per-element), so this only resolves the
+# cross-tier edge. Dropped orphans remain in the per-genome .orphans table.
+reconcile_catalog <- function(combined) {
+  if (nrow(combined) == 0L) return(combined)
+  src <- as.character(combined$source)
+  anch_i <- which(src == "anchored")
+  orph_i <- which(src != "anchored")
+  if (length(anch_i) == 0L || length(orph_i) == 0L) return(combined)
+  gr <- GenomicRanges::GRanges(
+    seqnames = paste(combined$species, combined$seqname, sep = "|"),
+    ranges   = IRanges::IRanges(suppressWarnings(as.integer(combined$start)),
+                                suppressWarnings(as.integer(combined$end)))
+  )
+  ov <- GenomicRanges::findOverlaps(gr[orph_i], gr[anch_i], ignore.strand = TRUE)
+  drop <- orph_i[unique(S4Vectors::queryHits(ov))]
+  combined[setdiff(seq_len(nrow(combined)), drop), , drop = FALSE]
+}
+
+
+# Build the tidy classification report from the combined (anchored + orphan)
 # loci frame: counts by genus, by confidence, by method, plus mosaic and
 # integration totals — split by `source` so the two tiers stay distinguishable.
 # Returns a long tibble (source, dimension, level, count); empty-safe.
@@ -352,7 +378,7 @@ mosaic_composition_by_species_plot <- function(loci) {
 }
 
 # Confidence-tag composition per species (HC/LC), faceted by tier so anchored
-# loci and recovered fragments are both visible. Reads the combined frame.
+# loci and recovered orphans are both visible. Reads the combined frame.
 confidence_plot <- function(combined) {
   if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
   if (!"source" %in% names(combined)) combined$source <- "anchored"
@@ -436,10 +462,10 @@ confidence_vs_evidence_plot <- function(combined) {
 }
 
 # Structural completeness by tier — how many main genes each locus carries,
-# anchored proviruses vs recovered fragments. (Replaces a novel-vs-classified
+# anchored proviruses vs recovered orphans. (Replaces a novel-vs-classified
 # view: 0-hit "novel" loci are essentially absent here — they are domain-validated
 # so they have homology — so that comparison was empty. This populated view is
-# the useful one: it shows fragments are structurally simpler, mostly single
+# the useful one: it shows orphans are structurally simpler, mostly single
 # markers, while anchored loci carry more of the gag/pol/env complement.)
 # Counts are shown as a fraction within each tier so the two tiers' very
 # different sizes don't swamp the comparison.
@@ -462,7 +488,7 @@ structure_by_tier_plot <- function(combined) {
              "Anchored proviruses carry more genes; orphans are mostly single markers")
 }
 
-# Yield boost from the fragments tier — loci recovered per tier, per species.
+# Yield boost from the orphans tier — loci recovered per tier, per species.
 source_yield_plot <- function(combined) {
   if (nrow(combined) == 0L) return(empty_plot("no loci"))
   counts <- combined %>% count(.data$species, .data$source, name = "n")
@@ -475,7 +501,7 @@ source_yield_plot <- function(combined) {
   add_titles(p, "Anchored vs orphan yield", "Loci recovered per tier, per species")
 }
 
-# Taxon composition split by tier — surfaces taxa present only in the fragment
+# Taxon composition split by tier — surfaces taxa present only in the orphan
 # tier (the novel-lineage check). Long taxon tail folded via collapse_long_tail.
 taxon_by_source_plot <- function(combined) {
   d <- combined %>% filter(.data$resolved == "True")
@@ -555,6 +581,10 @@ main <- function() {
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--report_csv", required = TRUE,
                       help = "Output path for the tidy classification report CSV.")
+  parser$add_argument("--catalog_csv", required = TRUE,
+                      help = paste("Output path for the unified authoritative ERV",
+                                   "catalog CSV (anchored proviruses + clustered",
+                                   "orphan loci, one non-overlapping record each)."))
   args <- parser$parse_args()
 
   cfg <- yaml::read_yaml(args$config)
@@ -567,13 +597,13 @@ main <- function() {
   log_section(sprintf("RetroSeek taxonomy plot generation (output: %s)", args$output))
 
   loci <- load_loci(args$input)
-  fragments <- load_fragments(args$input)
+  orphans <- load_orphans(args$input)
   # Relabel genome stems to the config display names (species: map) for all axes.
   if (nrow(loci) > 0L) loci$species <- relabel_species(loci$species, cfg$species)
-  if (nrow(fragments) > 0L) {
-    fragments$species <- relabel_species(fragments$species, cfg$species)
+  if (nrow(orphans) > 0L) {
+    orphans$species <- relabel_species(orphans$species, cfg$species)
   }
-  combined <- bind_rows(loci, fragments)
+  combined <- bind_rows(loci, orphans)
   # numeric companions for the evidence/confidence plots (the loci tables store
   # every column as a string). Guarded so an all-empty input stays well-formed.
   if (nrow(combined) > 0L) {
@@ -585,7 +615,7 @@ main <- function() {
       )
   }
   log_section(sprintf("Loaded %d anchored loci + %d recovered orphans across %d species",
-                      nrow(loci), nrow(fragments), length(unique(combined$species))))
+                      nrow(loci), nrow(orphans), length(unique(combined$species))))
 
   emit <- function(name, plot) {
     save_plot(name, plot, args$output,
@@ -607,7 +637,7 @@ main <- function() {
   emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci))
   emit("confidence.png",            confidence_plot(combined))
 
-  # Evidence / confidence / fragments panel (spans both tiers).
+  # Evidence / confidence / orphans panel (spans both tiers).
   emit("evidence_depth.png",        evidence_depth_plot(combined))
   emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
   emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
@@ -625,8 +655,28 @@ main <- function() {
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 
-  log_section(sprintf("Done — wrote 18 PNGs to %s + report %s",
-                      args$output, args$report_csv))
+  # Unified authoritative catalog: every locus as ONE non-overlapping record —
+  # anchored proviruses (LTR-confirmed) + clustered orphan loci (proximity-
+  # inferred), `source` keeping the confidence gradient explicit. The single
+  # "this is what we found at this location, and here's everything about it" table.
+  catalog_cols <- c(
+    "species", "source", "seqname", "start", "end", "strand",
+    "taxon_call", "rank", "resolved", "confidence", "confidence_tag", "erv_class",
+    "structure_class", "domain_tier", "canonical_order", "completeness",
+    "n_main_genes", "genes_present", "is_mosaic", "mosaic_composition",
+    "n_blastx_hits", "method", "id"
+  )
+  catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(catalog_cols))
+  if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
+    catalog <- catalog %>%
+      dplyr::arrange(.data$species, .data$seqname,
+                     suppressWarnings(as.integer(.data$start)))
+  }
+  dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
+  readr::write_csv(catalog, args$catalog_csv)
+
+  log_section(sprintf("Done — wrote 18 PNGs to %s + report %s + catalog %s",
+                      args$output, args$report_csv, args$catalog_csv))
 }
 
 

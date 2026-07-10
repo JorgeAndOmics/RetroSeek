@@ -40,6 +40,15 @@ parameters:
   #                hits overlapping no domain (co-localization; stronger, opt-in).
   # Independent of the per-provirus domain_tier (which is always element-wise).
   hit_domain_mode: 'membership'
+  # Orphan clustering gap (bp). Orphans (non-LTR-associated hits) have no LTR
+  # element to group by, so their gene-hits are clustered by SPATIAL PROXIMITY
+  # into single non-overlapping loci: hits whose gap <= this value collapse into
+  # one orphan locus (a synthetic Parent), then classified/assembled exactly like
+  # anchored proviruses. Default 10000 (10 kb) ≈ the span of a full-length
+  # retroviral/ERV provirus (2 LTRs + gag-pro-pol-env, ~7-12 kb), so gene
+  # fragments of one degraded provirus cluster together; raise to merge more
+  # aggressively, lower to keep orphans finer-grained. See ADR-010.
+  orphan_merge_gap: 10000
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
   main_probes:

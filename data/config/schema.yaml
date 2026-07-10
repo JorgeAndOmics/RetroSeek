@@ -45,6 +45,7 @@ parameters_schema:
   ltr_flank_margin: int(min=0)
   merge_option: str(matches='^(virus|label)$')
   hit_domain_mode: str(matches='^(membership|positional)$', required=False)
+  orphan_merge_gap: int(min=0, required=False)
   probe_to_pair: str(required=False)
   pair_max_gap: num(min=0)
   main_probes: list(str())

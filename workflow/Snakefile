@@ -5,11 +5,11 @@
 #   1. Genome acquisition & preparation   (download, normalise, Pfam, BLAST db, LTR index)
 #   2. LTR discovery                       (LTRharvest / LTRdigest)
 #   3. Probe extraction & homology search  (tBLASTn → pickle → parquet → segmentation)
-#   4. Range analysis                      (tBLASTn × LTR integration → valid/fragments tracks)
+#   4. Range analysis                      (tBLASTn × LTR integration → valid/orphans tracks)
 #   5. Solo-LTR workstream                 (LTR_retriever prefilter / detect / integrate)
 #   6. Provirus & structural plots         (plot2sort, stage, erv-like, circle panels)
 #   7. Hotspot & pair detection
-#   8. Taxonomic classification            (reference build, classify, fragments tier, plots)
+#   8. Taxonomic classification            (reference build, classify, orphans tier, plots)
 #   9. Loss analysis                       (per-stage funnel + novel candidates)
 # Each rule is split into a `*_setup` worker (per-genome) + an aggregate target,
 # following the project-wide setup/aggregate convention.
@@ -427,7 +427,7 @@ rule species_segmenter:
 # =============================================================================
 # 4. RANGE ANALYSIS — tBLASTn × LTR integration
 #    integrate homology hits with LTRdigest structure into the original /
-#    candidate / valid / fragments tiers (+ per-genome counts for the funnel).
+#    candidate / valid / orphans tiers (+ per-genome counts for the funnel).
 # =============================================================================
 rule ranges_analysis_setup:
     input:
@@ -444,7 +444,7 @@ rule ranges_analysis_setup:
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         candidate_tracks=os.path.join(defaults.PATH_DICT['TRACK_CANDIDATES_DIR'], '{genome}.gff3'),
-        fragments_tracks=os.path.join(defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'], '{genome}.gff3'),
+        orphans_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
         # solo_ltr production has moved to the LTR_retriever-based workstream
@@ -485,7 +485,7 @@ rule ranges_analysis_setup:
         yaml_config_file=defaults.CONFIG_FILE,
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         candidate_tracks_dir=defaults.PATH_DICT['TRACK_CANDIDATES_DIR'],
-        fragments_tracks_dir=defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'],
+        orphans_tracks_dir=defaults.PATH_DICT['TRACK_ORPHANS_DIR'],
         valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
@@ -502,7 +502,7 @@ rule ranges_analysis_setup:
         --config {params.yaml_config_file:q} \
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --candidate_ranges {params.candidate_tracks_dir:q}/{wildcards.genome:q}.gff3 \
-        --fragments_ranges {params.fragments_tracks_dir:q}/{wildcards.genome:q}.gff3 \
+        --orphans_ranges {params.orphans_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
@@ -1010,7 +1010,7 @@ _PROBE_CSV = config['input']['probe_csv']
 # =============================================================================
 # 8. TAXONOMIC CLASSIFICATION — per-locus taxon calls (rank-agnostic axis)
 #    build the taxon-comprehensive reference + placement trees, classify anchored
-#    loci, recover + classify the fragments tier, and render the taxonomy panel.
+#    loci, recover + classify the orphans tier, and render the taxonomy panel.
 # =============================================================================
 rule taxonomy_reference:
     output:
@@ -1127,14 +1127,14 @@ rule taxonomy_classify:
             if _CLASSIFICATION.get('enable', True) else [])
 
 
-# Fragments tier — recover non-LTR-associated fragments by running the SAME
-# classifier on the fragments GFF3 (parentless features -> singleton loci), gated
-# to keep only fragments that earned a taxonomic call (--gate-classified). The
-# fragments table shares the loci schema (source='fragment') so the report unions
+# Orphans tier — recover non-LTR-associated orphans by running the SAME
+# classifier on the orphans GFF3 (parentless features -> singleton loci), gated
+# to keep only orphans that earned a taxonomic call (--gate-classified). The
+# orphans table shares the loci schema (source='orphan') so the report unions
 # the two tiers.
-rule taxonomy_fragments_setup:
+rule taxonomy_orphans_setup:
     input:
-        fragments = os.path.join(defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'], '{genome}.gff3'),
+        orphans = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
         faa       = rules.taxonomy_reference.output.faa,
         csv       = rules.taxonomy_reference.output.csv,
@@ -1143,11 +1143,11 @@ rule taxonomy_fragments_setup:
         trees     = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestTree'),
                            gene=_PLACEMENT_GENES)
     output:
-        loci_parquet = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.fragments.parquet'),
-        loci_csv     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.fragments.csv'),
-        counts_csv   = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.fragments_counts.csv'),
-        gff3         = os.path.join(defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'], '{genome}.classified.gff3'),
-        bed          = os.path.join(defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'], '{genome}.classified.bed')
+        loci_parquet = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
+        loci_csv     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.orphans.csv'),
+        counts_csv   = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.orphans_counts.csv'),
+        gff3         = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.gff3'),
+        bed          = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.bed')
     params:
         ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
         main_probes     = _MAIN_PROBES,
@@ -1157,11 +1157,11 @@ rule taxonomy_fragments_setup:
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
-        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'fragments')
+        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans')
     threads: config.get('rule_threads', 1)
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.fragments:q} {input.genome:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.orphans:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
@@ -1175,14 +1175,14 @@ rule taxonomy_fragments_setup:
         '''
 
 
-rule taxonomy_fragments:
+rule taxonomy_orphans:
     input:
         loci = lambda wildcards: (
-            expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.fragments.parquet'),
+            expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                    genome=species_with_hits(wildcards))
             if _CLASSIFICATION.get('enable', True) else []),
         tracks = lambda wildcards: (
-            expand(os.path.join(defaults.PATH_DICT['TRACK_FRAGMENTS_DIR'], '{genome}.classified.gff3'),
+            expand(os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.gff3'),
                    genome=species_with_hits(wildcards))
             if _CLASSIFICATION.get('enable', True) else [])
 
@@ -1193,7 +1193,7 @@ rule taxonomy_plot_generator_setup:
     input:
         loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                                         genome=species_with_hits(wildcards)),
-        fragments = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.fragments.parquet'),
+        orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                                              genome=species_with_hits(wildcards))
     output:
         plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
@@ -1215,7 +1215,8 @@ rule taxonomy_plot_generator_setup:
                                  'mosaic_taxon_pairs',
                                  'mosaic_gene_discordance',
                                  'mosaic_composition_by_species']),
-        report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv')
+        report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv'),
+        catalog = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
@@ -1228,7 +1229,8 @@ rule taxonomy_plot_generator_setup:
         --input {params.parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q} \
-        --report_csv {output.report:q}
+        --report_csv {output.report:q} \
+        --catalog_csv {output.catalog:q}
         '''
 
 
@@ -1238,7 +1240,7 @@ rule taxonomy_plot_generator:
 
 
 # Unified loss funnel — UNIONs the ranges-analysis counts with the blastx-stage
-# classification + fragments counts into one per-stage attrition table, exports
+# classification + orphans counts into one per-stage attrition table, exports
 # the per-genome novel candidates (loci with zero blastx homology), and renders
 # the funnel plot. Aggregate rule: demands every genome's counts + loci so the
 # funnel is complete.
@@ -1257,7 +1259,7 @@ rule loss_analysis_setup:
                    genome=species_with_hits(wildcards))
             if _CLASSIFICATION.get('enable', True) else []),
         frag_counts = lambda wildcards: (
-            expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.fragments_counts.csv'),
+            expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.orphans_counts.csv'),
                    genome=species_with_hits(wildcards))
             if _CLASSIFICATION.get('enable', True) else []),
         loci = lambda wildcards: (
@@ -1270,7 +1272,7 @@ rule loss_analysis_setup:
         plots         = expand(os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], '{loss_plot}.png'),
                                loss_plot=['loss_funnel',
                                           'step_retention',
-                                          'fragment_recovery',
+                                          'orphan_recovery',
                                           'novel_burden',
                                           'loss_waterfall'])
     params:

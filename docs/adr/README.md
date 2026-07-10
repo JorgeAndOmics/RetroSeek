@@ -19,6 +19,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 007   | [Per-locus ERV taxonomic classification (genus calls)](ADR-007-taxonomic-classification.md) | Accepted |
 | 008   | [Rank-agnostic taxonomic classification (axis-taxon calls)](ADR-008-rank-agnostic-classification.md) | Accepted |
 | 009   | [Anchored domain-tiering, structural ERV class, orphan relabeling](ADR-009-anchored-domain-tiering-and-structure-class.md) | Accepted |
+| 010   | [Orphan proximity-clustering, fragment→orphan rename, authoritative catalog](ADR-010-orphan-clustering-and-authoritative-catalog.md) | Accepted |
 
 ## When to write a new ADR
 

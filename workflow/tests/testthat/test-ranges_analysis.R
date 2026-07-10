@@ -196,7 +196,7 @@ test_that("annotate_anchored_hits on empty input returns a typed-empty GRanges",
 # ---------------------------------------------------------------------------
 # find_unanchored_hits is the exact strand-aware complement of
 # find_candidate_hits: the reduced BLAST hits overlapping NO retrotransposon.
-# These are the non-LTR-associated fragments recovered into the fragments tier.
+# These are the non-LTR-associated hits recovered into the orphan tier.
 # ---------------------------------------------------------------------------
 test_that("find_unanchored_hits returns hits overlapping no retrotransposon", {
   retros <- GenomicRanges::GRanges(
@@ -240,4 +240,39 @@ test_that("find_unanchored_hits on empty input returns empty", {
     "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
   )
   expect_equal(length(find_unanchored_hits(GenomicRanges::GRanges(), retros)), 0L)
+})
+
+
+# ---------------------------------------------------------------------------
+# cluster_orphan_hits assigns a synthetic Parent by spatial proximity so the
+# classifier groups orphans into single multi-gene loci (ADR-010).
+# ---------------------------------------------------------------------------
+test_that("cluster_orphan_hits groups hits within merge_gap and splits far ones", {
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 500, 20000, 20100), c(200, 600, 20050, 20200)),
+    strand = "+", probe = c("POL", "GAG", "ENV", "POL")
+  )
+  # gap 1&2 = 300 (< 1000 -> same cluster); gap 2&3 = 19400 (> 1000 -> split);
+  # gap 3&4 = 50 (< 1000 -> same cluster). Expect two clusters: {1,2} and {3,4}.
+  out <- cluster_orphan_hits(hits, merge_gap = 1000L)
+  parents <- as.character(S4Vectors::mcols(out)$Parent)
+  expect_equal(parents[1], parents[2])
+  expect_equal(parents[3], parents[4])
+  expect_false(parents[1] == parents[3])
+  expect_equal(length(unique(parents)), 2L)
+})
+
+test_that("cluster_orphan_hits merges everything under a large gap, splits under a tiny one", {
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 20000), c(200, 20100)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  expect_equal(length(unique(cluster_orphan_hits(hits, 100000L)$Parent)), 1L)  # one cluster
+  expect_equal(length(unique(cluster_orphan_hits(hits, 10L)$Parent)),     2L)  # two clusters
+})
+
+test_that("cluster_orphan_hits on empty input returns a typed-empty GRanges with Parent", {
+  out <- cluster_orphan_hits(GenomicRanges::GRanges(), 1000L)
+  expect_equal(length(out), 0L)
+  expect_true("Parent" %in% names(S4Vectors::mcols(out)))
 })

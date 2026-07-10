@@ -22,6 +22,7 @@ test_that("build_loss_funnel orders stages and computes step retention", {
     "g1",    "valid_ranges",            60,
     "g1",    "global_reduced_ranges",  250,
     "g1",    "orphans",                180,
+    "g1",    "orphans_total",           90,
     "g1",    "orphans_recovered",       45
   )
   f <- build_loss_funnel(counts)
@@ -48,12 +49,15 @@ test_that("build_loss_funnel orders stages and computes step retention", {
   expect_equal(glob$branch, "orphan")
   expect_equal(glob$step_retained, 250 / 500)      # vs first_reduced parent
 
-  # orphans are anchored to the global-reduced parent
+  # orphan hits descend from the global-reduced parent
   frag <- f %>% filter(metric == "orphans")
   expect_equal(frag$branch, "orphan")
   expect_equal(frag$step_retained, 180 / 250)
+  # orphan clustering (hits -> loci) then recovery (loci -> classified loci)
+  clustered <- f %>% filter(metric == "orphans_total")
+  expect_equal(clustered$step_retained, 90 / 180)   # grouping
   rec <- f %>% filter(metric == "orphans_recovered")
-  expect_equal(rec$step_retained, 45 / 180)
+  expect_equal(rec$step_retained, 45 / 90)           # gate over clustered loci
 })
 
 test_that("build_loss_funnel ignores unknown metrics and tolerates empties", {

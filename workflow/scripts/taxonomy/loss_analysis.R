@@ -6,7 +6,7 @@
 # blastx-classification stage. The two stages already emit their counts in the
 # same tidy (metric, value) shape — ranges_analysis.R writes
 # `<genome>.counts.csv`, taxonomy_classify_loci.py writes
-# `<genome>.classification_counts.csv` (+ `<genome>.fragments_counts.csv`) — so
+# `<genome>.classification_counts.csv` (+ `<genome>.orphans_counts.csv`) — so
 # this script just UNIONs them, orders the metrics into a funnel, and computes
 # per-step retention.
 #
@@ -52,11 +52,12 @@ suppressMessages({
   "candidate_ranges",      4L,          "main",           "first_reduced_ranges",  "LTR-overlapping (candidate)",
   "valid_ranges",          5L,          "main",           "candidate_ranges",      "anchored (all domain tiers)",
   "global_reduced_ranges", 6L,          "orphan",         "first_reduced_ranges",  "global reduction",
-  "orphans",               7L,          "orphan",         "global_reduced_ranges", "non-LTR orphans",
-  "orphans_recovered",     8L,          "orphan",         "orphans",               "orphans recovered",
-  "loci_total",            9L,          "classification", "valid_ranges",          "anchored loci (grouped)",
-  "loci_classified",      10L,          "classification", "loci_total",            "loci classified",
-  "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "loci w/ no blastx hit"
+  "orphans",               7L,          "orphan",         "global_reduced_ranges", "non-LTR orphan hits",
+  "orphans_total",         8L,          "orphan",         "orphans",               "orphan loci (clustered)",
+  "orphans_recovered",     9L,          "orphan",         "orphans_total",         "orphans recovered",
+  "loci_total",           10L,          "classification", "valid_ranges",          "anchored loci (grouped)",
+  "loci_classified",      11L,          "classification", "loci_total",            "loci classified",
+  "loci_no_blastx_hit",   12L,          "classification", "loci_total",            "loci w/ no blastx hit"
 )
 
 
@@ -199,31 +200,33 @@ step_retention_plot <- function(funnel) {
 }
 
 
-# Orphan recovery yield: per genome, non-LTR orphans vs the subset that earned a
-# taxonomic call (recovered), with the recovered fraction annotated.
-fragment_recovery_plot <- function(funnel) {
-  d <- funnel %>% dplyr::filter(.data$metric %in% c("orphans", "orphans_recovered"))
+# Orphan recovery yield: per genome, the clustered orphan LOCI vs the subset that
+# earned a taxonomic call (recovered), with the recovered fraction annotated.
+# Both counts are in loci units (post-clustering) so the yield is a clean gate.
+orphan_recovery_plot <- function(funnel) {
+  d <- funnel %>% dplyr::filter(.data$metric %in% c("orphans_total", "orphans_recovered"))
   if (nrow(d) == 0L) return(empty_plot("no orphans"))
   bars <- d %>% dplyr::mutate(metric = factor(
-    .data$metric, levels = c("orphans", "orphans_recovered"),
-    labels = c("unanchored", "recovered")))
+    .data$metric, levels = c("orphans_total", "orphans_recovered"),
+    labels = c("orphan loci", "recovered")))
   fr <- d %>%
     dplyr::select("genome", "metric", "value") %>%
     tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
     dplyr::mutate(frac = dplyr::if_else(
-      dplyr::coalesce(.data$orphans, 0) > 0,
-      dplyr::coalesce(.data$orphans_recovered, 0) / .data$orphans, 0))
+      dplyr::coalesce(.data$orphans_total, 0) > 0,
+      dplyr::coalesce(.data$orphans_recovered, 0) / .data$orphans_total, 0))
   p <- ggplot(bars, aes(x = .data$genome, y = .data$value, fill = .data$metric)) +
     geom_col(position = position_dodge(width = 0.8)) +
     geom_text(data = fr, inherit.aes = FALSE,
               aes(x = .data$genome, y = .data$orphans_recovered,
                   label = scales::percent(.data$frac, accuracy = 1)),
               vjust = -0.4, size = 2.8) +
-    scale_fill_manual(values = c(unanchored = "#9E9E9E", recovered = "#1A9850")) +
-    labs(x = NULL, y = "orphans", fill = NULL) +
+    scale_fill_manual(values = c(`orphan loci` = "#9E9E9E", recovered = "#1A9850")) +
+    labs(x = NULL, y = "orphan loci", fill = NULL) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Orphan recovery", "Non-LTR orphans recovered as classified loci")
+  add_titles(p, "Orphan recovery",
+             "Clustered orphan loci recovered as classified loci")
 }
 
 
@@ -278,7 +281,7 @@ main <- function() {
   parser$add_argument("--ranges_counts_dir", required = TRUE,
                       help = "Dir with <genome>.counts.csv (ranges_analysis).")
   parser$add_argument("--classification_counts_dir", required = TRUE,
-                      help = "Dir with <genome>.classification_counts.csv + .fragments_counts.csv.")
+                      help = "Dir with <genome>.classification_counts.csv + .orphans_counts.csv.")
   parser$add_argument("--loci_dir", required = TRUE,
                       help = "Dir with <genome>.loci.parquet (for novel candidates).")
   parser$add_argument("--out_parquet", required = TRUE)
@@ -293,11 +296,11 @@ main <- function() {
   plot_height <- cfg$plots$height %||% 12
   plot_width  <- cfg$plots$width  %||% 15
 
-  log_section("Loading stage counts (ranges + classification + fragments)")
+  log_section("Loading stage counts (ranges + classification + orphans)")
   counts_long <- dplyr::bind_rows(
     .read_counts(args$ranges_counts_dir, "counts"),
     .read_counts(args$classification_counts_dir, "classification_counts"),
-    .read_counts(args$classification_counts_dir, "fragments_counts")
+    .read_counts(args$classification_counts_dir, "orphans_counts")
   )
   funnel <- build_loss_funnel(counts_long)
   log_section(sprintf("Funnel: %d stage rows across %d genomes",
@@ -329,7 +332,7 @@ main <- function() {
   }
   emit("loss_funnel.png",      loss_funnel_plot(funnel_disp))
   emit("step_retention.png",   step_retention_plot(funnel_disp))
-  emit("fragment_recovery.png", fragment_recovery_plot(funnel_disp))
+  emit("orphan_recovery.png", orphan_recovery_plot(funnel_disp))
   emit("novel_burden.png",     novel_burden_plot(funnel_disp))
   emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp))
   log_section("Done")

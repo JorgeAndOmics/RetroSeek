@@ -236,9 +236,9 @@ PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve(
 # Taxonomic-classification tier — per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
 PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
-# Fragments tier — non-LTR-associated hits recovered + classified by their own
-# sequence (parallel to taxonomy; only fragments that earn a taxonomic call).
-PATH_DICT["TRACK_FRAGMENTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "fragments").resolve()
+# Orphans tier — non-LTR-associated hits recovered + classified by their own
+# sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
+PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
 
 # === Results - LTR ===
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()

@@ -52,6 +52,39 @@ find_unanchored_hits <- function(gr_hits, retrotransposons) {
 }
 
 
+# Cluster orphan (non-LTR-associated) hits by SPATIAL PROXIMITY and stamp each
+# with a synthetic `Parent`, so the taxonomic classifier's build_loci groups them
+# into single, non-overlapping, multi-gene orphan loci — exactly the grouping an
+# anchored provirus gets from its LTR element, but keyed on proximity because an
+# orphan has no element (ADR-010). Hits separated by <= `merge_gap` bp collapse
+# into one cluster (ID `orphan_<seqname>_<clusterStart>`). Strand is ignored: a
+# degraded provirus's genes may be annotated on either strand, and the locus
+# strand is later taken as the member-strand mode by build_loci.
+#
+# This is a heuristic standing in for a structural fact: proximity INFERS that
+# nearby orphan gene-hits belong to one degraded provirus, where the anchored
+# path had LTR evidence. Orphan loci therefore stay flagged `source=orphan`.
+cluster_orphan_hits <- function(orphan_hits, merge_gap = 10000L) {
+  if (length(orphan_hits) == 0L) {
+    S4Vectors::mcols(orphan_hits)$Parent <- character(0)
+    return(orphan_hits)
+  }
+  # reduce() merges ranges whose gap is < min.gapwidth; +1 so a gap of exactly
+  # merge_gap still merges. Clusters are non-overlapping and cover every hit.
+  clusters <- GenomicRanges::reduce(orphan_hits, min.gapwidth = merge_gap + 1L,
+                                    ignore.strand = TRUE)
+  ov <- GenomicRanges::findOverlaps(orphan_hits, clusters, ignore.strand = TRUE)
+  cl <- rep(NA_integer_, length(orphan_hits))
+  cl[S4Vectors::queryHits(ov)] <- S4Vectors::subjectHits(ov)
+  S4Vectors::mcols(orphan_hits)$Parent <- sprintf(
+    "orphan_%s_%d",
+    as.character(GenomicRanges::seqnames(clusters))[cl],
+    BiocGenerics::start(clusters)[cl]
+  )
+  orphan_hits
+}
+
+
 # Build a list mapping each retrotransposon (by its ID attribute) to the set
 # of probes assigned to its child Pfam domains. Domains carry a `Parent`
 # attribute pointing to their enclosing retrotransposon's ID; we group by

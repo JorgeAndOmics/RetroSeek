@@ -65,10 +65,10 @@ parser$add_argument("--probe_dict",               required = TRUE,
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--candidate_ranges",         required = TRUE)
-parser$add_argument("--fragments_ranges",         required = TRUE,
-                    help = paste("GFF3 of non-LTR-associated fragments (reduced",
+parser$add_argument("--orphans_ranges",         required = TRUE,
+                    help = paste("GFF3 of non-LTR-associated orphans (reduced",
                                  "BLAST hits overlapping no retrotransposon).",
-                                 "Recovered + classified as the fragments tier."))
+                                 "Recovered + classified as the orphans tier."))
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
@@ -191,7 +191,14 @@ record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 # orphans). Recovered into the orphan tier and classified by their own
 # sequence. Counted here so the loss funnel sees what falls outside every LTR.
 unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
+# Spatially cluster orphan hits into single loci (synthetic Parent) so the
+# classifier assembles them like proviruses — one non-overlapping multi-gene
+# orphan locus per proximity cluster (ADR-010). `orphans` counts the hits;
+# `orphan_clusters` counts the resulting loci (the grouping the funnel bridges).
+unanchored_hits <- cluster_orphan_hits(unanchored_hits, opts$orphan_merge_gap)
 record_count("orphans",                    length(unanchored_hits))
+record_count("orphan_clusters",
+             length(unique(S4Vectors::mcols(unanchored_hits)$Parent)))
 
 # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
 # view of the genus-classified loci produced by the taxonomy_classify stage
@@ -233,9 +240,10 @@ track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
 # Orphan tier: unanchored hits exported with the same probe=/label= GFF3
-# attributes as the valid track but NO Parent= — so the classifier's build_loci
-# treats each orphan as its own singleton locus.
-track_exporter(unanchored_hits,        args$fragments_ranges,         gen_ver)
+# attributes as the valid track PLUS a synthetic Parent= from proximity
+# clustering (cluster_orphan_hits) — so the classifier's build_loci groups them
+# into single non-overlapping multi-gene orphan loci, like anchored proviruses.
+track_exporter(unanchored_hits,        args$orphans_ranges,         gen_ver)
 
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
