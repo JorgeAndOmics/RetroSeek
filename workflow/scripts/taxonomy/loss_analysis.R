@@ -36,12 +36,12 @@ suppressMessages({
 # it is measured against for step retention). The pipeline has TWO reduction
 # branches off `first_reduced_ranges` (gr_virus): the anchored spine
 # (candidate -> valid -> loci) descends from gr_virus directly, while the
-# fragments branch descends from `global_reduced_ranges` (gr_global, a second,
+# orphan branch descends from `global_reduced_ranges` (gr_global, a second,
 # stronger reduction). So `candidate`'s parent is `first_reduced_ranges`, NOT
 # `global_reduced_ranges` — and `global_reduced_ranges` is the head of the
-# fragments branch, a SIBLING of `candidate`, not a step in the anchored spine.
+# orphan branch, a SIBLING of `candidate`, not a step in the anchored spine.
 # Getting this wrong makes candidate/global > 100% and a non-monotonic funnel.
-# `branch` tags let the plot separate the anchored spine, the fragments branch,
+# `branch` tags let the plot separate the anchored spine, the orphan branch,
 # and the classification tier (the last is grouping/quality, not attrition).
 # ----------------------------------------------------------------------------
 .STAGE_SPEC <- tibble::tribble(
@@ -50,10 +50,10 @@ suppressMessages({
   "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
   "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
   "candidate_ranges",      4L,          "main",           "first_reduced_ranges",  "LTR-overlapping (candidate)",
-  "valid_ranges",          5L,          "main",           "candidate_ranges",      "domain-validated (valid)",
-  "global_reduced_ranges", 6L,          "fragments",      "first_reduced_ranges",  "global reduction",
-  "unanchored_fragments",  7L,          "fragments",      "global_reduced_ranges", "non-LTR fragments",
-  "fragments_recovered",   8L,          "fragments",      "unanchored_fragments",  "fragments recovered",
+  "valid_ranges",          5L,          "main",           "candidate_ranges",      "anchored (all domain tiers)",
+  "global_reduced_ranges", 6L,          "orphan",         "first_reduced_ranges",  "global reduction",
+  "orphans",               7L,          "orphan",         "global_reduced_ranges", "non-LTR orphans",
+  "orphans_recovered",     8L,          "orphan",         "orphans",               "orphans recovered",
   "loci_total",            9L,          "classification", "valid_ranges",          "anchored loci (grouped)",
   "loci_classified",      10L,          "classification", "loci_total",            "loci classified",
   "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "loci w/ no blastx hit"
@@ -172,18 +172,18 @@ loss_funnel_plot <- function(funnel) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   add_titles(p, "Pipeline loss funnel",
-             "Surviving ranges/loci per stage (incl. recovered fragments)")
+             "Surviving ranges/loci per stage (incl. recovered orphans)")
 }
 
 
 # Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
 # surviving. Restricted to the genuine attrition/reduction steps (the anchored
-# spine + the fragments branch) — the classification tier is grouping/quality,
+# spine + the orphan branch) — the classification tier is grouping/quality,
 # not retention, so it is excluded to keep one consistent semantic on the scale.
 # Every cell is now a true subset/reduction ratio, so all are <= 100%.
 step_retention_plot <- function(funnel) {
   d <- funnel %>%
-    dplyr::filter(.data$branch %in% c("main", "fragments"), !is.na(.data$step_retained))
+    dplyr::filter(.data$branch %in% c("main", "orphan"), !is.na(.data$step_retained))
   if (nrow(d) == 0L) return(empty_plot("no step-retention data"))
   d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
   p <- ggplot(d, aes(x = .data$label, y = .data$genome, fill = .data$step_retained)) +
@@ -199,31 +199,31 @@ step_retention_plot <- function(funnel) {
 }
 
 
-# Fragment recovery yield: per genome, unanchored fragments vs the subset that
-# earned a taxonomic call (recovered), with the recovered fraction annotated.
+# Orphan recovery yield: per genome, non-LTR orphans vs the subset that earned a
+# taxonomic call (recovered), with the recovered fraction annotated.
 fragment_recovery_plot <- function(funnel) {
-  d <- funnel %>% dplyr::filter(.data$metric %in% c("unanchored_fragments", "fragments_recovered"))
-  if (nrow(d) == 0L) return(empty_plot("no fragments"))
+  d <- funnel %>% dplyr::filter(.data$metric %in% c("orphans", "orphans_recovered"))
+  if (nrow(d) == 0L) return(empty_plot("no orphans"))
   bars <- d %>% dplyr::mutate(metric = factor(
-    .data$metric, levels = c("unanchored_fragments", "fragments_recovered"),
+    .data$metric, levels = c("orphans", "orphans_recovered"),
     labels = c("unanchored", "recovered")))
   fr <- d %>%
     dplyr::select("genome", "metric", "value") %>%
     tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
     dplyr::mutate(frac = dplyr::if_else(
-      dplyr::coalesce(.data$unanchored_fragments, 0) > 0,
-      dplyr::coalesce(.data$fragments_recovered, 0) / .data$unanchored_fragments, 0))
+      dplyr::coalesce(.data$orphans, 0) > 0,
+      dplyr::coalesce(.data$orphans_recovered, 0) / .data$orphans, 0))
   p <- ggplot(bars, aes(x = .data$genome, y = .data$value, fill = .data$metric)) +
     geom_col(position = position_dodge(width = 0.8)) +
     geom_text(data = fr, inherit.aes = FALSE,
-              aes(x = .data$genome, y = .data$fragments_recovered,
+              aes(x = .data$genome, y = .data$orphans_recovered,
                   label = scales::percent(.data$frac, accuracy = 1)),
               vjust = -0.4, size = 2.8) +
     scale_fill_manual(values = c(unanchored = "#9E9E9E", recovered = "#1A9850")) +
-    labs(x = NULL, y = "fragments", fill = NULL) +
+    labs(x = NULL, y = "orphans", fill = NULL) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Fragment recovery", "Non-LTR fragments recovered as classified loci")
+  add_titles(p, "Orphan recovery", "Non-LTR orphans recovered as classified loci")
 }
 
 

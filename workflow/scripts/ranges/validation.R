@@ -1,19 +1,21 @@
 # -----------------------------------------------------------------------------
 # ranges / validation.R
 # -----------------------------------------------------------------------------
-# Two refinement steps applied to the reduced BLAST GRanges:
+# Refinement steps applied to the reduced BLAST GRanges:
 #
 #   - candidate hits  = reduced BLAST hits that overlap an LTR retrotransposon
-#                       (ERV); these are the spatial candidates for ERV identity.
-#   - valid hits      = candidates whose probe label matches a probe label of
-#                       at least one Pfam-annotated domain inside the *same*
-#                       enclosing retrotransposon. This is the semantic check
-#                       that turns "near-an-LTR" into "consistent with the
-#                       enclosing ERV's molecular architecture".
+#                       (ERV); these are the anchored candidates for ERV identity.
+#   - anchored hits   = the candidate set, LABELLED (not filtered): every
+#                       candidate is kept and annotated with its enclosing
+#                       element (`Parent`), a per-provirus `domain_tier`, and a
+#                       per-hit `domain_hit_class`. Nothing is discarded — the
+#                       "valid" tier is now the whole anchored set carrying the
+#                       labels needed to judge domain support downstream (ADR-009).
+#   - orphan hits     = the strand-aware complement: hits overlapping no element.
 #
-# This replaces the earlier triple-join cascade (gr_virus ⨝ ltr_valid_hits ⨝
-# ltr_domain with brittle suffix juggling) with a clean two-step approach
-# using findOverlaps + per-retrotransposon probe-set membership.
+# This replaces the earlier find_valid_hits filter (which dropped every anchored
+# hit lacking a matching Pfam domain) with a findOverlaps + per-retrotransposon
+# probe-set membership annotation.
 
 suppressMessages({
   library(GenomicRanges)
@@ -36,10 +38,10 @@ find_candidate_hits <- function(gr_hits, retrotransposons) {
 
 
 # The strand-aware complement of find_candidate_hits: reduced BLAST hits that
-# overlap NO retrotransposon. These are the non-LTR-associated fragments — solo
+# overlap NO retrotransposon. These are the non-LTR-associated orphans — solo
 # ORFs, degraded proviruses, and candidate novel retroviruses whose LTRs are too
-# diverged for LTRharvest to pair. They are recovered into the fragments tier and
-# classified by their own sequence (taxonomy_classify_loci.py --source fragment).
+# diverged for LTRharvest to pair. They are recovered into the orphan tier and
+# classified by their own sequence (taxonomy_classify_loci.py --source orphan).
 # With no retrotransposons, every hit is unanchored.
 find_unanchored_hits <- function(gr_hits, retrotransposons) {
   if (length(gr_hits) == 0L) return(gr_hits[FALSE])
@@ -77,65 +79,130 @@ build_retrotransposon_probe_sets <- function(retrotransposons, domains_with_prob
 }
 
 
-# A candidate hit is "valid" if its probe is in the probe-set of at least one
-# retrotransposon it overlaps. For ranges-with-multi-value probes (concatenate
-# strategy emits "POL; GAG"), we split on the configured separator and pass
-# if any of the candidate's probes is in the enclosing retrotransposon's set.
-find_valid_hits <- function(gr_candidates, retrotransposons, domains_with_probes,
-                            concat_separator = "; ") {
+# Per-retrotransposon boolean: does the element carry at least one LTRdigest
+# protein domain child (any Pfam, regardless of the config probe filter)?
+# `all_domains` are the `protein_match` features (extract_all_domains); each
+# points at its enclosing LTR_retrotransposon via `Parent`. This separates the
+# `domain_unlisted` tier (has domains, none config-matched) from `non_domain`.
+build_retrotransposon_domain_presence <- function(retrotransposons, all_domains) {
+  retro_ids <- as.character(retrotransposons$ID)
+  presence  <- setNames(rep(FALSE, length(retro_ids)), retro_ids)
+  if (length(retro_ids) == 0L || length(all_domains) == 0L) return(presence)
+  parents <- unique(as.character(all_domains$Parent))
+  presence[intersect(parents, retro_ids)] <- TRUE
+  presence
+}
+
+
+# Domain-tier precedence (strongest wins when a hit straddles several elements).
+.DOMAIN_TIER_RANK <- c(non_domain = 0L, domain_unlisted = 1L, domain_selected = 2L)
+
+
+# Per-hit positional domain class (hit_domain_mode == "positional"): a hit is
+# `substring_match` when it physically overlaps a config-matched domain OF ITS
+# OWN gene, `no_substring_match` when it overlaps some other protein domain, and
+# `non_domain` when it overlaps none. `probes_split` is the per-candidate probe
+# vector (concatenate strategy may pack several probes into one hit).
+.positional_hit_class <- function(gr_candidates, domains_with_probes, all_domains,
+                                  probes_split) {
+  n   <- length(gr_candidates)
+  cls <- rep("non_domain", n)
+  if (length(all_domains) > 0L) {
+    any_ov <- unique(S4Vectors::queryHits(GenomicRanges::findOverlaps(
+      gr_candidates, all_domains, ignore.strand = TRUE)))
+    cls[any_ov] <- "no_substring_match"
+  }
+  if (length(domains_with_probes) > 0L) {
+    ov <- GenomicRanges::findOverlaps(gr_candidates, domains_with_probes,
+                                      ignore.strand = TRUE)
+    qh <- S4Vectors::queryHits(ov)
+    dom_probe <- as.character(S4Vectors::mcols(domains_with_probes)$probe)[
+      S4Vectors::subjectHits(ov)]
+    for (i in seq_along(qh)) {
+      q <- qh[i]
+      if (dom_probe[i] %in% probes_split[[q]]) cls[q] <- "substring_match"
+    }
+  }
+  cls
+}
+
+
+# Annotate every candidate (LTR-anchored) hit WITHOUT discarding any. Emits three
+# mcols columns (ADR-009):
+#
+#   Parent            greatest-overlap LTR_retrotransposon id — the anchor the
+#                     taxonomic classifier groups a locus's per-gene hits by.
+#   domain_tier       per-provirus, strongest across straddled elements:
+#                       domain_selected   >=1 config-matched domain (any gene)
+#                       domain_unlisted   has protein domains, none config-matched
+#                       non_domain        no protein domain at all
+#   domain_hit_class  per-hit, controlled by `hit_domain_mode`:
+#                       membership  substring_match iff the hit's own gene has a
+#                                   config-matched domain in an enclosing element
+#                                   (co-occurrence; the old valid gate), else
+#                                   no_substring_match
+#                       positional  see .positional_hit_class (co-localization;
+#                                   adds a non_domain level)
+annotate_anchored_hits <- function(gr_candidates, retrotransposons,
+                                   domains_with_probes, all_domains,
+                                   hit_domain_mode = "membership",
+                                   concat_separator = "; ") {
   if (length(gr_candidates) == 0L || length(retrotransposons) == 0L) {
-    return(gr_candidates[FALSE])
+    S4Vectors::mcols(gr_candidates)$Parent           <- character(0)
+    S4Vectors::mcols(gr_candidates)$domain_tier      <- character(0)
+    S4Vectors::mcols(gr_candidates)$domain_hit_class <- character(0)
+    return(gr_candidates)
   }
 
   probe_sets <- build_retrotransposon_probe_sets(retrotransposons, domains_with_probes)
+  has_domain <- build_retrotransposon_domain_presence(retrotransposons, all_domains)
 
-  # For each candidate, find ALL overlapping retrotransposons and union their
-  # probe-sets — a candidate may straddle two close retros, and matching either
-  # one passes.
-  ov <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons, ignore.strand = FALSE)
-  if (length(ov) == 0L) return(gr_candidates[FALSE])
+  # Element-wise tier for every retrotransposon (config-matched > any-domain > none).
+  retro_ids <- as.character(retrotransposons$ID)
+  elem_tier <- vapply(retro_ids, function(id) {
+    if (length(probe_sets[[id]]) > 0L) "domain_selected"
+    else if (isTRUE(has_domain[[id]])) "domain_unlisted"
+    else "non_domain"
+  }, character(1))
 
+  ov    <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons, ignore.strand = FALSE)
   qhits <- S4Vectors::queryHits(ov)
   shits <- S4Vectors::subjectHits(ov)
-  retro_ids_per_subj <- as.character(retrotransposons$ID)[shits]
+  retro_ids_per_subj <- retro_ids[shits]
 
-  # Group: for each candidate index q, the union of probe-sets across all its
-  # overlapping retrotransposons.
-  per_candidate_set <- split(retro_ids_per_subj, qhits)
-  per_candidate_set <- lapply(per_candidate_set, function(ids) {
-    unlist(probe_sets[ids], use.names = FALSE)
-  })
-
-  # Probe of each candidate; concatenate strategy can pack multiple probes
-  # into one string, so split before the membership check.
-  probes_chr <- as.character(S4Vectors::mcols(gr_candidates)$probe)
+  # Concatenate strategy can pack multiple probes into one hit ("POL; GAG").
+  probes_chr   <- as.character(S4Vectors::mcols(gr_candidates)$probe)
   probes_split <- strsplit(probes_chr, concat_separator, fixed = TRUE)
 
-  # Decide pass/fail for the candidates that actually overlap something.
-  candidate_idx <- as.integer(names(per_candidate_set))
-  valid_mask <- rep(FALSE, length(gr_candidates))
-  for (k in seq_along(candidate_idx)) {
-    q <- candidate_idx[k]
-    valid_mask[q] <- length(intersect(probes_split[[q]], per_candidate_set[[k]])) > 0L
-  }
+  n           <- length(gr_candidates)
+  domain_tier <- rep("non_domain", n)   # every candidate overlaps >=1 element
+  parent_of   <- rep(NA_character_, n)
+  best_w      <- rep(-1L, n)
+  membership_set <- vector("list", n)   # union of config probe-sets per candidate
 
-  # Attach the enclosing LTR_retrotransposon id as `Parent` (greatest-overlap
-  # retro per candidate). This is the natural anchor the taxonomic classifier
-  # groups a locus's per-gene hits by — emitted natively here so no downstream
-  # overlap-reconstruction (and no off-by-one) is needed. See taxonomy_classify_loci.py.
   ov_widths <- IRanges::width(GenomicRanges::pintersect(
     gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE))
-  parent_of <- rep(NA_character_, length(gr_candidates))
-  best_w    <- rep(-1L, length(gr_candidates))
   for (i in seq_along(qhits)) {
-    q <- qhits[i]
-    if (ov_widths[i] > best_w[q]) {
-      best_w[q]    <- ov_widths[i]
-      parent_of[q] <- retro_ids_per_subj[i]
-    }
+    q  <- qhits[i]
+    id <- retro_ids_per_subj[i]
+    t  <- elem_tier[[id]]
+    if (.DOMAIN_TIER_RANK[[t]] > .DOMAIN_TIER_RANK[[domain_tier[q]]]) domain_tier[q] <- t
+    if (ov_widths[i] > best_w[q]) { best_w[q] <- ov_widths[i]; parent_of[q] <- id }
+    membership_set[[q]] <- c(membership_set[[q]], probe_sets[[id]])
   }
 
-  out <- gr_candidates[valid_mask]
-  S4Vectors::mcols(out)$Parent <- parent_of[valid_mask]
-  out
+  if (identical(hit_domain_mode, "positional")) {
+    domain_hit_class <- .positional_hit_class(gr_candidates, domains_with_probes,
+                                              all_domains, probes_split)
+  } else {
+    domain_hit_class <- vapply(seq_len(n), function(q) {
+      if (length(intersect(probes_split[[q]], membership_set[[q]])) > 0L)
+        "substring_match" else "no_substring_match"
+    }, character(1))
+  }
+
+  S4Vectors::mcols(gr_candidates)$Parent           <- parent_of
+  S4Vectors::mcols(gr_candidates)$domain_tier      <- domain_tier
+  S4Vectors::mcols(gr_candidates)$domain_hit_class <- domain_hit_class
+  gr_candidates
 }

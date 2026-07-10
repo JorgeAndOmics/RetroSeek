@@ -21,8 +21,8 @@ test_that("build_loss_funnel orders stages and computes step retention", {
     "g1",    "candidate_ranges",       300,
     "g1",    "valid_ranges",            60,
     "g1",    "global_reduced_ranges",  250,
-    "g1",    "unanchored_fragments",   180,
-    "g1",    "fragments_recovered",     45
+    "g1",    "orphans",                180,
+    "g1",    "orphans_recovered",       45
   )
   f <- build_loss_funnel(counts)
 
@@ -43,16 +43,16 @@ test_that("build_loss_funnel orders stages and computes step retention", {
   # frac_of_input is value / raw hits
   expect_equal((f %>% filter(metric == "valid_ranges"))$frac_of_input, 0.06)
 
-  # global reduction heads the fragments branch (sibling of candidate)
+  # global reduction heads the orphan branch (sibling of candidate)
   glob <- f %>% filter(metric == "global_reduced_ranges")
-  expect_equal(glob$branch, "fragments")
+  expect_equal(glob$branch, "orphan")
   expect_equal(glob$step_retained, 250 / 500)      # vs first_reduced parent
 
-  # fragments are anchored to the global-reduced parent
-  frag <- f %>% filter(metric == "unanchored_fragments")
-  expect_equal(frag$branch, "fragments")
+  # orphans are anchored to the global-reduced parent
+  frag <- f %>% filter(metric == "orphans")
+  expect_equal(frag$branch, "orphan")
   expect_equal(frag$step_retained, 180 / 250)
-  rec <- f %>% filter(metric == "fragments_recovered")
+  rec <- f %>% filter(metric == "orphans_recovered")
   expect_equal(rec$step_retained, 45 / 180)
 })
 

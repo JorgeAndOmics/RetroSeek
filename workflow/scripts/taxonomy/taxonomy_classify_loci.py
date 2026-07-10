@@ -49,6 +49,11 @@ _PROBE = re.compile(r"probe=([^;\t]+)")
 _PARENT = re.compile(r"Parent=([^;\t]+)")
 _LABEL = re.compile(r"label=([^;\t]+)")
 _ID = re.compile(r"ID=([^;\t]+)")
+_DOMAIN_TIER = re.compile(r"domain_tier=([^;\t]+)")
+_DOMAIN_HIT_CLASS = re.compile(r"domain_hit_class=([^;\t]+)")
+# Per-provirus domain tier, strongest-wins when a locus's hits disagree (they
+# shouldn't, since the tier is element-wise, but be defensive). See validation.R.
+_DOMAIN_TIER_RANK = {"non_domain": 0, "domain_unlisted": 1, "domain_selected": 2}
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
 # (from the user's ordered --main-probes and from the reference) — never hard-coded — so the
 # classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
@@ -80,6 +85,8 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
             probe = _PROBE.search(f[8])
             parent = _PARENT.search(f[8])
             label = _LABEL.search(f[8])
+            tier = _DOMAIN_TIER.search(f[8])
+            hit_class = _DOMAIN_HIT_CLASS.search(f[8])
             feats.append(
                 {
                     "seqname": f[0],
@@ -89,6 +96,12 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
                     "gene": (probe.group(1).upper() if probe else "OTHER"),
                     "parent": parent.group(1) if parent else "",
                     "label": (label.group(1) if label else "").replace("%3b", ";"),
+                    # Domain labels ride the valid track (validation.R). The orphan
+                    # track carries neither, so default to the weakest tier.
+                    "domain_tier": tier.group(1) if tier else "non_domain",
+                    "domain_hit_class": (
+                        hit_class.group(1) if hit_class else "no_substring_match"
+                    ),
                 }
             )
     return feats
@@ -160,6 +173,9 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
         strand = Counter(m["strand"] for m in members).most_common(1)[0][0]
         genes: dict[str, tuple[int, int]] = {}
         probe_labels: set[str] = set()
+        # Per-provirus domain tier: element-wise, so a locus's members agree; take
+        # the strongest defensively. All-orphan loci stay non_domain.
+        domain_tier = "non_domain"
         for m in members:
             g = m["gene"]
             s, e = int(m["start"]), int(m["end"])
@@ -170,6 +186,9 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
             for lab in m["label"].split(";"):
                 if lab.strip():
                     probe_labels.add(lab.strip())
+            mt = m.get("domain_tier", "non_domain")
+            if _DOMAIN_TIER_RANK.get(mt, 0) > _DOMAIN_TIER_RANK.get(domain_tier, 0):
+                domain_tier = mt
         start = min(v[0] for v in genes.values())
         end = max(v[1] for v in genes.values())
         loci.append(
@@ -181,6 +200,7 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
                 "start": start,
                 "end": end,
                 "genes": genes,
+                "domain_tier": domain_tier,
                 "probe_label_set": ";".join(sorted(probe_labels)),
             }
         )
@@ -246,6 +266,7 @@ def classify(
     top_percent: float = 0.10,
     min_orf: int = 30,
     confidence_min: float = 0.5,
+    structure_full_min: float = 1.0,
     source: str = "anchored",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
@@ -317,6 +338,7 @@ def classify(
         top_percent,
         axis,
         confidence_min=confidence_min,
+        structure_full_min=structure_full_min,
         source=source,
     )
 
@@ -384,6 +406,7 @@ def _assemble(
     top_percent: float,
     axis: set[str],
     confidence_min: float = 0.5,
+    structure_full_min: float = 1.0,
     source: str = "anchored",
 ) -> list[dict[str, str]]:
     # gene reliability + mosaic set derived from the user's ordered main_probes (no hard-coding)
@@ -470,6 +493,18 @@ def _assemble(
             )
         ]
         canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
+        # Discrete structural class over gene content (ADR-009): a single main
+        # gene is a 'gene' fragment; a multi-gene locus is 'full' once its
+        # completeness clears structure_full_min, else 'partial'. Deliberately
+        # gene-content only — LTR-pair structure lives in the anchoring axis and
+        # the solo-LTR module, not here.
+        completeness_val = len(present_main) / len(main_probes) if main_probes else 0.0
+        if len(present_main) <= 1:
+            structure_class = "gene"
+        elif completeness_val >= structure_full_min:
+            structure_class = "full"
+        else:
+            structure_class = "partial"
         # blastx evidence depth for this locus (summed over its gene regions). Zero
         # means the locus carries valid LTR structure but NO protein homology to the
         # reference — the candidate-novel-retrovirus signal the loss analysis surfaces.
@@ -487,10 +522,10 @@ def _assemble(
                 "parent": lc["parent"],
                 "genes_present": ",".join(sorted(lc["genes"])),
                 "n_main_genes": str(len(present_main)),
-                "completeness": f"{len(present_main) / len(main_probes):.3f}"
-                if main_probes
-                else "0.000",
+                "completeness": f"{completeness_val:.3f}",
                 "canonical_order": str(canonical),
+                "structure_class": structure_class,
+                "domain_tier": lc.get("domain_tier", "non_domain"),
                 "taxon_call": taxon_call,
                 "rank": rank,
                 # resolved = the call landed on a declared axis taxon (ADR-008),
@@ -526,9 +561,9 @@ def _assemble(
 def gate_classified(records: list[dict[str, str]]) -> list[dict[str, str]]:
     """Keep only records that earned a taxonomic call (drop UNCLASSIFIED).
 
-    This is the fragment-recovery gate: a non-LTR-associated fragment is retained
+    This is the orphan-recovery gate: a non-LTR-associated orphan is retained
     only if blastx resolved it to a taxon (axis member/backoff) — earning a
-    classification *is* the evidence it is a real (possibly novel) retroviral fragment.
+    classification *is* the evidence it is a real (possibly novel) retroviral orphan.
     """
     return [r for r in records if r["taxon_call"] != tlca.UNCLASSIFIED]
 
@@ -553,13 +588,13 @@ def classification_counts(
     """Blastx-stage loss counters, emitted in the same (metric, value) shape as
     ranges_analysis.R's counts table so the two UNION into one loss funnel.
 
-    For the gated fragments run, ``records`` is the pre-gate set and ``kept`` the
+    For the gated orphan run, ``records`` is the pre-gate set and ``kept`` the
     post-gate (recovered) set; for the anchored run the two are identical.
     """
-    if source == "fragment":
+    if source == "orphan":
         return [
-            {"metric": "fragments_total", "value": len(records)},
-            {"metric": "fragments_recovered", "value": len(kept)},
+            {"metric": "orphans_total", "value": len(records)},
+            {"metric": "orphans_recovered", "value": len(kept)},
         ]
     return [
         {"metric": "loci_total", "value": len(records)},
@@ -574,6 +609,33 @@ def classification_counts(
         {
             "metric": "loci_no_blastx_hit",
             "value": sum(r["n_blastx_hits"] == "0" for r in records),
+        },
+        # Per-provirus structural class + domain tier of the assembled loci
+        # (ADR-009). Grain is per-locus, distinct from the per-hit valid_* tier
+        # counts emitted by ranges_analysis.R.
+        {
+            "metric": "structure_full",
+            "value": sum(r.get("structure_class") == "full" for r in records),
+        },
+        {
+            "metric": "structure_partial",
+            "value": sum(r.get("structure_class") == "partial" for r in records),
+        },
+        {
+            "metric": "structure_gene",
+            "value": sum(r.get("structure_class") == "gene" for r in records),
+        },
+        {
+            "metric": "loci_domain_selected",
+            "value": sum(r.get("domain_tier") == "domain_selected" for r in records),
+        },
+        {
+            "metric": "loci_domain_unlisted",
+            "value": sum(r.get("domain_tier") == "domain_unlisted" for r in records),
+        },
+        {
+            "metric": "loci_non_domain",
+            "value": sum(r.get("domain_tier") == "non_domain" for r in records),
         },
     ]
 
@@ -610,6 +672,8 @@ LOCI_COLUMNS = [
     "n_main_genes",
     "completeness",
     "canonical_order",
+    "structure_class",
+    "domain_tier",
     "taxon_call",
     "rank",
     "resolved",
@@ -646,6 +710,8 @@ def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
                 f"ID={r['id']};taxon={r['taxon_call']};rank={r['rank']};"
                 f"method={r['method']};confidence={r['confidence']};"
                 f"confidence_tag={r['confidence_tag']};"
+                f"structure_class={r['structure_class']};"
+                f"domain_tier={r['domain_tier']};"
                 f"mosaic={r['is_mosaic']};erv_class={r['erv_class']};"
                 f"genes={r['genes_present']}"
             )
@@ -660,7 +726,7 @@ def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
             )
 
 
-def main() -> int:
+def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Per-gene mosaic-aware ERV classifier")
     p.add_argument(
         "gff3", type=Path, help="FULL valid-tier GFF3 (per-hit, with Parent)"
@@ -699,16 +765,24 @@ def main() -> int:
         "confidence); at or above it is 'HC'. classification.confidence_min.",
     )
     p.add_argument(
+        "--structure-full-min",
+        type=float,
+        default=1.0,
+        help="min gene completeness (fraction of main genes) for structure_class "
+        "'full'; a single-gene locus is 'gene', below-threshold multi-gene is "
+        "'partial'. classification.structure_full_min.",
+    )
+    p.add_argument(
         "--source",
         default="anchored",
         help="provenance stamp for every record ('anchored' LTR loci vs "
-        "recovered 'fragment'). Lets downstream union/report split the two tiers.",
+        "recovered 'orphan'). Lets downstream union/report split the two tiers.",
     )
     p.add_argument(
         "--gate-classified",
         action="store_true",
-        help="drop UNCLASSIFIED records before writing (the fragment-recovery "
-        "gate: keep a fragment only if it earned a taxonomic call).",
+        help="drop UNCLASSIFIED records before writing (the orphan-recovery "
+        "gate: keep an orphan only if it earned a taxonomic call).",
     )
     p.add_argument("--threads", type=int, default=1, help="blastx threads")
     p.add_argument("--workdir", type=Path, default=Path("/tmp/taxonomy_classify"))
@@ -728,7 +802,11 @@ def main() -> int:
         default=None,
         help="blastx-stage loss counts CSV (metric,value) for the loss funnel",
     )
-    a = p.parse_args()
+    return p
+
+
+def main() -> int:
+    a = _build_arg_parser().parse_args()
 
     # Per-(genome, tier) log file so the parallel per-genome invocations don't
     # clobber one another's log.
@@ -756,9 +834,10 @@ def main() -> int:
         top_percent=a.top_percent,
         min_orf=a.min_orf,
         confidence_min=a.confidence_min,
+        structure_full_min=a.structure_full_min,
         source=a.source,
     )
-    # Fragment-recovery gate: keep only loci that earned a taxonomic call. Counts
+    # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was
     # recovered vs. discarded. For the anchored run the gate is a no-op.
     kept = gate_classified(records) if a.gate_classified else records

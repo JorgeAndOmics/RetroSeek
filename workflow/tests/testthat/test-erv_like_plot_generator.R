@@ -27,6 +27,8 @@ source("../../scripts/taxonomy/erv_like_plot_generator.R")
     n_main_genes = c(3L, 2L)[seq_len(n)],
     completeness = c(1.0, 2 / 3)[seq_len(n)],
     canonical_order = c(TRUE, FALSE)[seq_len(n)],
+    structure_class = c("full", "partial")[seq_len(n)],
+    domain_tier = c("domain_selected", "domain_unlisted")[seq_len(n)],
     taxon_call = c("Gammaretrovirus", "Betaretrovirus")[seq_len(n)],
     rank = "genus", resolved = "True", confidence = 1, method = "lca",
     is_mosaic = FALSE, mosaic_composition = "", erv_class = "Class I",
@@ -46,6 +48,7 @@ test_that("structural builders return ggplots", {
   expect_s3_class(length_distribution_plot(loci), "ggplot")
   expect_s3_class(n_main_genes_plot(loci), "ggplot")
   expect_s3_class(composition_heatmap_plot(loci), "ggplot")
+  expect_s3_class(structure_class_plot(loci), "ggplot")
 })
 
 # Every builder falls back to the labelled placeholder on zero-row input.
@@ -57,6 +60,7 @@ test_that("builders fall back to empty_plot on zero-row input", {
   expect_match(length_distribution_plot(el)$labels$title, "no loci")
   expect_match(n_main_genes_plot(el)$labels$title, "no loci")
   expect_match(composition_heatmap_plot(el)$labels$title, "no taxon-resolved loci")
+  expect_match(structure_class_plot(el)$labels$title, "no loci")
 })
 
 # load_taxon_loci coerces the classifier's string-typed structural columns.

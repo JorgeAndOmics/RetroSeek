@@ -152,33 +152,46 @@ log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
 domain_map        <- build_domain_map(opts$domains)
 retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
 domains_w_probes  <- extract_domains_with_probes(ltr_data, domain_map)
+all_domains       <- extract_all_domains(ltr_data)   # full Pfam superset (any/none tier)
 flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
 record_count("retrotransposons",      length(retrotransposons))
 record_count("domains_with_probes",   length(domains_w_probes))
+record_count("all_domains",           length(all_domains))
 record_count("flanking_ltrs",         length(flanking_ltrs))
 
 
 # ----------------------------------------------------------------------------
-# Phase 6. Candidate + valid hits
+# Phase 6. Candidate + valid (annotated-anchored) hits
 # ----------------------------------------------------------------------------
-log_section("Phase 6: identifying candidate + valid hits")
+log_section("Phase 6: identifying candidate + annotating anchored (valid) hits")
 candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
 candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
-valid_hits               <- find_valid_hits(candidate_hits,         retrotransposons,
-                                            domains_w_probes, opts$agg_concat_separator)
-valid_hits_reduced       <- find_valid_hits(candidate_hits_reduced, retrotransposons,
-                                            domains_w_probes, opts$agg_concat_separator)
+# "valid" is now the WHOLE anchored set, labelled (not filtered) with Parent +
+# domain_tier + domain_hit_class. See annotate_anchored_hits / ADR-009.
+valid_hits               <- annotate_anchored_hits(candidate_hits,         retrotransposons,
+                                                   domains_w_probes, all_domains,
+                                                   opts$hit_domain_mode, opts$agg_concat_separator)
+valid_hits_reduced       <- annotate_anchored_hits(candidate_hits_reduced, retrotransposons,
+                                                   domains_w_probes, all_domains,
+                                                   opts$hit_domain_mode, opts$agg_concat_separator)
 record_count("candidate_ranges",           length(candidate_hits))
 record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
+# Per-provirus domain-tier breakdown of the anchored set (recall preserved: no
+# anchored hit is dropped, only labelled). Counts feed the loss/tier plots.
+.tier_of <- function(gr) if (length(gr) == 0L) character(0) else
+  as.character(S4Vectors::mcols(gr)$domain_tier)
+record_count("valid_domain_selected", sum(.tier_of(valid_hits) == "domain_selected"))
+record_count("valid_domain_unlisted", sum(.tier_of(valid_hits) == "domain_unlisted"))
+record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 
-# Non-LTR-associated fragments: the complement of the candidate set on the
+# Non-LTR-associated orphans: the complement of the candidate set on the
 # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
-# fragments). Recovered into the fragments tier and classified by their own
+# orphans). Recovered into the orphan tier and classified by their own
 # sequence. Counted here so the loss funnel sees what falls outside every LTR.
 unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
-record_count("unanchored_fragments",       length(unanchored_hits))
+record_count("orphans",                    length(unanchored_hits))
 
 # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
 # view of the genus-classified loci produced by the taxonomy_classify stage
@@ -219,9 +232,9 @@ gen_ver <- resolve_generator_version()
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
-# Fragments tier: unanchored hits exported with the same probe=/label= GFF3
+# Orphan tier: unanchored hits exported with the same probe=/label= GFF3
 # attributes as the valid track but NO Parent= — so the classifier's build_loci
-# treats each fragment as its own singleton (orphan) locus.
+# treats each orphan as its own singleton locus.
 track_exporter(unanchored_hits,        args$fragments_ranges,         gen_ver)
 
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)

@@ -19,6 +19,7 @@
 #   4. erv_like_length_distribution — locus span (bp).
 #   5. erv_like_n_main_genes        — number of main genes per locus.
 #   6. erv_like_composition_heatmap — taxon x gene (which genes each taxon keeps).
+#   7. erv_like_structure_class     — discrete full / partial / gene per species.
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R. `testthat` and demo_figures.R source this file for its builders;
@@ -130,6 +131,30 @@ canonical_order_plot <- function(loci) {
              "Main genes in main_probes order vs rearranged")
 }
 
+# Discrete structural class (full / partial / gene), counts per species. The
+# categorical companion to the continuous completeness histogram: it commits each
+# locus to one catalogue class (ADR-009). Levels declared in full + drop = FALSE
+# so an absent class keeps its slot.
+.STRUCTURE_LEVELS <- c("full", "partial", "gene")
+.STRUCTURE_FILL   <- c(full = "#1b9e77", partial = "#d95f02", gene = "#7570b3")
+structure_class_plot <- function(loci) {
+  if (nrow(loci) == 0L || !"structure_class" %in% names(loci)) {
+    return(empty_plot("no loci"))
+  }
+  d <- loci %>%
+    mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS)) %>%
+    count(.data$species, .data$structure_class, name = "n")
+  p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
+    geom_col(position = "fill") +
+    scale_fill_manual(values = .STRUCTURE_FILL, drop = FALSE) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of loci", fill = "structure") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "ERV-like structural class",
+             "Full / partial / gene per species (completeness >= structure_full_min = full)")
+}
+
 # Frequency of each gene combination present (e.g. "GAG,POL", "POL").
 gene_combinations_plot <- function(loci) {
   if (nrow(loci) == 0L) return(empty_plot("no loci"))
@@ -237,8 +262,9 @@ main <- function() {
   emit("erv_like_length_distribution.png", length_distribution_plot(loci))
   emit("erv_like_n_main_genes.png",        n_main_genes_plot(loci))
   emit("erv_like_composition_heatmap.png", composition_heatmap_plot(loci))
+  emit("erv_like_structure_class.png",     structure_class_plot(loci))
 
-  log_section(sprintf("Done — wrote 6 PNGs to %s", args$output))
+  log_section(sprintf("Done — wrote 7 PNGs to %s", args$output))
 }
 
 

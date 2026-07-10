@@ -28,10 +28,13 @@ suppressMessages({
 
 
 # One row per gr_virus locus. `concordance` classifies each homology locus by
-# its spatial relationship to the LTRdigest retrotransposons; `is_candidate` /
-# `is_valid` flag whether the locus survives each refinement step. `n_hits` is
-# M1 — the count of threshold-passing raw tBLASTn hits collapsed into the
-# locus by reduce_first.
+# its spatial relationship to the LTRdigest retrotransposons; `is_candidate`
+# flags whether the locus is anchored (overlaps an element). `domain_tier` and
+# `domain_hit_class` carry the per-provirus / per-hit domain labels from
+# annotate_anchored_hits (NA for non-anchored loci); the former replaces the old
+# boolean `is_valid` — "valid" is now the whole anchored set, so domain support
+# is a 3-level tier, not a survive/drop flag (ADR-009). `n_hits` is M1 — the
+# count of threshold-passing raw tBLASTn hits collapsed into the locus.
 build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
                                 valid_hits,
                                 flanking_window = .STAGE_FLANKING_WINDOW) {
@@ -42,7 +45,8 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
     species = character(0), n_hits = integer(0),
     max_bitscore = numeric(0), max_identity = numeric(0),
     query_coverage = numeric(0), concordance = character(0),
-    is_candidate = logical(0), is_valid = logical(0)
+    is_candidate = logical(0), domain_tier = character(0),
+    domain_hit_class = character(0)
   )
   if (length(gr_virus) == 0L) return(empty)
 
@@ -60,28 +64,32 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
     }
   }
 
-  ids <- as.character(S4Vectors::mcols(gr_virus)$ID)
-  cand_ids  <- as.character(S4Vectors::mcols(candidate_hits)$ID)
+  ids      <- as.character(S4Vectors::mcols(gr_virus)$ID)
+  cand_ids <- as.character(S4Vectors::mcols(candidate_hits)$ID)
+  # Per-anchored-locus domain labels, keyed by ID (valid_hits ⊆ gr_virus IDs).
   valid_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
+  tier_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_tier), valid_ids)
+  hitc_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_hit_class), valid_ids)
 
   df <- as.data.frame(gr_virus, stringsAsFactors = FALSE)
   tibble::tibble(
-    seqnames       = as.character(df$seqnames),
-    start          = as.integer(df$start),
-    end            = as.integer(df$end),
-    width          = as.integer(df$width),
-    strand         = as.character(df$strand),
-    probe          = as.character(df$probe),
-    virus          = as.character(df$virus),
-    label          = as.character(df$label),
-    species        = as.character(df$species),
-    n_hits         = as.integer(df$n_hits),          # M1
-    max_bitscore   = as.numeric(df$max_bitscore),
-    max_identity   = as.numeric(df$max_identity),
-    query_coverage = as.numeric(df$query_coverage),
-    concordance    = concordance,
-    is_candidate   = ids %in% cand_ids,
-    is_valid       = ids %in% valid_ids
+    seqnames         = as.character(df$seqnames),
+    start            = as.integer(df$start),
+    end              = as.integer(df$end),
+    width            = as.integer(df$width),
+    strand           = as.character(df$strand),
+    probe            = as.character(df$probe),
+    virus            = as.character(df$virus),
+    label            = as.character(df$label),
+    species          = as.character(df$species),
+    n_hits           = as.integer(df$n_hits),          # M1
+    max_bitscore     = as.numeric(df$max_bitscore),
+    max_identity     = as.numeric(df$max_identity),
+    query_coverage   = as.numeric(df$query_coverage),
+    concordance      = concordance,
+    is_candidate     = ids %in% cand_ids,
+    domain_tier      = unname(tier_by_id[ids]),        # NA for non-anchored loci
+    domain_hit_class = unname(hitc_by_id[ids])
   )
 }
 

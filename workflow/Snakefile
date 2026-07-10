@@ -836,7 +836,8 @@ rule erv_like_plot_generator_setup:
                                         'erv_like_gene_combinations',
                                         'erv_like_length_distribution',
                                         'erv_like_n_main_genes',
-                                        'erv_like_composition_heatmap'])
+                                        'erv_like_composition_heatmap',
+                                        'erv_like_structure_class'])
     params:
         taxonomy_parquet_dir=defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         plot_dir=defaults.PATH_DICT['ERV_LIKE_PLOT_DIR'],
@@ -1092,6 +1093,7 @@ rule taxonomy_classify_setup:
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
+        structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy')
     threads: config.get('rule_threads', 1)
     shell:
@@ -1101,7 +1103,7 @@ rule taxonomy_classify_setup:
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --source anchored \
+            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source anchored \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1153,6 +1155,7 @@ rule taxonomy_fragments_setup:
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
+        structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'fragments')
     threads: config.get('rule_threads', 1)
     shell:
@@ -1162,7 +1165,7 @@ rule taxonomy_fragments_setup:
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --source fragment --gate-classified \
+            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source orphan --gate-classified \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1204,7 +1207,9 @@ rule taxonomy_plot_generator_setup:
                                  'confidence_vs_evidence',
                                  'structure_by_tier',
                                  'source_yield',
-                                 'taxon_by_source']),
+                                 'taxon_by_source',
+                                 'domain_tier_composition',
+                                 'structure_class_composition']),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],

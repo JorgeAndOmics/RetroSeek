@@ -45,10 +45,10 @@ test_that("build_report counts by taxon, confidence, method + mosaic/integration
   expect_equal(summ$count[summ$level == "integrations"], 3L)
 })
 
-test_that("build_report splits by source (anchored vs fragment)", {
-  combined <- bind_rows(.fake_loci("anchored"), .fake_loci("fragment"))
+test_that("build_report splits by source (anchored vs orphan)", {
+  combined <- bind_rows(.fake_loci("anchored"), .fake_loci("orphan"))
   rep <- build_report(combined)
-  expect_setequal(unique(rep$source), c("anchored", "fragment"))
+  expect_setequal(unique(rep$source), c("anchored", "orphan"))
   # each tier reports its own 3 integrations
   integ <- rep %>% filter(dimension == "summary", level == "integrations")
   expect_true(all(integ$count == 3))
@@ -77,10 +77,10 @@ test_that("bucket_evidence handles empty and is robust to numeric input", {
 test_that("new plot builders return ggplot on data and empty_plot on empty", {
   combined <- tribble(
     ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag, ~method,
-    ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~source,
-    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "anchored",
-    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "anchored",
-    "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "fragment"
+    ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~structure_class, ~domain_tier, ~source,
+    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "anchored",
+    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "anchored",
+    "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "gene",    "non_domain",      "orphan"
   )
   # main() adds the numeric helper columns; mirror that here.
   combined <- dplyr::mutate(combined,
@@ -94,7 +94,9 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
     confidence_vs_evidence_plot(combined),
     structure_by_tier_plot(combined),
     source_yield_plot(combined),
-    taxon_by_source_plot(combined)
+    taxon_by_source_plot(combined),
+    domain_tier_composition_plot(combined),
+    structure_class_composition_plot(combined)
   )
   for (p in builders) expect_s3_class(p, "ggplot")
 
@@ -102,4 +104,6 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
   expect_s3_class(evidence_depth_plot(empty), "ggplot")
   expect_s3_class(confidence_density_plot(empty, 0.5), "ggplot")
   expect_s3_class(taxon_by_source_plot(empty), "ggplot")
+  expect_s3_class(domain_tier_composition_plot(empty), "ggplot")
+  expect_s3_class(structure_class_composition_plot(empty), "ggplot")
 })

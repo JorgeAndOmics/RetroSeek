@@ -17,6 +17,8 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 005   | [LTR_retriever runner script](ADR-005-ltr-retriever-runner.md) | Accepted |
 | 006   | [Genome FASTA normalization](ADR-006-fasta-normalization.md) | Accepted |
 | 007   | [Per-locus ERV taxonomic classification (genus calls)](ADR-007-taxonomic-classification.md) | Accepted |
+| 008   | [Rank-agnostic taxonomic classification (axis-taxon calls)](ADR-008-rank-agnostic-classification.md) | Accepted |
+| 009   | [Anchored domain-tiering, structural ERV class, orphan relabeling](ADR-009-anchored-domain-tiering-and-structure-class.md) | Accepted |
 
 ## When to write a new ADR
 

@@ -84,8 +84,9 @@ load_loci <- function(input_dir) {
 }
 
 
-# Load every per-genome fragments table (the recovered non-LTR tier). Same schema
-# as the loci tables (source == "fragment"); empty if none.
+# Load every per-genome orphan table (the recovered non-LTR tier). Same schema
+# as the loci tables (source == "orphan"); the on-disk file keeps its historical
+# `.fragments.parquet` name. Empty if none.
 load_fragments <- function(input_dir) {
   files <- list.files(input_dir, pattern = "\\.fragments\\.parquet$", full.names = TRUE)
   if (length(files) == 0L) return(tibble())
@@ -138,6 +139,21 @@ build_report <- function(combined) {
     lapply(function(df) per_source(df, df$source[1])) %>%
     bind_rows()
 }
+
+
+# ----------------------------------------------------------------------------
+# Shared categorical palettes (ADR-009). Levels are declared in full and used
+# with drop = FALSE so a tier/class that is absent in one genome still keeps its
+# colour and legend slot — and the per-hit `positional` mode's extra non_domain
+# level never breaks a plot built on membership-mode data.
+# ----------------------------------------------------------------------------
+.SOURCE_FILL       <- c(anchored = "#1F78B4", orphan = "#33A02C")
+.DOMAIN_TIER_LEVELS <- c("domain_selected", "domain_unlisted", "non_domain")
+.DOMAIN_TIER_FILL   <- c(domain_selected = "#1B9E77",
+                         domain_unlisted = "#D95F02",
+                         non_domain      = "#999999")
+.STRUCTURE_LEVELS  <- c("full", "partial", "gene")
+.STRUCTURE_FILL    <- c(full = "#1B9E77", partial = "#D95F02", gene = "#7570B3")
 
 
 # ----------------------------------------------------------------------------
@@ -334,13 +350,13 @@ structure_by_tier_plot <- function(combined) {
                      fill = .data$source)) +
     geom_histogram(binwidth = 0.1, boundary = 0, position = "identity",
                    alpha = 0.5, colour = "grey40", linewidth = 0.15) +
-    scale_fill_manual(values = c("anchored" = "#1F78B4", "fragment" = "#33A02C")) +
+    scale_fill_manual(values = .SOURCE_FILL) +
     scale_x_continuous(labels = scales::percent) +
     labs(x = "completeness (fraction of main genes present)",
          y = "within-tier density", fill = "tier") +
     theme_bw()
   add_titles(p, "Structural completeness by tier",
-             "Anchored proviruses carry more genes; fragments are mostly single markers")
+             "Anchored proviruses carry more genes; orphans are mostly single markers")
 }
 
 # Yield boost from the fragments tier — loci recovered per tier, per species.
@@ -349,11 +365,11 @@ source_yield_plot <- function(combined) {
   counts <- combined %>% count(.data$species, .data$source, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$source)) +
     geom_col(position = position_dodge(width = 0.8)) +
-    scale_fill_manual(values = c("anchored" = "#1F78B4", "fragment" = "#33A02C")) +
+    scale_fill_manual(values = .SOURCE_FILL) +
     labs(x = NULL, y = "loci", fill = "tier") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Anchored vs fragment yield", "Loci recovered per tier, per species")
+  add_titles(p, "Anchored vs orphan yield", "Loci recovered per tier, per species")
 }
 
 # Taxon composition split by tier — surfaces taxa present only in the fragment
@@ -371,7 +387,53 @@ taxon_by_source_plot <- function(combined) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Taxon composition by tier",
-             "Taxa per species, anchored vs fragment (new-lineage check)")
+             "Taxa per species, anchored vs orphan (new-lineage check)")
+}
+
+
+# Per-provirus domain-tier composition on anchored loci: the recall the new
+# labelling preserves — domain_selected (config-matched Pfam) vs domain_unlisted
+# (a Pfam domain, just not in the curated set) vs non_domain (anchored purely by
+# position). Fraction within species so genome size doesn't swamp the mix.
+domain_tier_composition_plot <- function(loci) {
+  if (nrow(loci) == 0L || !"domain_tier" %in% names(loci)) {
+    return(empty_plot("no anchored loci"))
+  }
+  d <- loci %>%
+    mutate(domain_tier = factor(.data$domain_tier, levels = .DOMAIN_TIER_LEVELS))
+  counts <- d %>% count(.data$species, .data$domain_tier, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$domain_tier)) +
+    geom_col(position = "fill") +
+    scale_fill_manual(values = .DOMAIN_TIER_FILL, drop = FALSE) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of anchored loci", fill = "domain tier") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Domain-tier composition",
+             "Per-provirus domain support of anchored loci (recall preserved)")
+}
+
+
+# Discrete structural class (full / partial / gene) per species, faceted by tier.
+# The first catalogued full-vs-partial-vs-single-gene view (ADR-009).
+structure_class_composition_plot <- function(combined) {
+  if (nrow(combined) == 0L || !"structure_class" %in% names(combined)) {
+    return(empty_plot("no loci"))
+  }
+  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  d <- combined %>%
+    mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS))
+  counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
+    geom_col(position = "fill") +
+    facet_wrap(~ .data$source) +
+    scale_fill_manual(values = .STRUCTURE_FILL, drop = FALSE) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "fraction of loci", fill = "structure") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Structural class composition",
+             "Full / partial / gene per species, by tier")
 }
 
 
@@ -419,7 +481,7 @@ main <- function() {
         completeness_num = suppressWarnings(as.numeric(.data$completeness))
       )
   }
-  log_section(sprintf("Loaded %d anchored loci + %d recovered fragments across %d species",
+  log_section(sprintf("Loaded %d anchored loci + %d recovered orphans across %d species",
                       nrow(loci), nrow(fragments), length(unique(combined$species))))
 
   emit <- function(name, plot) {
@@ -444,12 +506,17 @@ main <- function() {
   emit("source_yield.png",          source_yield_plot(combined))
   emit("taxon_by_source.png",       taxon_by_source_plot(combined))
 
+  # Domain-tier + structural-class panels (ADR-009): the recall the anchored
+  # relabelling preserves, and the first full/partial/gene catalogue.
+  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci))
+  emit("structure_class_composition.png", structure_class_composition_plot(combined))
+
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 
-  log_section(sprintf("Done — wrote 12 PNGs to %s + report %s",
+  log_section(sprintf("Done — wrote 14 PNGs to %s + report %s",
                       args$output, args$report_csv))
 }
 

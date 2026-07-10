@@ -9,7 +9,7 @@
 #       — the `n_loci` column on the reduced dataframe.
 # Both metrics span a wide range, so the count axis is log10.
 
-.TIER_FILL <- c(original = "#7570b3", candidate = "#d95f02", valid = "#1b9e77")
+.TIER_FILL <- c(original = "#7570b3", candidate = "#d95f02", domain_selected = "#1b9e77")
 
 
 # Overlaid frequency bars of M1 (n_hits) for the original / candidate / valid
@@ -26,11 +26,11 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
     hits_df %>% dplyr::transmute(n_hits, tier = "original"),
     hits_df %>% dplyr::filter(is_candidate) %>%
       dplyr::transmute(n_hits, tier = "candidate"),
-    hits_df %>% dplyr::filter(is_valid) %>%
-      dplyr::transmute(n_hits, tier = "valid")
+    hits_df %>% dplyr::filter(domain_tier == "domain_selected") %>%
+      dplyr::transmute(n_hits, tier = "domain_selected")
   ) %>%
     dplyr::mutate(tier = factor(tier,
-                                levels = c("original", "candidate", "valid"))) %>%
+                                levels = c("original", "candidate", "domain_selected"))) %>%
     dplyr::count(tier, n_hits, name = "loci")
 
   p <- ggplot(tiers, aes(x = n_hits, y = loci, fill = tier)) +

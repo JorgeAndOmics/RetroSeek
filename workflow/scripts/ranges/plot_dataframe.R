@@ -26,7 +26,7 @@ build_plot_dataframe <- function(gr_virus, probe_df_sum, main_probes,
       width = integer(0), strand = character(0),
       probe = character(0), virus = character(0), label = character(0),
       species = character(0), abbreviation = character(0),
-      probe_type = character(0)
+      probe_type = character(0), domain_tier = character(0)
     ))
   }
 

@@ -111,28 +111,85 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
 
 
 # ---------------------------------------------------------------------------
-# find_valid_hits must emit a native `Parent` mcol (the enclosing
-# LTR_retrotransposon, greatest overlap) — the anchor the taxonomic
-# classifier groups loci by. See range_analysis/validation.R + ADR-007.
+# annotate_anchored_hits KEEPS every candidate (nothing discarded) and labels
+# each with `Parent` (greatest-overlap element — the taxonomic classifier's
+# grouping anchor), a per-provirus `domain_tier`, and a per-hit
+# `domain_hit_class`. See ranges/validation.R + ADR-009.
 # ---------------------------------------------------------------------------
 source(file.path(.script_dir, "validation.R"))
 
-test_that("find_valid_hits attaches Parent = greatest-overlap retrotransposon", {
+# Three elements exercising every domain_tier:
+#   retroA — carries a config-matched POL domain      -> domain_selected
+#   retroB — carries a protein domain, none config    -> domain_unlisted
+#   retroC — no protein domain at all                 -> non_domain
+.tier_fixture <- function() {
   retros <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(100, 1000), c(500, 1500)), strand = "+",
-    ID = c("retroA", "retroB")
+    "chr1", IRanges::IRanges(c(100, 1000, 2000), c(500, 1500, 2500)),
+    strand = "+", ID = c("retroA", "retroB", "retroC")
   )
-  domains <- GenomicRanges::GRanges(
+  # config-matched subset (extract_domains_with_probes output): only retroA's POL
+  domains_w_probes <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(120, 200), strand = "+",
+    Parent = "retroA", probe = "POL"
+  )
+  # full protein_match superset (extract_all_domains): retroA's + retroB's
+  all_domains <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(120, 1020), c(200, 1100)), strand = "+",
-    Parent = c("retroA", "retroB"), probe = c("POL", "GAG")
+    Parent = c("retroA", "retroB")
   )
   candidates <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(150, 1100), c(300, 1200)), strand = "+",
-    probe = c("POL", "GAG")
+    "chr1", IRanges::IRanges(c(150, 350, 1100, 2100), c(300, 450, 1200, 2200)),
+    strand = "+", probe = c("POL", "GAG", "POL", "ENV")
   )
-  valid <- find_valid_hits(candidates, retros, domains)
-  expect_equal(length(valid), 2L)
-  expect_equal(as.character(S4Vectors::mcols(valid)$Parent), c("retroA", "retroB"))
+  list(retros = retros, domains_w_probes = domains_w_probes,
+       all_domains = all_domains, candidates = candidates)
+}
+
+test_that("annotate_anchored_hits keeps all candidates and attaches greatest-overlap Parent", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(length(out), length(f$candidates))   # nothing discarded
+  expect_equal(as.character(S4Vectors::mcols(out)$Parent),
+               c("retroA", "retroA", "retroB", "retroC"))
+})
+
+test_that("domain_tier is element-wise: selected / unlisted / non_domain", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_tier),
+               c("domain_selected", "domain_selected", "domain_unlisted", "non_domain"))
+})
+
+test_that("membership domain_hit_class flags the hit's OWN gene (grain differs from tier)", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+                                hit_domain_mode = "membership")
+  # POL hit in retroA -> its gene matches the config POL domain -> substring_match.
+  # GAG hit in retroA -> element is domain_selected, but GAG is not the matched
+  # gene -> no_substring_match (the two grains legitimately disagree).
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_hit_class),
+               c("substring_match", "no_substring_match",
+                 "no_substring_match", "no_substring_match"))
+})
+
+test_that("positional domain_hit_class is co-localization and adds a non_domain level", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+                                hit_domain_mode = "positional")
+  # c1 POL(150-300) overlaps the POL config domain(120-200) -> substring_match
+  # c2 GAG(350-450) overlaps NO domain                       -> non_domain
+  # c3 POL(1100-1200) overlaps retroB's non-config domain    -> no_substring_match
+  # c4 ENV(2100-2200) overlaps no domain                     -> non_domain
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_hit_class),
+               c("substring_match", "non_domain", "no_substring_match", "non_domain"))
+})
+
+test_that("annotate_anchored_hits on empty input returns a typed-empty GRanges", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates[FALSE], f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(length(out), 0L)
+  expect_true(all(c("Parent", "domain_tier", "domain_hit_class")
+                  %in% names(S4Vectors::mcols(out))))
 })
 
 

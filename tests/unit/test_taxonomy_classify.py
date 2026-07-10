@@ -388,14 +388,128 @@ class TestBlastxEvidenceAndSource:
     def test_source_is_stamped(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
         rec = tcl._assemble(
-            loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS, source="fragment"
+            loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS, source="orphan"
         )[0]
-        assert rec["source"] == "fragment"
+        assert rec["source"] == "orphan"
+
+
+class TestStructureClass:
+    """ADR-009: discrete full / partial / gene structural class over gene content.
+    A single main gene is 'gene'; a multi-gene locus is 'full' once completeness
+    clears structure_full_min, else 'partial'. Gene-content only, no LTR-pair term."""
+
+    def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
+        return {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": "+",
+            "start": min(s for s, _ in genes.values()),
+            "end": max(e for _, e in genes.values()),
+            "genes": genes,
+            "domain_tier": "domain_selected",
+            "probe_label_set": "",
+        }
+
+    def test_single_main_gene_is_gene(self) -> None:
+        loci = [self._locus({"POL": (100, 200)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS)[
+            0
+        ]
+        assert rec["structure_class"] == "gene"
+
+    def test_all_main_genes_is_full_at_default_threshold(self) -> None:
+        genes = {"POL": (100, 200), "GAG": (210, 300), "ENV": (310, 400)}
+        loci = [self._locus(genes)]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS)[
+            0
+        ]
+        assert rec["completeness"] == "1.000"
+        assert rec["structure_class"] == "full"  # completeness 1.0 >= 1.0 default
+
+    def test_incomplete_multigene_is_partial_at_default(self) -> None:
+        loci = [self._locus({"POL": (100, 200), "GAG": (210, 300)})]
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS)[
+            0
+        ]
+        assert rec["structure_class"] == "partial"  # 2/3 < 1.0
+
+    def test_lower_threshold_promotes_partial_to_full(self) -> None:
+        loci = [self._locus({"POL": (100, 200), "GAG": (210, 300)})]
+        rec = tcl._assemble(
+            loci,
+            {},
+            {},
+            "v",
+            ["POL", "GAG", "ENV"],
+            {},
+            0.10,
+            _AXIS,
+            structure_full_min=0.66,
+        )[0]
+        assert rec["structure_class"] == "full"  # 2/3 >= 0.66
+
+
+class TestDomainTier:
+    """ADR-009: the per-provirus domain_tier rides the valid track, aggregates
+    strongest-wins in build_loci, and surfaces in the assembled record."""
+
+    def _feat(self, gene: str, start: str, end: str, tier: str) -> dict[str, str]:
+        return {
+            "seqname": "chr1",
+            "start": start,
+            "end": end,
+            "strand": "+",
+            "gene": gene,
+            "parent": "retro1",
+            "label": "MLV",
+            "domain_tier": tier,
+            "domain_hit_class": "substring_match",
+        }
+
+    def test_build_loci_takes_strongest_tier(self) -> None:
+        # same element, two hits: unlisted + selected -> locus is domain_selected
+        feats = [
+            self._feat("GAG", "100", "200", "domain_unlisted"),
+            self._feat("POL", "210", "300", "domain_selected"),
+        ]
+        locus = tcl.build_loci(feats)[0]
+        assert locus["domain_tier"] == "domain_selected"
+
+    def test_assemble_emits_domain_tier(self) -> None:
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "domain_unlisted")])
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
+        assert rec["domain_tier"] == "domain_unlisted"
+
+    def test_missing_attr_defaults_non_domain(self) -> None:
+        # orphan track carries no domain_tier -> parse defaults to non_domain
+        feat = {
+            "seqname": "chr1",
+            "start": "1",
+            "end": "9",
+            "strand": "+",
+            "gene": "POL",
+            "parent": "",
+            "label": "",
+        }
+        locus = tcl.build_loci([feat])[0]
+        assert locus["domain_tier"] == "non_domain"
 
 
 class TestGateAndCounts:
-    def _rec(self, taxon: str, n_hits: str) -> dict[str, str]:
-        return {"taxon_call": taxon, "n_blastx_hits": n_hits}
+    def _rec(
+        self,
+        taxon: str,
+        n_hits: str,
+        structure_class: str = "gene",
+        domain_tier: str = "domain_selected",
+    ) -> dict[str, str]:
+        return {
+            "taxon_call": taxon,
+            "n_blastx_hits": n_hits,
+            "structure_class": structure_class,
+            "domain_tier": domain_tier,
+        }
 
     def test_gate_drops_only_unclassified(self) -> None:
         recs = [
@@ -421,7 +535,33 @@ class TestGateAndCounts:
         assert counts["loci_unclassified"] == 2
         assert counts["loci_no_blastx_hit"] == 1  # only the n_hits == "0" one
 
-    def test_fragment_counts_use_pre_and_post_gate(self) -> None:
+    def test_anchored_counts_carry_structure_and_tier(self) -> None:
+        recs = [
+            self._rec(
+                "Lentivirus", "5", structure_class="full", domain_tier="domain_selected"
+            ),
+            self._rec(
+                "Gammaretrovirus",
+                "3",
+                structure_class="partial",
+                domain_tier="domain_unlisted",
+            ),
+            self._rec(
+                "Betaretrovirus", "1", structure_class="gene", domain_tier="non_domain"
+            ),
+        ]
+        counts = {
+            c["metric"]: c["value"]
+            for c in tcl.classification_counts(recs, recs, "anchored")
+        }
+        assert counts["structure_full"] == 1
+        assert counts["structure_partial"] == 1
+        assert counts["structure_gene"] == 1
+        assert counts["loci_domain_selected"] == 1
+        assert counts["loci_domain_unlisted"] == 1
+        assert counts["loci_non_domain"] == 1
+
+    def test_orphan_counts_use_pre_and_post_gate(self) -> None:
         all_recs = [
             self._rec("Lentivirus", "5"),
             self._rec(tlca.UNCLASSIFIED, "0"),
@@ -429,10 +569,10 @@ class TestGateAndCounts:
         kept = tcl.gate_classified(all_recs)
         counts = {
             c["metric"]: c["value"]
-            for c in tcl.classification_counts(all_recs, kept, "fragment")
+            for c in tcl.classification_counts(all_recs, kept, "orphan")
         }
-        assert counts["fragments_total"] == 2
-        assert counts["fragments_recovered"] == 1
+        assert counts["orphans_total"] == 2
+        assert counts["orphans_recovered"] == 1
 
 
 def test_loci_columns_cover_record_keys() -> None:
