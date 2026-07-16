@@ -496,6 +496,45 @@ class TestDomainTier:
         assert locus["domain_tier"] == "non_domain"
 
 
+class TestOversized:
+    """ADR-010: the `oversized` flag (orphan overlap-cluster wider than any real
+    provirus) rides the orphan GFF3, carries through build_loci, and is emitted."""
+
+    def _feat(self, oversized: str) -> dict[str, str]:
+        return {
+            "seqname": "chr1",
+            "start": "1",
+            "end": "9",
+            "strand": "+",
+            "gene": "POL",
+            "parent": "orphan_chr1_1",
+            "label": "",
+            "oversized": oversized,
+        }
+
+    def test_build_loci_carries_oversized(self) -> None:
+        assert tcl.build_loci([self._feat("True")])[0]["oversized"] == "True"
+        assert tcl.build_loci([self._feat("False")])[0]["oversized"] == "False"
+
+    def test_missing_attr_defaults_false(self) -> None:
+        feat = {
+            "seqname": "chr1",
+            "start": "1",
+            "end": "9",
+            "strand": "+",
+            "gene": "POL",
+            "parent": "",
+            "label": "",
+        }
+        assert tcl.build_loci([feat])[0]["oversized"] == "False"
+
+    def test_assemble_emits_oversized_and_in_schema(self) -> None:
+        loci = tcl.build_loci([self._feat("True")])
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
+        assert rec["oversized"] == "True"
+        assert "oversized" in tcl.LOCI_COLUMNS
+
+
 class TestGateAndCounts:
     def _rec(
         self,

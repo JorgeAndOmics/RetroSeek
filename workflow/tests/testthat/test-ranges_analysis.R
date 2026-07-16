@@ -244,35 +244,48 @@ test_that("find_unanchored_hits on empty input returns empty", {
 
 
 # ---------------------------------------------------------------------------
-# cluster_orphan_hits assigns a synthetic Parent by spatial proximity so the
-# classifier groups orphans into single multi-gene loci (ADR-010).
+# cluster_orphan_hits merges ONLY physically-overlapping orphan hits (ADR-010):
+# co-location is evidence; gap-separated hits stay separate. Clusters wider than
+# the per-genome max provirus length are FLAGGED `oversized`, not dropped.
 # ---------------------------------------------------------------------------
-test_that("cluster_orphan_hits groups hits within merge_gap and splits far ones", {
+test_that("cluster_orphan_hits merges overlapping hits but NOT gap-separated ones", {
   hits <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(100, 500, 20000, 20100), c(200, 600, 20050, 20200)),
-    strand = "+", probe = c("POL", "GAG", "ENV", "POL")
+    "chr1", IRanges::IRanges(c(100, 150, 5000), c(200, 300, 5100)),
+    strand = "+", probe = c("POL", "GAG", "ENV")
   )
-  # gap 1&2 = 300 (< 1000 -> same cluster); gap 2&3 = 19400 (> 1000 -> split);
-  # gap 3&4 = 50 (< 1000 -> same cluster). Expect two clusters: {1,2} and {3,4}.
-  out <- cluster_orphan_hits(hits, merge_gap = 1000L)
+  # hits 1 [100-200] and 2 [150-300] OVERLAP -> one cluster; hit 3 [5000-5100]
+  # is gap-separated -> its own cluster (a proximity window would have merged it).
+  out <- cluster_orphan_hits(hits, max_provirus_len = 100000L)
   parents <- as.character(S4Vectors::mcols(out)$Parent)
   expect_equal(parents[1], parents[2])
-  expect_equal(parents[3], parents[4])
   expect_false(parents[1] == parents[3])
   expect_equal(length(unique(parents)), 2L)
+  expect_true(all(as.character(S4Vectors::mcols(out)$oversized) == "False"))
 })
 
-test_that("cluster_orphan_hits merges everything under a large gap, splits under a tiny one", {
+test_that("cluster_orphan_hits does NOT merge adjacent-but-non-overlapping hits", {
+  # 300 bp gap between the two — a proximity window merged these; overlap does not.
   hits <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(100, 20000), c(200, 20100)), strand = "+",
+    "chr1", IRanges::IRanges(c(100, 500), c(200, 600)), strand = "+",
     probe = c("POL", "GAG")
   )
-  expect_equal(length(unique(cluster_orphan_hits(hits, 100000L)$Parent)), 1L)  # one cluster
-  expect_equal(length(unique(cluster_orphan_hits(hits, 10L)$Parent)),     2L)  # two clusters
+  expect_equal(length(unique(cluster_orphan_hits(hits, 100000L)$Parent)), 2L)
 })
 
-test_that("cluster_orphan_hits on empty input returns a typed-empty GRanges with Parent", {
+test_that("cluster_orphan_hits flags clusters wider than the max-provirus cap", {
+  # two overlapping hits spanning [100-5100] (~5001 bp).
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 150), c(5000, 5100)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  over  <- cluster_orphan_hits(hits, max_provirus_len = 1000L)     # span > cap
+  under <- cluster_orphan_hits(hits, max_provirus_len = 100000L)   # span < cap
+  expect_true(all(as.character(S4Vectors::mcols(over)$oversized)  == "True"))
+  expect_true(all(as.character(S4Vectors::mcols(under)$oversized) == "False"))
+})
+
+test_that("cluster_orphan_hits on empty input returns a typed-empty GRanges", {
   out <- cluster_orphan_hits(GenomicRanges::GRanges(), 1000L)
   expect_equal(length(out), 0L)
-  expect_true("Parent" %in% names(S4Vectors::mcols(out)))
+  expect_true(all(c("Parent", "oversized") %in% names(S4Vectors::mcols(out))))
 })

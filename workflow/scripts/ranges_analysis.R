@@ -191,14 +191,20 @@ record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 # orphans). Recovered into the orphan tier and classified by their own
 # sequence. Counted here so the loss funnel sees what falls outside every LTR.
 unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
-# Spatially cluster orphan hits into single loci (synthetic Parent) so the
-# classifier assembles them like proviruses — one non-overlapping multi-gene
-# orphan locus per proximity cluster (ADR-010). `orphans` counts the hits;
-# `orphan_clusters` counts the resulting loci (the grouping the funnel bridges).
-unanchored_hits <- cluster_orphan_hits(unanchored_hits, opts$orphan_merge_gap)
+# Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
+# classifier assembles them like proviruses — one non-overlapping orphan locus
+# per overlap cluster (ADR-010). Capped at the widest real provirus in this
+# genome (ground truth): clusters wider than that are flagged `oversized`, kept.
+# `orphans` counts the hits; `orphan_clusters` the loci (the grouping the funnel
+# bridges); `orphans_oversized` the flagged loci.
+max_provirus_len <- if (length(retrotransposons) > 0L)
+  max(BiocGenerics::width(retrotransposons)) else Inf
+unanchored_hits <- cluster_orphan_hits(unanchored_hits, max_provirus_len)
 record_count("orphans",                    length(unanchored_hits))
-record_count("orphan_clusters",
-             length(unique(S4Vectors::mcols(unanchored_hits)$Parent)))
+.orphan_parent    <- as.character(S4Vectors::mcols(unanchored_hits)$Parent)
+.orphan_oversized <- as.character(S4Vectors::mcols(unanchored_hits)$oversized)
+record_count("orphan_clusters",    length(unique(.orphan_parent)))
+record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
 
 # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
 # view of the genus-classified loci produced by the taxonomy_classify stage

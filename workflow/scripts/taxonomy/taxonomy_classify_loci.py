@@ -51,6 +51,7 @@ _LABEL = re.compile(r"label=([^;\t]+)")
 _ID = re.compile(r"ID=([^;\t]+)")
 _DOMAIN_TIER = re.compile(r"domain_tier=([^;\t]+)")
 _DOMAIN_HIT_CLASS = re.compile(r"domain_hit_class=([^;\t]+)")
+_OVERSIZED = re.compile(r"oversized=([^;\t]+)")
 # Per-provirus domain tier, strongest-wins when a locus's hits disagree (they
 # shouldn't, since the tier is element-wise, but be defensive). See validation.R.
 _DOMAIN_TIER_RANK = {"non_domain": 0, "domain_unlisted": 1, "domain_selected": 2}
@@ -87,6 +88,7 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
             label = _LABEL.search(f[8])
             tier = _DOMAIN_TIER.search(f[8])
             hit_class = _DOMAIN_HIT_CLASS.search(f[8])
+            oversized = _OVERSIZED.search(f[8])
             feats.append(
                 {
                     "seqname": f[0],
@@ -102,6 +104,9 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
                     "domain_hit_class": (
                         hit_class.group(1) if hit_class else "no_substring_match"
                     ),
+                    # oversized rides the orphan track (overlap cluster wider than
+                    # the widest real provirus); anchored track carries no attr.
+                    "oversized": oversized.group(1) if oversized else "False",
                 }
             )
     return feats
@@ -176,7 +181,12 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
         # Per-provirus domain tier: element-wise, so a locus's members agree; take
         # the strongest defensively. All-orphan loci stay non_domain.
         domain_tier = "non_domain"
+        # oversized: an orphan overlap-cluster wider than any real provirus; members
+        # share a cluster, so any "True" marks the locus.
+        oversized = "False"
         for m in members:
+            if m.get("oversized", "False") == "True":
+                oversized = "True"
             g = m["gene"]
             s, e = int(m["start"]), int(m["end"])
             if g in genes:
@@ -201,6 +211,7 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
                 "end": end,
                 "genes": genes,
                 "domain_tier": domain_tier,
+                "oversized": oversized,
                 "probe_label_set": ";".join(sorted(probe_labels)),
             }
         )
@@ -526,6 +537,7 @@ def _assemble(
                 "canonical_order": str(canonical),
                 "structure_class": structure_class,
                 "domain_tier": lc.get("domain_tier", "non_domain"),
+                "oversized": lc.get("oversized", "False"),
                 "taxon_call": taxon_call,
                 "rank": rank,
                 # resolved = the call landed on a declared axis taxon (ADR-008),
@@ -674,6 +686,7 @@ LOCI_COLUMNS = [
     "canonical_order",
     "structure_class",
     "domain_tier",
+    "oversized",
     "taxon_call",
     "rank",
     "resolved",

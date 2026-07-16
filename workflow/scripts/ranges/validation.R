@@ -52,27 +52,34 @@ find_unanchored_hits <- function(gr_hits, retrotransposons) {
 }
 
 
-# Cluster orphan (non-LTR-associated) hits by SPATIAL PROXIMITY and stamp each
+# Cluster orphan (non-LTR-associated) hits by physical OVERLAP only and stamp each
 # with a synthetic `Parent`, so the taxonomic classifier's build_loci groups them
-# into single, non-overlapping, multi-gene orphan loci — exactly the grouping an
-# anchored provirus gets from its LTR element, but keyed on proximity because an
-# orphan has no element (ADR-010). Hits separated by <= `merge_gap` bp collapse
-# into one cluster (ID `orphan_<seqname>_<clusterStart>`). Strand is ignored: a
-# degraded provirus's genes may be annotated on either strand, and the locus
-# strand is later taken as the member-strand mode by build_loci.
+# into single, non-overlapping orphan loci — the grouping an anchored provirus gets
+# from its LTR element, but keyed on co-location because an orphan has no element
+# (ADR-010). Only hits whose ranges OVERLAP (or are book-ended) merge; gap-separated
+# hits stay separate. Strand is ignored (a degraded provirus's genes may be on
+# either strand); the locus strand is later taken as the member-strand mode.
 #
-# This is a heuristic standing in for a structural fact: proximity INFERS that
-# nearby orphan gene-hits belong to one degraded provirus, where the anchored
-# path had LTR evidence. Orphan loci therefore stay flagged `source=orphan`.
-cluster_orphan_hits <- function(orphan_hits, merge_gap = 10000L) {
+# Overlap is EVIDENCE the hits are the same feature (vs. the retired proximity
+# window, which INFERRED a provirus from nearness). Consequence: adjacent genes
+# (gag/pol/env occupy distinct, non-overlapping positions) do NOT merge, so orphan
+# loci are mostly single-gene — a deliberate, conservative deduplication rather
+# than speculative multi-gene assembly. Orphan loci stay flagged `source=orphan`.
+#
+# `max_provirus_len` is the per-genome ground-truth cap: the widest LTRdigest
+# LTR_retrotransposon. A cluster wider than any real provirus can't be one, so it
+# is FLAGGED (`oversized`), not dropped, for downstream filtering. Inf = no cap.
+cluster_orphan_hits <- function(orphan_hits, max_provirus_len = Inf) {
   if (length(orphan_hits) == 0L) {
-    S4Vectors::mcols(orphan_hits)$Parent <- character(0)
+    S4Vectors::mcols(orphan_hits)$Parent    <- character(0)
+    S4Vectors::mcols(orphan_hits)$oversized <- character(0)
     return(orphan_hits)
   }
-  # reduce() merges ranges whose gap is < min.gapwidth; +1 so a gap of exactly
-  # merge_gap still merges. Clusters are non-overlapping and cover every hit.
-  clusters <- GenomicRanges::reduce(orphan_hits, min.gapwidth = merge_gap + 1L,
+  # Overlap-only: reduce merges ranges separated by a gap < min.gapwidth, so
+  # min.gapwidth = 1 keeps only overlapping / book-ended ranges together.
+  clusters <- GenomicRanges::reduce(orphan_hits, min.gapwidth = 1L,
                                     ignore.strand = TRUE)
+  cl_oversized <- BiocGenerics::width(clusters) > max_provirus_len
   ov <- GenomicRanges::findOverlaps(orphan_hits, clusters, ignore.strand = TRUE)
   cl <- rep(NA_integer_, length(orphan_hits))
   cl[S4Vectors::queryHits(ov)] <- S4Vectors::subjectHits(ov)
@@ -81,6 +88,8 @@ cluster_orphan_hits <- function(orphan_hits, merge_gap = 10000L) {
     as.character(GenomicRanges::seqnames(clusters))[cl],
     BiocGenerics::start(clusters)[cl]
   )
+  # String bool to match the classifier's convention (parse_valid_full reads it).
+  S4Vectors::mcols(orphan_hits)$oversized <- ifelse(cl_oversized[cl], "True", "False")
   orphan_hits
 }
 

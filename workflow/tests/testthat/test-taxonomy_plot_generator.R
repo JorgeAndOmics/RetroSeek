@@ -96,7 +96,9 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
     source_yield_plot(combined),
     taxon_by_source_plot(combined),
     domain_tier_composition_plot(combined),
-    structure_class_composition_plot(combined)
+    structure_class_composition_plot(combined),
+    confidence_count_plot(combined),
+    confidence_gradient_plot(combined)
   )
   for (p in builders) expect_s3_class(p, "ggplot")
 

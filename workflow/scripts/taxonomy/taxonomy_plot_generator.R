@@ -395,6 +395,53 @@ confidence_plot <- function(combined) {
   add_titles(p, "Call confidence", "High vs low confidence (< confidence_min) per species")
 }
 
+# Stacked COUNT bar of loci by confidence tag (HC/LC) per species, faceted by tier.
+# Unlike confidence_plot (proportional), this shows absolute counts.
+confidence_count_plot <- function(combined) {
+  if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
+  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  counts <- combined %>%
+    count(.data$species, .data$source, .data$confidence_tag, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$confidence_tag)) +
+    geom_col(position = "stack") +
+    facet_wrap(~ .data$source) +
+    scale_fill_manual(values = c(HC = "#1B9E77", LC = "#D95F02")) +
+    labs(x = NULL, y = "loci", fill = "confidence") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Confidence composition (counts)",
+             "HC vs LC locus counts per species, by tier")
+}
+
+# Stacked COUNT bar with a continuous confidence GRADIENT: confidence binned
+# (0.05 steps), each species' bar stacked low→high and coloured by the bin
+# midpoint on a sequential viridis scale. Reveals the intra-HC spread that the
+# binary HC/LC view collapses (most calls are HC).
+confidence_gradient_plot <- function(combined) {
+  if (nrow(combined) == 0L || !"confidence_num" %in% names(combined)) {
+    return(empty_plot("no confidence values"))
+  }
+  d <- combined %>% filter(!is.na(.data$confidence_num))
+  if (nrow(d) == 0L) return(empty_plot("no confidence values"))
+  if (!"source" %in% names(d)) d$source <- "anchored"
+  brks <- seq(0, 1, by = 0.05)
+  d <- d %>% mutate(
+    bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE, right = FALSE),
+    mid = brks[as.integer(.data$bin)] + 0.025
+  )
+  counts <- d %>% count(.data$species, .data$source, .data$bin, .data$mid, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n,
+                          group = .data$bin, fill = .data$mid)) +
+    geom_col(position = position_stack(reverse = TRUE), colour = NA) +
+    facet_wrap(~ .data$source) +
+    scale_fill_viridis_c(name = "confidence", limits = c(0, 1)) +
+    labs(x = NULL, y = "loci") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  add_titles(p, "Confidence distribution (gradient)",
+             "Per-species locus counts stacked by confidence bin")
+}
+
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
 # (unit-tested): 0 / 1 / 2–5 / 6+. Robust to numeric (non-integer) input.
 bucket_evidence <- function(n) {
@@ -636,6 +683,8 @@ main <- function() {
   emit("mosaic_gene_discordance.png",    mosaic_gene_discordance_plot(loci))
   emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci))
   emit("confidence.png",            confidence_plot(combined))
+  emit("confidence_count.png",      confidence_count_plot(combined))
+  emit("confidence_gradient.png",   confidence_gradient_plot(combined))
 
   # Evidence / confidence / orphans panel (spans both tiers).
   emit("evidence_depth.png",        evidence_depth_plot(combined))
@@ -662,9 +711,9 @@ main <- function() {
   catalog_cols <- c(
     "species", "source", "seqname", "start", "end", "strand",
     "taxon_call", "rank", "resolved", "confidence", "confidence_tag", "erv_class",
-    "structure_class", "domain_tier", "canonical_order", "completeness",
-    "n_main_genes", "genes_present", "is_mosaic", "mosaic_composition",
-    "n_blastx_hits", "method", "id"
+    "structure_class", "domain_tier", "oversized", "canonical_order",
+    "completeness", "n_main_genes", "genes_present", "is_mosaic",
+    "mosaic_composition", "n_blastx_hits", "method", "id"
   )
   catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(catalog_cols))
   if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
@@ -675,7 +724,7 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done — wrote 18 PNGs to %s + report %s + catalog %s",
+  log_section(sprintf("Done — wrote 20 PNGs to %s + report %s + catalog %s",
                       args$output, args$report_csv, args$catalog_csv))
 }
 

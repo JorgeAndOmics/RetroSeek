@@ -23,16 +23,21 @@ plumbing still said "fragments" (dirs, files, rule names, CLI args, functions).
 
 ## Decision
 
-1. **Orphan proximity-clustering (synthetic `Parent`).** `cluster_orphan_hits`
-   (ranges/validation.R) clusters orphan hits by spatial proximity
-   (`GenomicRanges::reduce`, `min.gapwidth = parameters.orphan_merge_gap + 1`,
-   strand-ignored) and stamps each cluster with a synthetic `Parent`
-   (`orphan_<seqname>_<clusterStart>`). The classifier's existing
-   `build_loci`/`_assemble` then group orphans into **single, non-overlapping,
-   multi-gene loci — verbatim the anchored path**, so orphans gain
-   `structure_class` and mosaic detection for free. New config
-   `parameters.orphan_merge_gap` (default **10000** bp ≈ a full provirus span,
-   ~7–12 kb; also matches the solo-LTR `nearest_erv_max_distance` precedent).
+1. **Orphan overlap-clustering, capped (synthetic `Parent`).** `cluster_orphan_hits`
+   (ranges/validation.R) merges **only orphan hits whose ranges physically
+   overlap** (`GenomicRanges::reduce`, `min.gapwidth = 1`, strand-ignored) and
+   stamps each cluster with a synthetic `Parent` (`orphan_<seqname>_<clusterStart>`).
+   The classifier's existing `build_loci`/`_assemble` then group orphans **verbatim
+   the anchored path**. Overlap is *evidence* the hits are the same feature — a
+   deliberate retreat from the earlier proximity window, which *inferred* a
+   provirus from nearness. **Consequence (accepted):** adjacent genes (gag/pol/env
+   occupy distinct, non-overlapping positions) do **not** merge, so orphan loci are
+   mostly **single-gene** — conservative deduplication rather than speculative
+   multi-gene assembly. A per-genome **ground-truth cap** = the widest LTRdigest
+   `LTR_retrotransposon` (`max(width(retrotransposons))`); a cluster wider than any
+   real provirus is **flagged `oversized` (kept, not dropped)** for downstream
+   filtering. (The initial revision used a `parameters.orphan_merge_gap` proximity
+   window, since removed.)
 
 2. **`fragment` → `orphan` rename (full).** Every tier-referring identifier:
    `TRACK_FRAGMENTS_DIR`→`TRACK_ORPHANS_DIR` (+ `tracks/orphans/`), rule
@@ -55,18 +60,20 @@ plumbing still said "fragments" (dirs, files, rule names, CLI args, functions).
 
 ## Consequences
 
-- **Orphans become first-class loci.** 0 orphan-orphan overlaps (verified on 5
-  genomes); many orphan loci are now multi-gene (e.g. Mus 2,176) and mosaic
-  (Mus 581) — recombinant signal that singleton orphans could never express.
+- **Orphans become deduplicated, non-overlapping loci.** 0 orphan-orphan overlaps
+  (verified on 5 genomes). With overlap-only clustering they are **mostly
+  single-gene** (co-located redundant hits collapse; distinct adjacent genes stay
+  separate) — the conservative, evidence-based choice. Clusters exceeding the
+  per-genome max-provirus cap are `oversized`-flagged for filtering.
 - **The catalog is fully non-overlapping** (0 union overlaps; anchored precedence
   dropped ~1–1.4% bridging orphans), with `source` keeping the confidence
   gradient explicit (**anchored = LTR-confirmed, orphan = proximity-inferred**).
-- **Honesty caveat (biological judgment, recorded here):** orphan clustering
-  *infers* a provirus unit from proximity where the anchored path had structural
-  *evidence* (a shared LTR element). Nearby orphan hits may be one degraded
-  provirus, or independent insertions. `source=orphan` + the tunable
-  `orphan_merge_gap` keep this uncertainty visible and adjustable; the default is
-  deliberately conservative (one provirus span).
+- **Honesty caveat (biological judgment, recorded here):** even overlap-clustering
+  *infers* that co-located orphan hits are the same feature where the anchored path
+  had structural *evidence* (a shared LTR element). Overlap is a much stronger cue
+  than proximity, and the ground-truth cap bounds implausibly-long clusters, but
+  `source=orphan` still marks the whole tier as lower-confidence than
+  LTR-confirmed proviruses.
 - **Out of scope (per the maintainer):** hotspot, pair-detection, circle plots,
   and solo-LTR were intentionally *not* re-integrated in this change — they are a
   dedicated follow-up session.
