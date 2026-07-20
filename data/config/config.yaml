@@ -32,10 +32,10 @@ parameters:
   ltr_flank_margin: 0
   merge_option: 'virus'
   # How the per-hit domain flag (domain_hit_class) on anchored hits is decided:
-  #   membership — a hit is 'substring_match' if its own gene has a config-matched
+  #   membership - a hit is 'substring_match' if its own gene has a config-matched
   #                Pfam domain anywhere in its enclosing LTR element (co-occurrence;
   #                cheap, the default). Values: substring_match / no_substring_match.
-  #   positional — 'substring_match' only if the hit physically overlaps a
+  #   positional - 'substring_match' only if the hit physically overlaps a
   #                config-matched domain of its gene; adds a 'non_domain' level for
   #                hits overlapping no domain (co-localization; stronger, opt-in).
   # Independent of the per-provirus domain_tier (which is always element-wise).
@@ -85,10 +85,10 @@ classification:
   # Minimum gene completeness (fraction of main_probes present) for a locus to be
   # catalogued as a 'full' ERV in structure_class. 1.0 = every main gene present.
   # A single-main-gene locus is always 'gene'; anything present but below this
-  # floor is 'partial'. Deliberately gene-content only — LTR-pair evidence lives
+  # floor is 'partial'. Deliberately gene-content only - LTR-pair evidence lives
   # in the anchoring axis + the solo-LTR module, not here.
   structure_full_min: 1.0
-  # Classification axis (ADR-008, rank-agnostic): the taxa — at ANY rank — the
+  # Classification axis (ADR-008, rank-agnostic): the taxa - at ANY rank - the
   # reference is built at and that a locus can resolve to. Empty (or absent) derives
   # the axis from the distinct probeset Label values; set an explicit list to decouple
   # the classifier from the probeset (e.g. ['Lentivirus', 'Gammaretrovirus']).
@@ -165,6 +165,6 @@ domains:
 
 species:
   # key = genome FASTA stem in SPECIES_DB; value = display name.
-  # Example values only — list your real genomes in config.local.yaml.
+  # Example values only - list your real genomes in config.local.yaml.
   example_genome_1: "Example species one"
   # example_genome_2: "Example species two"   # uncomment to add a genome

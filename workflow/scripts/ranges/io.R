@@ -17,8 +17,11 @@ suppressMessages({
 
 
 # Read the project config YAML and return as a nested list.
+# fileEncoding = "UTF-8" pins the read encoding so a non-UTF-8 server locale
+# still decodes a valid-UTF-8 config instead of tripping readLines' "invalid
+# input found on input connection" (which truncates the file mid-parse).
 read_config <- function(path) {
-  yaml::read_yaml(path)
+  yaml::read_yaml(path, fileEncoding = "UTF-8")
 }
 
 
@@ -78,7 +81,7 @@ read_pipeline_options <- function(config) {
   `%||%` <- function(x, y) if (is.null(x)) y else x
 
   agg  <- config$parameters$aggregation %||% list()
-  list(
+  opts <- list(
     seed                = config$parameters$seed %||% NA_integer_,
     probe_min_length    = unlist(config$parameters$probe_min_length),
     bitscore_threshold  = as.numeric(config$parameters$bitscore_threshold %||% 0),
@@ -99,4 +102,20 @@ read_pipeline_options <- function(config) {
     agg_concat_separator = agg$concat_separator %||% "; ",
     agg_strict_marker   = agg$strict_marker    %||% "ambiguous"
   )
+
+  # Resilience guard. A truncated / mis-encoded config (an invalid byte makes
+  # yaml::read_yaml -> readLines return the file cut short) silently drops every
+  # key below the break. If probe_min_length is lost, the Phase-2 filter's
+  # per-row min-width vector collapses to length 0, the keep mask becomes
+  # logical(0), and EVERY genome yields 0 filtered hits with no error. Fail loud.
+  if (length(opts$probe_min_length) == 0L || length(opts$main_probes) == 0L) {
+    stop(
+      "Config parsed without `parameters$probe_min_length` or `main_probes`. ",
+      "The config is likely truncated or mis-encoded (a non-ASCII/invalid byte ",
+      "makes readLines stop mid-file). Check for non-ASCII characters and a ",
+      "complete `parameters:` block.",
+      call. = FALSE
+    )
+  }
+  opts
 }

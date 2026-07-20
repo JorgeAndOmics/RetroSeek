@@ -6,7 +6,7 @@
 #
 #     ./RetroSeek --configfile data/config/config.local.yaml [other flags]
 #
-# Only the fields that need machine-specific values are shown below — the
+# Only the fields that need machine-specific values are shown below - the
 # rest are inherited from `data/config/config.yaml`. Snakemake's
 # --configfile loader merges them.
 

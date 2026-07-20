@@ -289,3 +289,40 @@ test_that("cluster_orphan_hits on empty input returns a typed-empty GRanges", {
   expect_equal(length(out), 0L)
   expect_true(all(c("Parent", "oversized") %in% names(S4Vectors::mcols(out))))
 })
+
+
+# ---------------------------------------------------------------------------
+# read_pipeline_options resilience guard (io.R)
+#
+# A config truncated / mis-encoded so `parameters$probe_min_length` (or
+# main_probes) is lost must STOP loudly rather than silently collapse the
+# Phase-2 filter mask to length 0 and drop every hit. Regression guard for the
+# "0 of N kept for every genome" incident (invalid em-dash byte truncated the
+# server config mid-parse, above probe_min_length).
+# ---------------------------------------------------------------------------
+source(file.path(.script_dir, "io.R"))
+
+.min_valid_config <- function() {
+  list(parameters = list(
+    probe_min_length = list(POL = 400L, GAG = 200L),
+    main_probes      = c("POL", "GAG")
+  ))
+}
+
+test_that("read_pipeline_options accepts a config with probe_min_length + main_probes", {
+  opts <- read_pipeline_options(.min_valid_config())
+  expect_equal(unname(opts$probe_min_length[["POL"]]), 400L)
+  expect_equal(opts$main_probes, c("POL", "GAG"))
+})
+
+test_that("read_pipeline_options STOPS when probe_min_length is missing (truncated config)", {
+  cfg <- .min_valid_config()
+  cfg$parameters$probe_min_length <- NULL          # emulate truncation above this key
+  expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
+})
+
+test_that("read_pipeline_options STOPS when main_probes is missing", {
+  cfg <- .min_valid_config()
+  cfg$parameters$main_probes <- NULL
+  expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
+})
