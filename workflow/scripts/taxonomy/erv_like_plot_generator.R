@@ -107,7 +107,7 @@ completeness_plot <- function(loci) {
   if (nrow(d) == 0L) return(empty_plot("no loci"))
   p <- ggplot(d, aes(x = .data$completeness, fill = .data$species)) +
     geom_histogram(bins = 20, colour = NA, alpha = 0.85, position = "stack") +
-    scale_fill_igv() +
+    scale_fill_manual(values = igv_unlimited_palette(length(unique(d$species)))) +
     labs(x = "main-gene completeness (fraction present)", y = "loci", fill = "species") +
     theme_bw()
   add_titles(p, "ERV-like completeness",
@@ -181,7 +181,7 @@ length_distribution_plot <- function(loci) {
   p <- ggplot(d, aes(x = .data$span_bp, fill = .data$species)) +
     geom_histogram(bins = 40, colour = NA, alpha = 0.85, position = "stack") +
     scale_x_continuous(labels = scales::label_comma()) +
-    scale_fill_igv() +
+    scale_fill_manual(values = igv_unlimited_palette(length(unique(d$species)))) +
     labs(x = "locus span (bp)", y = "loci", fill = "species") +
     theme_bw()
   add_titles(p, "ERV-like length distribution",
