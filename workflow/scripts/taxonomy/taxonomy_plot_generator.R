@@ -639,6 +639,10 @@ main <- function() {
   plot_height    <- cfg$plots$height %||% 12
   plot_width     <- cfg$plots$width  %||% 15
   confidence_min <- cfg$classification$confidence_min %||% 0.5
+  # Canvas growth per extra category past the base, and the hard ceiling in
+  # inches (at 300 dpi, 60in is ~18,000 px — the practical PNG limit).
+  per_stratum    <- cfg$plots$per_stratum %||% 0.18
+  max_dim        <- cfg$plots$max_dim     %||% 60
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek taxonomy plot generation (output: %s)", args$output))
@@ -661,43 +665,55 @@ main <- function() {
         completeness_num = suppressWarnings(as.numeric(.data$completeness))
       )
   }
+  n_species <- length(unique(combined$species))
   log_section(sprintf("Loaded %d ltr-flanked loci + %d recovered orphans across %d species",
-                      nrow(loci), nrow(orphans), length(unique(combined$species))))
+                      nrow(loci), nrow(orphans), n_species))
 
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$output,
+  # `n_x` = number of categories on the x axis (species, for the per-species
+  # panels). Supplying it scales BOTH the canvas and the tick-label text/angle,
+  # so a 102-genome study stays readable; omitting it keeps the fixed config
+  # canvas for plots whose x axis is not per-species (histograms, heatmaps,
+  # alluvials). Applied here rather than in each builder so the whole panel's
+  # scaling decisions are visible in one place.
+  emit <- function(name, plot, n_x = NULL) {
+    if (!is.null(n_x)) plot <- scale_categorical_axis(plot, n_x, axis = "x",
+                                                      base_w = plot_width,
+                                                      base_h = plot_height,
+                                                      per_stratum = per_stratum,
+                                                      cap = max_dim)
+    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
   # Taxonomy composition plots stay on the LTR-flanked loci (the taxon-founded
   # assembly); the confidence plot spans both tiers.
-  emit("taxon_composition.png",     taxon_composition_plot(loci))
-  emit("rank_resolution.png",       rank_resolution_plot(loci))
-  emit("method_mix.png",            method_mix_plot(loci))
-  emit("erv_class_composition.png", erv_class_composition_plot(loci))
+  emit("taxon_composition.png",     taxon_composition_plot(loci), n_species)
+  emit("rank_resolution.png",       rank_resolution_plot(loci), n_species)
+  emit("method_mix.png",            method_mix_plot(loci), n_species)
+  emit("erv_class_composition.png", erv_class_composition_plot(loci), n_species)
   emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
   # Mosaic sub-panel (recombination): burden, partner heatmap, per-gene
   # discordance, per-species composition.
-  emit("mosaic_burden.png",              mosaic_burden_plot(loci))
+  emit("mosaic_burden.png",              mosaic_burden_plot(loci), n_species)
   emit("mosaic_taxon_pairs.png",         mosaic_taxon_pairs_plot(loci))
   emit("mosaic_gene_discordance.png",    mosaic_gene_discordance_plot(loci))
-  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci))
-  emit("confidence.png",            confidence_plot(combined))
-  emit("confidence_count.png",      confidence_count_plot(combined))
-  emit("confidence_gradient.png",   confidence_gradient_plot(combined))
+  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci), n_species)
+  emit("confidence.png",            confidence_plot(combined), n_species)
+  emit("confidence_count.png",      confidence_count_plot(combined), n_species)
+  emit("confidence_gradient.png",   confidence_gradient_plot(combined), n_species)
 
   # Evidence / confidence / orphans panel (spans both tiers).
   emit("evidence_depth.png",        evidence_depth_plot(combined))
   emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
   emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
   emit("structure_by_tier.png",     structure_by_tier_plot(combined))
-  emit("source_yield.png",          source_yield_plot(combined))
-  emit("taxon_by_source.png",       taxon_by_source_plot(combined))
+  emit("source_yield.png",          source_yield_plot(combined), n_species)
+  emit("taxon_by_source.png",       taxon_by_source_plot(combined), n_species)
 
   # Domain-tier + structural-class panels (ADR-009): the recall the LTR-flanked
   # relabelling preserves, and the first full/partial/gene catalogue.
-  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci))
-  emit("structure_class_composition.png", structure_class_composition_plot(combined))
+  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci), n_species)
+  emit("structure_class_composition.png", structure_class_composition_plot(combined), n_species)
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).

@@ -240,3 +240,45 @@ auto_dims <- function(n, axis = c("x", "y"),
   if (axis == "x") list(w = scaled, h = base_h)
   else             list(w = base_w, h = scaled)
 }
+
+
+# Point size for a categorical axis carrying `n` tick labels. auto_dims() grows
+# the CANVAS but not the TEXT, so at high cardinality (102 host genomes) labels
+# still collide on a wider page. Shrink linearly from `base_size` once past
+# `base_strata`, with a legibility floor — below ~5pt a label is unreadable
+# anyway, and the canvas growth has to carry the rest.
+categorical_text_size <- function(n, base_size = 11, base_strata = 12L,
+                                  floor_size = 5) {
+  if (n <= base_strata) return(base_size)
+  max(floor_size, base_size - (n - base_strata) * 0.06)
+}
+
+
+# Scale a finished plot to the cardinality of its categorical axis: attach the
+# `intended_dims` attribute save_plot() reads, AND apply the matching theme so
+# the text scales with the canvas. Rotates x tick labels once they are too dense
+# to sit side by side (y labels read horizontally at any n, so they are left
+# alone). Wraps auto_dims() rather than replacing it — the 12 existing call
+# sites keep their signature.
+#
+#   n     number of strata on the scaled axis (species, probes, taxa, ...).
+#   axis  "x" (width grows) or "y" (height grows).
+#   ...   passed through to auto_dims (base_w/base_h/per_stratum/cap).
+#
+# Returns the plot with `intended_dims` attached, so emit()/save_plot pick the
+# canvas up automatically.
+scale_categorical_axis <- function(p, n, axis = c("x", "y"),
+                                   rotate_at = 20L, ...) {
+  axis <- match.arg(axis)
+  size <- categorical_text_size(n)
+  p <- if (axis == "x" && n >= rotate_at) {
+    p + theme(axis.text.x = element_text(size = size, angle = 90,
+                                         hjust = 1, vjust = 0.5))
+  } else if (axis == "x") {
+    p + theme(axis.text.x = element_text(size = size))
+  } else {
+    p + theme(axis.text.y = element_text(size = size))
+  }
+  attr(p, "intended_dims") <- auto_dims(n, axis = axis, ...)
+  p
+}

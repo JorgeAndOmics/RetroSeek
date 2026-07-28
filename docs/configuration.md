@@ -158,6 +158,8 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
 | `waffle_unit_hits` | int ≥ 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` → "1 square = 10 ranges"). |
 | `circle_plot_bitscore_threshold` | number ≥ 0 | `0` | Bit-score cutoff for circle-plot display. |
+| `per_stratum` | number ≥ 0 | `0.18` | Inches of canvas added per category past the base canvas on per-species panels. `width`/`height` size a small study; beyond that the canvas grows by this much per extra genome so labels keep their room. Raise it if ticks still crowd at your genome count; `0` disables growth (fixed canvas). |
+| `max_dim` | number ≥ 1 | `60` | Hard ceiling in inches for a grown canvas. At 300 dpi, 60 in ≈ 18,000 px — the practical PNG limit. Panels that would exceed it are clamped rather than failing to render. |
 
 ## `execution`
 

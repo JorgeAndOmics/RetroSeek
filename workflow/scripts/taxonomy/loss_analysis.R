@@ -295,6 +295,8 @@ main <- function() {
   plot_dpi    <- cfg$plots$dpi    %||% 300
   plot_height <- cfg$plots$height %||% 12
   plot_width  <- cfg$plots$width  %||% 15
+  per_stratum <- cfg$plots$per_stratum %||% 0.18
+  max_dim     <- cfg$plots$max_dim     %||% 60
 
   log_section("Loading stage counts (ranges + classification + orphans)")
   counts_long <- dplyr::bind_rows(
@@ -326,15 +328,27 @@ main <- function() {
   funnel_disp <- funnel
   funnel_disp$genome <- relabel_species(funnel_disp$genome, cfg$species)
 
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$plot_dir,
+  # `n_x`/`n_y` = genome count on that axis; supplying it scales the canvas AND
+  # the tick text so a 102-genome funnel stays readable. step_retention puts
+  # genomes on y (a heatmap row each); the bar panels put them on x. The faceted
+  # panels grow with the facet count, so they scale on x too.
+  n_genomes <- length(unique(funnel_disp$genome))
+  emit <- function(name, plot, n_x = NULL, n_y = NULL) {
+    if (!is.null(n_x) || !is.null(n_y)) {
+      plot <- scale_categorical_axis(plot,
+                                     if (is.null(n_x)) n_y else n_x,
+                                     axis = if (is.null(n_x)) "y" else "x",
+                                     base_w = plot_width, base_h = plot_height,
+                                     per_stratum = per_stratum, cap = max_dim)
+    }
+    save_plot(name, plot, args$plot_dir, dims = attr(plot, "intended_dims"),
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
-  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp))
-  emit("step_retention.png",   step_retention_plot(funnel_disp))
-  emit("orphan_recovery.png", orphan_recovery_plot(funnel_disp))
-  emit("novel_burden.png",     novel_burden_plot(funnel_disp))
-  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp))
+  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp),     n_x = n_genomes)
+  emit("step_retention.png",   step_retention_plot(funnel_disp),  n_y = n_genomes)
+  emit("orphan_recovery.png",  orphan_recovery_plot(funnel_disp), n_x = n_genomes)
+  emit("novel_burden.png",     novel_burden_plot(funnel_disp),    n_x = n_genomes)
+  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp),  n_x = n_genomes)
   log_section("Done")
 }
 

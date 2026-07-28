@@ -120,6 +120,11 @@ plots:
   sankey_other_label: 'Other'
   waffle_unit_hits: null
   circle_plot_bitscore_threshold: 0
+  # Canvas growth for per-species panels: inches added per genome past the base
+  # canvas, and the hard ceiling. Raise per_stratum if labels still crowd at your
+  # genome count; max_dim guards the renderable-PNG limit (60in ~ 18000 px @300dpi).
+  per_stratum: 0.18
+  max_dim: 60
 
 execution:
   num_cores: 64
