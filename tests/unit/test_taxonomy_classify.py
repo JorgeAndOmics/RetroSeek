@@ -380,10 +380,10 @@ class TestBlastxEvidenceAndSource:
         rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
         assert rec["n_blastx_hits"] == "0"
 
-    def test_source_defaults_anchored(self) -> None:
+    def test_source_defaults_ltr_flanked(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
         rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
-        assert rec["source"] == "anchored"
+        assert rec["source"] == "ltr-flanked"
 
     def test_source_is_stamped(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
@@ -559,7 +559,7 @@ class TestGateAndCounts:
         kept = tcl.gate_classified(recs)
         assert [r["taxon_call"] for r in kept] == ["Lentivirus", "Gammaretrovirus"]
 
-    def test_anchored_counts(self) -> None:
+    def test_ltr_flanked_counts(self) -> None:
         recs = [
             self._rec("Lentivirus", "5"),
             self._rec(tlca.UNCLASSIFIED, "0"),
@@ -567,14 +567,14 @@ class TestGateAndCounts:
         ]
         counts = {
             c["metric"]: c["value"]
-            for c in tcl.classification_counts(recs, recs, "anchored")
+            for c in tcl.classification_counts(recs, recs, "ltr-flanked")
         }
         assert counts["loci_total"] == 3
         assert counts["loci_classified"] == 1
         assert counts["loci_unclassified"] == 2
         assert counts["loci_no_blastx_hit"] == 1  # only the n_hits == "0" one
 
-    def test_anchored_counts_carry_structure_and_tier(self) -> None:
+    def test_ltr_flanked_counts_carry_structure_and_tier(self) -> None:
         recs = [
             self._rec(
                 "Lentivirus", "5", structure_class="full", domain_tier="domain_selected"
@@ -591,7 +591,7 @@ class TestGateAndCounts:
         ]
         counts = {
             c["metric"]: c["value"]
-            for c in tcl.classification_counts(recs, recs, "anchored")
+            for c in tcl.classification_counts(recs, recs, "ltr-flanked")
         }
         assert counts["structure_full"] == 1
         assert counts["structure_partial"] == 1

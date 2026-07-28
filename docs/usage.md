@@ -78,7 +78,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 ./RetroSeek --probe-extractor --configfile data/config/config.local.yaml
 ```
 
-`config.local.yaml` is in `.gitignore`. Snakemake's `--configfile` merges its keys over `config.yaml`'s defaults, so the override file only needs the fields you're changing (typically `input.probe_csv` + the four `root` entries + `execution.entrez_email`). Absolute paths in the local config are honoured as-is; relative paths are anchored against the repo root.
+`config.local.yaml` is in `.gitignore`. Snakemake's `--configfile` merges its keys over `config.yaml`'s defaults, so the override file only needs the fields you're changing (typically `input.probe_csv` + the four `root` entries + `execution.entrez_email`). Absolute paths in the local config are honoured as-is; relative paths are LTR-flanked against the repo root.
 
 ### Pipeline config — [`data/config/config.yaml`](../data/config/config.yaml)
 

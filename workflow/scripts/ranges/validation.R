@@ -4,16 +4,16 @@
 # Refinement steps applied to the reduced BLAST GRanges:
 #
 #   - candidate hits  = reduced BLAST hits that overlap an LTR retrotransposon
-#                       (ERV); these are the anchored candidates for ERV identity.
-#   - anchored hits   = the candidate set, LABELLED (not filtered): every
+#                       (ERV); these are the LTR-flanked candidates for ERV identity.
+#   - LTR-flanked hits   = the candidate set, LABELLED (not filtered): every
 #                       candidate is kept and annotated with its enclosing
 #                       element (`Parent`), a per-provirus `domain_tier`, and a
 #                       per-hit `domain_hit_class`. Nothing is discarded — the
-#                       "valid" tier is now the whole anchored set carrying the
+#                       "valid" tier is now the whole LTR-flanked set carrying the
 #                       labels needed to judge domain support downstream (ADR-009).
 #   - orphan hits     = the strand-aware complement: hits overlapping no element.
 #
-# This replaces the earlier find_valid_hits filter (which dropped every anchored
+# This replaces the earlier find_valid_hits filter (which dropped every LTR-flanked
 # hit lacking a matching Pfam domain) with a findOverlaps + per-retrotransposon
 # probe-set membership annotation.
 
@@ -42,19 +42,19 @@ find_candidate_hits <- function(gr_hits, retrotransposons) {
 # ORFs, degraded proviruses, and candidate novel retroviruses whose LTRs are too
 # diverged for LTRharvest to pair. They are recovered into the orphan tier and
 # classified by their own sequence (taxonomy_classify_loci.py --source orphan).
-# With no retrotransposons, every hit is unanchored.
-find_unanchored_hits <- function(gr_hits, retrotransposons) {
+# With no retrotransposons, every hit is an orphan.
+find_orphan_hits <- function(gr_hits, retrotransposons) {
   if (length(gr_hits) == 0L) return(gr_hits[FALSE])
   if (length(retrotransposons) == 0L) return(gr_hits)
   ov <- GenomicRanges::findOverlaps(gr_hits, retrotransposons, ignore.strand = FALSE)
-  anchored <- unique(S4Vectors::queryHits(ov))
-  gr_hits[setdiff(seq_along(gr_hits), anchored)]
+  ltr_flanked <- unique(S4Vectors::queryHits(ov))
+  gr_hits[setdiff(seq_along(gr_hits), ltr_flanked)]
 }
 
 
 # Cluster orphan (non-LTR-associated) hits by physical OVERLAP only and stamp each
 # with a synthetic `Parent`, so the taxonomic classifier's build_loci groups them
-# into single, non-overlapping orphan loci — the grouping an anchored provirus gets
+# into single, non-overlapping orphan loci — the grouping an LTR-flanked provirus gets
 # from its LTR element, but keyed on co-location because an orphan has no element
 # (ADR-010). Only hits whose ranges OVERLAP (or are book-ended) merge; gap-separated
 # hits stay separate. Strand is ignored (a degraded provirus's genes may be on
@@ -169,7 +169,7 @@ build_retrotransposon_domain_presence <- function(retrotransposons, all_domains)
 }
 
 
-# Annotate every candidate (LTR-anchored) hit WITHOUT discarding any. Emits three
+# Annotate every candidate (LTR-flanked) hit WITHOUT discarding any. Emits three
 # mcols columns (ADR-009):
 #
 #   Parent            greatest-overlap LTR_retrotransposon id — the anchor the
@@ -185,7 +185,7 @@ build_retrotransposon_domain_presence <- function(retrotransposons, all_domains)
 #                                   no_substring_match
 #                       positional  see .positional_hit_class (co-localization;
 #                                   adds a non_domain level)
-annotate_anchored_hits <- function(gr_candidates, retrotransposons,
+annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons,
                                    domains_with_probes, all_domains,
                                    hit_domain_mode = "membership",
                                    concat_separator = "; ") {

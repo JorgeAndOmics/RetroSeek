@@ -248,6 +248,10 @@ main <- function() {
   log_section(sprintf("RetroSeek structure panel — ERV structural plots (output: %s)", args$output))
 
   loci <- load_taxon_loci(args$input)
+  # Canonicalize the genome stem to the config `species:` display name at the
+  # single load point, so every builder below plots "Mus musculus" rather than
+  # the raw stem (mus_musculus / HLmyoMyo6). Unmapped stems pass through.
+  if (nrow(loci) > 0L) loci$species <- relabel_species(loci$species, cfg$species)
   log_section(sprintf("Loaded %d loci across %d species",
                       nrow(loci), length(unique(loci$species))))
 

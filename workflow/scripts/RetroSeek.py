@@ -364,7 +364,7 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
             )
 
         if args.classify:
-            # Genus calls (anchored loci + recovered orphans tier), the derived
+            # Genus calls (LTR-flanked loci + recovered orphans tier), the derived
             # taxonomy plot panel, and the unified loss funnel in one DAG (shared
             # taxonomy_classify upstream). Reference must exist (--build-reference).
             run_snakemake_rule(

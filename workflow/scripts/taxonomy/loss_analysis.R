@@ -34,14 +34,14 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 # Funnel specification — the ordered stages and each stage's PARENT (the stage
 # it is measured against for step retention). The pipeline has TWO reduction
-# branches off `first_reduced_ranges` (gr_virus): the anchored spine
+# branches off `first_reduced_ranges` (gr_virus): the LTR-flanked spine
 # (candidate -> valid -> loci) descends from gr_virus directly, while the
 # orphan branch descends from `global_reduced_ranges` (gr_global, a second,
 # stronger reduction). So `candidate`'s parent is `first_reduced_ranges`, NOT
 # `global_reduced_ranges` — and `global_reduced_ranges` is the head of the
-# orphan branch, a SIBLING of `candidate`, not a step in the anchored spine.
+# orphan branch, a SIBLING of `candidate`, not a step in the LTR-flanked spine.
 # Getting this wrong makes candidate/global > 100% and a non-monotonic funnel.
-# `branch` tags let the plot separate the anchored spine, the orphan branch,
+# `branch` tags let the plot separate the LTR-flanked spine, the orphan branch,
 # and the classification tier (the last is grouping/quality, not attrition).
 # ----------------------------------------------------------------------------
 .STAGE_SPEC <- tibble::tribble(
@@ -50,12 +50,12 @@ suppressMessages({
   "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
   "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
   "candidate_ranges",      4L,          "main",           "first_reduced_ranges",  "LTR-overlapping (candidate)",
-  "valid_ranges",          5L,          "main",           "candidate_ranges",      "anchored (all domain tiers)",
+  "valid_ranges",          5L,          "main",           "candidate_ranges",      "ltr-flanked (all domain tiers)",
   "global_reduced_ranges", 6L,          "orphan",         "first_reduced_ranges",  "global reduction",
   "orphans",               7L,          "orphan",         "global_reduced_ranges", "non-LTR orphan hits",
   "orphans_total",         8L,          "orphan",         "orphans",               "orphan loci (clustered)",
   "orphans_recovered",     9L,          "orphan",         "orphans_total",         "orphans recovered",
-  "loci_total",           10L,          "classification", "valid_ranges",          "anchored loci (grouped)",
+  "loci_total",           10L,          "classification", "valid_ranges",          "ltr-flanked loci (grouped)",
   "loci_classified",      11L,          "classification", "loci_total",            "loci classified",
   "loci_no_blastx_hit",   12L,          "classification", "loci_total",            "loci w/ no blastx hit"
 )
@@ -178,7 +178,7 @@ loss_funnel_plot <- function(funnel) {
 
 
 # Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
-# surviving. Restricted to the genuine attrition/reduction steps (the anchored
+# surviving. Restricted to the genuine attrition/reduction steps (the LTR-flanked
 # spine + the orphan branch) — the classification tier is grouping/quality,
 # not retention, so it is excluded to keep one consistent semantic on the scale.
 # Every cell is now a true subset/reduction ratio, so all are <= 100%.
@@ -249,7 +249,7 @@ novel_burden_plot <- function(funnel) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Novel-candidate burden",
-             "Anchored loci with zero blastx homology (label = count; bar = share of all loci)")
+             "LTR-flanked loci with zero blastx homology (label = count; bar = share of all loci)")
 }
 
 

@@ -23,7 +23,7 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_plot_generator.R"))
 
 
 test_that("build_report counts by taxon, confidence, method + mosaic/integrations", {
-  rep <- build_report(.fake_loci("anchored"))
+  rep <- build_report(.fake_loci("ltr-flanked"))
 
   # taxon counts only over axis-resolved rows
   taxon <- rep %>% filter(dimension == "taxon")
@@ -45,10 +45,10 @@ test_that("build_report counts by taxon, confidence, method + mosaic/integration
   expect_equal(summ$count[summ$level == "integrations"], 3L)
 })
 
-test_that("build_report splits by source (anchored vs orphan)", {
-  combined <- bind_rows(.fake_loci("anchored"), .fake_loci("orphan"))
+test_that("build_report splits by source (ltr-flanked vs orphan)", {
+  combined <- bind_rows(.fake_loci("ltr-flanked"), .fake_loci("orphan"))
   rep <- build_report(combined)
-  expect_setequal(unique(rep$source), c("anchored", "orphan"))
+  expect_setequal(unique(rep$source), c("ltr-flanked", "orphan"))
   # each tier reports its own 3 integrations
   integ <- rep %>% filter(dimension == "summary", level == "integrations")
   expect_true(all(integ$count == 3))
@@ -78,8 +78,8 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
   combined <- tribble(
     ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag, ~method,
     ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~structure_class, ~domain_tier, ~source,
-    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "anchored",
-    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "anchored",
+    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "ltr-flanked",
+    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "ltr-flanked",
     "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "gene",    "non_domain",      "orphan"
   )
   # main() adds the numeric helper columns; mirror that here.
@@ -111,20 +111,20 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
-test_that("reconcile_catalog drops orphans overlapping an anchored locus (anchored precedence)", {
+test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr-flanked precedence)", {
   combined <- tribble(
     ~species, ~source,    ~seqname, ~start, ~end,   ~id,
-    "g1",     "anchored", "chr1",   "1000", "2000", "A1",
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
     "g1",     "orphan",   "chr1",   "1500", "1800", "O1",   # overlaps A1 -> drop
     "g1",     "orphan",   "chr1",   "5000", "5300", "O2",   # clear -> keep
     "g1",     "orphan",   "chr2",   "1500", "1800", "O3"    # different seqname -> keep
   )
   out <- reconcile_catalog(combined)
   expect_setequal(out$id, c("A1", "O2", "O3"))          # O1 dropped
-  expect_true(all(out$source[out$id == "A1"] == "anchored"))
+  expect_true(all(out$source[out$id == "A1"] == "ltr-flanked"))
   # empty-safe + single-tier passthrough
   expect_equal(nrow(reconcile_catalog(combined[0, ])), 0L)
-  expect_equal(nrow(reconcile_catalog(combined[combined$source == "anchored", ])), 1L)
+  expect_equal(nrow(reconcile_catalog(combined[combined$source == "ltr-flanked", ])), 1L)
 })
 
 test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {

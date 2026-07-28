@@ -77,7 +77,7 @@ The key conceptual point: **solo LTRs come from the genome matching the consensu
 
 ## How RetroSeek couples with LTR_retriever
 
-RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classification that separates retroviral from non-retroviral LTR-retrotransposons, and (2) meaningful biological labels (GAG, POL, ENV, PRO, etc.) anchored to the user's probe set. We use those at two points in the LTR_retriever flow.
+RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classification that separates retroviral from non-retroviral LTR-retrotransposons, and (2) meaningful biological labels (GAG, POL, ENV, PRO, etc.) LTR-flanked to the user's probe set. We use those at two points in the LTR_retriever flow.
 
 ### Coupling A — retroviral-only pre-filter
 

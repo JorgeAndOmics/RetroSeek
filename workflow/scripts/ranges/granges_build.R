@@ -110,7 +110,7 @@ assign_probe_to_domain_name <- function(domain_name, domain_map) {
 # `extract_domains_with_probes` selects the config-matched subset. It backs the
 # "does this element carry ANY protein domain?" signal that separates the
 # `domain_unlisted` tier (has domains, none config-matched) from `non_domain`
-# (no domain at all). See annotate_anchored_hits in validation.R (ADR-009).
+# (no domain at all). See annotate_ltr_flanked_hits in validation.R (ADR-009).
 extract_all_domains <- function(ltr_data) {
   ltr_data[ltr_data$type == "protein_match"]
 }

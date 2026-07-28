@@ -1009,7 +1009,7 @@ _PROBE_CSV = config['input']['probe_csv']
 # rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
 # =============================================================================
 # 8. TAXONOMIC CLASSIFICATION — per-locus taxon calls (rank-agnostic axis)
-#    build the taxon-comprehensive reference + placement trees, classify anchored
+#    build the taxon-comprehensive reference + placement trees, classify LTR-flanked
 #    loci, recover + classify the orphans tier, and render the taxonomy panel.
 # =============================================================================
 rule taxonomy_reference:
@@ -1104,7 +1104,7 @@ rule taxonomy_classify_setup:
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source anchored \
+            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source ltr-flanked \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \

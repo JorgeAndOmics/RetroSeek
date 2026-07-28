@@ -5,7 +5,7 @@ Per-gene, mosaic-aware ERV locus classifier (trial)
 Classifies ERV loci from their own sequence, per gene, with a method cascade:
 
     full valid GFF3 (per-hit features w/ probe=gene, Parent=LTR_retrotransposon)
-      -> LTR-element-anchored loci (group by Parent; gene-partitioned regions)
+      -> LTR-flanked loci (group by Parent; gene-partitioned regions)
       -> extract each (locus, gene) region (Biostrings; extract_region_fasta.R)
       -> blastx region vs independent reference  -> per-gene (taxon, bitscore) evidence
       -> per gene: placement (POL/GAG, if a tree exists) else weighted-LCA  [+ presence for REX/TAX]
@@ -105,7 +105,7 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
                         hit_class.group(1) if hit_class else "no_substring_match"
                     ),
                     # oversized rides the orphan track (overlap cluster wider than
-                    # the widest real provirus); anchored track carries no attr.
+                    # the widest real provirus); LTR-flanked track carries no attr.
                     "oversized": oversized.group(1) if oversized else "False",
                 }
             )
@@ -278,7 +278,7 @@ def classify(
     min_orf: int = 30,
     confidence_min: float = 0.5,
     structure_full_min: float = 1.0,
-    source: str = "anchored",
+    source: str = "ltr-flanked",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
@@ -418,7 +418,7 @@ def _assemble(
     axis: set[str],
     confidence_min: float = 0.5,
     structure_full_min: float = 1.0,
-    source: str = "anchored",
+    source: str = "ltr-flanked",
 ) -> list[dict[str, str]]:
     # gene reliability + mosaic set derived from the user's ordered main_probes (no hard-coding)
     gene_priority = {g: i for i, g in enumerate(main_probes)}
@@ -601,7 +601,7 @@ def classification_counts(
     ranges_analysis.R's counts table so the two UNION into one loss funnel.
 
     For the gated orphan run, ``records`` is the pre-gate set and ``kept`` the
-    post-gate (recovered) set; for the anchored run the two are identical.
+    post-gate (recovered) set; for the ltr-flanked run the two are identical.
     """
     if source == "orphan":
         return [
@@ -787,8 +787,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--source",
-        default="anchored",
-        help="provenance stamp for every record ('anchored' LTR loci vs "
+        default="ltr-flanked",
+        help="provenance stamp for every record ('ltr-flanked' LTR loci vs "
         "recovered 'orphan'). Lets downstream union/report split the two tiers.",
     )
     p.add_argument(
@@ -852,7 +852,7 @@ def main() -> int:
     )
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was
-    # recovered vs. discarded. For the anchored run the gate is a no-op.
+    # recovered vs. discarded. For the LTR-flanked run the gate is a no-op.
     kept = gate_classified(records) if a.gate_classified else records
     logger.info("classification summary\n%s", summarise(kept))
     if a.out_counts:

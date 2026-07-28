@@ -31,7 +31,7 @@ parameters:
   ltr_resize: 0
   ltr_flank_margin: 0
   merge_option: 'virus'
-  # How the per-hit domain flag (domain_hit_class) on anchored hits is decided:
+  # How the per-hit domain flag (domain_hit_class) on LTR-flanked hits is decided:
   #   membership - a hit is 'substring_match' if its own gene has a config-matched
   #                Pfam domain anywhere in its enclosing LTR element (co-occurrence;
   #                cheap, the default). Values: substring_match / no_substring_match.

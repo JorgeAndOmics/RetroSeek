@@ -86,3 +86,20 @@ test_that("load_taxon_loci coerces structural columns + derives span_bp", {
   expect_true(is.logical(loaded$canonical_order))
   expect_equal(loaded$span_bp, 501)            # 600 - 100 + 1
 })
+
+
+# ---------------------------------------------------------------------------
+# Species labels must be canonicalized to the config `species:` display names.
+# Regression guard: this generator derives `species` from the parquet filename
+# (the genome stem), so without relabel_species() every structural plot showed
+# `mus_musculus` instead of `Mus musculus`.
+# ---------------------------------------------------------------------------
+test_that("erv_like species stems are relabelled to config display names", {
+  species_map <- list(mus_musculus = "Mus musculus",
+                      HLmyoMyo6    = "Myotis myotis")
+  stems <- c("mus_musculus", "HLmyoMyo6", "not_in_config")
+  expect_equal(
+    relabel_species(stems, species_map),
+    c("Mus musculus", "Myotis myotis", "not_in_config")   # unmapped passes through
+  )
+})
