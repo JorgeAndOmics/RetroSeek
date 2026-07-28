@@ -88,6 +88,9 @@ classification:
   # floor is 'partial'. Deliberately gene-content only - LTR-pair evidence lives
   # in the anchoring axis + the solo-LTR module, not here.
   structure_full_min: 1.0
+  # Rank each taxon_call is rolled up to for the by-segment stage (any NCBI rank:
+  # genus, subfamily, family). Calls coarser than this become unassigned_at_<rank>.
+  segment_rank: 'genus'
   # Classification axis (ADR-008, rank-agnostic): the taxa - at ANY rank - the
   # reference is built at and that a locus can resolve to. Empty (or absent) derives
   # the axis from the distinct probeset Label values; set an explicit list to decouple
@@ -135,6 +138,10 @@ execution:
   entrez_email: 'your.email@institution.example'
 
 input:
+  # Optional Newick of the host-species phylogeny, used to order and annotate the
+  # species panels. Empty = no species tree (those plots render a placeholder).
+  # Tip labels are matched to the `species:` display names below.
+  species_tree: ''
   probe_csv: 'data/tables/probes.csv'
 
 display:

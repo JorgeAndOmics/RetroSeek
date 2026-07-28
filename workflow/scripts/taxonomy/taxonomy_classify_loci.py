@@ -279,6 +279,7 @@ def classify(
     confidence_min: float = 0.5,
     structure_full_min: float = 1.0,
     source: str = "ltr-flanked",
+    segment_rank: str = "genus",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
@@ -351,6 +352,7 @@ def classify(
         confidence_min=confidence_min,
         structure_full_min=structure_full_min,
         source=source,
+        segment_rank=segment_rank,
     )
 
 
@@ -407,6 +409,28 @@ def _ref_version(ref_dir: Path) -> str:
     return h.hexdigest()[:12]
 
 
+def segment_of(taxon_call: str, segment_rank: str) -> str:
+    """Roll a taxon call up to ``segment_rank`` (ADR-011).
+
+    Walks the taxonomy from the call toward the root and returns the first node
+    at the requested rank — the call itself when it is already there. Rank-
+    agnostic by construction: ``segment_rank`` is any NCBI rank string, and no
+    taxon name is ever hard-coded, so segmenting by family works exactly like
+    segmenting by genus.
+
+    A call ABOVE the requested rank (e.g. ``Retroviridae`` when segmenting by
+    genus) has no genus ancestor and cannot be given one: it returns
+    ``unassigned_at_<rank>`` rather than inventing precision the evidence does
+    not support.
+    """
+    if not segment_rank:
+        return ""
+    for node in tlca.ancestors(taxon_call):
+        if tlca.rank_of(node) == segment_rank:
+            return node
+    return f"unassigned_at_{segment_rank}"
+
+
 def _assemble(
     loci: list[dict[str, Any]],
     hits: dict[str, list[tuple[str, float]]],
@@ -419,6 +443,7 @@ def _assemble(
     confidence_min: float = 0.5,
     structure_full_min: float = 1.0,
     source: str = "ltr-flanked",
+    segment_rank: str = "genus",
 ) -> list[dict[str, str]]:
     # gene reliability + mosaic set derived from the user's ordered main_probes (no hard-coding)
     gene_priority = {g: i for i, g in enumerate(main_probes)}
@@ -540,6 +565,11 @@ def _assemble(
                 "oversized": lc.get("oversized", "False"),
                 "taxon_call": taxon_call,
                 "rank": rank,
+                # Rank roll-up for the segmentation stage (ADR-011): the locus's
+                # ancestor at classification.segment_rank, or unassigned_at_<rank>
+                # when the call is coarser than that rank.
+                "segment": segment_of(taxon_call, segment_rank),
+                "segment_rank": segment_rank,
                 # resolved = the call landed on a declared axis taxon (ADR-008),
                 # vs an honest LCA-backoff to an interior ancestor. Rank-agnostic
                 # 'confident' flag for downstream consumers (default axis=genera
@@ -689,6 +719,8 @@ LOCI_COLUMNS = [
     "oversized",
     "taxon_call",
     "rank",
+    "segment",
+    "segment_rank",
     "resolved",
     "confidence",
     "confidence_tag",
@@ -786,6 +818,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "'partial'. classification.structure_full_min.",
     )
     p.add_argument(
+        "--segment-rank",
+        default="genus",
+        help="taxonomic rank the `segment` column rolls each call up to "
+        "(any NCBI rank: genus, subfamily, family...). Calls coarser than this "
+        "rank become unassigned_at_<rank>. classification.segment_rank.",
+    )
+    p.add_argument(
         "--source",
         default="ltr-flanked",
         help="provenance stamp for every record ('ltr-flanked' LTR loci vs "
@@ -849,6 +888,7 @@ def main() -> int:
         confidence_min=a.confidence_min,
         structure_full_min=a.structure_full_min,
         source=a.source,
+        segment_rank=a.segment_rank,
     )
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was

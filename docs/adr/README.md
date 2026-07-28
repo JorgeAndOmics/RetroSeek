@@ -20,6 +20,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 008   | [Rank-agnostic taxonomic classification (axis-taxon calls)](ADR-008-rank-agnostic-classification.md) | Accepted |
 | 009   | [Anchored domain-tiering, structural ERV class, orphan relabeling](ADR-009-anchored-domain-tiering-and-structure-class.md) | Accepted |
 | 010   | [Orphan proximity-clustering, fragment→orphan rename, authoritative catalog](ADR-010-orphan-clustering-and-authoritative-catalog.md) | Accepted |
+| 011   | [Phylogeny-aware plots, rank segmentation, anchored→ltr-flanked](ADR-011-phylogeny-aware-plots-and-rank-segmentation.md) | Accepted |
 
 ## When to write a new ADR
 

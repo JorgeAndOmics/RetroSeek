@@ -140,6 +140,7 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | `min_orf` | int ≥ 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
 | `confidence_min` | number 0–1 | `0.5` | Confidence floor for the high/low confidence tag. A locus whose call confidence is **below** this value is tagged `LC` (low confidence) in the `confidence_tag` column of the loci/fragments tables; at or above it is `HC`. The threshold is inclusive (`conf == confidence_min` ⇒ `HC`) and applies to every method (placement, weighted-LCA, presence). Raise it to flag more marginal calls. |
 | `structure_full_min` | number 0–1 | `1.0` | Minimum gene completeness (fraction of `main_probes` present) for a locus to be catalogued as a **`full`** ERV in the `structure_class` column. `1.0` requires every main gene. A single-main-gene locus is always `gene`; a multi-gene locus present but below this floor is `partial`. Deliberately gene-content only — flanking-LTR evidence stays in the anchoring axis (`source`) and the solo-LTR module, not here. |
+| `segment_rank` | str | `genus` | Taxonomic rank each `taxon_call` is rolled up to for the by-segment stage (ADR-011). Any NCBI rank (`genus`, `subfamily`, `family`, ...) — the roll-up walks the reference `taxonomy.tsv` hierarchy, so no taxon name is ever hard-coded and the pipeline stays rank-agnostic. A locus whose call is *coarser* than this rank (e.g. `Retroviridae` when segmenting by genus) becomes `unassigned_at_<rank>` rather than being given precision its evidence does not support. |
 | `reference_taxa` | list of str | `[]` | The **classification axis** (ADR-008): the taxa — at **any** rank (genus `Lentivirus`, family `Bornaviridae`, …) — the reference is built at and that a locus can resolve to as a first-class `taxon_call`. Empty or absent derives the axis from the distinct probeset `Label` values, so `Label` seeds the classifier; setting an explicit list decouples the classifier from the probeset. Changing it requires rebuilding the reference (`make reference`). |
 
 ## `logging`
@@ -177,6 +178,7 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `probe_csv` | string | — | **Required.** Absolute path to the probe metadata CSV. Columns expected: `Label, Name, Abbreviation, Probe, Accession`. |
+| `species_tree` | str | `''` (none) | Path to a Newick file of the host-species phylogeny (ADR-011). Used to order and annotate the species panels; empty means no species tree and those plots render an explanatory placeholder instead. Tip labels are matched to the `species:` display names, ignoring case and `_` vs space, and any species not found in the tree (or tip not found in the study) is reported in the log rather than silently dropped. Pin the file in your repo/data dir for reproducibility — e.g. a dated TimeTree export. |
 
 ## `display`
 

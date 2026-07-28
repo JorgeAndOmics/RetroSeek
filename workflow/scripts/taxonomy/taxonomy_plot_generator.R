@@ -34,6 +34,7 @@ suppressMessages({
   library(ggsci)        # Scientific colour palettes
   library(ggalluvial)   # Alluvial flows for the mosaic plot
   library(GenomicRanges)  # catalog reconciliation (ltr-flanked-precedence overlap)
+  library(patchwork)      # tree | bars composition for the tree-attached panels
 })
 
 
@@ -442,6 +443,117 @@ confidence_gradient_plot <- function(combined) {
              "Per-species locus counts stacked by confidence bin")
 }
 
+
+# ----------------------------------------------------------------------------
+# Tree-attached confidence panels (ADR-011)
+# ----------------------------------------------------------------------------
+# A tree beside the bars turns an alphabetical list into a phylogenetic
+# statement: you can see whether ERV burden tracks host relatedness, or which
+# viral lineages dominate where. The tree is drawn from coordinates precomputed
+# by tree_layout.py (Bio.Phylo), so no R tree library is needed; patchwork
+# aligns the two panels on a shared y scale.
+#
+# Softer sequential palette than viridis - these panels are meant to be read
+# next to a tree, where saturated colour fights the topology for attention.
+.SOFT_CONFIDENCE <- c("#efe7d6", "#dbe3cf", "#bfd4c6", "#9cc0bf", "#7aa7ad", "#5f88a1")
+
+# Read a tree coordinate CSV written by tree_layout.py. Missing/empty file =>
+# NULL, which the builders below turn into an explanatory placeholder rather
+# than an error: a study with no species tree configured is a normal state.
+read_tree_part <- function(dir, name, part) {
+  f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
+  if (!file.exists(f)) return(NULL)
+  df <- suppressWarnings(readr::read_csv(f, show_col_types = FALSE))
+  if (nrow(df) == 0L) NULL else df
+}
+
+
+# Horizontal confidence-gradient bars whose y order is fixed by a tree, with the
+# tree drawn alongside. `key` is the catalog column the tips correspond to
+# (`species` or `taxon_call`) — level-agnostic: the taxon tree's tips are
+# whatever ranks the calls resolved to.
+tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
+                                 title, subtitle) {
+  tips <- read_tree_part(tree_dir, tree_name, "tips")
+  segs <- read_tree_part(tree_dir, tree_name, "segments")
+  if (is.null(tips)) {
+    return(empty_plot(sprintf("no %s tree available", tree_name)))
+  }
+  if (nrow(combined) == 0L || !"confidence_num" %in% names(combined) ||
+      !key %in% names(combined)) {
+    return(empty_plot("no confidence values"))
+  }
+  d <- combined %>% filter(!is.na(.data$confidence_num))
+  d <- d[as.character(d[[key]]) %in% tips$tip, , drop = FALSE]
+  if (nrow(d) == 0L) return(empty_plot("no loci matching the tree tips"))
+  if (!"source" %in% names(d)) d$source <- "ltr-flanked"
+
+  brks <- seq(0, 1, by = 0.05)
+  d <- d %>% mutate(
+    bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE,
+              right = FALSE),
+    mid = brks[as.integer(.data$bin)] + 0.025,
+    .y  = tips$y[match(as.character(.data[[key]]), tips$tip)]
+  )
+  counts <- d %>% count(.data$.y, .data$source, .data$bin, .data$mid, name = "n")
+  ylim <- c(0.4, nrow(tips) + 0.6)
+
+  bars <- ggplot(counts, aes(x = .data$n, y = .data$.y,
+                             group = .data$bin, fill = .data$mid)) +
+    geom_col(position = position_stack(reverse = TRUE), colour = NA,
+             orientation = "y") +
+    facet_wrap(~ .data$source) +
+    scale_fill_gradientn(colours = .SOFT_CONFIDENCE, limits = c(0, 1),
+                         name = "confidence") +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    labs(x = "loci (stacked low -> high confidence)", y = NULL) +
+    theme_bw() +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+          panel.grid.major.y = element_blank())
+
+  tree <- ggplot() +
+    { if (!is.null(segs)) {
+        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                      xend = .data$xend, yend = .data$yend),
+                     colour = "grey45", linewidth = 0.4, lineend = "round")
+      } } +
+    geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
+              hjust = -0.05, size = 3, colour = "grey20") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.9))) +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    theme_void()
+
+  p <- patchwork::wrap_plots(tree, bars, widths = c(1.2, 3))
+  # add_titles() styles a ggplot; a patchwork needs its annotation instead.
+  p + patchwork::plot_annotation(
+    title = title, subtitle = subtitle,
+    theme = theme(
+      plot.title      = element_text(face = "bold", hjust = 0.5, size = 16),
+      plot.subtitle   = element_text(hjust = 0.5, size = 11),
+      plot.background = element_rect(fill = "white", colour = NA)
+    )
+  )
+}
+
+
+# Viral lineages on the y axis, ordered by the reference taxonomy cladogram.
+taxon_confidence_tree_plot <- function(combined, tree_dir) {
+  tree_confidence_plot(
+    combined, tree_dir, "taxon", "taxon_call",
+    "ERV confidence by viral lineage",
+    "Reference taxonomy cladogram - stacked by confidence, split by tier"
+  )
+}
+
+# Host species on the y axis, ordered by the user-supplied species phylogeny.
+species_confidence_tree_plot <- function(combined, tree_dir) {
+  tree_confidence_plot(
+    combined, tree_dir, "species", "species",
+    "ERV confidence by host species",
+    "Host phylogeny (input.species_tree) - stacked by confidence, split by tier"
+  )
+}
+
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
 # (unit-tested): 0 / 1 / 2–5 / 6+. Robust to numeric (non-integer) input.
 bucket_evidence <- function(n) {
@@ -628,6 +740,10 @@ main <- function() {
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--report_csv", required = TRUE,
                       help = "Output path for the tidy classification report CSV.")
+  parser$add_argument("--tree_dir", required = FALSE, default = "",
+                      help = paste("Directory of tree coordinate CSVs from",
+                                   "tree_layout.py. Absent/empty renders the",
+                                   "tree panels as placeholders."))
   parser$add_argument("--catalog_csv", required = TRUE,
                       help = paste("Output path for the unified authoritative ERV",
                                    "catalog CSV (ltr-flanked proviruses + clustered",
@@ -715,6 +831,22 @@ main <- function() {
   emit("domain_tier_composition.png",     domain_tier_composition_plot(loci), n_species)
   emit("structure_class_composition.png", structure_class_composition_plot(combined), n_species)
 
+  # Tree-attached panels (ADR-011): the same confidence stacks, ordered by
+  # phylogeny instead of alphabetically. Height grows with tip count.
+  tree_dir <- args$tree_dir %||% ""
+  n_taxa <- length(unique(combined$taxon_call))
+  emit_tree <- function(name, plot, n_tips) {
+    plot <- scale_categorical_axis(plot, n_tips, axis = "y",
+                                   base_w = plot_width, base_h = plot_height,
+                                   per_stratum = per_stratum, cap = max_dim)
+    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
+              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  }
+  emit_tree("taxon_confidence_tree.png",
+            taxon_confidence_tree_plot(combined, tree_dir), n_taxa)
+  emit_tree("species_confidence_tree.png",
+            species_confidence_tree_plot(combined, tree_dir), n_species)
+
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
@@ -740,7 +872,7 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done — wrote 20 PNGs to %s + report %s + catalog %s",
+  log_section(sprintf("Done — wrote 22 PNGs to %s + report %s + catalog %s",
                       args$output, args$report_csv, args$catalog_csv))
 }
 

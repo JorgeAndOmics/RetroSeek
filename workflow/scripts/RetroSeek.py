@@ -214,6 +214,14 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     )
 
     parser.add_argument(
+        "--segment",
+        action="store_true",
+        help="Split the authoritative ERV catalog by taxonomic segment: one table "
+        "per taxon at classification.segment_rank (genus by default, any rank), "
+        "plus a curated plot subset per segment. Requires --classify output.",
+    )
+
+    parser.add_argument(
         "--skip-validation", "-skp", action="store_true", help="Skip input validation."
     )
 
@@ -358,6 +366,16 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.build_reference:
             run_snakemake_rule(
                 "taxonomy_reference_trees",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.segment:
+            # Per-segment tables + plots; depends on the catalog the classify
+            # panel writes, so Snakemake pulls that stage in if it is stale.
+            run_snakemake_rule(
+                ["taxonomy_segments"],
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,

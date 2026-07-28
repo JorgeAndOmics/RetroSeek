@@ -152,3 +152,55 @@ test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", 
   expect_match(mosaic_gene_discordance_plot(none)$labels$title, "no mosaic loci")
   expect_s3_class(mosaic_burden_plot(loci[0, ]), "ggplot")
 })
+
+
+# ---------------------------------------------------------------------------
+# Tree-attached confidence panels (ADR-011). The tree comes from coordinate
+# CSVs written by tree_layout.py, so these tests write those directly.
+# ---------------------------------------------------------------------------
+.write_tree_fixture <- function(dir, name, tips) {
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  readr::write_csv(
+    tibble::tibble(tip = tips, x = 1, y = seq_along(tips)),
+    file.path(dir, paste0(name, ".tree_tips.csv"))
+  )
+  readr::write_csv(
+    tibble::tibble(x = 0, y = 1, xend = 0, yend = length(tips)),
+    file.path(dir, paste0(name, ".tree_segments.csv"))
+  )
+}
+
+test_that("read_tree_part returns NULL for a missing or header-only file", {
+  tmp <- tempfile(); dir.create(tmp)
+  expect_null(read_tree_part(tmp, "species", "tips"))     # no file at all
+  readr::write_csv(tibble::tibble(tip = character(), x = numeric(), y = numeric()),
+                   file.path(tmp, "species.tree_tips.csv"))
+  expect_null(read_tree_part(tmp, "species", "tips"))     # header only
+})
+
+test_that("tree panels degrade to a placeholder when no tree is configured", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- 0.9
+  expect_s3_class(species_confidence_tree_plot(d, tmp), "ggplot")
+  expect_s3_class(taxon_confidence_tree_plot(d, tmp), "ggplot")
+})
+
+test_that("species tree panel builds when tips match the loci", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- c(0.9, 0.4)[seq_len(nrow(d)) %% 2 + 1]
+  .write_tree_fixture(tmp, "species", unique(as.character(d$species)))
+  p <- species_confidence_tree_plot(d, tmp)
+  expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
+})
+
+test_that("taxon tree panel builds and is level-agnostic about tip rank", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- 0.8
+  # Mixed-rank tips: a genus and a family side by side (ADR-008).
+  .write_tree_fixture(tmp, "taxon", unique(as.character(d$taxon_call)))
+  p <- taxon_confidence_tree_plot(d, tmp)
+  expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
+})

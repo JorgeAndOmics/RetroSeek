@@ -171,6 +171,13 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
     PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
 ) = table_dirs("taxonomy_classification")
+# Tree coordinates (ADR-011) — flat x/y segment + tip tables written by
+# tree_layout.py so the R plot generators can draw the taxon and host-species
+# trees with geom_segment, without an R tree library.
+PATH_DICT["TAXONOMY_TREE_COORDS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "trees"
+# Per-segment deliverables (ADR-011) — the catalog split by the taxon each locus
+# rolls up to at classification.segment_rank.
+PATH_DICT["TAXONOMY_SEGMENTS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "segments"
 # Loss-analysis tables — the unified per-stage loss funnel + per-genome novel
 # candidates (valid loci with zero blastx homology). Built by loss_analysis.R
 # from the ranges-analysis counts and the blastx-stage classification counts.

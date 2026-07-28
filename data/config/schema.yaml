@@ -82,6 +82,7 @@ classification_schema:
   min_orf:         int(min=0)
   confidence_min:  num(min=0, max=1, required=False)
   structure_full_min: num(min=0, max=1, required=False)
+  segment_rank: str(required=False)
   reference_taxa:  list(str(), required=False)
 
 
@@ -140,6 +141,7 @@ execution_schema:
 
 input_schema:
   probe_csv: str()
+  species_tree: str(required=False)
 
 display_schema:
   display_snakemake_info: bool()
