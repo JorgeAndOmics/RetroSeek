@@ -111,7 +111,10 @@ segment_overview_plot <- function(catalog) {
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
-main <- function() {
+# NOT called `main`: this script sources taxonomy_plot_generator.R to reuse its
+# builders, and that file defines its own `main()`. A shared name would let the
+# sourced definition win and this stage would run the plot generator's CLI.
+segments_main <- function() {
   parser <- ArgumentParser(description = "Split the ERV catalog by taxonomic segment.")
   parser$add_argument("--catalog", required = TRUE,
                       help = "authoritative catalog.csv from taxonomy_plot_generator")
@@ -192,7 +195,8 @@ if (sys.nframe() == 0L) {
     elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
     message(sprintf("[%6.2fs] > %s", elapsed, name))
   }
-  # Reuse the taxonomy panel's builders rather than duplicating them.
+  # Reuse the taxonomy panel's builders rather than duplicating them. This also
+  # pulls in its `main`, hence the distinct name above.
   source(file.path(.script_dir, "taxonomy_plot_generator.R"))
-  main()
+  segments_main()
 }

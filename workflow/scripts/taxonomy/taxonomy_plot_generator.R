@@ -835,11 +835,14 @@ main <- function() {
   # phylogeny instead of alphabetically. Height grows with tip count.
   tree_dir <- args$tree_dir %||% ""
   n_taxa <- length(unique(combined$taxon_call))
+  # Canvas only, no axis theme: the TREE supplies the tip labels, so the bar
+  # panel's y axis stays deliberately blank. scale_categorical_axis() would
+  # re-enable axis.text.y and print the row indices next to the tree.
   emit_tree <- function(name, plot, n_tips) {
-    plot <- scale_categorical_axis(plot, n_tips, axis = "y",
-                                   base_w = plot_width, base_h = plot_height,
-                                   per_stratum = per_stratum, cap = max_dim)
-    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
+    dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,
+                      base_h = plot_height, per_stratum = per_stratum,
+                      cap = max_dim)
+    save_plot(name, plot, args$output, dims = dims,
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
   emit_tree("taxon_confidence_tree.png",
@@ -858,7 +861,8 @@ main <- function() {
   # "this is what we found at this location, and here's everything about it" table.
   catalog_cols <- c(
     "species", "source", "seqname", "start", "end", "strand",
-    "taxon_call", "rank", "resolved", "confidence", "confidence_tag", "erv_class",
+    "taxon_call", "rank", "segment", "segment_rank",
+    "resolved", "confidence", "confidence_tag", "erv_class",
     "structure_class", "domain_tier", "oversized", "canonical_order",
     "completeness", "n_main_genes", "genes_present", "is_mosaic",
     "mosaic_composition", "n_blastx_hits", "method", "id"
