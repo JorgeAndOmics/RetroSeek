@@ -8,17 +8,18 @@
 # and all numeric values are kept, so the figures stay biologically legible.
 #
 # Reuses the production plot builders in plot2sort/*.R and
-# erv_like_plot_generator/*.R — the demo figures are therefore visually
-# identical to real pipeline output, only relabelled and rendered on a lighter
-# canvas. Source parquets live outside the repo (gitignored results), so a clean
-# clone cannot regenerate these; the committed PNGs are the artifact and this
-# script is the refresh tool.
+# erv_like_plot_generator.R — the demo figures are therefore visually identical
+# to real pipeline output, only relabelled and rendered on a lighter canvas.
+# Source parquets live outside the repo (gitignored results), so a clean clone
+# cannot regenerate these; the committed PNGs are the artifact and this script is
+# the refresh tool.
 #
 # Usage:
 #   Rscript demo_figures.R \
-#     --input  results/tables/ranges_analysis \  # *.final_loci + *.erv_like_loci parquets
+#     --input  results/tables/ranges_analysis \  # *.final_loci parquets
 #     --output data/images \
 #     --config data/config/config.yaml
+# The erv-like heatmap is read from the sibling results/tables/taxonomy_classification/.
 #
 # The relabel scheme is deterministic (sorted unique value -> letter) and lives
 # in make_label_map() below — adjust the prefixes there if desired.
@@ -56,8 +57,9 @@ source(file.path(.script_dir, "plot2sort", "io.R"))
 source(file.path(.script_dir, "plot2sort", "plots_distribution.R"))
 source(file.path(.script_dir, "plot2sort", "plots_categorical.R"))
 source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
-source(file.path(.script_dir, "erv_like_plot_generator", "io.R"))
-source(file.path(.script_dir, "erv_like_plot_generator", "plots_composition.R"))
+# The erv-like structural panel now reads the genus-founded loci table; reuse its
+# loader + composition-heatmap builder (the file's main() stays dormant when sourced).
+source(file.path(.script_dir, "erv_like_plot_generator.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -192,11 +194,12 @@ main <- function() {
   emit("bar.png",
        bar_plot(all.counted_probe, subset_label = "All probes"))
 
-  # 6. ERV-like composition heatmap: probe x provirus
-  loci <- load_erv_like_loci(args$input)
-  loci <- anonymise(loci, maps)
-  emit("erv_like_heatmap.png",
-       composition_heatmap_plot(loci, sep = sep))
+  # 6. ERV-like composition heatmap: taxon x gene, from the taxon-founded loci
+  #    table (taxonomy_classify output). Taxon + gene names are public taxonomy,
+  #    so nothing here needs anonymising. The table lives in a sibling dir.
+  taxonomy_dir <- file.path(dirname(args$input), "taxonomy_classification")
+  loci <- load_taxon_loci(taxonomy_dir)
+  emit("erv_like_heatmap.png", composition_heatmap_plot(loci))
 
   message("Done — wrote 6 anonymised demo figures to ", args$output)
 }

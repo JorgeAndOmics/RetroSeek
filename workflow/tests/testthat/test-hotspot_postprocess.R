@@ -11,8 +11,8 @@ suppressMessages({
   library(S4Vectors)
 })
 
-source("../../scripts/hotspot_analysis/models.R")     # for score_windows_nb (used by recompute)
-source("../../scripts/hotspot_analysis/postprocess.R")
+source("../../scripts/hotspot/models.R")     # for score_windows_nb (used by recompute)
+source("../../scripts/hotspot/postprocess.R")
 
 
 # Helper: significant-windows tibble matching the schema produced upstream.

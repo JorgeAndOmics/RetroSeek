@@ -198,6 +198,22 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     )
 
     parser.add_argument(
+        "--build-reference",
+        action="store_true",
+        help="Build the taxonomic-classification reference (Entrez fetch of the "
+        "genus-comprehensive proteins + NCBI taxonomy + per-gene placement trees). "
+        "Network; build-once cache under data/taxonomy_reference/ (same as `make reference`).",
+    )
+
+    parser.add_argument(
+        "--classify",
+        action="store_true",
+        help="Per-locus ERV taxonomic classification: assigns each valid LTR-element "
+        "locus a calibrated genus call (placement + weighted-LCA), emits the "
+        "genus-founded loci tables, IGV tracks, and the taxonomy plot panel.",
+    )
+
+    parser.add_argument(
         "--skip-validation", "-skp", action="store_true", help="Skip input validation."
     )
 
@@ -296,9 +312,9 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
             )
 
         if args.generate_global_plots:
-            # --generate-global-plots produces the full panel: the provirus
+            # --generate-global-plots produces the full panel: the ranges
             # panel (plot_generator final-tier + stage_plot_generator middle-
-            # stage) plus the erv-like candidate panel (erv_like_plot_generator)
+            # stage) plus the structure panel (erv_like_plot_generator)
             # — one DAG, shared ranges_analysis upstream.
             run_snakemake_rule(
                 ["plot_generator", "stage_plot_generator", "erv_like_plot_generator"],
@@ -334,6 +350,30 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.solo_ltr_detection:
             run_snakemake_rule(
                 "solo_ltr_detector",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.build_reference:
+            run_snakemake_rule(
+                "taxonomy_reference_trees",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.classify:
+            # Genus calls (anchored loci + recovered orphans tier), the derived
+            # taxonomy plot panel, and the unified loss funnel in one DAG (shared
+            # taxonomy_classify upstream). Reference must exist (--build-reference).
+            run_snakemake_rule(
+                [
+                    "taxonomy_classify",
+                    "taxonomy_orphans",
+                    "taxonomy_plot_generator",
+                    "loss_analysis",
+                ],
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,

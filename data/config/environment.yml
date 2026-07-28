@@ -9,25 +9,25 @@
 # Standard workflows:
 #   make env         # first-time creation (calls mamba env create)
 #   make env-update  # in-place sync after editing this file
-#   conda activate retroseek
+#   conda activate RetroSeek
 #   make check       # full lint + format-check + typecheck + tests
 
-name: retroseek
+name: RetroSeek
 channels:
   - conda-forge
   - bioconda
   - nodefaults
 dependencies:
-  # ── runtime ──────────────────────────────────────────────
+  # -- runtime ----------------------------------------------
   # Python is pinned to 3.11 (lower bound for snakemake>=8). Source code
-  # remains 3.10-syntax-compatible — ruff/mypy targets in pyproject.toml
+  # remains 3.10-syntax-compatible - ruff/mypy targets in pyproject.toml
   # are py310 so we don't accidentally adopt newer syntax that would
   # break someone running an older interpreter manually.
   - python=3.11
   - snakemake>=8
   - snakemake-wrapper-utils
 
-  # ── external bio tools ──────────────────────────────────
+  # -- external bio tools ----------------------------------
   - blast>=2.15          # tblastn, blastn, makeblastdb
   - genometools-genometools  # gt ltrharvest, gt ltrdigest
   - ncbi-datasets-cli    # genome download via `datasets`
@@ -35,8 +35,19 @@ dependencies:
                          #   pulls Perl + HMMER + TRF as transitive deps;
                          #   used by workflow/scripts/ltr_retriever_prefilter.py
                          #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
+  # -- taxonomic classification (per-locus genus calls; see docs/configuration.md) --
+  # NB: per-locus marker regions are cut with Biostrings (see Bioconductor block
+  # below + extract_region_fasta.R), not bedtools - range/sequence work stays in
+  # Bioconductor.
+  - hmmer                # hmmbuild/hmmalign - gene profiles + query alignment (also via ltr_retriever)
+  - mafft                # reference MSA + aligning query markers into it
+  - iqtree               # per-gene reference tree (placement scaffold)
+  - raxml-ng             # --evaluate: optimise the placement model/branch lengths
+  - epa-ng               # phylogenetic placement of query markers onto the reference tree
+  - gappa                # turn placements (.jplace) into taxonomic calls
+                         #   blastx (from blast above) is the default translated search - no diamond.
 
-  # ── python libs ─────────────────────────────────────────
+  # -- python libs -----------------------------------------
   # biopython is version-pinned for reproducibility: the tBLASTn pickle cache
   # is only readable by the Biopython version that wrote it (older releases
   # exposed `Bio.Blast.Record`, which newer ones removed). Pinning keeps
@@ -51,7 +62,7 @@ dependencies:
   - pyyaml
   - yamale
 
-  # ── R + data stack ──────────────────────────────────────
+  # -- R + data stack --------------------------------------
   - r-base=4.3
   - r-tidyverse
   - r-argparse
@@ -66,9 +77,9 @@ dependencies:
   - r-scales             # axis labellers; a ggplot2 dep but library()'d directly
   - r-waffle
   - r-patchwork          # multi-panel composition (hotspot summary panel)
-  # NB: MASS (glm.nb, used by the hotspot NB GLM) ships with r-base — no separate pin needed.
+  # NB: MASS (glm.nb, used by the hotspot NB GLM) ships with r-base - no separate pin needed.
 
-  # ── R Bioconductor ──────────────────────────────────────
+  # -- R Bioconductor --------------------------------------
   - bioconductor-biostrings
   - bioconductor-genomicranges
   - bioconductor-iranges     # core ranges infra; dep of genomicranges, library()'d directly
@@ -77,7 +88,7 @@ dependencies:
   - bioconductor-plyranges
   - bioconductor-ggbio
 
-  # ── dev / QA ────────────────────────────────────────────
+  # -- dev / QA --------------------------------------------
   - pytest>=8
   - pytest-cov
   - pytest-mock

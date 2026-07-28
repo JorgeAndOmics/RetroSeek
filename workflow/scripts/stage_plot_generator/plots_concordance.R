@@ -46,21 +46,22 @@ concordance_plot <- function(hits_df, subset_label = NULL,
 
 
 # Grouped bar: per probe, locus count surviving each refinement stage
-# (homology → candidate → valid). `is_candidate` / `is_valid` are nested
-# flags, so the bars are monotonically non-increasing within a probe.
+# (homology → candidate → domain_selected). `is_candidate` nests inside
+# homology, and the domain_selected tier nests inside candidate, so the bars are
+# monotonically non-increasing within a probe.
 probe_yield_plot <- function(hits_df, subset_label = NULL,
                              warning_caption = NULL) {
   if (nrow(hits_df) == 0L) return(empty_plot())
-  stage_levels <- c("homology", "candidate", "valid")
+  stage_levels <- c("homology", "candidate", "domain_selected")
   d <- hits_df %>%
     dplyr::group_by(probe) %>%
     dplyr::summarise(
-      homology  = dplyr::n(),
-      candidate = sum(is_candidate),
-      valid     = sum(is_valid),
-      .groups   = "drop"
+      homology        = dplyr::n(),
+      candidate       = sum(is_candidate),
+      domain_selected = sum(domain_tier == "domain_selected", na.rm = TRUE),
+      .groups         = "drop"
     ) %>%
-    tidyr::pivot_longer(c(homology, candidate, valid),
+    tidyr::pivot_longer(c(homology, candidate, domain_selected),
                         names_to = "stage", values_to = "count") %>%
     dplyr::mutate(stage = factor(stage, levels = stage_levels))
   ordered_probe <- d %>%

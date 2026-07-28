@@ -164,6 +164,28 @@ test_that("bar_plot reorders species levels by total count descending", {
 })
 
 
+# ───────────────────────────── bar_virus_plot ─────────────────────────────
+
+test_that("bar_virus_plot returns empty placeholder on zero-row input", {
+  p <- bar_virus_plot(tibble::tibble(species = character(0), virus = character(0),
+                                     count = integer(0)))
+  expect_s3_class(p, "ggplot")
+  expect_equal(p$labels$title, "no data")
+})
+
+test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
+  df <- tibble::tibble(
+    species = rep("S1", 4),
+    virus   = c("HIV", "MLV", "BLV", "FFV"),
+    count   = c(  40,    30,    20,   10)
+  )
+  p <- bar_virus_plot(df, top_n = 2L)   # keep HIV, MLV; fold BLV+FFV -> "Other (2)"
+  expect_s3_class(p, "ggplot")
+  expect_true("Other (2)" %in% levels(p$data$virus))
+  expect_true(all(c("HIV", "MLV") %in% levels(p$data$virus)))
+})
+
+
 # ─────────────────────── balloon_virus_species_plot ───────────────────────
 
 test_that("balloon plot returns empty placeholder on zero-row input", {
@@ -532,4 +554,26 @@ test_that("stamp_warning_caption attaches the caption when supplied", {
   p <- stamp_warning_caption(ggplot2::ggplot(), "watch out")
   expect_true(inherits(p, "ggplot"))
   expect_equal(p$labels$caption, "watch out")
+})
+
+
+test_that("relabel_species maps stems to display names and passes through unknowns", {
+  m <- list(Homo_sapiens = "Homo sapiens", Mus_musculus = "Mus musculus")
+  expect_equal(relabel_species(c("Homo_sapiens", "Mus_musculus"), m),
+               c("Homo sapiens", "Mus musculus"))
+  # unmapped stem is preserved as-is
+  expect_equal(relabel_species("Antrozous_pallidus", m), "Antrozous_pallidus")
+  # null / empty map is a no-op
+  expect_equal(relabel_species(c("a", "b"), NULL), c("a", "b"))
+  expect_equal(relabel_species(character(), m), character())
+})
+
+test_that("attach_species_name delegates to relabel_species (maps + passes through)", {
+  m <- list(Homo_sapiens = "Homo sapiens")
+  df <- tibble::tibble(species = c("Homo_sapiens", "Antrozous_pallidus"), n = c(1L, 2L))
+  out <- attach_species_name(df, m)
+  # column name preserved; mapped stem relabelled, unmapped stem passed through
+  expect_equal(out$species, c("Homo sapiens", "Antrozous_pallidus"))
+  expect_equal(out$n, c(1L, 2L))            # other columns untouched
+  expect_setequal(names(out), c("species", "n"))
 })

@@ -28,7 +28,7 @@ genome_tools:
   ltrdigest_optional_parameters: ''
 
 hotspot:
-  input: erv_like
+  input: valid
   group_split: false
   window_size: 500000
   mask_size: 20
@@ -69,11 +69,6 @@ parameters:
   solo_ltr_aggregation:
     probe: "list"
     best_tiebreaker: "consensus_members"
-  erv_like:
-    group_by: 'virus'
-    max_join_distance: 1500
-    require_canonical_order: false
-    completeness_threshold: 1.0
 
 ltr_retriever:
   substitution_rate: 1.3e-8

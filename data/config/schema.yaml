@@ -3,6 +3,7 @@ genome_tools: include('genome_tools_schema')
 hotspot: include('hotspot_schema', required=False)
 parameters: include('parameters_schema')
 ltr_retriever: include('ltr_retriever_schema', required=False)
+classification: include('classification_schema', required=False)
 logging: include('logging_schema')
 plots: include('plots_schema')
 execution: include('execution_schema')
@@ -25,7 +26,7 @@ genome_tools_schema:
   ltrdigest_optional_parameters: str(required=False)
 
 hotspot_schema:
-  input: str(matches='^(erv_like|valid|original)$')
+  input: str(matches='^(valid|original)$')
   group_split: bool()
   window_size: int(min=1)
   mask_size: int(min=0)
@@ -43,13 +44,13 @@ parameters_schema:
   ltr_resize: int(min=0)
   ltr_flank_margin: int(min=0)
   merge_option: str(matches='^(virus|label)$')
+  hit_domain_mode: str(matches='^(membership|positional)$', required=False)
   probe_to_pair: str(required=False)
   pair_max_gap: num(min=0)
   main_probes: list(str())
   probe_min_length: map(int(min=0), key=str())
   aggregation: include('aggregation_schema', required=False)
   solo_ltr_aggregation: include('solo_ltr_aggregation_schema', required=False)
-  erv_like: include('erv_like_schema', required=False)
 
 aggregation_schema:
   virus: str(matches='^(list|concatenate|best|majority|first|strict)$')
@@ -64,12 +65,6 @@ solo_ltr_aggregation_schema:
   probe: str(matches='^(list|concatenate|best|majority|first|strict)$')
   best_tiebreaker: str(matches='^(consensus_members|bitscore|identity)$')
 
-erv_like_schema:
-  group_by:                str(matches='^(virus|label|none)$')
-  max_join_distance:       int(min=0)
-  require_canonical_order: bool()
-  completeness_threshold:  num(min=0, max=1)
-
 ltr_retriever_schema:
   substitution_rate:        num(min=0)
   min_ltr_similarity:       num(min=0, max=100)
@@ -77,6 +72,17 @@ ltr_retriever_schema:
   noanno:                   bool()
   source_scn:               str(matches='^(retroviral|full)$')
   nearest_erv_max_distance: int(min=0)
+
+classification_schema:
+  enable:          bool()
+  placement_genes: list(str())
+  search:          str(matches='^(blastx)$')
+  evalue:          num(min=0)
+  top_percent:     num(min=0, max=1)
+  min_orf:         int(min=0)
+  confidence_min:  num(min=0, max=1, required=False)
+  structure_full_min: num(min=0, max=1, required=False)
+  reference_taxa:  list(str(), required=False)
 
 
 logging_schema:

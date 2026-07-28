@@ -82,3 +82,17 @@ sweeps/
 *.pptx
 *.DS_Store
 Thumbs.db
+
+# Taxonomy-classification dev data (regenerable; canonical local dev dataset)
+data/taxonomy_dev/
+
+# Built taxonomic-classification reference (Entrez fetch + placement trees +
+# blastdb). Build-once cache, regenerated via `make reference`. The only curated
+# source piece — data/config/erv_class.tsv — is tracked and copied in at build.
+data/taxonomy_reference/
+
+# ──────────────────────────────────────────────
+# Exploratory analysis notebooks (RetroSeek-vs-RepeatMasker comparison; local
+# working artifacts, not part of the versioned pipeline)
+# ──────────────────────────────────────────────
+notebooks/

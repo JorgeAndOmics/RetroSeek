@@ -1,4 +1,4 @@
-# testthat coverage for workflow/scripts/range_analysis/*.R
+# testthat coverage for workflow/scripts/ranges/*.R
 #
 # Focused on the per-hit `query_coverage` path introduced after the broken
 # probe_lengths lookup was retired. Sources only the leaf modules so we
@@ -13,7 +13,7 @@ suppressMessages({
   library(tibble)
 })
 
-.script_dir <- file.path("..", "..", "scripts", "range_analysis")
+.script_dir <- file.path("..", "..", "scripts", "ranges")
 source(file.path(.script_dir, "granges_build.R"))
 
 
@@ -107,4 +107,222 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
   gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
   qcov <- S4Vectors::mcols(gr)$query_coverage
   expect_equal(qcov, c(50/500, 75/300, 60/400, 90/900))
+})
+
+
+# ---------------------------------------------------------------------------
+# annotate_anchored_hits KEEPS every candidate (nothing discarded) and labels
+# each with `Parent` (greatest-overlap element — the taxonomic classifier's
+# grouping anchor), a per-provirus `domain_tier`, and a per-hit
+# `domain_hit_class`. See ranges/validation.R + ADR-009.
+# ---------------------------------------------------------------------------
+source(file.path(.script_dir, "validation.R"))
+
+# Three elements exercising every domain_tier:
+#   retroA — carries a config-matched POL domain      -> domain_selected
+#   retroB — carries a protein domain, none config    -> domain_unlisted
+#   retroC — no protein domain at all                 -> non_domain
+.tier_fixture <- function() {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 1000, 2000), c(500, 1500, 2500)),
+    strand = "+", ID = c("retroA", "retroB", "retroC")
+  )
+  # config-matched subset (extract_domains_with_probes output): only retroA's POL
+  domains_w_probes <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(120, 200), strand = "+",
+    Parent = "retroA", probe = "POL"
+  )
+  # full protein_match superset (extract_all_domains): retroA's + retroB's
+  all_domains <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(120, 1020), c(200, 1100)), strand = "+",
+    Parent = c("retroA", "retroB")
+  )
+  candidates <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(150, 350, 1100, 2100), c(300, 450, 1200, 2200)),
+    strand = "+", probe = c("POL", "GAG", "POL", "ENV")
+  )
+  list(retros = retros, domains_w_probes = domains_w_probes,
+       all_domains = all_domains, candidates = candidates)
+}
+
+test_that("annotate_anchored_hits keeps all candidates and attaches greatest-overlap Parent", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(length(out), length(f$candidates))   # nothing discarded
+  expect_equal(as.character(S4Vectors::mcols(out)$Parent),
+               c("retroA", "retroA", "retroB", "retroC"))
+})
+
+test_that("domain_tier is element-wise: selected / unlisted / non_domain", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_tier),
+               c("domain_selected", "domain_selected", "domain_unlisted", "non_domain"))
+})
+
+test_that("membership domain_hit_class flags the hit's OWN gene (grain differs from tier)", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+                                hit_domain_mode = "membership")
+  # POL hit in retroA -> its gene matches the config POL domain -> substring_match.
+  # GAG hit in retroA -> element is domain_selected, but GAG is not the matched
+  # gene -> no_substring_match (the two grains legitimately disagree).
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_hit_class),
+               c("substring_match", "no_substring_match",
+                 "no_substring_match", "no_substring_match"))
+})
+
+test_that("positional domain_hit_class is co-localization and adds a non_domain level", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+                                hit_domain_mode = "positional")
+  # c1 POL(150-300) overlaps the POL config domain(120-200) -> substring_match
+  # c2 GAG(350-450) overlaps NO domain                       -> non_domain
+  # c3 POL(1100-1200) overlaps retroB's non-config domain    -> no_substring_match
+  # c4 ENV(2100-2200) overlaps no domain                     -> non_domain
+  expect_equal(as.character(S4Vectors::mcols(out)$domain_hit_class),
+               c("substring_match", "non_domain", "no_substring_match", "non_domain"))
+})
+
+test_that("annotate_anchored_hits on empty input returns a typed-empty GRanges", {
+  f <- .tier_fixture()
+  out <- annotate_anchored_hits(f$candidates[FALSE], f$retros, f$domains_w_probes, f$all_domains)
+  expect_equal(length(out), 0L)
+  expect_true(all(c("Parent", "domain_tier", "domain_hit_class")
+                  %in% names(S4Vectors::mcols(out))))
+})
+
+
+# ---------------------------------------------------------------------------
+# find_unanchored_hits is the exact strand-aware complement of
+# find_candidate_hits: the reduced BLAST hits overlapping NO retrotransposon.
+# These are the non-LTR-associated hits recovered into the orphan tier.
+# ---------------------------------------------------------------------------
+test_that("find_unanchored_hits returns hits overlapping no retrotransposon", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
+  )
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(150, 1000), c(300, 1100)), strand = "+",
+    probe = c("POL", "ENV")
+  )
+  # hit 1 overlaps retroA (anchored); hit 2 is far away (unanchored)
+  un <- find_unanchored_hits(hits, retros)
+  expect_equal(length(un), 1L)
+  expect_equal(IRanges::start(un), 1000L)
+  # complement invariant: candidate + unanchored partition the input exactly
+  cand <- find_candidate_hits(hits, retros)
+  expect_equal(length(cand) + length(un), length(hits))
+})
+
+test_that("find_unanchored_hits keeps everything when there are no retrotransposons", {
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(1, 1000), c(99, 1100)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  retros <- GenomicRanges::GRanges()
+  expect_equal(length(find_unanchored_hits(hits, retros)), 2L)
+})
+
+test_that("find_unanchored_hits is strand-aware (opposite-strand retro does not anchor)", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "-", ID = "retroA"
+  )
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(150, 300), strand = "+", probe = "POL"
+  )
+  # + hit vs - retro: no strand-aware overlap -> the hit is unanchored
+  expect_equal(length(find_unanchored_hits(hits, retros)), 1L)
+})
+
+test_that("find_unanchored_hits on empty input returns empty", {
+  retros <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
+  )
+  expect_equal(length(find_unanchored_hits(GenomicRanges::GRanges(), retros)), 0L)
+})
+
+
+# ---------------------------------------------------------------------------
+# cluster_orphan_hits merges ONLY physically-overlapping orphan hits (ADR-010):
+# co-location is evidence; gap-separated hits stay separate. Clusters wider than
+# the per-genome max provirus length are FLAGGED `oversized`, not dropped.
+# ---------------------------------------------------------------------------
+test_that("cluster_orphan_hits merges overlapping hits but NOT gap-separated ones", {
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 150, 5000), c(200, 300, 5100)),
+    strand = "+", probe = c("POL", "GAG", "ENV")
+  )
+  # hits 1 [100-200] and 2 [150-300] OVERLAP -> one cluster; hit 3 [5000-5100]
+  # is gap-separated -> its own cluster (a proximity window would have merged it).
+  out <- cluster_orphan_hits(hits, max_provirus_len = 100000L)
+  parents <- as.character(S4Vectors::mcols(out)$Parent)
+  expect_equal(parents[1], parents[2])
+  expect_false(parents[1] == parents[3])
+  expect_equal(length(unique(parents)), 2L)
+  expect_true(all(as.character(S4Vectors::mcols(out)$oversized) == "False"))
+})
+
+test_that("cluster_orphan_hits does NOT merge adjacent-but-non-overlapping hits", {
+  # 300 bp gap between the two — a proximity window merged these; overlap does not.
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 500), c(200, 600)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  expect_equal(length(unique(cluster_orphan_hits(hits, 100000L)$Parent)), 2L)
+})
+
+test_that("cluster_orphan_hits flags clusters wider than the max-provirus cap", {
+  # two overlapping hits spanning [100-5100] (~5001 bp).
+  hits <- GenomicRanges::GRanges(
+    "chr1", IRanges::IRanges(c(100, 150), c(5000, 5100)), strand = "+",
+    probe = c("POL", "GAG")
+  )
+  over  <- cluster_orphan_hits(hits, max_provirus_len = 1000L)     # span > cap
+  under <- cluster_orphan_hits(hits, max_provirus_len = 100000L)   # span < cap
+  expect_true(all(as.character(S4Vectors::mcols(over)$oversized)  == "True"))
+  expect_true(all(as.character(S4Vectors::mcols(under)$oversized) == "False"))
+})
+
+test_that("cluster_orphan_hits on empty input returns a typed-empty GRanges", {
+  out <- cluster_orphan_hits(GenomicRanges::GRanges(), 1000L)
+  expect_equal(length(out), 0L)
+  expect_true(all(c("Parent", "oversized") %in% names(S4Vectors::mcols(out))))
+})
+
+
+# ---------------------------------------------------------------------------
+# read_pipeline_options resilience guard (io.R)
+#
+# A config truncated / mis-encoded so `parameters$probe_min_length` (or
+# main_probes) is lost must STOP loudly rather than silently collapse the
+# Phase-2 filter mask to length 0 and drop every hit. Regression guard for the
+# "0 of N kept for every genome" incident (invalid em-dash byte truncated the
+# server config mid-parse, above probe_min_length).
+# ---------------------------------------------------------------------------
+source(file.path(.script_dir, "io.R"))
+
+.min_valid_config <- function() {
+  list(parameters = list(
+    probe_min_length = list(POL = 400L, GAG = 200L),
+    main_probes      = c("POL", "GAG")
+  ))
+}
+
+test_that("read_pipeline_options accepts a config with probe_min_length + main_probes", {
+  opts <- read_pipeline_options(.min_valid_config())
+  expect_equal(unname(opts$probe_min_length[["POL"]]), 400L)
+  expect_equal(opts$main_probes, c("POL", "GAG"))
+})
+
+test_that("read_pipeline_options STOPS when probe_min_length is missing (truncated config)", {
+  cfg <- .min_valid_config()
+  cfg$parameters$probe_min_length <- NULL          # emulate truncation above this key
+  expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
+})
+
+test_that("read_pipeline_options STOPS when main_probes is missing", {
+  cfg <- .min_valid_config()
+  cfg$parameters$main_probes <- NULL
+  expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
 })

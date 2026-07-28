@@ -26,7 +26,7 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `hotspot.input` | `erv_like` \| `valid` \| `original` | `erv_like` | Which upstream track tier feeds detection. `erv_like` = assembled multi-gene ERV chains; `valid` = domain-validated reduced loci (the `{genome}_reduced.gff3` track); `original` = raw unvalidated `tblastn` hits. **Strict enum** — typos fail validation. **Power note**: window enrichment needs density. The curated `erv_like` (default) and `valid` tiers are sparse — expect few/no hotspots and occasional NB convergence failures. Switch to `original` (with `strata_by_chromosome: false`) for genome-wide hotspot calling. |
+| `hotspot.input` | `valid` \| `original` | `valid` | Which upstream track tier feeds detection. `valid` = domain-validated reduced loci (the `{genome}_reduced.gff3` track); `original` = raw unvalidated `tblastn` hits. **Strict enum** — typos fail validation. **Power note**: window enrichment needs density. The curated `valid` (default) tier is sparse — expect few/no hotspots and occasional NB convergence failures. Switch to `original` (with `strata_by_chromosome: false`) for genome-wide hotspot calling. |
 | `hotspot.group_split` | bool | `false` | When `true`, fit one NB model per retrovirus genus (`mcols$label`); when `false`, pool all hits into one `Ungrouped` model. |
 | `hotspot.window_size` | int ≥ 1 | `500000` | Tile width (bp). Sets resolution and the number of windows tested. Defaults to 500 kb because finer windows over a multi-Gb genome are ~99% empty, which collapses the NB dispersion (`theta`) and destroys power; 10 kb yields zero calls on real assemblies. |
 | `hotspot.mask_size` | int ≥ 0 | `20` | Length of the all-N run treated as an unsequenceable gap and subtracted from a window's callable `effective_bp`. `0` disables masking. |
@@ -34,7 +34,7 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `hotspot.pvalue_threshold` | number 0–1 | `0.05` | BH-adjusted q-value cutoff for calling a window significant. |
 | `hotspot.min_hits` | int ≥ 0 | `2` | Minimum total hits in a merged hotspot region (applied after merging). |
 | `hotspot.merge_gap` | int ≥ -1 | `0` | bp gap allowed when merging adjacent significant windows. `0` = merge strictly adjacent windows; `>0` = bridge gaps up to that size; `-1` = no merging (each significant window stays its own region). |
-| `hotspot.strata_by_chromosome` | bool | `true` | Include chromosome as an NB covariate so each chromosome gets its own baseline rate. The right value is **tier-dependent**: defaults `true` to match the sparse default `erv_like` tier, where the covariate is needed for the NB to converge (without it, fits fail on low-count genomes). **Set `false` when switching to a dense tier like `original`** on fragmented scaffold-level assemblies, where per-contig baselines instead absorb local enrichment and drain power. |
+| `hotspot.strata_by_chromosome` | bool | `true` | Include chromosome as an NB covariate so each chromosome gets its own baseline rate. The right value is **tier-dependent**: defaults `true` to match the sparse default `valid` tier, where the covariate is needed for the NB to converge (without it, fits fail on low-count genomes). **Set `false` when switching to a dense tier like `original`** on fragmented scaffold-level assemblies, where per-contig baselines instead absorb local enrichment and drain power. |
 | `hotspot.unplaced_min_factor` | int ≥ 1 | `10` | Scaffolds shorter than `this × window_size` are pooled into a single `Unplaced` stratum (avoids unstable per-scaffold coefficients). |
 
 ## `parameters`
@@ -49,19 +49,9 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_resize` | int ≥ 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
 | `ltr_flank_margin` | int ≥ 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** — typos fail validation. |
+| `hit_domain_mode` | `membership` \| `positional` | `membership` | How the per-hit `domain_hit_class` on anchored hits is decided. `membership`: a hit is `substring_match` when its own gene has a config-matched (`domains`) Pfam domain **anywhere in its enclosing LTR element** (co-occurrence; cheap) — values `substring_match` / `no_substring_match`. `positional`: `substring_match` only when the hit **physically overlaps** a config-matched domain of its gene (co-localization; stronger), adding a `non_domain` level for hits overlapping no domain. Orthogonal to the per-provirus `domain_tier`, which is always element-wise. **Strict enum.** |
 | `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Semantically a set — duplicates ignored. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. |
 | `probe_min_length` | map (string → int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
-
-### ERV-like assembly
-
-Chains ≥2 *distinct* **main** probe loci from the **unreduced** `valid` tier into composite ERV-like candidates — candidate conserved full ERVs, or the longest recoverable fragment (e.g. GAG+POL when ENV is absent). Purely additive: the `valid` output is unchanged and isolated single-gene loci stay there. Output: `results/tracks/erv_like/{genome}.gff3` (a parent `erv_like` feature per candidate + its child `erv_like_member` loci carrying `Parent=`), a child-locus `.bed`, and the `{genome}.erv_like_loci` table.
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `erv_like.group_by` | `virus` \| `label` \| `none` | `virus` | Which loci may chain together. `virus`/`label` only chain probes sharing that attribute, so co-located different-group probes yield separate (possibly overlapping) candidates — **both retained**. `none` chains across all main loci in the window. **Strict enum** — typos fail validation. |
-| `erv_like.max_join_distance` | int ≥ 0 | `1500` | Maximum gap (bp) between adjacent main-probe loci to still chain them. Inclusive (a gap exactly equal to this still joins). |
-| `erv_like.require_canonical_order` | bool | `false` | When `true`, keep only candidates whose main probes occur in the order given by `main_probes` (forward on `+`, reversed on `-`, either on `*`). The `main_probes` list order *is* the canonical gene order. Dropped non-canonical candidates are still tallied (`erv_like_dropped_noncanonical` in `counts`) for the canonical-vs-rearranged plot. |
-| `erv_like.completeness_threshold` | number 0–1 | `1.0` | `is_full` = (`n_main_present` / number of `main_probes`) ≥ this. `1.0` requires every main probe. |
 
 ### Pair detection
 
@@ -135,6 +125,22 @@ Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr
 | `nearest_erv_max_distance` | int ≥ 0 | `10000` | Bp window for the solo-LTR → valid-ERV **nearest-ERV fallback** in Coupling B's label-propagation. Only used when the primary consensus-family path yields no labels for a given solo LTR. |
 
 Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
+
+## `classification`
+
+Per-locus ERV taxonomic classification — turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* — the taxa a locus can resolve to — is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG by phylogenetic placement (MAFFT → EPA-ng → gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set), and `execution.entrez_email` (reference build).
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `enable` | bool | `true` | Master switch for the classification stage. When `false`, the `taxonomy_classify` target produces nothing and the pipeline keeps the legacy probe-label provenance only. |
+| `placement_genes` | list of str | `[POL]` | Genes classified by phylogenetic placement onto a per-gene reference tree; every other gene uses weighted-LCA. `POL` is the reliable tree; `GAG` is shipped but opt-in (its reference alignment is low-identity ~19.7%, so its placements are low-confidence). Genes here must have a built tree package under `data/taxonomy_reference/trees/`. |
+| `search` | str (`blastx`) | `blastx` | Translated-search engine mapping each locus marker region to reference proteins. `blastx` reuses the BLAST+ already in the env (no extra dependency). |
+| `evalue` | number ≥ 0 | `0.001` | blastx e-value cutoff for marker → reference hits. |
+| `top_percent` | number 0–1 | `0.1` | Weighted-LCA bitscore band: hits within this fraction of the best bitscore per marker vote on the lowest-common-ancestor call. Smaller = stricter (fewer, higher-confidence ancestors). |
+| `min_orf` | int ≥ 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
+| `confidence_min` | number 0–1 | `0.5` | Confidence floor for the high/low confidence tag. A locus whose call confidence is **below** this value is tagged `LC` (low confidence) in the `confidence_tag` column of the loci/fragments tables; at or above it is `HC`. The threshold is inclusive (`conf == confidence_min` ⇒ `HC`) and applies to every method (placement, weighted-LCA, presence). Raise it to flag more marginal calls. |
+| `structure_full_min` | number 0–1 | `1.0` | Minimum gene completeness (fraction of `main_probes` present) for a locus to be catalogued as a **`full`** ERV in the `structure_class` column. `1.0` requires every main gene. A single-main-gene locus is always `gene`; a multi-gene locus present but below this floor is `partial`. Deliberately gene-content only — flanking-LTR evidence stays in the anchoring axis (`source`) and the solo-LTR module, not here. |
+| `reference_taxa` | list of str | `[]` | The **classification axis** (ADR-008): the taxa — at **any** rank (genus `Lentivirus`, family `Bornaviridae`, …) — the reference is built at and that a locus can resolve to as a first-class `taxon_call`. Empty or absent derives the axis from the distinct probeset `Label` values, so `Label` seeds the classifier; setting an explicit list decouples the classifier from the probeset. Changing it requires rebuilding the reference (`make reference`). |
 
 ## `logging`
 

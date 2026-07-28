@@ -197,6 +197,9 @@ main <- function() {
   emit("full_bar.png",      bar_plot(all.counted_probe,       subset_label = "All probes"))
   emit("main_bar.png",      bar_plot(main.counted_probe,      subset_label = "Main"))
   emit("accessory_bar.png", bar_plot(accessory.counted_probe, subset_label = "Accessory"))
+  # Detected-virus stacked bar (finer than the label/genus bars above).
+  emit("virus_by_species_bar.png",
+       bar_virus_plot(all.counted_probe, subset_label = "All probes"))
   emit("main_balloon.png",
        balloon_virus_species_plot(main.counted_probe,      subset_label = "Main"))
   emit("accessory_balloon.png",

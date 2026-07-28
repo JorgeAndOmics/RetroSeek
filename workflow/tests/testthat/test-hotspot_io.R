@@ -10,7 +10,7 @@ suppressMessages({
 })
 
 source("../../scripts/utils/chrom_names.R")
-source("../../scripts/hotspot_analysis/io.R")
+source("../../scripts/hotspot/io.R")
 
 
 # ──────────────────────── normalise_chrom_names ─────────────────────────
@@ -48,7 +48,7 @@ test_that("read_hotspot_options returns documented defaults when the config is e
   config <- list(parameters = list(), hotspot = list())
   opts <- read_hotspot_options(config)
   expect_equal(opts$seed, 67L)
-  expect_equal(opts$input, "erv_like")
+  expect_equal(opts$input, "valid")
   expect_false(opts$group_split)
   expect_equal(opts$window_size, 500000L)
   expect_equal(opts$mask_size, 20L)

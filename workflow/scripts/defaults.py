@@ -96,6 +96,20 @@ PATH_DICT["PICKLE_DIR"] = (PATH_DICT["DATA_DIR"] / "pickles").resolve()
 PATH_DICT["TMP_DIR"] = (PATH_DICT["DATA_DIR"] / "tmp").resolve()
 PATH_DICT["TBLASTN_PICKLE_DIR"] = (PATH_DICT["PICKLE_DIR"] / "tblastn").resolve()
 
+# === Taxonomic-classification reference ===
+# Pinned, build-once reference for per-locus genus calls: the genus-comprehensive
+# protein set (.faa) + accession→genus/gene table (.csv), data-derived taxonomy.tsv,
+# curated erv_class.tsv, the per-gene placement tree packages (trees/), and a
+# provenance manifest. Lives under /data because it is a reusable input, not a
+# per-run output. Rebuilt only when missing (or via `make reference`). The small
+# blastx DB is built on the fly in each run's workdir (383 proteins — instant).
+PATH_DICT["TAXONOMY_REFERENCE_DIR"] = (
+    PATH_DICT["DATA_DIR"] / "taxonomy_reference"
+).resolve()
+PATH_DICT["TAXONOMY_TREES_DIR"] = (
+    PATH_DICT["TAXONOMY_REFERENCE_DIR"] / "trees"
+).resolve()
+
 # === Results - Tables ===
 PATH_DICT["TABLE_OUTPUT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tables").resolve()
 
@@ -150,6 +164,20 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["FULL_GENOME_BLAST_PARQUET_DIR"],
     PATH_DICT["FULL_GENOME_BLAST_CSV_DIR"],
 ) = table_dirs("full_genome_blast")
+# Taxonomic-classification output table — per genome <g>.loci (per-locus genus
+# calls; the genus-founded ERV assembly, with per-gene evidence + mosaic packed
+# in-row). Plot summaries are derived from this table, so they stay concordant.
+(
+    PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
+    PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
+) = table_dirs("taxonomy_classification")
+# Loss-analysis tables — the unified per-stage loss funnel + per-genome novel
+# candidates (valid loci with zero blastx homology). Built by loss_analysis.R
+# from the ranges-analysis counts and the blastx-stage classification counts.
+(
+    PATH_DICT["LOSS_ANALYSIS_PARQUET_DIR"],
+    PATH_DICT["LOSS_ANALYSIS_CSV_DIR"],
+) = table_dirs("loss_analysis")
 # Run manifest — provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
@@ -159,25 +187,58 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
 
 # === Results - Plots ===
+# Layout mirrors the pipeline stages so the filesystem is self-documenting:
+#
+#   plots/
+#     ranges/                 the ranges_analysis stage (pre-classification)
+#       homology/             plot2sort: per-probe/virus/species hit distributions
+#       integration/          stage_plot_generator: hit↔LTR-element integration + reduction
+#     classification/         the taxonomy stage (per-locus assembly + calls)
+#       taxonomy/             taxonomy_plot_generator: calls, confidence, mosaic, tiers
+#       structure/            structural views of the assembly (completeness, structure_class)
+#       loss/                 loss_analysis: per-stage attrition funnel
+#     circle/                 per-genome Circos overviews
+#     hotspot/                integration-hotspot enrichment (Manhattan / QQ / karyotype)
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
-# Provirus panel: the per-probe / stage plots about individual proviral hits and
-# their LTR integration (plot2sort + stage_plot_generator) live under provirus/.
-PATH_DICT["PROVIRUS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "provirus").resolve()
-# ERV-like panel: plots about assembled erv_like candidates (composition,
-# completeness, gene order). Hyphenated per the output contract.
-PATH_DICT["ERV_LIKE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "erv-like").resolve()
-PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle_plots").resolve()
-PATH_DICT["HOTSPOT_PDF_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot_pdfs").resolve()
+
+# --- Ranges stage ---
+PATH_DICT["RANGES_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "ranges").resolve()
+PATH_DICT["HOMOLOGY_PLOT_DIR"] = (PATH_DICT["RANGES_PLOT_DIR"] / "homology").resolve()
+PATH_DICT["INTEGRATION_PLOT_DIR"] = (
+    PATH_DICT["RANGES_PLOT_DIR"] / "integration"
+).resolve()
+
+# --- Classification stage ---
+PATH_DICT["CLASSIFICATION_PLOT_DIR"] = (
+    PATH_DICT["PLOT_DIR"] / "classification"
+).resolve()
+PATH_DICT["TAXONOMY_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "taxonomy"
+).resolve()
+# Structural views of the genus-founded ERV assembly (completeness, canonical
+# order, structure_class). Built by erv_like_plot_generator.R from the loci table;
+# the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.
+PATH_DICT["STRUCTURE_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "structure"
+).resolve()
+PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "loss").resolve()
+
+# --- Standalone analyses ---
+PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle").resolve()
+PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
 PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve()
 PATH_DICT["TRACK_CANDIDATES_DIR"] = (PATH_DICT["TRACK_DIR"] / "candidates").resolve()
 PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
-# ERV-like assembly tier — composite candidates chained from valid main-probe
-# loci (see assemble_erv_like in erv_assembly.R). Additive to the valid tier.
-PATH_DICT["TRACK_ERV_LIKE_DIR"] = (PATH_DICT["TRACK_DIR"] / "erv_like").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
+# Taxonomic-classification tier — per-locus genus calls projected to genome
+# coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
+PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
+# Orphans tier — non-LTR-associated hits recovered + classified by their own
+# sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
+PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
 
 # === Results - LTR ===
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()

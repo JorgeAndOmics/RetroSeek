@@ -6,7 +6,7 @@ End-user reference for configuring and running RetroSeek.
 
 ```bash
 make env                    # Create the conda/mamba env
-conda activate retroseek
+conda activate RetroSeek
 ```
 
 The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.10, R 4.3, Bioconductor, and every library the pipeline needs. No system-level tools are required beyond mamba/conda itself.
@@ -37,7 +37,11 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | `--hotspot-detection`       | `hotspot_detector`            | Original GFF3 tracks + FASTA            | Hotspot CSV + GFF3 + histogram/density PDFs  |
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
 | `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `valid_ranges.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
+| `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
+| `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `valid_ranges.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + taxonomy plot panel |
 | `-skp`, `--skip-validation` | —                             | —                                       | Bypass pre-run validation (debug only)       |
+
+**Taxonomic classification** needs the reference built once first: `make reference` (or `./RetroSeek --build-reference`) performs the network Entrez fetch + placement-tree build into `data/taxonomy_reference/` (cached; rebuilt only if deleted). Then `./RetroSeek --classify` assigns each valid ERV locus a calibrated genus call. Behaviour is governed by the [`classification`](#configuration) config block (`placement_genes`, `evalue`, `top_percent`, `min_orf`, `enable`), reusing `parameters.seed`, `parameters.main_probes`, and `execution.entrez_email`.
 
 ### Snakemake pass-through
 
@@ -57,7 +61,7 @@ Any argument not recognised as a stage flag is forwarded. Common examples:
 ```bash
 ./RetroSeek --config-help                 # list every field, grouped by section
 ./RetroSeek --config-help merge_option    # one field: type, default, meaning
-./RetroSeek --config-help erv_like.group_by
+./RetroSeek --config-help classification.placement_genes
 ```
 
 The text is sourced directly from [`docs/configuration.md`](configuration.md), so the terminal help and the written reference cannot diverge.
@@ -89,10 +93,11 @@ cp data/config/config.example.yaml data/config/config.local.yaml
   - `merge_option` — how overlapping ranges collapse (`virus` or `label`, strict enum).
   - `aggregation` — per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
   - `solo_ltr_aggregation` — separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
-  - `erv_like` — ERV-like assembly knobs: `group_by` (`virus` | `label` | `none`), `max_join_distance` (bp), `require_canonical_order`, `completeness_threshold`. Chains ≥2 main-probe loci from the unreduced valid tier into composite candidates (`results/tracks/erv_like/`). See [`docs/configuration.md`](configuration.md#erv-like-assembly).
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
-- **`hotspot`** — deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`erv_like` | `valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
+  - (The composite ERV assembly is no longer a `parameters.erv_like` tier — it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
+- **`hotspot`** — deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
 - **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
+- **`classification`** — per-locus ERV genus calls: `enable`, `placement_genes` (default `[POL]`; GAG opt-in), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
 - **`logging`** — colour styles for console logging.
 - **`plots`** — DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
 - **`execution`** — parallelism and API politeness:

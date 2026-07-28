@@ -40,15 +40,14 @@ suppressMessages({
 }
 .script_dir <- .resolve_script_dir()
 source(file.path(.script_dir, "range_aggregation_strategies.R"))
-source(file.path(.script_dir, "range_analysis", "io.R"))
-source(file.path(.script_dir, "range_analysis", "granges_build.R"))
-source(file.path(.script_dir, "range_analysis", "filtering.R"))
-source(file.path(.script_dir, "range_analysis", "reductions.R"))
-source(file.path(.script_dir, "range_analysis", "validation.R"))
-source(file.path(.script_dir, "range_analysis", "erv_assembly.R"))
-source(file.path(.script_dir, "range_analysis", "plot_dataframe.R"))
-source(file.path(.script_dir, "range_analysis", "stage_dataframe.R"))
-source(file.path(.script_dir, "range_analysis", "exporters.R"))
+source(file.path(.script_dir, "ranges", "io.R"))
+source(file.path(.script_dir, "ranges", "granges_build.R"))
+source(file.path(.script_dir, "ranges", "filtering.R"))
+source(file.path(.script_dir, "ranges", "reductions.R"))
+source(file.path(.script_dir, "ranges", "validation.R"))
+source(file.path(.script_dir, "ranges", "plot_dataframe.R"))
+source(file.path(.script_dir, "ranges", "stage_dataframe.R"))
+source(file.path(.script_dir, "ranges", "exporters.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -66,9 +65,12 @@ parser$add_argument("--probe_dict",               required = TRUE,
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--candidate_ranges",         required = TRUE)
+parser$add_argument("--orphans_ranges",         required = TRUE,
+                    help = paste("GFF3 of non-LTR-associated orphans (reduced",
+                                 "BLAST hits overlapping no retrotransposon).",
+                                 "Recovered + classified as the orphans tier."))
 parser$add_argument("--valid_ranges",             required = TRUE)
 parser$add_argument("--valid_ranges_reduced",     required = TRUE)
-parser$add_argument("--erv_like_ranges",          required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
 parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
 parser$add_argument("--overlap_matrix_csv",       required = TRUE)
@@ -150,37 +152,64 @@ log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
 domain_map        <- build_domain_map(opts$domains)
 retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
 domains_w_probes  <- extract_domains_with_probes(ltr_data, domain_map)
+all_domains       <- extract_all_domains(ltr_data)   # full Pfam superset (any/none tier)
 flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
 record_count("retrotransposons",      length(retrotransposons))
 record_count("domains_with_probes",   length(domains_w_probes))
+record_count("all_domains",           length(all_domains))
 record_count("flanking_ltrs",         length(flanking_ltrs))
 
 
 # ----------------------------------------------------------------------------
-# Phase 6. Candidate + valid hits
+# Phase 6. Candidate + valid (annotated-anchored) hits
 # ----------------------------------------------------------------------------
-log_section("Phase 6: identifying candidate + valid hits")
+log_section("Phase 6: identifying candidate + annotating anchored (valid) hits")
 candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
 candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
-valid_hits               <- find_valid_hits(candidate_hits,         retrotransposons,
-                                            domains_w_probes, opts$agg_concat_separator)
-valid_hits_reduced       <- find_valid_hits(candidate_hits_reduced, retrotransposons,
-                                            domains_w_probes, opts$agg_concat_separator)
+# "valid" is now the WHOLE anchored set, labelled (not filtered) with Parent +
+# domain_tier + domain_hit_class. See annotate_anchored_hits / ADR-009.
+valid_hits               <- annotate_anchored_hits(candidate_hits,         retrotransposons,
+                                                   domains_w_probes, all_domains,
+                                                   opts$hit_domain_mode, opts$agg_concat_separator)
+valid_hits_reduced       <- annotate_anchored_hits(candidate_hits_reduced, retrotransposons,
+                                                   domains_w_probes, all_domains,
+                                                   opts$hit_domain_mode, opts$agg_concat_separator)
 record_count("candidate_ranges",           length(candidate_hits))
 record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
+# Per-provirus domain-tier breakdown of the anchored set (recall preserved: no
+# anchored hit is dropped, only labelled). Counts feed the loss/tier plots.
+.tier_of <- function(gr) if (length(gr) == 0L) character(0) else
+  as.character(S4Vectors::mcols(gr)$domain_tier)
+record_count("valid_domain_selected", sum(.tier_of(valid_hits) == "domain_selected"))
+record_count("valid_domain_unlisted", sum(.tier_of(valid_hits) == "domain_unlisted"))
+record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 
-# ERV-like assembly: chain >=2 distinct main-probe loci from the UNREDUCED
-# valid tier into composite candidates. Additive — valid stays a full superset;
-# isolated single-gene loci are never emitted here.
-erv_like <- assemble_erv_like(
-  valid_hits, opts$main_probes, opts$erv_like_group_by,
-  opts$erv_like_max_join_distance, opts$erv_like_require_canonical_order,
-  opts$erv_like_completeness_threshold, opts
-)
-record_count("erv_like_candidates",           length(erv_like$parents))
-record_count("erv_like_dropped_noncanonical", erv_like$dropped_noncanonical)
+# Non-LTR-associated orphans: the complement of the candidate set on the
+# globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
+# orphans). Recovered into the orphan tier and classified by their own
+# sequence. Counted here so the loss funnel sees what falls outside every LTR.
+unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
+# Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
+# classifier assembles them like proviruses — one non-overlapping orphan locus
+# per overlap cluster (ADR-010). Capped at the widest real provirus in this
+# genome (ground truth): clusters wider than that are flagged `oversized`, kept.
+# `orphans` counts the hits; `orphan_clusters` the loci (the grouping the funnel
+# bridges); `orphans_oversized` the flagged loci.
+max_provirus_len <- if (length(retrotransposons) > 0L)
+  max(BiocGenerics::width(retrotransposons)) else Inf
+unanchored_hits <- cluster_orphan_hits(unanchored_hits, max_provirus_len)
+record_count("orphans",                    length(unanchored_hits))
+.orphan_parent    <- as.character(S4Vectors::mcols(unanchored_hits)$Parent)
+.orphan_oversized <- as.character(S4Vectors::mcols(unanchored_hits)$oversized)
+record_count("orphan_clusters",    length(unique(.orphan_parent)))
+record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
+
+# NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
+# view of the genus-classified loci produced by the taxonomy_classify stage
+# (grouped by LTR element, labelled by genus call). See taxonomy_classify_loci.py
+# and the erv-like plot panel (erv_like_plot_generator.R reads the genus loci).
 
 
 # ----------------------------------------------------------------------------
@@ -200,6 +229,7 @@ candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_
 candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
 valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
 valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
+unanchored_hits        <- attach_probe_category(unanchored_hits,      opts$main_probes, opts$agg_concat_separator)
 
 
 # ----------------------------------------------------------------------------
@@ -215,13 +245,15 @@ gen_ver <- resolve_generator_version()
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
+# Orphan tier: unanchored hits exported with the same probe=/label= GFF3
+# attributes as the valid track PLUS a synthetic Parent= from proximity
+# clustering (cluster_orphan_hits) — so the classifier's build_loci groups them
+# into single non-overlapping multi-gene orphan loci, like anchored proviruses.
+track_exporter(unanchored_hits,        args$orphans_ranges,         gen_ver)
+
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
 bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
-
-# erv_like: parent candidates + child member loci in one GFF3; child loci as BED.
-erv_like_track_exporter(erv_like$parents, erv_like$children, args$erv_like_ranges, gen_ver)
-bed_exporter(erv_like$children, sub("\\.gff3$", ".bed", args$erv_like_ranges))
 
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
@@ -252,9 +284,6 @@ write_one("counts", tibble::tibble(
   metric = names(.counts),
   value  = as.integer(unlist(.counts, use.names = FALSE))
 ))
-write_one("erv_like_loci", build_erv_like_df(erv_like$parents))
-write_one("erv_like_members", build_erv_like_members_df(erv_like$children))
-
 # Provirus overlap / LTR-interaction tables — feed the new provirus plots.
 write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
 write_one("ltr_interaction",

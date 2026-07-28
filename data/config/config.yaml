@@ -13,7 +13,7 @@ genome_tools:
   ltrdigest_optional_parameters: ''
 
 hotspot:
-  input: erv_like
+  input: valid
   group_split: false
   window_size: 500000
   mask_size: 20
@@ -31,6 +31,15 @@ parameters:
   ltr_resize: 0
   ltr_flank_margin: 0
   merge_option: 'virus'
+  # How the per-hit domain flag (domain_hit_class) on anchored hits is decided:
+  #   membership - a hit is 'substring_match' if its own gene has a config-matched
+  #                Pfam domain anywhere in its enclosing LTR element (co-occurrence;
+  #                cheap, the default). Values: substring_match / no_substring_match.
+  #   positional - 'substring_match' only if the hit physically overlaps a
+  #                config-matched domain of its gene; adds a 'non_domain' level for
+  #                hits overlapping no domain (co-localization; stronger, opt-in).
+  # Independent of the per-provirus domain_tier (which is always element-wise).
+  hit_domain_mode: 'membership'
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
   main_probes:
@@ -55,11 +64,6 @@ parameters:
   solo_ltr_aggregation:
     probe: "list"
     best_tiebreaker: "consensus_members"
-  erv_like:
-    group_by: 'virus'
-    max_join_distance: 1500
-    require_canonical_order: false
-    completeness_threshold: 1.0
 
 ltr_retriever:
   substitution_rate: 1.3e-8
@@ -68,6 +72,27 @@ ltr_retriever:
   noanno: true
   source_scn: retroviral
   nearest_erv_max_distance: 10000
+
+classification:
+  enable: true
+  placement_genes:
+    - 'POL'
+  search: blastx
+  evalue: 0.001
+  top_percent: 0.10
+  min_orf: 30
+  confidence_min: 0.5
+  # Minimum gene completeness (fraction of main_probes present) for a locus to be
+  # catalogued as a 'full' ERV in structure_class. 1.0 = every main gene present.
+  # A single-main-gene locus is always 'gene'; anything present but below this
+  # floor is 'partial'. Deliberately gene-content only - LTR-pair evidence lives
+  # in the anchoring axis + the solo-LTR module, not here.
+  structure_full_min: 1.0
+  # Classification axis (ADR-008, rank-agnostic): the taxa - at ANY rank - the
+  # reference is built at and that a locus can resolve to. Empty (or absent) derives
+  # the axis from the distinct probeset Label values; set an explicit list to decouple
+  # the classifier from the probeset (e.g. ['Lentivirus', 'Gammaretrovirus']).
+  reference_taxa: []
 
 logging:
   level_styles:
@@ -140,6 +165,6 @@ domains:
 
 species:
   # key = genome FASTA stem in SPECIES_DB; value = display name.
-  # Example values only — list your real genomes in config.local.yaml.
+  # Example values only - list your real genomes in config.local.yaml.
   example_genome_1: "Example species one"
   # example_genome_2: "Example species two"   # uncomment to add a genome
