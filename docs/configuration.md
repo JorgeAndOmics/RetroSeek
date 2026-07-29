@@ -49,7 +49,7 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_resize` | int ≥ 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
 | `ltr_flank_margin` | int ≥ 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** — typos fail validation. |
-| `hit_domain_mode` | `membership` \| `positional` | `membership` | How the per-hit `domain_hit_class` on anchored hits is decided. `membership`: a hit is `substring_match` when its own gene has a config-matched (`domains`) Pfam domain **anywhere in its enclosing LTR element** (co-occurrence; cheap) — values `substring_match` / `no_substring_match`. `positional`: `substring_match` only when the hit **physically overlaps** a config-matched domain of its gene (co-localization; stronger), adding a `non_domain` level for hits overlapping no domain. Orthogonal to the per-provirus `domain_tier`, which is always element-wise. **Strict enum.** |
+| `hit_domain_mode` | `membership` \| `positional` | `membership` | How the per-hit `domain_hit_class` on LTR-flanked hits is decided. `membership`: a hit is `substring_match` when its own gene has a config-matched (`domains`) Pfam domain **anywhere in its enclosing LTR element** (co-occurrence; cheap) — values `substring_match` / `no_substring_match`. `positional`: `substring_match` only when the hit **physically overlaps** a config-matched domain of its gene (co-localization; stronger), adding a `non_domain` level for hits overlapping no domain. Orthogonal to the per-provirus `domain_tier`, which is always element-wise. **Strict enum.** |
 | `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Semantically a set — duplicates ignored. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. |
 | `probe_min_length` | map (string → int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
 
@@ -140,6 +140,7 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | `min_orf` | int ≥ 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
 | `confidence_min` | number 0–1 | `0.5` | Confidence floor for the high/low confidence tag. A locus whose call confidence is **below** this value is tagged `LC` (low confidence) in the `confidence_tag` column of the loci/fragments tables; at or above it is `HC`. The threshold is inclusive (`conf == confidence_min` ⇒ `HC`) and applies to every method (placement, weighted-LCA, presence). Raise it to flag more marginal calls. |
 | `structure_full_min` | number 0–1 | `1.0` | Minimum gene completeness (fraction of `main_probes` present) for a locus to be catalogued as a **`full`** ERV in the `structure_class` column. `1.0` requires every main gene. A single-main-gene locus is always `gene`; a multi-gene locus present but below this floor is `partial`. Deliberately gene-content only — flanking-LTR evidence stays in the anchoring axis (`source`) and the solo-LTR module, not here. |
+| `segment_rank` | str | `genus` | Taxonomic rank each `taxon_call` is rolled up to for the by-segment stage (ADR-011). Any NCBI rank (`genus`, `subfamily`, `family`, ...) — the roll-up walks the reference `taxonomy.tsv` hierarchy, so no taxon name is ever hard-coded and the pipeline stays rank-agnostic. A locus whose call is *coarser* than this rank (e.g. `Retroviridae` when segmenting by genus) becomes `unassigned_at_<rank>` rather than being given precision its evidence does not support. |
 | `reference_taxa` | list of str | `[]` | The **classification axis** (ADR-008): the taxa — at **any** rank (genus `Lentivirus`, family `Bornaviridae`, …) — the reference is built at and that a locus can resolve to as a first-class `taxon_call`. Empty or absent derives the axis from the distinct probeset `Label` values, so `Label` seeds the classifier; setting an explicit list decouples the classifier from the probeset. Changing it requires rebuilding the reference (`make reference`). |
 
 ## `logging`
@@ -158,6 +159,8 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
 | `waffle_unit_hits` | int ≥ 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` → "1 square = 10 ranges"). |
 | `circle_plot_bitscore_threshold` | number ≥ 0 | `0` | Bit-score cutoff for circle-plot display. |
+| `per_stratum` | number ≥ 0 | `0.18` | Inches of canvas added per category past the base canvas on per-species panels. `width`/`height` size a small study; beyond that the canvas grows by this much per extra genome so labels keep their room. Raise it if ticks still crowd at your genome count; `0` disables growth (fixed canvas). |
+| `max_dim` | number ≥ 1 | `60` | Hard ceiling in inches for a grown canvas. At 300 dpi, 60 in ≈ 18,000 px — the practical PNG limit. Panels that would exceed it are clamped rather than failing to render. |
 
 ## `execution`
 
@@ -175,6 +178,7 @@ Per-locus ERV taxonomic classification — turns each valid LTR-element locus in
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `probe_csv` | string | — | **Required.** Absolute path to the probe metadata CSV. Columns expected: `Label, Name, Abbreviation, Probe, Accession`. |
+| `species_tree` | str | `''` (none) | Path to a Newick file of the host-species phylogeny (ADR-011). Used to order and annotate the species panels; empty means no species tree and those plots render an explanatory placeholder instead. Tip labels are matched to the `species:` display names, ignoring case and `_` vs space, and any species not found in the tree (or tip not found in the study) is reported in the log rather than silently dropped. Pin the file in your repo/data dir for reproducibility — e.g. a dated TimeTree export. |
 
 ## `display`
 

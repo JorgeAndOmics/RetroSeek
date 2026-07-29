@@ -34,14 +34,14 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 # Funnel specification — the ordered stages and each stage's PARENT (the stage
 # it is measured against for step retention). The pipeline has TWO reduction
-# branches off `first_reduced_ranges` (gr_virus): the anchored spine
+# branches off `first_reduced_ranges` (gr_virus): the LTR-flanked spine
 # (candidate -> valid -> loci) descends from gr_virus directly, while the
 # orphan branch descends from `global_reduced_ranges` (gr_global, a second,
 # stronger reduction). So `candidate`'s parent is `first_reduced_ranges`, NOT
 # `global_reduced_ranges` — and `global_reduced_ranges` is the head of the
-# orphan branch, a SIBLING of `candidate`, not a step in the anchored spine.
+# orphan branch, a SIBLING of `candidate`, not a step in the LTR-flanked spine.
 # Getting this wrong makes candidate/global > 100% and a non-monotonic funnel.
-# `branch` tags let the plot separate the anchored spine, the orphan branch,
+# `branch` tags let the plot separate the LTR-flanked spine, the orphan branch,
 # and the classification tier (the last is grouping/quality, not attrition).
 # ----------------------------------------------------------------------------
 .STAGE_SPEC <- tibble::tribble(
@@ -50,12 +50,12 @@ suppressMessages({
   "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
   "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
   "candidate_ranges",      4L,          "main",           "first_reduced_ranges",  "LTR-overlapping (candidate)",
-  "valid_ranges",          5L,          "main",           "candidate_ranges",      "anchored (all domain tiers)",
+  "valid_ranges",          5L,          "main",           "candidate_ranges",      "ltr-flanked (all domain tiers)",
   "global_reduced_ranges", 6L,          "orphan",         "first_reduced_ranges",  "global reduction",
   "orphans",               7L,          "orphan",         "global_reduced_ranges", "non-LTR orphan hits",
   "orphans_total",         8L,          "orphan",         "orphans",               "orphan loci (clustered)",
   "orphans_recovered",     9L,          "orphan",         "orphans_total",         "orphans recovered",
-  "loci_total",           10L,          "classification", "valid_ranges",          "anchored loci (grouped)",
+  "loci_total",           10L,          "classification", "valid_ranges",          "ltr-flanked loci (grouped)",
   "loci_classified",      11L,          "classification", "loci_total",            "loci classified",
   "loci_no_blastx_hit",   12L,          "classification", "loci_total",            "loci w/ no blastx hit"
 )
@@ -178,7 +178,7 @@ loss_funnel_plot <- function(funnel) {
 
 
 # Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
-# surviving. Restricted to the genuine attrition/reduction steps (the anchored
+# surviving. Restricted to the genuine attrition/reduction steps (the LTR-flanked
 # spine + the orphan branch) — the classification tier is grouping/quality,
 # not retention, so it is excluded to keep one consistent semantic on the scale.
 # Every cell is now a true subset/reduction ratio, so all are <= 100%.
@@ -249,7 +249,7 @@ novel_burden_plot <- function(funnel) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Novel-candidate burden",
-             "Anchored loci with zero blastx homology (label = count; bar = share of all loci)")
+             "LTR-flanked loci with zero blastx homology (label = count; bar = share of all loci)")
 }
 
 
@@ -295,6 +295,8 @@ main <- function() {
   plot_dpi    <- cfg$plots$dpi    %||% 300
   plot_height <- cfg$plots$height %||% 12
   plot_width  <- cfg$plots$width  %||% 15
+  per_stratum <- cfg$plots$per_stratum %||% 0.18
+  max_dim     <- cfg$plots$max_dim     %||% 60
 
   log_section("Loading stage counts (ranges + classification + orphans)")
   counts_long <- dplyr::bind_rows(
@@ -326,15 +328,27 @@ main <- function() {
   funnel_disp <- funnel
   funnel_disp$genome <- relabel_species(funnel_disp$genome, cfg$species)
 
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$plot_dir,
+  # `n_x`/`n_y` = genome count on that axis; supplying it scales the canvas AND
+  # the tick text so a 102-genome funnel stays readable. step_retention puts
+  # genomes on y (a heatmap row each); the bar panels put them on x. The faceted
+  # panels grow with the facet count, so they scale on x too.
+  n_genomes <- length(unique(funnel_disp$genome))
+  emit <- function(name, plot, n_x = NULL, n_y = NULL) {
+    if (!is.null(n_x) || !is.null(n_y)) {
+      plot <- scale_categorical_axis(plot,
+                                     if (is.null(n_x)) n_y else n_x,
+                                     axis = if (is.null(n_x)) "y" else "x",
+                                     base_w = plot_width, base_h = plot_height,
+                                     per_stratum = per_stratum, cap = max_dim)
+    }
+    save_plot(name, plot, args$plot_dir, dims = attr(plot, "intended_dims"),
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
-  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp))
-  emit("step_retention.png",   step_retention_plot(funnel_disp))
-  emit("orphan_recovery.png", orphan_recovery_plot(funnel_disp))
-  emit("novel_burden.png",     novel_burden_plot(funnel_disp))
-  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp))
+  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp),     n_x = n_genomes)
+  emit("step_retention.png",   step_retention_plot(funnel_disp),  n_y = n_genomes)
+  emit("orphan_recovery.png",  orphan_recovery_plot(funnel_disp), n_x = n_genomes)
+  emit("novel_burden.png",     novel_burden_plot(funnel_disp),    n_x = n_genomes)
+  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp),  n_x = n_genomes)
   log_section("Done")
 }
 

@@ -10,6 +10,7 @@ test covers the gappa-output parser used by the placement branch.
 
 from __future__ import annotations
 
+import pytest
 import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
 import taxonomy_placement as tplace
@@ -380,10 +381,10 @@ class TestBlastxEvidenceAndSource:
         rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
         assert rec["n_blastx_hits"] == "0"
 
-    def test_source_defaults_anchored(self) -> None:
+    def test_source_defaults_ltr_flanked(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
         rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
-        assert rec["source"] == "anchored"
+        assert rec["source"] == "ltr-flanked"
 
     def test_source_is_stamped(self) -> None:
         loci = [self._locus({"POL": (100, 200)})]
@@ -559,7 +560,7 @@ class TestGateAndCounts:
         kept = tcl.gate_classified(recs)
         assert [r["taxon_call"] for r in kept] == ["Lentivirus", "Gammaretrovirus"]
 
-    def test_anchored_counts(self) -> None:
+    def test_ltr_flanked_counts(self) -> None:
         recs = [
             self._rec("Lentivirus", "5"),
             self._rec(tlca.UNCLASSIFIED, "0"),
@@ -567,14 +568,14 @@ class TestGateAndCounts:
         ]
         counts = {
             c["metric"]: c["value"]
-            for c in tcl.classification_counts(recs, recs, "anchored")
+            for c in tcl.classification_counts(recs, recs, "ltr-flanked")
         }
         assert counts["loci_total"] == 3
         assert counts["loci_classified"] == 1
         assert counts["loci_unclassified"] == 2
         assert counts["loci_no_blastx_hit"] == 1  # only the n_hits == "0" one
 
-    def test_anchored_counts_carry_structure_and_tier(self) -> None:
+    def test_ltr_flanked_counts_carry_structure_and_tier(self) -> None:
         recs = [
             self._rec(
                 "Lentivirus", "5", structure_class="full", domain_tier="domain_selected"
@@ -591,7 +592,7 @@ class TestGateAndCounts:
         ]
         counts = {
             c["metric"]: c["value"]
-            for c in tcl.classification_counts(recs, recs, "anchored")
+            for c in tcl.classification_counts(recs, recs, "ltr-flanked")
         }
         assert counts["structure_full"] == 1
         assert counts["structure_partial"] == 1
@@ -637,3 +638,62 @@ def test_loci_columns_cover_record_keys() -> None:
     assert rec["taxon_call"] == "Lentivirus"
     assert rec["resolved"] == "True"
     assert tlca.rank_of("Lentivirus") == "genus"
+
+
+class TestSegmentOf:
+    """Rank roll-up for the by-segment stage (ADR-011).
+
+    Rank-agnostic by construction: `segment_rank` is any rank string and no
+    taxon name is hard-coded, so the same code segments by genus or by family.
+    """
+
+    @pytest.fixture(autouse=True)
+    def hierarchy(self, tmp_path):
+        tsv = tmp_path / "taxonomy.tsv"
+        tsv.write_text(
+            "name\tparent\trank\n"
+            "Retroviridae\t\tfamily\n"
+            "Orthoretrovirinae\tRetroviridae\tsubfamily\n"
+            "Gammaretrovirus\tOrthoretrovirinae\tgenus\n",
+            encoding="utf-8",
+        )
+        saved_parent, saved_rank = dict(tlca.RETRO_PARENT), dict(tlca.RANK_OF)
+        try:
+            tlca.load_taxonomy(tsv)
+            yield
+        finally:
+            tlca.RETRO_PARENT, tlca.RANK_OF = saved_parent, saved_rank
+
+    def test_a_call_already_at_the_rank_is_its_own_segment(self):
+        assert tcl.segment_of("Gammaretrovirus", "genus") == "Gammaretrovirus"
+
+    def test_a_finer_call_rolls_up_to_the_requested_rank(self):
+        assert tcl.segment_of("Gammaretrovirus", "family") == "Retroviridae"
+        assert tcl.segment_of("Gammaretrovirus", "subfamily") == "Orthoretrovirinae"
+
+    def test_a_coarser_call_is_unassigned_not_invented(self):
+        # A family-level call has no genus ancestor; giving it one would be
+        # precision the evidence does not support.
+        assert tcl.segment_of("Retroviridae", "genus") == "unassigned_at_genus"
+
+    def test_rank_agnostic_across_ranks(self):
+        # Same call, different requested ranks -> different, correct answers.
+        call = "Gammaretrovirus"
+        assert {
+            r: tcl.segment_of(call, r) for r in ("genus", "subfamily", "family")
+        } == {
+            "genus": "Gammaretrovirus",
+            "subfamily": "Orthoretrovirinae",
+            "family": "Retroviridae",
+        }
+
+    def test_unknown_taxon_is_unassigned(self):
+        assert tcl.segment_of("NotATaxon", "genus") == "unassigned_at_genus"
+
+    def test_empty_rank_disables_segmentation(self):
+        assert tcl.segment_of("Gammaretrovirus", "") == ""
+
+
+def test_loci_columns_carry_segment_fields():
+    assert "segment" in tcl.LOCI_COLUMNS
+    assert "segment_rank" in tcl.LOCI_COLUMNS

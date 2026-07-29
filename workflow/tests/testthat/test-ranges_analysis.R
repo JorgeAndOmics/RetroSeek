@@ -111,7 +111,7 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
 
 
 # ---------------------------------------------------------------------------
-# annotate_anchored_hits KEEPS every candidate (nothing discarded) and labels
+# annotate_ltr_flanked_hits KEEPS every candidate (nothing discarded) and labels
 # each with `Parent` (greatest-overlap element — the taxonomic classifier's
 # grouping anchor), a per-provirus `domain_tier`, and a per-hit
 # `domain_hit_class`. See ranges/validation.R + ADR-009.
@@ -145,9 +145,9 @@ source(file.path(.script_dir, "validation.R"))
        all_domains = all_domains, candidates = candidates)
 }
 
-test_that("annotate_anchored_hits keeps all candidates and attaches greatest-overlap Parent", {
+test_that("annotate_ltr_flanked_hits keeps all candidates and attaches greatest-overlap Parent", {
   f <- .tier_fixture()
-  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
   expect_equal(length(out), length(f$candidates))   # nothing discarded
   expect_equal(as.character(S4Vectors::mcols(out)$Parent),
                c("retroA", "retroA", "retroB", "retroC"))
@@ -155,14 +155,14 @@ test_that("annotate_anchored_hits keeps all candidates and attaches greatest-ove
 
 test_that("domain_tier is element-wise: selected / unlisted / non_domain", {
   f <- .tier_fixture()
-  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains)
   expect_equal(as.character(S4Vectors::mcols(out)$domain_tier),
                c("domain_selected", "domain_selected", "domain_unlisted", "non_domain"))
 })
 
 test_that("membership domain_hit_class flags the hit's OWN gene (grain differs from tier)", {
   f <- .tier_fixture()
-  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
                                 hit_domain_mode = "membership")
   # POL hit in retroA -> its gene matches the config POL domain -> substring_match.
   # GAG hit in retroA -> element is domain_selected, but GAG is not the matched
@@ -174,7 +174,7 @@ test_that("membership domain_hit_class flags the hit's OWN gene (grain differs f
 
 test_that("positional domain_hit_class is co-localization and adds a non_domain level", {
   f <- .tier_fixture()
-  out <- annotate_anchored_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$domains_w_probes, f$all_domains,
                                 hit_domain_mode = "positional")
   # c1 POL(150-300) overlaps the POL config domain(120-200) -> substring_match
   # c2 GAG(350-450) overlaps NO domain                       -> non_domain
@@ -184,9 +184,9 @@ test_that("positional domain_hit_class is co-localization and adds a non_domain 
                c("substring_match", "non_domain", "no_substring_match", "non_domain"))
 })
 
-test_that("annotate_anchored_hits on empty input returns a typed-empty GRanges", {
+test_that("annotate_ltr_flanked_hits on empty input returns a typed-empty GRanges", {
   f <- .tier_fixture()
-  out <- annotate_anchored_hits(f$candidates[FALSE], f$retros, f$domains_w_probes, f$all_domains)
+  out <- annotate_ltr_flanked_hits(f$candidates[FALSE], f$retros, f$domains_w_probes, f$all_domains)
   expect_equal(length(out), 0L)
   expect_true(all(c("Parent", "domain_tier", "domain_hit_class")
                   %in% names(S4Vectors::mcols(out))))
@@ -194,11 +194,11 @@ test_that("annotate_anchored_hits on empty input returns a typed-empty GRanges",
 
 
 # ---------------------------------------------------------------------------
-# find_unanchored_hits is the exact strand-aware complement of
+# find_orphan_hits is the exact strand-aware complement of
 # find_candidate_hits: the reduced BLAST hits overlapping NO retrotransposon.
 # These are the non-LTR-associated hits recovered into the orphan tier.
 # ---------------------------------------------------------------------------
-test_that("find_unanchored_hits returns hits overlapping no retrotransposon", {
+test_that("find_orphan_hits returns hits overlapping no retrotransposon", {
   retros <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
   )
@@ -206,40 +206,40 @@ test_that("find_unanchored_hits returns hits overlapping no retrotransposon", {
     "chr1", IRanges::IRanges(c(150, 1000), c(300, 1100)), strand = "+",
     probe = c("POL", "ENV")
   )
-  # hit 1 overlaps retroA (anchored); hit 2 is far away (unanchored)
-  un <- find_unanchored_hits(hits, retros)
+  # hit 1 overlaps retroA (LTR-flanked); hit 2 is far away (orphan)
+  un <- find_orphan_hits(hits, retros)
   expect_equal(length(un), 1L)
   expect_equal(IRanges::start(un), 1000L)
-  # complement invariant: candidate + unanchored partition the input exactly
+  # complement invariant: candidate + orphan partition the input exactly
   cand <- find_candidate_hits(hits, retros)
   expect_equal(length(cand) + length(un), length(hits))
 })
 
-test_that("find_unanchored_hits keeps everything when there are no retrotransposons", {
+test_that("find_orphan_hits keeps everything when there are no retrotransposons", {
   hits <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(1, 1000), c(99, 1100)), strand = "+",
     probe = c("POL", "GAG")
   )
   retros <- GenomicRanges::GRanges()
-  expect_equal(length(find_unanchored_hits(hits, retros)), 2L)
+  expect_equal(length(find_orphan_hits(hits, retros)), 2L)
 })
 
-test_that("find_unanchored_hits is strand-aware (opposite-strand retro does not anchor)", {
+test_that("find_orphan_hits is strand-aware (opposite-strand retro does not anchor)", {
   retros <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(100, 500), strand = "-", ID = "retroA"
   )
   hits <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(150, 300), strand = "+", probe = "POL"
   )
-  # + hit vs - retro: no strand-aware overlap -> the hit is unanchored
-  expect_equal(length(find_unanchored_hits(hits, retros)), 1L)
+  # + hit vs - retro: no strand-aware overlap -> the hit is orphan
+  expect_equal(length(find_orphan_hits(hits, retros)), 1L)
 })
 
-test_that("find_unanchored_hits on empty input returns empty", {
+test_that("find_orphan_hits on empty input returns empty", {
   retros <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(100, 500), strand = "+", ID = "retroA"
   )
-  expect_equal(length(find_unanchored_hits(GenomicRanges::GRanges(), retros)), 0L)
+  expect_equal(length(find_orphan_hits(GenomicRanges::GRanges(), retros)), 0L)
 })
 
 

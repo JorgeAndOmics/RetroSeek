@@ -35,7 +35,7 @@ test_that("build_loss_funnel orders stages and computes step retention", {
   filt <- f %>% filter(metric == "filtered_blast_hits")
   expect_equal(filt$step_retained, 0.6)            # 600 / 1000
 
-  # candidate descends from FIRST reduction (anchored spine), not global reduction
+  # candidate descends from FIRST reduction (LTR-flanked spine), not global reduction
   cand <- f %>% filter(metric == "candidate_ranges")
   expect_equal(cand$branch, "main")
   expect_equal(cand$step_retained, 300 / 500)      # vs first_reduced parent -> <= 1

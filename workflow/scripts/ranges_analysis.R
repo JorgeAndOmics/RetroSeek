@@ -161,25 +161,25 @@ record_count("flanking_ltrs",         length(flanking_ltrs))
 
 
 # ----------------------------------------------------------------------------
-# Phase 6. Candidate + valid (annotated-anchored) hits
+# Phase 6. Candidate + valid (annotated LTR-flanked) hits
 # ----------------------------------------------------------------------------
-log_section("Phase 6: identifying candidate + annotating anchored (valid) hits")
+log_section("Phase 6: identifying candidate + annotating ltr-flanked (valid) hits")
 candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
 candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
-# "valid" is now the WHOLE anchored set, labelled (not filtered) with Parent +
-# domain_tier + domain_hit_class. See annotate_anchored_hits / ADR-009.
-valid_hits               <- annotate_anchored_hits(candidate_hits,         retrotransposons,
+# "valid" is now the WHOLE LTR-flanked set, labelled (not filtered) with Parent +
+# domain_tier + domain_hit_class. See annotate_ltr_flanked_hits / ADR-009.
+valid_hits               <- annotate_ltr_flanked_hits(candidate_hits,         retrotransposons,
                                                    domains_w_probes, all_domains,
                                                    opts$hit_domain_mode, opts$agg_concat_separator)
-valid_hits_reduced       <- annotate_anchored_hits(candidate_hits_reduced, retrotransposons,
+valid_hits_reduced       <- annotate_ltr_flanked_hits(candidate_hits_reduced, retrotransposons,
                                                    domains_w_probes, all_domains,
                                                    opts$hit_domain_mode, opts$agg_concat_separator)
 record_count("candidate_ranges",           length(candidate_hits))
 record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
-# Per-provirus domain-tier breakdown of the anchored set (recall preserved: no
-# anchored hit is dropped, only labelled). Counts feed the loss/tier plots.
+# Per-provirus domain-tier breakdown of the LTR-flanked set (recall preserved: no
+# LTR-flanked hit is dropped, only labelled). Counts feed the loss/tier plots.
 .tier_of <- function(gr) if (length(gr) == 0L) character(0) else
   as.character(S4Vectors::mcols(gr)$domain_tier)
 record_count("valid_domain_selected", sum(.tier_of(valid_hits) == "domain_selected"))
@@ -190,7 +190,7 @@ record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
 # orphans). Recovered into the orphan tier and classified by their own
 # sequence. Counted here so the loss funnel sees what falls outside every LTR.
-unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
+orphan_hits <- find_orphan_hits(gr_global, retrotransposons)
 # Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
 # classifier assembles them like proviruses — one non-overlapping orphan locus
 # per overlap cluster (ADR-010). Capped at the widest real provirus in this
@@ -199,10 +199,10 @@ unanchored_hits <- find_unanchored_hits(gr_global, retrotransposons)
 # bridges); `orphans_oversized` the flagged loci.
 max_provirus_len <- if (length(retrotransposons) > 0L)
   max(BiocGenerics::width(retrotransposons)) else Inf
-unanchored_hits <- cluster_orphan_hits(unanchored_hits, max_provirus_len)
-record_count("orphans",                    length(unanchored_hits))
-.orphan_parent    <- as.character(S4Vectors::mcols(unanchored_hits)$Parent)
-.orphan_oversized <- as.character(S4Vectors::mcols(unanchored_hits)$oversized)
+orphan_hits <- cluster_orphan_hits(orphan_hits, max_provirus_len)
+record_count("orphans",                    length(orphan_hits))
+.orphan_parent    <- as.character(S4Vectors::mcols(orphan_hits)$Parent)
+.orphan_oversized <- as.character(S4Vectors::mcols(orphan_hits)$oversized)
 record_count("orphan_clusters",    length(unique(.orphan_parent)))
 record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
 
@@ -229,7 +229,7 @@ candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_
 candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
 valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
 valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
-unanchored_hits        <- attach_probe_category(unanchored_hits,      opts$main_probes, opts$agg_concat_separator)
+orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
 
 
 # ----------------------------------------------------------------------------
@@ -245,11 +245,11 @@ gen_ver <- resolve_generator_version()
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
-# Orphan tier: unanchored hits exported with the same probe=/label= GFF3
+# Orphan tier: orphan hits exported with the same probe=/label= GFF3
 # attributes as the valid track PLUS a synthetic Parent= from proximity
 # clustering (cluster_orphan_hits) — so the classifier's build_loci groups them
-# into single non-overlapping multi-gene orphan loci, like anchored proviruses.
-track_exporter(unanchored_hits,        args$orphans_ranges,         gen_ver)
+# into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
+track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
 
 track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
 track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)

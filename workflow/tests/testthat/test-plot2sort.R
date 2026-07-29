@@ -577,3 +577,42 @@ test_that("attach_species_name delegates to relabel_species (maps + passes throu
   expect_equal(out$n, c(1L, 2L))            # other columns untouched
   expect_setequal(names(out), c("species", "n"))
 })
+
+
+# ---------------------------------------------------------------------------
+# scale_categorical_axis: canvas AND text must both respond to cardinality.
+# The 5 model genomes never exercise the crowding path, so n = 102 (the bat
+# study) is asserted synthetically here.
+# ---------------------------------------------------------------------------
+test_that("categorical_text_size shrinks past the base but never below the floor", {
+  expect_equal(categorical_text_size(5), 11)      # small study: untouched
+  expect_equal(categorical_text_size(12), 11)     # at the base_strata boundary
+  expect_lt(categorical_text_size(60), 11)        # shrinks past it
+  expect_gte(categorical_text_size(1000), 5)      # legibility floor holds
+})
+
+test_that("scale_categorical_axis attaches dims that grow with n", {
+  p <- ggplot2::ggplot(
+    data.frame(x = c("a", "b"), y = 1:2), ggplot2::aes(x, y)
+  ) + ggplot2::geom_col()
+  small <- scale_categorical_axis(p, 5, axis = "x")
+  big   <- scale_categorical_axis(p, 102, axis = "x")
+  d_small <- attr(small, "intended_dims")
+  d_big   <- attr(big, "intended_dims")
+  expect_false(is.null(d_small))
+  expect_equal(d_small$w, 15)                     # <= base_strata: base canvas
+  expect_gt(d_big$w, d_small$w)                   # 102 genomes: wider canvas
+  expect_equal(d_big$h, d_small$h)                # x-axis growth leaves height
+})
+
+test_that("scale_categorical_axis grows height on the y axis and honours the cap", {
+  p <- ggplot2::ggplot(
+    data.frame(x = 1:2, y = c("a", "b")), ggplot2::aes(x, y)
+  ) + ggplot2::geom_col()
+  d <- attr(scale_categorical_axis(p, 102, axis = "y"), "intended_dims")
+  expect_equal(d$w, 15)                           # width pinned on y growth
+  expect_gt(d$h, 12)
+  capped <- attr(scale_categorical_axis(p, 5000, axis = "y", cap = 40),
+                 "intended_dims")
+  expect_equal(capped$h, 40)                      # clamped, not unbounded
+})

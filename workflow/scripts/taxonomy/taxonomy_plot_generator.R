@@ -33,7 +33,8 @@ suppressMessages({
   library(yaml)         # YAML config
   library(ggsci)        # Scientific colour palettes
   library(ggalluvial)   # Alluvial flows for the mosaic plot
-  library(GenomicRanges)  # catalog reconciliation (anchored-precedence overlap)
+  library(GenomicRanges)  # catalog reconciliation (ltr-flanked-precedence overlap)
+  library(patchwork)      # tree | bars composition for the tree-attached panels
 })
 
 
@@ -109,18 +110,18 @@ load_orphans <- function(input_dir) {
 
 
 # Reconcile the unified catalog to a fully non-overlapping record set with
-# ANCHORED PRECEDENCE: within each (species, seqname), drop any orphan locus
-# whose span overlaps an anchored locus. Anchored loci are LTR-confirmed;
+# LTR-FLANKED PRECEDENCE: within each (species, seqname), drop any orphan locus
+# whose span overlaps an LTR-flanked locus. LTR-flanked loci are LTR-confirmed;
 # orphan loci are proximity-inferred, and a proximity cluster can bridge OVER an
-# anchored provirus (its member hits flank the element). Where they collide the
-# LTR-confirmed call wins. Orphan-orphan and anchored-anchored are already
+# LTR-flanked provirus (its member hits flank the element). Where they collide the
+# LTR-confirmed call wins. Orphan-orphan and LTR-flanked/LTR-flanked are already
 # non-overlapping (clustering + one-per-element), so this only resolves the
 # cross-tier edge. Dropped orphans remain in the per-genome .orphans table.
 reconcile_catalog <- function(combined) {
   if (nrow(combined) == 0L) return(combined)
   src <- as.character(combined$source)
-  anch_i <- which(src == "anchored")
-  orph_i <- which(src != "anchored")
+  anch_i <- which(src == "ltr-flanked")
+  orph_i <- which(src != "ltr-flanked")
   if (length(anch_i) == 0L || length(orph_i) == 0L) return(combined)
   gr <- GenomicRanges::GRanges(
     seqnames = paste(combined$species, combined$seqname, sep = "|"),
@@ -133,7 +134,7 @@ reconcile_catalog <- function(combined) {
 }
 
 
-# Build the tidy classification report from the combined (anchored + orphan)
+# Build the tidy classification report from the combined (LTR-flanked + orphan)
 # loci frame: counts by genus, by confidence, by method, plus mosaic and
 # integration totals — split by `source` so the two tiers stay distinguishable.
 # Returns a long tibble (source, dimension, level, count); empty-safe.
@@ -145,7 +146,7 @@ build_report <- function(combined) {
     ))
   }
   cols <- c("source", "dimension", "level", "count")
-  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   per_source <- function(df, src) {
     taxon <- df %>% filter(.data$resolved == "True") %>%
       count(level = .data$taxon_call, name = "count") %>%
@@ -178,7 +179,7 @@ build_report <- function(combined) {
 # colour and legend slot — and the per-hit `positional` mode's extra non_domain
 # level never breaks a plot built on membership-mode data.
 # ----------------------------------------------------------------------------
-.SOURCE_FILL       <- c(anchored = "#1F78B4", orphan = "#33A02C")
+.SOURCE_FILL       <- c(`ltr-flanked` = "#1F78B4", orphan = "#33A02C")
 .DOMAIN_TIER_LEVELS <- c("domain_selected", "domain_unlisted", "non_domain")
 .DOMAIN_TIER_FILL   <- c(domain_selected = "#1B9E77",
                          domain_unlisted = "#D95F02",
@@ -291,9 +292,9 @@ mosaic_alluvial_plot <- function(loci) {
     filter(nzchar(.data$gene), nzchar(.data$taxon))
 }
 
-# Mosaic burden: fraction of anchored loci per species whose member genes
+# Mosaic burden: fraction of LTR-flanked loci per species whose member genes
 # disagree on their axis taxon (a recombination-load proxy). Orphans are
-# single-gene and never mosaic, so this reads the anchored loci frame.
+# single-gene and never mosaic, so this reads the LTR-flanked loci frame.
 mosaic_burden_plot <- function(loci) {
   if (nrow(loci) == 0L || !"is_mosaic" %in% names(loci)) return(empty_plot("no loci"))
   counts <- loci %>%
@@ -303,7 +304,7 @@ mosaic_burden_plot <- function(loci) {
     geom_col(position = "fill") +
     scale_fill_manual(values = c(mosaic = "#D95F02", `single-lineage` = "#7570B3")) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = NULL, y = "fraction of anchored loci", fill = NULL) +
+    labs(x = NULL, y = "fraction of ltr-flanked loci", fill = NULL) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Mosaic burden",
@@ -377,11 +378,11 @@ mosaic_composition_by_species_plot <- function(loci) {
              "Axis-taxon mix within mosaic loci, per host")
 }
 
-# Confidence-tag composition per species (HC/LC), faceted by tier so anchored
+# Confidence-tag composition per species (HC/LC), faceted by tier so LTR-flanked
 # loci and recovered orphans are both visible. Reads the combined frame.
 confidence_plot <- function(combined) {
   if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
-  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   counts <- combined %>%
     count(.data$species, .data$source, .data$confidence_tag, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$confidence_tag)) +
@@ -399,7 +400,7 @@ confidence_plot <- function(combined) {
 # Unlike confidence_plot (proportional), this shows absolute counts.
 confidence_count_plot <- function(combined) {
   if (nrow(combined) == 0L) return(empty_plot("no classified loci"))
-  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   counts <- combined %>%
     count(.data$species, .data$source, .data$confidence_tag, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$confidence_tag)) +
@@ -423,7 +424,7 @@ confidence_gradient_plot <- function(combined) {
   }
   d <- combined %>% filter(!is.na(.data$confidence_num))
   if (nrow(d) == 0L) return(empty_plot("no confidence values"))
-  if (!"source" %in% names(d)) d$source <- "anchored"
+  if (!"source" %in% names(d)) d$source <- "ltr-flanked"
   brks <- seq(0, 1, by = 0.05)
   d <- d %>% mutate(
     bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE, right = FALSE),
@@ -440,6 +441,117 @@ confidence_gradient_plot <- function(combined) {
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Confidence distribution (gradient)",
              "Per-species locus counts stacked by confidence bin")
+}
+
+
+# ----------------------------------------------------------------------------
+# Tree-attached confidence panels (ADR-011)
+# ----------------------------------------------------------------------------
+# A tree beside the bars turns an alphabetical list into a phylogenetic
+# statement: you can see whether ERV burden tracks host relatedness, or which
+# viral lineages dominate where. The tree is drawn from coordinates precomputed
+# by tree_layout.py (Bio.Phylo), so no R tree library is needed; patchwork
+# aligns the two panels on a shared y scale.
+#
+# Softer sequential palette than viridis - these panels are meant to be read
+# next to a tree, where saturated colour fights the topology for attention.
+.SOFT_CONFIDENCE <- c("#efe7d6", "#dbe3cf", "#bfd4c6", "#9cc0bf", "#7aa7ad", "#5f88a1")
+
+# Read a tree coordinate CSV written by tree_layout.py. Missing/empty file =>
+# NULL, which the builders below turn into an explanatory placeholder rather
+# than an error: a study with no species tree configured is a normal state.
+read_tree_part <- function(dir, name, part) {
+  f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
+  if (!file.exists(f)) return(NULL)
+  df <- suppressWarnings(readr::read_csv(f, show_col_types = FALSE))
+  if (nrow(df) == 0L) NULL else df
+}
+
+
+# Horizontal confidence-gradient bars whose y order is fixed by a tree, with the
+# tree drawn alongside. `key` is the catalog column the tips correspond to
+# (`species` or `taxon_call`) — level-agnostic: the taxon tree's tips are
+# whatever ranks the calls resolved to.
+tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
+                                 title, subtitle) {
+  tips <- read_tree_part(tree_dir, tree_name, "tips")
+  segs <- read_tree_part(tree_dir, tree_name, "segments")
+  if (is.null(tips)) {
+    return(empty_plot(sprintf("no %s tree available", tree_name)))
+  }
+  if (nrow(combined) == 0L || !"confidence_num" %in% names(combined) ||
+      !key %in% names(combined)) {
+    return(empty_plot("no confidence values"))
+  }
+  d <- combined %>% filter(!is.na(.data$confidence_num))
+  d <- d[as.character(d[[key]]) %in% tips$tip, , drop = FALSE]
+  if (nrow(d) == 0L) return(empty_plot("no loci matching the tree tips"))
+  if (!"source" %in% names(d)) d$source <- "ltr-flanked"
+
+  brks <- seq(0, 1, by = 0.05)
+  d <- d %>% mutate(
+    bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE,
+              right = FALSE),
+    mid = brks[as.integer(.data$bin)] + 0.025,
+    .y  = tips$y[match(as.character(.data[[key]]), tips$tip)]
+  )
+  counts <- d %>% count(.data$.y, .data$source, .data$bin, .data$mid, name = "n")
+  ylim <- c(0.4, nrow(tips) + 0.6)
+
+  bars <- ggplot(counts, aes(x = .data$n, y = .data$.y,
+                             group = .data$bin, fill = .data$mid)) +
+    geom_col(position = position_stack(reverse = TRUE), colour = NA,
+             orientation = "y") +
+    facet_wrap(~ .data$source) +
+    scale_fill_gradientn(colours = .SOFT_CONFIDENCE, limits = c(0, 1),
+                         name = "confidence") +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    labs(x = "loci (stacked low -> high confidence)", y = NULL) +
+    theme_bw() +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+          panel.grid.major.y = element_blank())
+
+  tree <- ggplot() +
+    { if (!is.null(segs)) {
+        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                      xend = .data$xend, yend = .data$yend),
+                     colour = "grey45", linewidth = 0.4, lineend = "round")
+      } } +
+    geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
+              hjust = -0.05, size = 3, colour = "grey20") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.9))) +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    theme_void()
+
+  p <- patchwork::wrap_plots(tree, bars, widths = c(1.2, 3))
+  # add_titles() styles a ggplot; a patchwork needs its annotation instead.
+  p + patchwork::plot_annotation(
+    title = title, subtitle = subtitle,
+    theme = theme(
+      plot.title      = element_text(face = "bold", hjust = 0.5, size = 16),
+      plot.subtitle   = element_text(hjust = 0.5, size = 11),
+      plot.background = element_rect(fill = "white", colour = NA)
+    )
+  )
+}
+
+
+# Viral lineages on the y axis, ordered by the reference taxonomy cladogram.
+taxon_confidence_tree_plot <- function(combined, tree_dir) {
+  tree_confidence_plot(
+    combined, tree_dir, "taxon", "taxon_call",
+    "ERV confidence by viral lineage",
+    "Reference taxonomy cladogram - stacked by confidence, split by tier"
+  )
+}
+
+# Host species on the y axis, ordered by the user-supplied species phylogeny.
+species_confidence_tree_plot <- function(combined, tree_dir) {
+  tree_confidence_plot(
+    combined, tree_dir, "species", "species",
+    "ERV confidence by host species",
+    "Host phylogeny (input.species_tree) - stacked by confidence, split by tier"
+  )
 }
 
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
@@ -509,11 +621,11 @@ confidence_vs_evidence_plot <- function(combined) {
 }
 
 # Structural completeness by tier — how many main genes each locus carries,
-# anchored proviruses vs recovered orphans. (Replaces a novel-vs-classified
+# LTR-flanked proviruses vs recovered orphans. (Replaces a novel-vs-classified
 # view: 0-hit "novel" loci are essentially absent here — they are domain-validated
 # so they have homology — so that comparison was empty. This populated view is
 # the useful one: it shows orphans are structurally simpler, mostly single
-# markers, while anchored loci carry more of the gag/pol/env complement.)
+# markers, while LTR-flanked loci carry more of the gag/pol/env complement.)
 # Counts are shown as a fraction within each tier so the two tiers' very
 # different sizes don't swamp the comparison.
 structure_by_tier_plot <- function(combined) {
@@ -532,7 +644,7 @@ structure_by_tier_plot <- function(combined) {
          y = "within-tier density", fill = "tier") +
     theme_bw()
   add_titles(p, "Structural completeness by tier",
-             "Anchored proviruses carry more genes; orphans are mostly single markers")
+             "LTR-flanked proviruses carry more genes; orphans are mostly single markers")
 }
 
 # Yield boost from the orphans tier — loci recovered per tier, per species.
@@ -545,7 +657,7 @@ source_yield_plot <- function(combined) {
     labs(x = NULL, y = "loci", fill = "tier") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Anchored vs orphan yield", "Loci recovered per tier, per species")
+  add_titles(p, "LTR-flanked vs orphan yield", "Loci recovered per tier, per species")
 }
 
 # Taxon composition split by tier — surfaces taxa present only in the orphan
@@ -563,17 +675,17 @@ taxon_by_source_plot <- function(combined) {
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Taxon composition by tier",
-             "Taxa per species, anchored vs orphan (new-lineage check)")
+             "Taxa per species, ltr-flanked vs orphan (new-lineage check)")
 }
 
 
-# Per-provirus domain-tier composition on anchored loci: the recall the new
+# Per-provirus domain-tier composition on LTR-flanked loci: the recall the new
 # labelling preserves — domain_selected (config-matched Pfam) vs domain_unlisted
-# (a Pfam domain, just not in the curated set) vs non_domain (anchored purely by
+# (a Pfam domain, just not in the curated set) vs non_domain (LTR-flanked purely by
 # position). Fraction within species so genome size doesn't swamp the mix.
 domain_tier_composition_plot <- function(loci) {
   if (nrow(loci) == 0L || !"domain_tier" %in% names(loci)) {
-    return(empty_plot("no anchored loci"))
+    return(empty_plot("no ltr-flanked loci"))
   }
   d <- loci %>%
     mutate(domain_tier = factor(.data$domain_tier, levels = .DOMAIN_TIER_LEVELS))
@@ -582,11 +694,11 @@ domain_tier_composition_plot <- function(loci) {
     geom_col(position = "fill") +
     scale_fill_manual(values = .DOMAIN_TIER_FILL, drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = NULL, y = "fraction of anchored loci", fill = "domain tier") +
+    labs(x = NULL, y = "fraction of ltr-flanked loci", fill = "domain tier") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   add_titles(p, "Domain-tier composition",
-             "Per-provirus domain support of anchored loci (recall preserved)")
+             "Per-provirus domain support of ltr-flanked loci (recall preserved)")
 }
 
 
@@ -596,7 +708,7 @@ structure_class_composition_plot <- function(combined) {
   if (nrow(combined) == 0L || !"structure_class" %in% names(combined)) {
     return(empty_plot("no loci"))
   }
-  if (!"source" %in% names(combined)) combined$source <- "anchored"
+  if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   d <- combined %>%
     mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS))
   counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
@@ -628,9 +740,13 @@ main <- function() {
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--report_csv", required = TRUE,
                       help = "Output path for the tidy classification report CSV.")
+  parser$add_argument("--tree_dir", required = FALSE, default = "",
+                      help = paste("Directory of tree coordinate CSVs from",
+                                   "tree_layout.py. Absent/empty renders the",
+                                   "tree panels as placeholders."))
   parser$add_argument("--catalog_csv", required = TRUE,
                       help = paste("Output path for the unified authoritative ERV",
-                                   "catalog CSV (anchored proviruses + clustered",
+                                   "catalog CSV (ltr-flanked proviruses + clustered",
                                    "orphan loci, one non-overlapping record each)."))
   args <- parser$parse_args()
 
@@ -639,6 +755,10 @@ main <- function() {
   plot_height    <- cfg$plots$height %||% 12
   plot_width     <- cfg$plots$width  %||% 15
   confidence_min <- cfg$classification$confidence_min %||% 0.5
+  # Canvas growth per extra category past the base, and the hard ceiling in
+  # inches (at 300 dpi, 60in is ~18,000 px — the practical PNG limit).
+  per_stratum    <- cfg$plots$per_stratum %||% 0.18
+  max_dim        <- cfg$plots$max_dim     %||% 60
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek taxonomy plot generation (output: %s)", args$output))
@@ -661,43 +781,74 @@ main <- function() {
         completeness_num = suppressWarnings(as.numeric(.data$completeness))
       )
   }
-  log_section(sprintf("Loaded %d anchored loci + %d recovered orphans across %d species",
-                      nrow(loci), nrow(orphans), length(unique(combined$species))))
+  n_species <- length(unique(combined$species))
+  log_section(sprintf("Loaded %d ltr-flanked loci + %d recovered orphans across %d species",
+                      nrow(loci), nrow(orphans), n_species))
 
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$output,
+  # `n_x` = number of categories on the x axis (species, for the per-species
+  # panels). Supplying it scales BOTH the canvas and the tick-label text/angle,
+  # so a 102-genome study stays readable; omitting it keeps the fixed config
+  # canvas for plots whose x axis is not per-species (histograms, heatmaps,
+  # alluvials). Applied here rather than in each builder so the whole panel's
+  # scaling decisions are visible in one place.
+  emit <- function(name, plot, n_x = NULL) {
+    if (!is.null(n_x)) plot <- scale_categorical_axis(plot, n_x, axis = "x",
+                                                      base_w = plot_width,
+                                                      base_h = plot_height,
+                                                      per_stratum = per_stratum,
+                                                      cap = max_dim)
+    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  # Taxonomy composition plots stay on the anchored loci (the taxon-founded
+  # Taxonomy composition plots stay on the LTR-flanked loci (the taxon-founded
   # assembly); the confidence plot spans both tiers.
-  emit("taxon_composition.png",     taxon_composition_plot(loci))
-  emit("rank_resolution.png",       rank_resolution_plot(loci))
-  emit("method_mix.png",            method_mix_plot(loci))
-  emit("erv_class_composition.png", erv_class_composition_plot(loci))
+  emit("taxon_composition.png",     taxon_composition_plot(loci), n_species)
+  emit("rank_resolution.png",       rank_resolution_plot(loci), n_species)
+  emit("method_mix.png",            method_mix_plot(loci), n_species)
+  emit("erv_class_composition.png", erv_class_composition_plot(loci), n_species)
   emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
   # Mosaic sub-panel (recombination): burden, partner heatmap, per-gene
   # discordance, per-species composition.
-  emit("mosaic_burden.png",              mosaic_burden_plot(loci))
+  emit("mosaic_burden.png",              mosaic_burden_plot(loci), n_species)
   emit("mosaic_taxon_pairs.png",         mosaic_taxon_pairs_plot(loci))
   emit("mosaic_gene_discordance.png",    mosaic_gene_discordance_plot(loci))
-  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci))
-  emit("confidence.png",            confidence_plot(combined))
-  emit("confidence_count.png",      confidence_count_plot(combined))
-  emit("confidence_gradient.png",   confidence_gradient_plot(combined))
+  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci), n_species)
+  emit("confidence.png",            confidence_plot(combined), n_species)
+  emit("confidence_count.png",      confidence_count_plot(combined), n_species)
+  emit("confidence_gradient.png",   confidence_gradient_plot(combined), n_species)
 
   # Evidence / confidence / orphans panel (spans both tiers).
   emit("evidence_depth.png",        evidence_depth_plot(combined))
   emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
   emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
   emit("structure_by_tier.png",     structure_by_tier_plot(combined))
-  emit("source_yield.png",          source_yield_plot(combined))
-  emit("taxon_by_source.png",       taxon_by_source_plot(combined))
+  emit("source_yield.png",          source_yield_plot(combined), n_species)
+  emit("taxon_by_source.png",       taxon_by_source_plot(combined), n_species)
 
-  # Domain-tier + structural-class panels (ADR-009): the recall the anchored
+  # Domain-tier + structural-class panels (ADR-009): the recall the LTR-flanked
   # relabelling preserves, and the first full/partial/gene catalogue.
-  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci))
-  emit("structure_class_composition.png", structure_class_composition_plot(combined))
+  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci), n_species)
+  emit("structure_class_composition.png", structure_class_composition_plot(combined), n_species)
+
+  # Tree-attached panels (ADR-011): the same confidence stacks, ordered by
+  # phylogeny instead of alphabetically. Height grows with tip count.
+  tree_dir <- args$tree_dir %||% ""
+  n_taxa <- length(unique(combined$taxon_call))
+  # Canvas only, no axis theme: the TREE supplies the tip labels, so the bar
+  # panel's y axis stays deliberately blank. scale_categorical_axis() would
+  # re-enable axis.text.y and print the row indices next to the tree.
+  emit_tree <- function(name, plot, n_tips) {
+    dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,
+                      base_h = plot_height, per_stratum = per_stratum,
+                      cap = max_dim)
+    save_plot(name, plot, args$output, dims = dims,
+              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  }
+  emit_tree("taxon_confidence_tree.png",
+            taxon_confidence_tree_plot(combined, tree_dir), n_taxa)
+  emit_tree("species_confidence_tree.png",
+            species_confidence_tree_plot(combined, tree_dir), n_species)
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
@@ -705,12 +856,13 @@ main <- function() {
   readr::write_csv(build_report(combined), args$report_csv)
 
   # Unified authoritative catalog: every locus as ONE non-overlapping record —
-  # anchored proviruses (LTR-confirmed) + clustered orphan loci (proximity-
+  # LTR-flanked proviruses (LTR-confirmed) + clustered orphan loci (proximity-
   # inferred), `source` keeping the confidence gradient explicit. The single
   # "this is what we found at this location, and here's everything about it" table.
   catalog_cols <- c(
     "species", "source", "seqname", "start", "end", "strand",
-    "taxon_call", "rank", "resolved", "confidence", "confidence_tag", "erv_class",
+    "taxon_call", "rank", "segment", "segment_rank",
+    "resolved", "confidence", "confidence_tag", "erv_class",
     "structure_class", "domain_tier", "oversized", "canonical_order",
     "completeness", "n_main_genes", "genes_present", "is_mosaic",
     "mosaic_composition", "n_blastx_hits", "method", "id"
@@ -724,7 +876,7 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done — wrote 20 PNGs to %s + report %s + catalog %s",
+  log_section(sprintf("Done — wrote 22 PNGs to %s + report %s + catalog %s",
                       args$output, args$report_csv, args$catalog_csv))
 }
 

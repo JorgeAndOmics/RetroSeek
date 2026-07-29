@@ -243,27 +243,42 @@ main <- function() {
   plot_dpi    <- cfg$plots$dpi    %||% 300
   plot_height <- cfg$plots$height %||% 12
   plot_width  <- cfg$plots$width  %||% 15
+  per_stratum <- cfg$plots$per_stratum %||% 0.18
+  max_dim     <- cfg$plots$max_dim     %||% 60
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek structure panel — ERV structural plots (output: %s)", args$output))
 
   loci <- load_taxon_loci(args$input)
+  # Canonicalize the genome stem to the config `species:` display name at the
+  # single load point, so every builder below plots "Mus musculus" rather than
+  # the raw stem (mus_musculus / HLmyoMyo6). Unmapped stems pass through.
+  if (nrow(loci) > 0L) loci$species <- relabel_species(loci$species, cfg$species)
   log_section(sprintf("Loaded %d loci across %d species",
                       nrow(loci), length(unique(loci$species))))
 
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$output,
+  # `n_x` = category count on the x axis; supplying it scales the canvas AND the
+  # tick text/angle so high-genome-count studies stay readable. Omitted for the
+  # histograms, whose x axis is a continuous measure, not one tick per species.
+  n_species <- length(unique(loci$species))
+  emit <- function(name, plot, n_x = NULL) {
+    if (!is.null(n_x)) plot <- scale_categorical_axis(plot, n_x, axis = "x",
+                                                      base_w = plot_width,
+                                                      base_h = plot_height,
+                                                      per_stratum = per_stratum,
+                                                      cap = max_dim)
+    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
   # Bare filenames — the structure/ dir already names the panel (no erv_like_ prefix).
   emit("completeness.png",        completeness_plot(loci))
-  emit("canonical_order.png",     canonical_order_plot(loci))
+  emit("canonical_order.png",     canonical_order_plot(loci), n_species)
   emit("gene_combinations.png",   gene_combinations_plot(loci))
   emit("length_distribution.png", length_distribution_plot(loci))
   emit("n_main_genes.png",        n_main_genes_plot(loci))
-  emit("composition_heatmap.png", composition_heatmap_plot(loci))
-  emit("structure_class.png",     structure_class_plot(loci))
+  emit("composition_heatmap.png", composition_heatmap_plot(loci), n_species)
+  emit("structure_class.png",     structure_class_plot(loci), n_species)
 
   log_section(sprintf("Done — wrote 7 PNGs to %s", args$output))
 }

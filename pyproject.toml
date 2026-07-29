@@ -84,6 +84,7 @@ disallow_untyped_defs = false
 module = [
     "Bio.*",
     "pandas",
+    "pyarrow.*",
     "pandera.*",
     "dill.*",
     "yaml",
@@ -93,6 +94,16 @@ module = [
     "snakemake.*",
 ]
 ignore_missing_imports = true
+
+# tree_layout wraps Bio.Phylo, whose tree API ships no call signatures and whose
+# Clade objects are extended with layout coordinates at runtime (the documented
+# Bio.Phylo idiom). Both are inherent to using that library, not looseness in our
+# code: every function here still carries full annotations, and only these two
+# library-interface checks are relaxed.
+[[tool.mypy.overrides]]
+module = ["tree_layout"]
+disallow_untyped_calls = false
+disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "workflow/tests"]

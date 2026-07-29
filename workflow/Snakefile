@@ -1009,7 +1009,7 @@ _PROBE_CSV = config['input']['probe_csv']
 # rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
 # =============================================================================
 # 8. TAXONOMIC CLASSIFICATION — per-locus taxon calls (rank-agnostic axis)
-#    build the taxon-comprehensive reference + placement trees, classify anchored
+#    build the taxon-comprehensive reference + placement trees, classify LTR-flanked
 #    loci, recover + classify the orphans tier, and render the taxonomy panel.
 # =============================================================================
 rule taxonomy_reference:
@@ -1095,6 +1095,7 @@ rule taxonomy_classify_setup:
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
+        segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy')
     threads: config.get('rule_threads', 1)
     shell:
@@ -1104,7 +1105,7 @@ rule taxonomy_classify_setup:
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source anchored \
+            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1157,6 +1158,7 @@ rule taxonomy_orphans_setup:
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
+        segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans')
     threads: config.get('rule_threads', 1)
     shell:
@@ -1166,7 +1168,7 @@ rule taxonomy_orphans_setup:
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --source orphan --gate-classified \
+            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1189,12 +1191,58 @@ rule taxonomy_orphans:
 
 # Taxonomy plot panel — taxon composition, rank/method resolution, mosaic. Derived
 # from the loci tables (so plots and tables are concordant by construction).
+# =============================================================================
+# 8b. TAXONOMY TREE LAYOUT - flat coordinates for the tree-attached panels
+#     Builds the taxon cladogram from the reference taxonomy hierarchy and, when
+#     the user pinned one, prunes their host-species Newick to the study's
+#     species. Emits x/y CSVs so the R panels draw trees without an R tree
+#     library (Bio.Phylo does the work; biopython is already a dependency).
+#     Reads the per-genome loci/orphan parquets - NOT catalog.csv, which is an
+#     OUTPUT of the plot stage, so depending on it here would cycle.
+# =============================================================================
+rule taxonomy_tree_layout_setup:
+    input:
+        loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
+                                        genome=species_with_hits(wildcards)),
+        orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
+                                           genome=species_with_hits(wildcards))
+    output:
+        coords = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'], '{tree}.tree_{part}.csv'),
+                        tree=['taxon', 'species'], part=['segments', 'tips'])
+    params:
+        parquet_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
+        out_dir      = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
+        taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv'),
+        config_yaml  = defaults.CONFIG_FILE,
+        species_tree = (config.get('input', {}) or {}).get('species_tree', '') or ''
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'taxonomy_tree_layout', 'tree_layout.log')
+    shell:
+        '''
+        set -euo pipefail
+        mkdir -p "$(dirname {log:q})"
+        PYTHONPATH=scripts python scripts/taxonomy/tree_layout.py \
+        --parquet-dir {params.parquet_dir:q} \
+        --taxonomy-tsv {params.taxonomy_tsv:q} \
+        --out-dir {params.out_dir:q} \
+        --config {params.config_yaml:q} \
+        $( [ -n "{params.species_tree}" ] && echo --species-tree "{params.species_tree}" ) \
+        2> {log:q}
+        '''
+
+
+rule taxonomy_tree_layout:
+    input:
+        coords = rules.taxonomy_tree_layout_setup.output.coords
+
+
 rule taxonomy_plot_generator_setup:
     input:
         loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                                         genome=species_with_hits(wildcards)),
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
-                                             genome=species_with_hits(wildcards))
+                                             genome=species_with_hits(wildcards)),
+        trees = rules.taxonomy_tree_layout_setup.output.coords
     output:
         plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
                        tax_plot=['taxon_composition',
@@ -1216,12 +1264,15 @@ rule taxonomy_plot_generator_setup:
                                  'mosaic_gene_discordance',
                                  'mosaic_composition_by_species',
                                  'confidence_count',
-                                 'confidence_gradient']),
+                                 'confidence_gradient',
+                                 'taxon_confidence_tree',
+                                 'species_confidence_tree']),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv'),
         catalog = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
+        tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1231,6 +1282,7 @@ rule taxonomy_plot_generator_setup:
         --input {params.parquet_dir:q} \
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q} \
+        --tree_dir {params.tree_dir:q} \
         --report_csv {output.report:q} \
         --catalog_csv {output.catalog:q}
         '''
@@ -1246,6 +1298,37 @@ rule taxonomy_plot_generator:
 # the per-genome novel candidates (loci with zero blastx homology), and renders
 # the funnel plot. Aggregate rule: demands every genome's counts + loci so the
 # funnel is complete.
+# =============================================================================
+# 8c. TAXONOMY SEGMENTS - split the authoritative catalog by taxonomic segment
+#     Each locus already carries `segment` (its ancestor at
+#     classification.segment_rank, or unassigned_at_<rank>), derived in the
+#     classifier from the reference hierarchy - so this stage is a pure split
+#     plus a curated per-segment plot subset. Rank-agnostic: set segment_rank to
+#     family and the same code segments by family.
+# =============================================================================
+rule taxonomy_segments_setup:
+    input:
+        catalog = rules.taxonomy_plot_generator_setup.output.catalog
+    output:
+        summary = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv')
+    params:
+        out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
+        config_yaml = defaults.CONFIG_FILE
+    shell:
+        '''
+        Rscript scripts/taxonomy/taxonomy_segments.R \
+        --catalog {input.catalog:q} \
+        --output {params.out_dir:q} \
+        --config {params.config_yaml:q} \
+        --summary_csv {output.summary:q}
+        '''
+
+
+rule taxonomy_segments:
+    input:
+        summary = rules.taxonomy_segments_setup.output.summary
+
+
 # =============================================================================
 # 9. LOSS ANALYSIS — per-stage funnel + novel candidates
 #    union the ranges-analysis and blastx-stage counts into one attrition funnel,

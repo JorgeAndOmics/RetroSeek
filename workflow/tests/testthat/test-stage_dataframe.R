@@ -58,8 +58,8 @@ source(file.path(.script_dir, "stage_dataframe.R"))
 test_that("build_stage_hits_df classifies inside / flanking / disjoint concordance", {
   gv     <- .fake_gr_virus()
   retros <- .fake_retros()
-  cand   <- gv[c(1, 2)]   # loci 1 & 2 are anchored (candidates)
-  # valid is now the annotated anchored set (both candidates), carrying the
+  cand   <- gv[c(1, 2)]   # loci 1 & 2 are ltr-flanked (candidates)
+  # valid is now the annotated LTR-flanked set (both candidates), carrying the
   # per-provirus domain_tier + per-hit domain_hit_class labels.
   valid  <- gv[c(1, 2)]
   S4Vectors::mcols(valid)$domain_tier      <- c("domain_selected", "domain_unlisted")
@@ -71,7 +71,7 @@ test_that("build_stage_hits_df classifies inside / flanking / disjoint concordan
   expect_equal(df$concordance[df$probe == "GAG"], "flanking")  # ~600 bp from retro_2
   expect_equal(df$concordance[df$probe == "ENV"], "disjoint")  # far from all retros
   expect_equal(df$is_candidate, c(TRUE, TRUE, FALSE))
-  # domain labels join by ID; non-anchored locus 3 (ENV) is NA.
+  # domain labels join by ID; non-LTR-flanked locus 3 (ENV) is NA.
   expect_equal(df$domain_tier, c("domain_selected", "domain_unlisted", NA_character_))
   expect_equal(df$domain_hit_class,
                c("substring_match", "no_substring_match", NA_character_))

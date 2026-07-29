@@ -37,7 +37,7 @@ source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
     query_coverage = c(0.9, 0.4, 0.6, 0.85, 0.5),
     concordance    = c("inside", "flanking", "inside", "disjoint", "inside"),
     is_candidate   = c(TRUE, TRUE, TRUE, FALSE, TRUE),
-    # domain_tier replaces the old is_valid boolean; NA for the non-anchored locus.
+    # domain_tier replaces the old is_valid boolean; NA for the non-LTR-flanked locus.
     domain_tier    = c("domain_selected", "domain_unlisted", "domain_selected",
                        NA_character_, "non_domain"),
     domain_hit_class = c("substring_match", "no_substring_match", "substring_match",

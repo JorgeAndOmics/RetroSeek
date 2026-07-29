@@ -23,7 +23,7 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_plot_generator.R"))
 
 
 test_that("build_report counts by taxon, confidence, method + mosaic/integrations", {
-  rep <- build_report(.fake_loci("anchored"))
+  rep <- build_report(.fake_loci("ltr-flanked"))
 
   # taxon counts only over axis-resolved rows
   taxon <- rep %>% filter(dimension == "taxon")
@@ -45,10 +45,10 @@ test_that("build_report counts by taxon, confidence, method + mosaic/integration
   expect_equal(summ$count[summ$level == "integrations"], 3L)
 })
 
-test_that("build_report splits by source (anchored vs orphan)", {
-  combined <- bind_rows(.fake_loci("anchored"), .fake_loci("orphan"))
+test_that("build_report splits by source (ltr-flanked vs orphan)", {
+  combined <- bind_rows(.fake_loci("ltr-flanked"), .fake_loci("orphan"))
   rep <- build_report(combined)
-  expect_setequal(unique(rep$source), c("anchored", "orphan"))
+  expect_setequal(unique(rep$source), c("ltr-flanked", "orphan"))
   # each tier reports its own 3 integrations
   integ <- rep %>% filter(dimension == "summary", level == "integrations")
   expect_true(all(integ$count == 3))
@@ -78,8 +78,8 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
   combined <- tribble(
     ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag, ~method,
     ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~structure_class, ~domain_tier, ~source,
-    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "anchored",
-    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "anchored",
+    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "ltr-flanked",
+    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "ltr-flanked",
     "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "gene",    "non_domain",      "orphan"
   )
   # main() adds the numeric helper columns; mirror that here.
@@ -111,20 +111,20 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
-test_that("reconcile_catalog drops orphans overlapping an anchored locus (anchored precedence)", {
+test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr-flanked precedence)", {
   combined <- tribble(
     ~species, ~source,    ~seqname, ~start, ~end,   ~id,
-    "g1",     "anchored", "chr1",   "1000", "2000", "A1",
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
     "g1",     "orphan",   "chr1",   "1500", "1800", "O1",   # overlaps A1 -> drop
     "g1",     "orphan",   "chr1",   "5000", "5300", "O2",   # clear -> keep
     "g1",     "orphan",   "chr2",   "1500", "1800", "O3"    # different seqname -> keep
   )
   out <- reconcile_catalog(combined)
   expect_setequal(out$id, c("A1", "O2", "O3"))          # O1 dropped
-  expect_true(all(out$source[out$id == "A1"] == "anchored"))
+  expect_true(all(out$source[out$id == "A1"] == "ltr-flanked"))
   # empty-safe + single-tier passthrough
   expect_equal(nrow(reconcile_catalog(combined[0, ])), 0L)
-  expect_equal(nrow(reconcile_catalog(combined[combined$source == "anchored", ])), 1L)
+  expect_equal(nrow(reconcile_catalog(combined[combined$source == "ltr-flanked", ])), 1L)
 })
 
 test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {
@@ -151,4 +151,56 @@ test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", 
   expect_match(mosaic_taxon_pairs_plot(none)$labels$title, "no mosaic loci")
   expect_match(mosaic_gene_discordance_plot(none)$labels$title, "no mosaic loci")
   expect_s3_class(mosaic_burden_plot(loci[0, ]), "ggplot")
+})
+
+
+# ---------------------------------------------------------------------------
+# Tree-attached confidence panels (ADR-011). The tree comes from coordinate
+# CSVs written by tree_layout.py, so these tests write those directly.
+# ---------------------------------------------------------------------------
+.write_tree_fixture <- function(dir, name, tips) {
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  readr::write_csv(
+    tibble::tibble(tip = tips, x = 1, y = seq_along(tips)),
+    file.path(dir, paste0(name, ".tree_tips.csv"))
+  )
+  readr::write_csv(
+    tibble::tibble(x = 0, y = 1, xend = 0, yend = length(tips)),
+    file.path(dir, paste0(name, ".tree_segments.csv"))
+  )
+}
+
+test_that("read_tree_part returns NULL for a missing or header-only file", {
+  tmp <- tempfile(); dir.create(tmp)
+  expect_null(read_tree_part(tmp, "species", "tips"))     # no file at all
+  readr::write_csv(tibble::tibble(tip = character(), x = numeric(), y = numeric()),
+                   file.path(tmp, "species.tree_tips.csv"))
+  expect_null(read_tree_part(tmp, "species", "tips"))     # header only
+})
+
+test_that("tree panels degrade to a placeholder when no tree is configured", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- 0.9
+  expect_s3_class(species_confidence_tree_plot(d, tmp), "ggplot")
+  expect_s3_class(taxon_confidence_tree_plot(d, tmp), "ggplot")
+})
+
+test_that("species tree panel builds when tips match the loci", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- c(0.9, 0.4)[seq_len(nrow(d)) %% 2 + 1]
+  .write_tree_fixture(tmp, "species", unique(as.character(d$species)))
+  p <- species_confidence_tree_plot(d, tmp)
+  expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
+})
+
+test_that("taxon tree panel builds and is level-agnostic about tip rank", {
+  tmp <- tempfile(); dir.create(tmp)
+  d <- .fake_loci("ltr-flanked")
+  d$confidence_num <- 0.8
+  # Mixed-rank tips: a genus and a family side by side (ADR-008).
+  .write_tree_fixture(tmp, "taxon", unique(as.character(d$taxon_call)))
+  p <- taxon_confidence_tree_plot(d, tmp)
+  expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
 })

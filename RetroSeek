@@ -137,6 +137,14 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--segment',
+        action='store_true',
+        help="Split the authoritative ERV catalog by taxonomic segment: one table "
+             "per taxon at classification.segment_rank (genus by default, any rank), "
+             "plus a curated plot subset per segment. Requires --classify output."
+    )
+
+    parser.add_argument(
         '-skp',
         '--skip-validation',
         action='store_true',
@@ -220,6 +228,9 @@ if __name__ == '__main__':
 
     if args.classify:
         main_cmd.append('--classify')
+
+    if args.segment:
+        main_cmd.append('--segment')
 
     # Resolve an explicit `--configfile` to an ABSOLUTE path so both halves of the
     # pipeline agree on it: `defaults.py` (which reads RETROSEEK_CONFIG to build

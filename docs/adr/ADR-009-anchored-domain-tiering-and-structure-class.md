@@ -5,6 +5,12 @@
 - **Deciders**: Jorge González García
 - **Refines**: [ADR-007](ADR-007-taxonomic-classification.md) (per-locus assembly), [ADR-008](ADR-008-rank-agnostic-classification.md)
 
+> **Terminology note (2026-07-23).** What this ADR calls the **anchored** tier is
+> now named **`ltr-flanked`** throughout the code, data values and current docs —
+> see [ADR-011](ADR-011-phylogeny-aware-plots-and-rank-segmentation.md). This file
+> keeps the original wording (and its filename) because an ADR records what was
+> decided at the time; read "anchored" here as "ltr-flanked".
+
 ## Context
 
 The candidate→valid step (`ranges/validation.R::find_valid_hits`) **discarded**

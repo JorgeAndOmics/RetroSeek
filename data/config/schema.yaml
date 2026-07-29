@@ -82,6 +82,7 @@ classification_schema:
   min_orf:         int(min=0)
   confidence_min:  num(min=0, max=1, required=False)
   structure_full_min: num(min=0, max=1, required=False)
+  segment_rank: str(required=False)
   reference_taxa:  list(str(), required=False)
 
 
@@ -127,6 +128,8 @@ plots_schema:
   sankey_other_label: str(required=False)
   waffle_unit_hits: any(int(min=1), null(), required=False)
   circle_plot_bitscore_threshold: num(min=0)
+  per_stratum: num(min=0, required=False)
+  max_dim: num(min=1, required=False)
 
 execution_schema:
   num_cores: int(min=1)
@@ -138,6 +141,7 @@ execution_schema:
 
 input_schema:
   probe_csv: str()
+  species_tree: str(required=False)
 
 display_schema:
   display_snakemake_info: bool()
