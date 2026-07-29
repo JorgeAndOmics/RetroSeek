@@ -90,20 +90,22 @@ density matters more than tier purity.
   applied by default: `source: both` for density, a larger `window_size`, or
   `input: original` for genome-wide calling.
 
-  Measured head-to-head on *Mus musculus*, same genome and window size:
+  Measured head-to-head, same genomes and window size:
 
-  | tier | events | groups | regions called |
-  |---|---|---|---|
-  | `catalog` (ltr-flanked) | 7,270 | 7 taxa | **2** |
-  | `original` (raw hits) | 218,370 | 1 (pooled) | 1 |
+  | genome | tier | events | groups | regions called |
+  |---|---|---|---|---|
+  | *Mus musculus* | `catalog` | 7,270 | 7 taxa | **2** |
+  | *Mus musculus* | `original` | 218,370 | 1 (pooled) | 1 |
+  | *Antrozous pallidus* | `catalog` | 905 | 6 taxa | 0 |
+  | *Antrozous pallidus* | `original` | 21,931 | 1 (pooled) | 0 |
 
-  Sparser input did **not** mean less sensitive. Two effects work against the
-  dense tier: 218k hits over 5,499 windows put the NB baseline so high that a
-  genuine cluster struggles to exceed it, and raw hits carry no taxonomic call,
-  so everything pools into one model where a lineage-specific cluster is diluted.
-  Counting events and grouping by lineage is both more interpretable and, here,
-  more sensitive. The zero calls on the other four genomes are a real limit of
-  500 kb windows at those event counts, not an artifact of the repoint.
+  Sparser input did **not** mean less sensitive. On *Mus* the catalog tier found
+  MORE regions despite 30x fewer events: 218k hits over 5,499 windows push the NB
+  baseline so high that a genuine cluster struggles to exceed it, and raw hits
+  carry no taxonomic call, so everything pools into one model where a
+  lineage-specific cluster is diluted. On *Antrozous* both tiers agree on zero,
+  which is the useful control - the empty result is a property of that genome at
+  500 kb windows, not an artifact of counting events.
 - **Coupling**: `--hotspot-detection` now depends on the classification stage
   under the default tier.
 
