@@ -53,7 +53,7 @@ count_hits_per_window <- function(windows, hits) {
 #' @param chrom_stratum   named character vector keyed by chromosome name,
 #'                        produced by `pool_small_scaffolds()`
 #' @param label           single character - the retrovirus genus or
-#'                        "Ungrouped" when `hotspot.group_split = false`
+#'                        "Ungrouped" when `hotspot.group_by = none`
 assemble_window_table <- function(windows, counts, effective_bp,
                                   chrom_stratum, label) {
   chrom <- as.character(GenomicRanges::seqnames(windows))

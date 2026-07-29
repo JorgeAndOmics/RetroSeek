@@ -11,6 +11,7 @@
 
 suppressMessages({
   library(yaml)
+  library(readr)
   library(GenomicRanges)
   library(Biostrings)
   library(rtracklayer)
@@ -62,11 +63,106 @@ load_hits_gff <- function(gff_path) {
   hits <- rtracklayer::import(gff_path, format = "gff3")
   if (!"label" %in% colnames(S4Vectors::mcols(hits))) {
     stop(sprintf(
-      "Input GFF3 %s does not contain a 'label' metadata column. The hotspot detector splits hits by retrovirus genus via mcols$label; without it, group_split=true cannot operate.",
+      "Input GFF3 %s does not contain a 'label' metadata column, so the raw-hit tier cannot be read. Regenerate the track via ranges_analysis, or use hotspot.input=catalog.",
       gff_path
     ))
   }
   hits
+}
+
+
+#' Fold a species label to a comparison key.
+#'
+#' The catalog keys on the config DISPLAY name ("Mus musculus") while the rule
+#' wildcard is the genome stem ("Mus_musculus"), so matching has to ignore the
+#' separator and case. Same trap that silently emptied the species tree panel.
+.species_key <- function(x) {
+  tolower(trimws(gsub("_", " ", as.character(x))))
+}
+
+
+#' Load one genome's loci from the authoritative catalog (ADR-012).
+#'
+#' The catalog is the per-locus, non-overlapping ERV assembly: one row per
+#' integration event, carrying the taxonomic call, the structural class and the
+#' tier. Counting THESE rather than tBLASTn hits is the point of the repoint -
+#' a GAG+POL+ENV provirus is one integration, not three.
+#'
+#' `catalog.csv` holds every species, so the genome is selected by matching its
+#' stem against the catalog `species` column through the config `species:` map
+#' (display name), separator- and case-insensitively. A genome that matches zero
+#' rows aborts: silently returning nothing is indistinguishable from a genome
+#' with no ERVs, which is exactly the failure mode this pipeline refuses.
+#'
+#' @param catalog_path path to catalog.csv
+#' @param genome       genome stem (the Snakemake wildcard)
+#' @param species_map  config `species:` list (stem -> display name); may be NULL
+#' @param source       "ltr-flanked" (default), "orphan", or "both"
+#' @return GRanges of loci with the catalog columns as mcols
+load_catalog_loci <- function(catalog_path, genome, species_map = NULL,
+                              source = "ltr-flanked") {
+  df <- readr::read_csv(catalog_path, show_col_types = FALSE, progress = FALSE)
+  required <- c("species", "seqname", "start", "end")
+  missing <- setdiff(required, colnames(df))
+  if (length(missing) > 0L) {
+    stop(sprintf(
+      "Catalog %s is missing required column(s): %s. Re-run taxonomy_plot_generator to regenerate it.",
+      catalog_path, paste(missing, collapse = ", ")
+    ), call. = FALSE)
+  }
+
+  # A genome may appear under its stem or its display name; accept both.
+  display <- if (!is.null(species_map) && !is.null(species_map[[genome]])) {
+    as.character(species_map[[genome]])
+  } else {
+    genome
+  }
+  wanted <- unique(.species_key(c(genome, display)))
+  df <- df[.species_key(df$species) %in% wanted, , drop = FALSE]
+  if (nrow(df) == 0L) {
+    stop(sprintf(
+      paste0(
+        "No catalog rows for genome '%s' (display name '%s') in %s. Either the ",
+        "classification stage has not run for this genome, or the config `species:` ",
+        "map does not match the catalog's species values."
+      ),
+      genome, display, catalog_path
+    ), call. = FALSE)
+  }
+
+  if (!identical(source, "both")) {
+    if (!"source" %in% colnames(df)) {
+      stop(sprintf(
+        "Catalog %s has no `source` column, so hotspot.source='%s' cannot be applied.",
+        catalog_path, source
+      ), call. = FALSE)
+    }
+    df <- df[as.character(df$source) == source, , drop = FALSE]
+    if (nrow(df) == 0L) {
+      stop(sprintf(
+        "No '%s' loci for genome '%s' in %s. Set hotspot.source to 'both' or check the tier.",
+        source, genome, catalog_path
+      ), call. = FALSE)
+    }
+  }
+
+  gr <- GenomicRanges::GRanges(
+    seqnames = as.character(df$seqname),
+    ranges   = IRanges::IRanges(
+      start = suppressWarnings(as.integer(df$start)),
+      end   = suppressWarnings(as.integer(df$end))
+    ),
+    strand   = ifelse(as.character(df$strand) %in% c("+", "-"), df$strand, "*")
+  )
+  # Carry the axes the composition annotation and grouping need. Absent columns
+  # are skipped rather than fabricated, so an older catalog still loads.
+  carry <- c("taxon_call", "segment", "segment_rank", "structure_class",
+             "domain_tier", "confidence", "confidence_tag", "source",
+             "erv_class", "is_mosaic", "label")
+  for (col in intersect(carry, colnames(df))) {
+    S4Vectors::mcols(gr)[[col]] <- as.character(df[[col]])
+  }
+  gr
 }
 
 
@@ -117,8 +213,13 @@ read_hotspot_options <- function(config) {
   h <- config$hotspot
   list(
     seed                 = as.integer(config$parameters$seed     %||% 67L),
-    input                = h$input                                %||% "valid",
-    group_split          = isTRUE(h$group_split                   %||% FALSE),
+    input                = h$input                                %||% "catalog",
+    # Grouping axis for the per-group NB models. `segment` / `taxon_call` are the
+    # authoritative calls (ADR-008/011); `none` pools everything. The legacy
+    # `label` (probe provenance) is retired as a grouping axis.
+    group_by             = h$group_by                             %||% "segment",
+    # Which catalog tier is counted: LTR-confirmed proviruses by default.
+    source               = h$source                               %||% "ltr-flanked",
     window_size          = as.integer(h$window_size              %||% 500000L),
     mask_size            = as.integer(h$mask_size                %||% 20L),
     mask_mismatch        = as.integer(h$mask_mismatch            %||% 3L),

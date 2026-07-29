@@ -35,6 +35,9 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | `--generate-global-plots`   | `plot_generator`              | Plot dataframes                         | PNG plots (density, raincloud, bar, Sankey)  |
 | `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF            |
 | `--hotspot-detection`       | `hotspot_detector`            | Original GFF3 tracks + FASTA            | Hotspot CSV + GFF3 + histogram/density PDFs  |
+
+> **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and `{genome}_composition.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
+
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
 | `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `valid_ranges.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
 | `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |

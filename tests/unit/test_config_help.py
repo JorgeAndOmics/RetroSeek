@@ -74,9 +74,10 @@ def test_seed_drift_is_closed() -> None:
 
 def test_hotspot_input_resolves_with_enum_and_live_value() -> None:
     """`hotspot.input` (a top-level dotted key) shows its enum and default."""
+    # ADR-012: the per-locus catalog is the default tier; `valid` is retired.
     out = config_help.render("hotspot.input")
-    assert "valid | original" in out
-    assert "default: valid" in out
+    assert "catalog | original" in out
+    assert "default: catalog" in out
     assert "docs/configuration.md#" in out
 
 

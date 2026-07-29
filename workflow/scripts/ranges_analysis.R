@@ -2,7 +2,7 @@
 # ranges_analysis.R - orchestrator
 # =============================================================================
 # Phase-separated pipeline that integrates tBLASTn results with LTRdigest
-# annotations. The heavy lifting is in workflow/scripts/range_analysis/*.R;
+# annotations. The heavy lifting is in workflow/scripts/ranges/*.R;
 # this file only argument-parses, sources the modules, and wires the data
 # flow phase by phase. Each section is intentionally short so the high-level
 # data shape is visible at a glance.

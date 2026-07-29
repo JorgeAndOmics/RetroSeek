@@ -229,6 +229,70 @@ plot_summary_panel <- function(hotspots, seqlengths,
 }
 
 
+#' Per-hotspot structural composition (ADR-012).
+#'
+#' Detection counts every locus in the tier, so a called region can be driven by
+#' intact proviruses or by single-gene fragments and the p-value looks the same.
+#' This panel makes that visible: one stacked bar per region, ordered by size,
+#' plus the tier split. It is the visual answer to "what is this hotspot made
+#' of?" and it is why composition is annotated rather than filtered on.
+#'
+#' Empty-safe, and degrades to a placeholder when the input carried no
+#' structure_class (a raw-hit run).
+plot_hotspot_composition <- function(hotspots,
+                                     title = "Hotspot composition",
+                                     subtitle = NULL) {
+  if (length(hotspots) == 0L) {
+    return(.empty_plot(title, "No hotspots passed thresholds"))
+  }
+  mc <- S4Vectors::mcols(hotspots)
+  if (!all(c("n_full", "n_partial", "n_gene") %in% colnames(mc))) {
+    return(.empty_plot(title, "No structural composition on this input tier"))
+  }
+  if (sum(mc$n_full, mc$n_partial, mc$n_gene, na.rm = TRUE) == 0L) {
+    return(.empty_plot(title, "No structural composition on this input tier"))
+  }
+  id <- if ("hotspot_id" %in% colnames(mc)) {
+    as.character(mc$hotspot_id)
+  } else {
+    sprintf("%s:%d", as.character(GenomicRanges::seqnames(hotspots)),
+            BiocGenerics::start(hotspots))
+  }
+  ord <- order(as.numeric(mc$n_loci), decreasing = TRUE)
+  lvl <- id[ord]
+  comp <- tibble::tibble(
+    hotspot = rep(id, 3L),
+    class = rep(c("full", "partial", "gene"), each = length(id)),
+    n = c(as.integer(mc$n_full), as.integer(mc$n_partial), as.integer(mc$n_gene))
+  ) %>%
+    dplyr::mutate(
+      hotspot = factor(.data$hotspot, levels = lvl),
+      class = factor(.data$class, levels = c("full", "partial", "gene"))
+    )
+
+  p_counts <- ggplot(comp, aes(x = .data$hotspot, y = .data$n, fill = .data$class)) +
+    geom_col() +
+    scale_fill_manual(values = c(full = "#1b9e77", partial = "#d95f02",
+                                 gene = "#7570b3")) +
+    labs(title = "Loci per hotspot by structural class",
+         x = NULL, y = "loci", fill = "structure") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6))
+
+  p_frac <- ggplot(comp, aes(x = .data$hotspot, y = .data$n, fill = .data$class)) +
+    geom_col(position = "fill") +
+    scale_fill_manual(values = c(full = "#1b9e77", partial = "#d95f02",
+                                 gene = "#7570b3")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(title = "Composition (fraction)", x = NULL, y = NULL, fill = "structure") +
+    theme_minimal() +
+    theme(axis.text.x = element_blank())
+
+  (p_counts / p_frac) +
+    patchwork::plot_annotation(title = title, subtitle = subtitle)
+}
+
+
 # Internal helper for "I have nothing meaningful to plot" placeholder pages.
 .empty_plot <- function(title, message_text) {
   ggplot() +

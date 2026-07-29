@@ -48,8 +48,11 @@ test_that("read_hotspot_options returns documented defaults when the config is e
   config <- list(parameters = list(), hotspot = list())
   opts <- read_hotspot_options(config)
   expect_equal(opts$seed, 67L)
-  expect_equal(opts$input, "valid")
-  expect_false(opts$group_split)
+  # ADR-012: the catalog tier (per integration event) is the default, grouped by
+  # the calibrated lineage call; `valid` and the group_split bool are retired.
+  expect_equal(opts$input, "catalog")
+  expect_equal(opts$group_by, "segment")
+  expect_equal(opts$source, "ltr-flanked")
   expect_equal(opts$window_size, 500000L)
   expect_equal(opts$mask_size, 20L)
   expect_equal(opts$mask_mismatch, 3L)
@@ -128,4 +131,82 @@ test_that("load_hits_gff returns the imported GRanges when label is present", {
   out <- load_hits_gff(tmp)
   expect_s4_class(out, "GRanges")
   expect_true("label" %in% colnames(S4Vectors::mcols(out)))
+})
+
+
+# ------------------------ load_catalog_loci (ADR-012) -------------------------
+# The catalog is per-LOCUS: one row per integration event. These pin the species
+# matching (stem vs display name), the tier filter, and the fail-loud contract.
+
+.write_catalog <- function(dir) {
+  path <- file.path(dir, "catalog.csv")
+  readr::write_csv(tibble::tibble(
+    species         = c("Mus musculus", "Mus musculus", "Mus musculus",
+                        "Homo sapiens"),
+    source          = c("ltr-flanked", "orphan", "ltr-flanked", "ltr-flanked"),
+    seqname         = c("chr1", "chr1", "chr2", "chr1"),
+    start           = c(100L, 500L, 100L, 100L),
+    end             = c(200L, 600L, 200L, 200L),
+    strand          = c("+", "-", "+", "+"),
+    taxon_call      = c("Gammaretrovirus", "Betaretrovirus", "Gammaretrovirus",
+                        "Betaretrovirus"),
+    segment         = c("Gammaretrovirus", "Betaretrovirus", "Gammaretrovirus",
+                        "Betaretrovirus"),
+    structure_class = c("full", "gene", "partial", "gene"),
+    confidence      = c("1.000", "0.400", "0.900", "0.800"),
+    confidence_tag  = c("HC", "LC", "HC", "HC")
+  ), path)
+  path
+}
+
+test_that("load_catalog_loci matches a genome stem to its display name", {
+  tmp <- tempfile(); dir.create(tmp)
+  path <- .write_catalog(tmp)
+  gr <- load_catalog_loci(path, "Mus_musculus",
+                          list(Mus_musculus = "Mus musculus"), "both")
+  expect_equal(length(gr), 3L)                      # not the Homo row
+  expect_true(all(c("taxon_call", "segment", "structure_class") %in%
+                    colnames(S4Vectors::mcols(gr))))
+})
+
+test_that("load_catalog_loci filters to the requested tier", {
+  tmp <- tempfile(); dir.create(tmp)
+  path <- .write_catalog(tmp)
+  gr <- load_catalog_loci(path, "Mus_musculus",
+                          list(Mus_musculus = "Mus musculus"), "ltr-flanked")
+  expect_equal(length(gr), 2L)
+  expect_true(all(S4Vectors::mcols(gr)$source == "ltr-flanked"))
+})
+
+test_that("load_catalog_loci counts one row per locus, not per gene", {
+  # The whole point of ADR-012: a multi-gene provirus is ONE event here.
+  tmp <- tempfile(); dir.create(tmp)
+  gr <- load_catalog_loci(.write_catalog(tmp), "Mus_musculus",
+                          list(Mus_musculus = "Mus musculus"), "both")
+  expect_equal(length(gr), nrow(unique(as.data.frame(gr)[, c("seqnames", "start")])))
+})
+
+test_that("load_catalog_loci fails loud when a genome matches no rows", {
+  tmp <- tempfile(); dir.create(tmp)
+  path <- .write_catalog(tmp)
+  # Silence here would be indistinguishable from 'this genome has no ERVs'.
+  expect_error(load_catalog_loci(path, "Gallus_gallus", NULL, "both"),
+               "No catalog rows")
+})
+
+test_that("load_catalog_loci fails loud when the tier is empty", {
+  tmp <- tempfile(); dir.create(tmp)
+  path <- .write_catalog(tmp)
+  expect_error(
+    load_catalog_loci(path, "Homo_sapiens", list(Homo_sapiens = "Homo sapiens"),
+                      "orphan"),
+    "No 'orphan' loci"
+  )
+})
+
+test_that("read_hotspot_options defaults to the catalog tier and segment grouping", {
+  opts <- read_hotspot_options(list(hotspot = list(), parameters = list(seed = 1L)))
+  expect_equal(opts$input, "catalog")
+  expect_equal(opts$group_by, "segment")
+  expect_equal(opts$source, "ltr-flanked")
 })

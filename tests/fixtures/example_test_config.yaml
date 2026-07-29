@@ -28,8 +28,9 @@ genome_tools:
   ltrdigest_optional_parameters: ''
 
 hotspot:
-  input: valid
-  group_split: false
+  input: catalog
+  group_by: segment
+  source: ltr-flanked
   window_size: 500000
   mask_size: 20
   mask_mismatch: 3

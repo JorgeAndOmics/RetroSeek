@@ -26,8 +26,9 @@ genome_tools_schema:
   ltrdigest_optional_parameters: str(required=False)
 
 hotspot_schema:
-  input: str(matches='^(valid|original)$')
-  group_split: bool()
+  input: str(matches='^(catalog|original)$')
+  group_by: str(matches='^(segment|taxon_call|none)$', required=False)
+  source: str(matches='^(ltr-flanked|orphan|both)$', required=False)
   window_size: int(min=1)
   mask_size: int(min=0)
   mask_mismatch: int(min=0)

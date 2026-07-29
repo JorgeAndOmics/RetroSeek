@@ -896,10 +896,17 @@ rule circle_plot_generator:
 # `valid` tier uses the `_reduced.gff3` filename, `original` uses `{genome}.gff3`.
 # (The retired erv_like tier is gone; the taxon-founded assembly is a separate
 # stage and re-pointing hotspot at it is deferred to the hotspot rework.)
-_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'valid')
+_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'catalog')
+# ADR-012: `catalog` counts one row per integration EVENT from the authoritative
+# per-locus assembly, so a multi-gene provirus is one count rather than one per
+# gene. It makes hotspot a consumer of the classification stage: Snakemake will
+# pull taxonomy_classify in when catalog.csv is stale. `original` (raw tBLASTn
+# hits) is kept for dense genome-wide calling, where the extra density is what
+# gives the NB model power on sparse assemblies. The old `valid` tier is retired:
+# it is the same events as `catalog`, multi-counted by gene content.
 _HOTSPOT_TRACK = {
-    'valid':    (defaults.PATH_DICT['TRACK_VALID_DIR'],    '{genome}_reduced.gff3'),
-    'original': (defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
+    'catalog':  (defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv'),
+    'original': (defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],      '{genome}.gff3'),
 }
 if _HOTSPOT_INPUT not in _HOTSPOT_TRACK:
     raise ValueError(
@@ -921,12 +928,14 @@ rule hotspot_detector_setup:
         track = os.path.join(_HOTSPOT_INPUT_DIR, _HOTSPOT_INPUT_FILE)
     output:
         hotspot_csv=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'),
+        hotspot_regions=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.hotspots.csv'),
         hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_manifest=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.manifest.yaml'),
         hotspot_manhattan_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'),
         hotspot_karyotype_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'),
         hotspot_qq_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'),
         hotspot_summary_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'),
+        hotspot_composition_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_composition.pdf'),
         hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),
         hotspot_bed=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed')
     params:
@@ -941,7 +950,7 @@ rule hotspot_detector_setup:
         '''
         Rscript scripts/hotspot_detector.R \
         --fasta {input.fasta:q} \
-        --gff {input.track:q} \
+        --hits {input.track:q} \
         --config {params.config_yaml:q} \
         --parquet_dir {params.parquet_dir:q} \
         --csv_dir {params.csv_dir:q} \

@@ -8,7 +8,7 @@
 # RNG in the core, so results are reproducible by construction; the global
 # `parameters.seed` is set and recorded in the manifest for provenance only.
 #
-# Orchestrator only - pure transforms live in `hotspot_analysis/*.R`.
+# Orchestrator only - pure transforms live in `hotspot/*.R`.
 #
 # Outputs (per genome):
 #   {csv_dir}/{species}.csv                         per-window summary
@@ -20,6 +20,8 @@
 #   {pdf_output_dir}/{species}_karyotype.pdf       ideogram + hotspots
 #   {pdf_output_dir}/{species}_qq.pdf              per-label Q-Q diagnostic
 #   {pdf_output_dir}/{species}_summary.pdf         density + width panel
+#   {pdf_output_dir}/{species}_composition.pdf     per-hotspot structural mix
+#   {csv_dir}/{species}.hotspots.csv               called regions + composition
 # =============================================================================
 options(warn = 1)
 suppressMessages({
@@ -57,7 +59,7 @@ source(file.path(.script_dir, "hotspot", "windowing.R"))
 source(file.path(.script_dir, "hotspot", "models.R"))
 source(file.path(.script_dir, "hotspot", "postprocess.R"))
 source(file.path(.script_dir, "hotspot", "plots.R"))
-source(file.path(.script_dir, "range_analysis",   "exporters.R"))
+source(file.path(.script_dir, "ranges",           "exporters.R"))
 
 
 # -----------------------------------------------------------------------------
@@ -67,8 +69,9 @@ parser <- ArgumentParser(
   description = "RetroSeek hotspot detector (Negative-Binomial GLM)"
 )
 parser$add_argument("--fasta",            required = TRUE, help = "Genome FASTA")
-parser$add_argument("--gff",              required = TRUE,
-                    help = "Per-genome GFF3 of ERV-related hits (valid / original track)")
+parser$add_argument("--hits",             required = TRUE,
+                    help = paste("Input events: catalog.csv (hotspot.input=catalog)",
+                                 "or a raw-hit GFF3 track (hotspot.input=original)"))
 parser$add_argument("--config",           required = TRUE, help = "Project YAML config")
 parser$add_argument("--parquet_dir",      required = TRUE,
                     help = "Output dir for pipeline-internal {species}.parquet / .manifest.yaml")
@@ -115,8 +118,19 @@ message(sprintf("  seed: %d | input: %s | window: %d",
 genome     <- load_genome_for_hotspot(args$fasta)
 seqs       <- genome$seqs
 seqlengths <- genome$seqlengths
-hits       <- load_hits_gff(args$gff)
-message(sprintf("  loaded %d chromosomes, %d hits", length(seqlengths), length(hits)))
+# ADR-012: `catalog` counts one row per INTEGRATION EVENT (the non-overlapping
+# per-locus assembly); `original` counts raw tBLASTn hits, where a multi-gene
+# provirus contributes several features and window counts are therefore weighted
+# by gene content. The former is the defensible unit for "integration hotspot";
+# the latter is kept because its density is what gives the NB power on sparse
+# assemblies.
+hits <- if (identical(opts$input, "catalog")) {
+  load_catalog_loci(args$hits, species, config$species, opts$source)
+} else {
+  load_hits_gff(args$hits)
+}
+message(sprintf("  loaded %d chromosomes, %d events (%s tier)",
+                length(seqlengths), length(hits), opts$input))
 # Fail loud on an assembly / accession-namespace mismatch (GenBank vs RefSeq):
 # otherwise zero hits overlap the windows and the run silently degrades to
 # insufficient_data.
@@ -143,14 +157,26 @@ message(sprintf("  tiled into %d windows; %d strata after pooling",
 # -----------------------------------------------------------------------------
 # Phase 3. Per-label NB GLM
 # -----------------------------------------------------------------------------
-log_section("Phase 3: per-label NB GLM")
+log_section("Phase 3: per-group NB GLM")
 
-gff_groups <- if (opts$group_split) {
-  split(hits, S4Vectors::mcols(hits)$label)
+# Grouping axis (ADR-012): `segment` / `taxon_call` are the calibrated calls the
+# classifier produces; the legacy `label` is probe provenance, which ADR-007/008
+# superseded. A raw-hit input carries none of these, so an absent column pools
+# rather than erroring - a missing covariate must not abort a detection run.
+.group_col <- opts$group_by
+if (!identical(.group_col, "none") &&
+    !(.group_col %in% colnames(S4Vectors::mcols(hits)))) {
+  message(sprintf(
+    "  WARNING: group_by='%s' but the input carries no such column; pooling instead",
+    .group_col))
+  .group_col <- "none"
+}
+gff_groups <- if (!identical(.group_col, "none")) {
+  split(hits, as.character(S4Vectors::mcols(hits)[[.group_col]]))
 } else {
   list(Ungrouped = hits)
 }
-message(sprintf("  %d label group(s): %s",
+message(sprintf("  %d group(s): %s",
                 length(gff_groups),
                 paste(names(gff_groups), collapse = ", ")))
 
@@ -208,8 +234,18 @@ all_hotspots <- if (length(per_label_hotspots) == 0L) {
 }
 all_hotspots <- assign_hotspot_ids(all_hotspots, species)
 all_windows_df <- attach_hotspot_id_to_windows(all_windows_df, all_hotspots)
+# Describe each called region by the loci inside it (ADR-012): structural class,
+# tier, dominant lineage, mean confidence. Annotation only - no region is added,
+# removed or re-scored by this.
+all_hotspots <- annotate_hotspot_composition(all_hotspots, hits, .group_col)
 message(sprintf("  total windows: %d | total hotspots: %d",
                 nrow(all_windows_df), length(all_hotspots)))
+if (length(all_hotspots) > 0L) {
+  .comp <- S4Vectors::mcols(all_hotspots)
+  message(sprintf("  composition: %d loci (full %d / partial %d / gene %d)",
+                  sum(.comp$n_loci), sum(.comp$n_full), sum(.comp$n_partial),
+                  sum(.comp$n_gene)))
+}
 
 
 # -----------------------------------------------------------------------------
@@ -223,6 +259,7 @@ dir.create(args$track_output_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(args$pdf_output_dir,   showWarnings = FALSE, recursive = TRUE)
 
 csv_path      <- file.path(args$csv_dir,          paste0(species, ".csv"))
+regions_path  <- file.path(args$csv_dir,          paste0(species, ".hotspots.csv"))
 parquet_path  <- file.path(args$parquet_dir,      paste0(species, ".parquet"))
 manifest_path <- file.path(args$parquet_dir,      paste0(species, ".manifest.yaml"))
 gff_path      <- file.path(args$track_output_dir, paste0(species, ".gff3"))
@@ -230,11 +267,15 @@ bed_path      <- file.path(args$track_output_dir, paste0(species, ".bed"))
 
 readr::write_csv(all_windows_df, csv_path)
 arrow::write_parquet(all_windows_df, parquet_path)
+# Per-REGION table: the called hotspots with their composition (ADR-012). The
+# per-window CSV above answers "where is enrichment"; this one answers "what is
+# the enrichment made of", without parsing GFF3 attributes.
+readr::write_csv(as.data.frame(all_hotspots, row.names = NULL), regions_path)
 
 generator_version <- resolve_generator_version()
 track_exporter(all_hotspots, gff_path, generator_version = generator_version)
 
-# BED uses the standard `bed_exporter()` from range_analysis/exporters.R, which
+# BED uses the standard `bed_exporter()` from ranges/exporters.R, which
 # expects `mcols$ID` (name) and `mcols$max_bitscore` (score). Munge a copy of
 # the GRanges with those names so we DRY the writer rather than duplicating.
 hotspots_for_bed <- all_hotspots
@@ -249,7 +290,7 @@ if (length(hotspots_for_bed) > 0L) {
 }
 bed_exporter(hotspots_for_bed, bed_path)
 
-# Hotspot-specific manifest emitter (the range_analysis one is shaped for that
+# Hotspot-specific manifest emitter (the ranges one is shaped for that
 # pipeline's args). Keeps provenance for reruns.
 emit_hotspot_manifest <- function(args, opts, species, species_name,
                                   fit_diagnostics, counts,
@@ -302,6 +343,7 @@ manhattan_pdf <- file.path(args$pdf_output_dir, paste0(species, "_manhattan.pdf"
 karyotype_pdf <- file.path(args$pdf_output_dir, paste0(species, "_karyotype.pdf"))
 qq_pdf        <- file.path(args$pdf_output_dir, paste0(species, "_qq.pdf"))
 summary_pdf   <- file.path(args$pdf_output_dir, paste0(species, "_summary.pdf"))
+composition_pdf <- file.path(args$pdf_output_dir, paste0(species, "_composition.pdf"))
 
 # Manhattan: one page per label
 labels_present <- unique(all_windows_df$label)
@@ -345,6 +387,16 @@ save_plots_pdf_pages(
                        length(all_hotspots), opts$pvalue_threshold)
   )),
   summary_pdf, plot_w, plot_h
+)
+
+# Composition panel (ADR-012): what each called hotspot is actually made of.
+save_plots_pdf_pages(
+  list(plot_hotspot_composition(
+    all_hotspots,
+    title    = sprintf("Hotspot composition - %s", species_name),
+    subtitle = sprintf("%s tier, grouped by %s", opts$input, .group_col)
+  )),
+  composition_pdf, plot_w, plot_h
 )
 
 log_section("Done")
