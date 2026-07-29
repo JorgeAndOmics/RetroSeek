@@ -25,8 +25,8 @@ What becomes easier? What becomes harder? What is now locked in?
 
 ## Alternatives considered
 
-- **Option A**: brief description → why not chosen.
-- **Option B**: brief description → why not chosen.
+- **Option A**: brief description -> why not chosen.
+- **Option B**: brief description -> why not chosen.
 
 ## Revisit trigger
 

@@ -2,9 +2,9 @@
 
 Miniature inputs for integration and end-to-end tests. Keep everything here:
 
-- Small enough to run in < 30 s (target: ≤ a few KB per file).
-- Self-contained — no external downloads during the test run.
-- Deterministic — no randomness, no timestamps, no environment-dependent output.
+- Small enough to run in < 30 s (target: <= a few KB per file).
+- Self-contained - no external downloads during the test run.
+- Deterministic - no randomness, no timestamps, no environment-dependent output.
 
 ## Toy genome generator
 
@@ -20,15 +20,15 @@ python tests/fixtures/build_toy_genomes.py --seed 42    # different seed
 
 ### What it produces
 
-- **3 synthetic "species"** — `Toyus_simplex`, `Toyus_complex`, `Toyus_sparsus` — at 30–60 kb × 2–3 scaffolds each.
-- **Planted LTR retrotransposons**, 1–3 per scaffold, with direct-repeat flanks that LTRharvest reliably detects.
+- **3 synthetic "species"** - `Toyus_simplex`, `Toyus_complex`, `Toyus_sparsus` - at 30-60 kb x 2-3 scaffolds each.
+- **Planted LTR retrotransposons**, 1-3 per scaffold, with direct-repeat flanks that LTRharvest reliably detects.
 - **Protein-coding ORFs** back-translated from real retroviral fragments (GAG, POL, ENV, PRO) inside each ERV so tBLASTn produces non-trivial hits.
-- **`toy_probes.csv`** — canonical-schema probe CSV (`Label, Name, Abbreviation, Probe, Accession`) pointing at the same proteins.
-- **`MANIFEST.tsv`** — per-species size + sha256, for determinism verification.
+- **`toy_probes.csv`** - canonical-schema probe CSV (`Label, Name, Abbreviation, Probe, Accession`) pointing at the same proteins.
+- **`MANIFEST.tsv`** - per-species size + sha256, for determinism verification.
 
 ### Why outside the repo
 
-The genomes live at `/path/to/databases/toy-genomes/` — outside the repo, regeneratable anytime from the committed generator script. Keeps the repo small and version-controlled separately from runtime data.
+The genomes live at `/path/to/databases/toy-genomes/` - outside the repo, regeneratable anytime from the committed generator script. Keeps the repo small and version-controlled separately from runtime data.
 
 ## Conventions
 
@@ -40,4 +40,4 @@ The genomes live at `/path/to/databases/toy-genomes/` — outside the repo, rege
 
 1. Add the file under the appropriate subdirectory.
 2. Reference it from at least one test.
-3. Document any non-obvious property (e.g., "contains one exact LTR match for probe GAG at 500–1500 bp").
+3. Document any non-obvious property (e.g., "contains one exact LTR match for probe GAG at 500-1500 bp").

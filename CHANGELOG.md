@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, format-check, type-check,
-  fast Python tests, and the R `testthat` suite — mirroring `make check`.
+  fast Python tests, and the R `testthat` suite - mirroring `make check`.
 - Reproducible anonymized demo-figure generator
   (`workflow/scripts/demo_figures.R`) that rebuilds the README figures from real
   output with neutral placeholder labels.
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Documented the branching model (short-lived `feat/*` / `fix/*` branches off
   `main`, merged via PR once CI is green), replacing the retired
-  `Experimental → main` flow.
+  `Experimental -> main` flow.
 - README quick-start, screenshots (now anonymized demo figures), and signposting
   (CI badge, CHANGELOG link).
 - `hotspot_detector` and `circle_plot_generator` are now explicitly marked
@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial public release: end-to-end Snakemake pipeline for ERV-integration
-  detection — genome acquisition (NCBI Datasets), BLAST+ homology search,
+  detection - genome acquisition (NCBI Datasets), BLAST+ homology search,
   LTRharvest / LTRdigest discovery, R-based range analysis, and plotting.
 
 [Unreleased]: https://github.com/JorgeAndOmics/RetroSeek/compare/v1.1.1...HEAD

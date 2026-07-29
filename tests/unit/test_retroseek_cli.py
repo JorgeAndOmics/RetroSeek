@@ -4,16 +4,16 @@
 
 """Unit tests for the ``RetroSeek.py`` CLI wrapper around Snakemake.
 
-Focus on ``run_snakemake_rule`` — a thin wrapper that shells out to the
+Focus on ``run_snakemake_rule`` - a thin wrapper that shells out to the
 ``snakemake`` binary. Regression guards for three prior bugs:
 
 1. ``subprocess.run`` was called without ``capture_output=True`` but the
-   error branch logged ``result.stderr`` — which is ``None``. Failures
+   error branch logged ``result.stderr`` - which is ``None``. Failures
    therefore looked like empty log lines.
 2. An ``except subprocess.CalledProcessError`` branch existed without
    ``check=True``, meaning it could never fire. Dead code that masked the
    real error handling.
-3. On success the function returned ``None`` implicitly — fine, but the
+3. On success the function returned ``None`` implicitly - fine, but the
    tests pin that contract so a future refactor doesn't break callers.
 """
 
@@ -86,7 +86,7 @@ class TestRunSnakemakeRule:
 
         Previously the code did ``logging.error(result.stderr)`` with
         stderr = None because capture_output wasn't set. The fix is to not
-        reference ``result.stderr`` at all — log the rule + exit code and
+        reference ``result.stderr`` at all - log the rule + exit code and
         rely on Snakemake's own terminal output.
         """
         from RetroSeek import run_snakemake_rule

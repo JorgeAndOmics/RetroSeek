@@ -6,15 +6,15 @@ Meaning`` blocks) so the terminal help can never drift from the documentation.
 Type/enum/range shown to the user therefore mirror the doc, and the *current*
 value is read live from ``data/config/config.yaml``.
 
-The module is deliberately self-contained — it must **not** ``import defaults``,
+The module is deliberately self-contained - it must **not** ``import defaults``,
 whose import has filesystem side effects (it resolves and creates every
 pipeline output directory). A ``--config-help`` lookup must stay read-only.
 
 Table conventions parsed (doc-specific, by column count):
 
-* 4 columns ``Key | Type | Default | Meaning`` — the standard field table.
-* 3 columns ``Key | Type | Default`` — e.g. the ``display`` section.
-* 2 columns ``Key | Meaning`` — e.g. the ``root`` section.
+* 4 columns ``Key | Type | Default | Meaning`` - the standard field table.
+* 3 columns ``Key | Type | Default`` - e.g. the ``display`` section.
+* 2 columns ``Key | Meaning`` - e.g. the ``root`` section.
 
 Only tables whose header row's first cell is exactly ``Key`` are treated as
 field tables; everything else (e.g. the aggregation-strategy *vocabulary*
@@ -55,7 +55,7 @@ class FieldDoc:
     section: str
     """Top-level (``##``) section the field lives under, e.g. ``parameters``."""
     anchor: str
-    """Nearest-heading anchor used for the ``docs/configuration.md#…`` link."""
+    """Nearest-heading anchor used for the ``docs/configuration.md#...`` link."""
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ class DocIndex:
     section_anchor: dict[str, str]
 
 
-# ── Markdown helpers ────────────────────────────────────────────────────
+# -- Markdown helpers ----------------------------------------------------
 
 
 def _strip_md(text: str) -> str:
@@ -102,7 +102,7 @@ def _is_separator(cells: list[str]) -> bool:
     return all(cell and set(cell) <= {"-", ":", " "} for cell in cells)
 
 
-# ── Parsing ─────────────────────────────────────────────────────────────
+# -- Parsing -------------------------------------------------------------
 
 
 def parse_docs(path: Path = DEFAULT_DOCS_PATH) -> DocIndex:
@@ -166,7 +166,7 @@ def parse_docs(path: Path = DEFAULT_DOCS_PATH) -> DocIndex:
 
 
 def flatten_config(data: Any, prefix: str = "") -> dict[str, Any]:
-    """Flatten nested config dicts to dotted keys → leaf value."""
+    """Flatten nested config dicts to dotted keys -> leaf value."""
     out: dict[str, Any] = {}
     if isinstance(data, dict):
         for key, value in data.items():
@@ -187,7 +187,7 @@ def load_config_values(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, Any]:
     return flatten_config(data)
 
 
-# ── Value resolution + formatting ───────────────────────────────────────
+# -- Value resolution + formatting ---------------------------------------
 
 
 def _lookup_value(doc_key: str, flat: dict[str, Any]) -> Any | None:
@@ -210,7 +210,7 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
-# ── Rendering ───────────────────────────────────────────────────────────
+# -- Rendering -----------------------------------------------------------
 
 
 def _render_field(fd: FieldDoc, flat: dict[str, Any]) -> str:
@@ -249,10 +249,10 @@ def _render_list(index: DocIndex) -> str:
         out.append(name)
         section_fields = by_section.get(name, [])
         if not section_fields:
-            out.append("    (structured section — see docs/configuration.md)")
+            out.append("    (structured section - see docs/configuration.md)")
         for fd in section_fields:
             summary = fd.meaning.split(". ")[0]
-            summary = textwrap.shorten(summary, _LIST_MEANING_WIDTH, placeholder="…")
+            summary = textwrap.shorten(summary, _LIST_MEANING_WIDTH, placeholder="...")
             out.append(f"    {fd.key:<{_LIST_KEY_WIDTH}} {summary}".rstrip())
         out.append("")
     out.append("Run 'RetroSeek --config-help KEY' for a single field.")
@@ -309,7 +309,7 @@ def render(
     if key in index.section_anchor:
         return (
             f"{key}\n"
-            "  Structured section — no per-field entries.\n"
+            "  Structured section - no per-field entries.\n"
             f"  Full reference: docs/configuration.md#{index.section_anchor[key]}"
         )
 

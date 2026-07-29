@@ -40,7 +40,7 @@ def _run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]
     )
     if res.returncode != 0:
         sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"placement command failed: {' '.join(cmd[:3])}…")
+        raise SystemExit(f"placement command failed: {' '.join(cmd[:3])}...")
     return res
 
 
@@ -88,7 +88,7 @@ def _align_queries(
         stdout=combined.open("w", encoding="utf-8"),
     )
     # keep only the query rows (same columns as ref); DROP rows with no informative
-    # residues (all-gap OR all-X) — EPA-ng aborts the whole run on a query with no
+    # residues (all-gap OR all-X) - EPA-ng aborts the whole run on a query with no
     # non-gap sites, so one degenerate fragment must not take down the placement.
     q_aln = workdir / "query_aln.afa"
     qids = set(queries)

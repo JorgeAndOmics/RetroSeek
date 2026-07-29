@@ -4,9 +4,9 @@
 # Quantifies how many candidate ERV loci survive each step of the pipeline, in
 # one unified funnel that spans BOTH the R ranges-analysis stage and the Python
 # blastx-classification stage. The two stages already emit their counts in the
-# same tidy (metric, value) shape — ranges_analysis.R writes
+# same tidy (metric, value) shape - ranges_analysis.R writes
 # `<genome>.counts.csv`, taxonomy_classify_loci.py writes
-# `<genome>.classification_counts.csv` (+ `<genome>.orphans_counts.csv`) — so
+# `<genome>.classification_counts.csv` (+ `<genome>.orphans_counts.csv`) - so
 # this script just UNIONs them, orders the metrics into a funnel, and computes
 # per-step retention.
 #
@@ -15,9 +15,9 @@
 # exported per genome as `<genome>.novel_candidates.csv`.
 #
 # Outputs:
-#   - loss_analysis.{parquet,csv}      — the per-genome, per-stage funnel.
-#   - <genome>.novel_candidates.csv    — no-blastx-hit loci (per genome).
-#   - loss_funnel.png                  — stacked per-stage attrition plot.
+#   - loss_analysis.{parquet,csv}      - the per-genome, per-stage funnel.
+#   - <genome>.novel_candidates.csv    - no-blastx-hit loci (per genome).
+#   - loss_funnel.png                  - stacked per-stage attrition plot.
 #
 # `testthat` sources this file; the `if (sys.nframe() == 0L) main()` guard keeps
 # the CLI block from firing during sourcing.
@@ -32,13 +32,13 @@ suppressMessages({
 
 
 # ----------------------------------------------------------------------------
-# Funnel specification — the ordered stages and each stage's PARENT (the stage
+# Funnel specification - the ordered stages and each stage's PARENT (the stage
 # it is measured against for step retention). The pipeline has TWO reduction
 # branches off `first_reduced_ranges` (gr_virus): the LTR-flanked spine
 # (candidate -> valid -> loci) descends from gr_virus directly, while the
 # orphan branch descends from `global_reduced_ranges` (gr_global, a second,
 # stronger reduction). So `candidate`'s parent is `first_reduced_ranges`, NOT
-# `global_reduced_ranges` — and `global_reduced_ranges` is the head of the
+# `global_reduced_ranges` - and `global_reduced_ranges` is the head of the
 # orphan branch, a SIBLING of `candidate`, not a step in the LTR-flanked spine.
 # Getting this wrong makes candidate/global > 100% and a non-monotonic funnel.
 # `branch` tags let the plot separate the LTR-flanked spine, the orphan branch,
@@ -102,7 +102,7 @@ build_loss_funnel <- function(counts_long) {
 }
 
 
-# Loci with valid LTR structure but zero blastx homology — candidate novel
+# Loci with valid LTR structure but zero blastx homology - candidate novel
 # retroviruses. Tolerant of an absent column / empty frame.
 pick_novel_candidates <- function(loci_df) {
   if (nrow(loci_df) == 0L || !"n_blastx_hits" %in% names(loci_df)) {
@@ -140,7 +140,7 @@ novel_burden_table <- function(funnel) {
 
 
 # ----------------------------------------------------------------------------
-# I/O helpers — read every `<genome>.<suffix>.csv` in a directory into one long
+# I/O helpers - read every `<genome>.<suffix>.csv` in a directory into one long
 # (genome, metric, value) frame. Missing dir / no files => empty frame.
 # ----------------------------------------------------------------------------
 .read_counts <- function(dir, suffix) {
@@ -159,7 +159,7 @@ novel_burden_table <- function(funnel) {
 }
 
 
-# Stacked per-stage attrition plot — value by ordered stage, faceted by genome,
+# Stacked per-stage attrition plot - value by ordered stage, faceted by genome,
 # coloured by branch. empty_plot is reused from plot2sort/helpers.R.
 loss_funnel_plot <- function(funnel) {
   if (nrow(funnel) == 0L) return(empty_plot("no counts to plot"))
@@ -177,9 +177,9 @@ loss_funnel_plot <- function(funnel) {
 }
 
 
-# Per-step retention heatmap: genome × stage, fill = fraction of the prior stage
+# Per-step retention heatmap: genome x stage, fill = fraction of the prior stage
 # surviving. Restricted to the genuine attrition/reduction steps (the LTR-flanked
-# spine + the orphan branch) — the classification tier is grouping/quality,
+# spine + the orphan branch) - the classification tier is grouping/quality,
 # not retention, so it is excluded to keep one consistent semantic on the scale.
 # Every cell is now a true subset/reduction ratio, so all are <= 100%.
 step_retention_plot <- function(funnel) {

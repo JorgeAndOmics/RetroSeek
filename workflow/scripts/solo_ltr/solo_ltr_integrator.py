@@ -13,13 +13,13 @@ Data sources
     first column is typically ``chrom:start..end`` or similar
     coordinate encoding; later columns include family ID, length,
     and identity. The exact format varies slightly across
-    LTR_retriever releases — the parser here is defensive: it looks
+    LTR_retriever releases - the parser here is defensive: it looks
     for a coordinate column and a family column by heuristic.
 
 ``LTRlib.fa``
     LTR_retriever's family consensus library. FASTA headers carry
     the family ID plus a listing of source intact-ERV IDs that seeded
-    the consensus. We parse the headers to build a ``family → list of
+    the consensus. We parse the headers to build a ``family -> list of
     source-ERV-IDs`` mapping.
 
 ``valid_ranges.gff3``
@@ -30,17 +30,17 @@ Data sources
     lookup can find the valid ERV covering (or adjacent to) any
     LTR_retriever intact ERV.
 
-Label propagation — hybrid approach
+Label propagation - hybrid approach
 -----------------------------------
 For each solo LTR in ``nmtf.pass.list``:
 
-1. **Primary path — consensus-family mapping.** Look up the solo
-   LTR's family ID in the ``family → source-ERVs`` map built from
+1. **Primary path - consensus-family mapping.** Look up the solo
+   LTR's family ID in the ``family -> source-ERVs`` map built from
    ``LTRlib.fa``. For each source ERV, find the corresponding valid
    range in ``valid_ranges.gff3`` by coordinate overlap. Collect the
    probe labels from those valid ranges. Label the solo LTR with the
    union.
-2. **Fallback path — nearest-ERV.** If the primary path produced zero
+2. **Fallback path - nearest-ERV.** If the primary path produced zero
    labels (family unresolved, source ERVs couldn't be resolved to
    valid-range entries, or the LTRlib.fa header format was
    unparseable), find the nearest valid ERV on the same chromosome
@@ -128,7 +128,7 @@ class SoloLTR:
     """One solo LTR from LTR_retriever nmtf.pass.list with annotations."""
 
     chrom: str
-    start: int  # 1-indexed (kept as emitted — we convert at GFF3 write time only)
+    start: int  # 1-indexed (kept as emitted - we convert at GFF3 write time only)
     end: int
     strand: str = "."
     family: str | None = None
@@ -189,7 +189,7 @@ def parse_valid_ranges(path: Path) -> list[ValidRange]:
 
 
 def parse_ltr_library_headers(path: Path) -> dict[str, list[str]]:
-    """Return a ``family → list of source-ERV IDs`` mapping from LTRlib.fa.
+    """Return a ``family -> list of source-ERV IDs`` mapping from LTRlib.fa.
 
     LTR_retriever's FASTA headers look approximately like::
 
@@ -312,19 +312,19 @@ def _resolve_source_ervs_to_valid_ranges(
     """Match source-ERV IDs from LTR_retriever against valid_ranges.
 
     LTR_retriever's source IDs refer to LTRharvest candidate ERVs (e.g.
-    ``LTR_retrotransposon5``) — these don't match RetroSeek's own
+    ``LTR_retrotransposon5``) - these don't match RetroSeek's own
     probe-based IDs in ``valid_ranges.gff3``. Fortunately, LTR_retriever
     preserves the source ERV's genomic coordinates in its
     ``pass.list.gff3``. If that's parsed separately and passed here,
     we can intersect coordinates.
 
     For the first implementation, this helper returns an empty list
-    when source IDs can't be directly matched to valid_ranges IDs —
+    when source IDs can't be directly matched to valid_ranges IDs -
     the caller then falls through to the nearest-ERV mechanism. Future
     enhancement: pass the parsed ``pass.list.gff3`` so we can do a
     two-step coord mapping.
     """
-    # Build an ID → ValidRange map; if the ID nomenclature happens to
+    # Build an ID -> ValidRange map; if the ID nomenclature happens to
     # align, we resolve cleanly. Otherwise return empty and let the
     # fallback handle it.
     id_to_range = {r.erv_id: r for r in valid_ranges if r.erv_id}
@@ -439,9 +439,9 @@ def compute_solo_intact_ratio(
 
     Two label modes are emitted:
 
-    - ``exclusive`` — counts a solo/intact in exactly one family (its
+    - ``exclusive`` - counts a solo/intact in exactly one family (its
       ``probes`` list has length 1).
-    - ``shared``    — counts multi-labelled entries in every family they
+    - ``shared``    - counts multi-labelled entries in every family they
       claim (length > 1).
 
     Rows with zero intact count get ``solo_to_intact_ratio = NaN``.
@@ -568,7 +568,7 @@ def main(argv: list[str] | None = None) -> int:
     n_nearest = sum(1 for s in solos if s.label_source == "nearest_erv")
     n_none = sum(1 for s in solos if s.label_source == "none")
     logger.info(
-        "Label propagation — family: %d, nearest_erv: %d, unresolved: %d",
+        "Label propagation - family: %d, nearest_erv: %d, unresolved: %d",
         n_family,
         n_nearest,
         n_none,

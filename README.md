@@ -33,7 +33,7 @@ conda activate RetroSeek
 #    (data/, results/, logs/) so the toy-genome smoke run works out of
 #    the box. For production runs pointing at external storage:
 cp data/config/config.example.yaml data/config/config.local.yaml
-#    Edit data/config/config.local.yaml — set the four `root` paths and
+#    Edit data/config/config.local.yaml - set the four `root` paths and
 #    `input.probe_csv` to your data, then pass --configfile to RetroSeek.
 #    config.local.yaml is gitignored.
 #    config.yaml is values-only; browse any field's docs in the terminal:
@@ -44,7 +44,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 ./RetroSeek --blast --cores all --configfile data/config/config.local.yaml
 ./RetroSeek --ranges-analysis --cores all --skip-validation
 
-# 5. (Optional) Per-locus ERV taxonomic classification — build the reference
+# 5. (Optional) Per-locus ERV taxonomic classification - build the reference
 #    once, then assign each valid locus a calibrated genus call.
 make reference            # or: ./RetroSeek --build-reference   (network)
 ./RetroSeek --classify --cores all --skip-validation
@@ -57,19 +57,19 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Automated genome acquisition via NCBI Datasets, with BLAST database and GenomeTools suffix-array generation per genome.
 - Configurable homology-based search via BLAST+ and *de novo* LTR discovery via LTRharvest / LTRdigest, reconciled into high-confidence ERV candidate tracks.
 - **Solo-LTR detection via LTR_retriever**, pre-filtered to retroviral-only candidates by intersecting LTRharvest output with RetroSeek's `valid_ranges.gff3`. Solo LTRs inherit probe labels from their seed ERVs via a hybrid consensus-family + nearest-ERV fallback, and per-family solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
-- **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) — POL/GAG by phylogenetic placement, weighted-LCA otherwise — against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
+- **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) - POL/GAG by phylogenetic placement, weighted-LCA otherwise - against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
 - Publication-ready plots: density, raincloud, bar, Sankey, balloon, per-genome Circos-style visualisations.
 - Structured, colour-coded logging for audit; heartbeat log lines for long-running silent tools (suffixerator, ltrharvest) so progress is observable on multi-hour mammalian runs.
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
-- Intuitive CLI delegating to Snakemake — resume from checkpoints after interruption, compose with any Snakemake flag.
+- Intuitive CLI delegating to Snakemake - resume from checkpoints after interruption, compose with any Snakemake flag.
 
-> **Feature maturity:** `--hotspot-detection` and `--generate-circle-plots` are *experimental* — functional but lightly tested and subject to change.
+> **Feature maturity:** `--hotspot-detection` and `--generate-circle-plots` are *experimental* - functional but lightly tested and subject to change.
 
 ## Requirements
 
-- **Mamba** (recommended) or **Conda**. No other system deps — the env provides BLAST+, GenomeTools, NCBI Datasets, Python 3.10, R 4.3, Bioconductor, and all libraries.
+- **Mamba** (recommended) or **Conda**. No other system deps - the env provides BLAST+, GenomeTools, NCBI Datasets, Python 3.10, R 4.3, Bioconductor, and all libraries.
 - A valid **email address for the NCBI Entrez API**, set under `execution.entrez_email` in `config.yaml` (required by NCBI ToS).
 - Optional: an [NCBI API key](https://support.nlm.nih.gov/kbArticle/?pn=KA-05317) for faster remote queries.
 
@@ -91,11 +91,11 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--ltr-domains`             | LTRdigest domain annotation                              |
 | `--probe-extractor`         | Parse probe CSV and fetch probe sequences via Entrez     |
 | `--blast`                   | tBLASTn probes against each genome                       |
-| `--ranges-analysis`         | Integrate BLAST + LTR → GFF3 tracks + tables             |
+| `--ranges-analysis`         | Integrate BLAST + LTR -> GFF3 tracks + tables             |
 | `--generate-global-plots`   | Density / raincloud / bar / Sankey / balloon plots       |
 | `--generate-circle-plots`   | Per-genome Circos-style plots                            |
 | `--hotspot-detection`       | Permutation-based hotspot analysis                       |
-| `--pair-detection`          | Probe-pair (e.g. GAG–ENV) detection per species          |
+| `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
 | `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo-LTR probe-label propagation, solo/intact ratio tables |
 | `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
 | `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
@@ -125,18 +125,18 @@ Integrate BLAST + LTR evidence using an HPC profile:
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — pipeline design, rule graph, data flow.
-- [`docs/usage.md`](docs/usage.md) — CLI reference and configuration overview.
-- [`docs/configuration.md`](docs/configuration.md) — field-by-field config reference.
-- [`docs/solo_ltr.md`](docs/solo_ltr.md) — how LTR_retriever works, how RetroSeek couples to it, and the biology of solo LTRs.
-- [`docs/development.md`](docs/development.md) — contributor guide: env, TDD, branch rules, commit style.
-- [`docs/adr/`](docs/adr/) — architectural decision records.
-- [`CHANGELOG.md`](CHANGELOG.md) — released changes (Keep a Changelog format).
+- [`docs/architecture.md`](docs/architecture.md) - pipeline design, rule graph, data flow.
+- [`docs/usage.md`](docs/usage.md) - CLI reference and configuration overview.
+- [`docs/configuration.md`](docs/configuration.md) - field-by-field config reference.
+- [`docs/solo_ltr.md`](docs/solo_ltr.md) - how LTR_retriever works, how RetroSeek couples to it, and the biology of solo LTRs.
+- [`docs/development.md`](docs/development.md) - contributor guide: env, TDD, branch rules, commit style.
+- [`docs/adr/`](docs/adr/) - architectural decision records.
+- [`CHANGELOG.md`](CHANGELOG.md) - released changes (Keep a Changelog format).
 
 ## Showcase
 
 Figures are generated from a representative multi-genome run with **anonymised
-demo labels** (`Species A…`, `Provirus A…`, `Lineage A…`) — real organism and
+demo labels** (`Species A...`, `Provirus A...`, `Lineage A...`) - real organism and
 provirus names are replaced, while gene names (POL/GAG/ENV) and the underlying
 distributions are kept. Regenerate them with
 [`workflow/scripts/demo_figures.R`](workflow/scripts/demo_figures.R).
@@ -156,7 +156,7 @@ Developed within the *Ní Leathlobhair* lab at Moyne Institute, Trinity College 
 
 ## Contributing
 
-See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome — please open a GitHub issue.
+See [`docs/development.md`](docs/development.md) for workflow, branching, and commit conventions. Pull requests and questions welcome - please open a GitHub issue.
 
 ## License
 
@@ -165,7 +165,7 @@ See [`docs/development.md`](docs/development.md) for workflow, branching, and co
 ## References
 
 - Camacho, C. *et al.* (2009). BLAST+: Architecture and applications. *BMC Bioinformatics, 10*, 421. https://doi.org/10.1186/1471-2105-10-421
-- Gremme, G., Steinbiss, S., & Kurtz, S. (2013). GenomeTools: A comprehensive software library for efficient processing of structured genome annotations. *IEEE/ACM TCBB, 10*(3), 645–656. https://doi.org/10.1109/TCBB.2013.68
-- Sayers, E. W. *et al.* (2022). Database resources of the NCBI. *Nucleic Acids Research, 50*(D1), D20–D26. https://doi.org/10.1093/nar/gkab1112
-- Huber, W. *et al.* (2015). Orchestrating high-throughput genomic analysis with Bioconductor. *Nature Methods, 12*(2), 115–121. https://doi.org/10.1038/nmeth.3252
+- Gremme, G., Steinbiss, S., & Kurtz, S. (2013). GenomeTools: A comprehensive software library for efficient processing of structured genome annotations. *IEEE/ACM TCBB, 10*(3), 645-656. https://doi.org/10.1109/TCBB.2013.68
+- Sayers, E. W. *et al.* (2022). Database resources of the NCBI. *Nucleic Acids Research, 50*(D1), D20-D26. https://doi.org/10.1093/nar/gkab1112
+- Huber, W. *et al.* (2015). Orchestrating high-throughput genomic analysis with Bioconductor. *Nature Methods, 12*(2), 115-121. https://doi.org/10.1038/nmeth.3252
 - Mölder, F. *et al.* (2021). Sustainable data analysis with Snakemake. *F1000Research, 10*, 33. https://doi.org/10.12688/f1000research.29032.2

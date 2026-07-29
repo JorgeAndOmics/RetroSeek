@@ -9,7 +9,7 @@ authoritative source and covers any taxa the reference contains (probe-agnostic 
 the taxonomy level), fixing the silent-staleness failure (e.g. the spuma genus rename).
 
 The full NCBI lineage of each axis taxon is kept (no subtree trim), so mixed-rank axes
-— a retroviral genus and a non-retroviral family — share one hierarchy and
+- a retroviral genus and a non-retroviral family - share one hierarchy and
 `taxonomy_lca.lca` can find their true common ancestor.
 
 Output: `<reference_dir>/taxonomy.tsv` with columns ``name, parent, rank``

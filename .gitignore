@@ -1,23 +1,23 @@
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # IDE / editor
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 .idea/
 .vscode/
 *.iml
 *.swp
 *~
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Claude Code workspace (repo-local, never committed)
 # CLAUDE.md and everything under .claude/ are Claude-exclusive.
 # Only human-facing artifacts (docs/, README.md) are committed.
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 /CLAUDE.md
 .claude/
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Python
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -37,26 +37,26 @@ htmlcov/
 build/
 dist/
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # R
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 .RData
 .Rhistory
 .Rapp.history
 .Ruserdata
 .Rproj.user/
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Snakemake
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 .snakemake/
 workflow/.snakemake/
 logs/
 /logs/*
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Pipeline outputs (user runs locally; not versioned)
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 results/
 results - Copy/
 data/pickles/
@@ -65,20 +65,20 @@ data/tables/
 data/tmp/*
 !data/tmp/
 
-# ──────────────────────────────────────────────
-# Local config overrides + real study data (per-machine; never committed —
+# ----------------------------------------------
+# Local config overrides + real study data (per-machine; never committed -
 # the committed config.yaml carries example values only)
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 data/config/*.local.yaml
 
-# ──────────────────────────────────────────────
-# Parameter-sweep tooling — internal development only, not versioned
-# ──────────────────────────────────────────────
+# ----------------------------------------------
+# Parameter-sweep tooling - internal development only, not versioned
+# ----------------------------------------------
 sweeps/
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Misc
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 *.pptx
 *.DS_Store
 Thumbs.db
@@ -88,11 +88,11 @@ data/taxonomy_dev/
 
 # Built taxonomic-classification reference (Entrez fetch + placement trees +
 # blastdb). Build-once cache, regenerated via `make reference`. The only curated
-# source piece — data/config/erv_class.tsv — is tracked and copied in at build.
+# source piece - data/config/erv_class.tsv - is tracked and copied in at build.
 data/taxonomy_reference/
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # Exploratory analysis notebooks (RetroSeek-vs-RepeatMasker comparison; local
 # working artifacts, not part of the versioned pipeline)
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 notebooks/

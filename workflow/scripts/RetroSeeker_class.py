@@ -1,4 +1,4 @@
-"""RetroSeeker_class.py — sequence alignment + GenBank record holder.
+"""RetroSeeker_class.py - sequence alignment + GenBank record holder.
 
 This module provides the core functionality for executing BLAST queries against local databases,
 parsing the results, and retrieving corresponding GenBank records. It defines a structured RetroSeeker

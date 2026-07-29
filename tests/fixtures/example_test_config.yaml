@@ -1,4 +1,4 @@
-# Generic end-to-end test config for RetroSeek — EXAMPLE VALUES ONLY.
+# Generic end-to-end test config for RetroSeek - EXAMPLE VALUES ONLY.
 #
 # A full, schema-valid config for exercising the whole pipeline on your own
 # data without touching the committed data/config/config.yaml. Usage:
@@ -6,7 +6,7 @@
 #   1) mamba env create -f data/config/environment.yml          # once
 #   2) cp tests/fixtures/example_test_config.yaml \
 #         data/config/config.local.yaml                         # gitignored
-#   3) Edit config.local.yaml — set the four `root` paths, `input.probe_csv`,
+#   3) Edit config.local.yaml - set the four `root` paths, `input.probe_csv`,
 #      `execution.entrez_email`, and your real `species:` entries.
 #   4) Run stages with --configfile, e.g.:
 #        ./RetroSeek --probe-extractor     --configfile data/config/config.local.yaml

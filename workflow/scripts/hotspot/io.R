@@ -2,7 +2,7 @@
 # hotspot / io.R
 # -----------------------------------------------------------------------------
 # Loaders + config-readers for hotspot_detector.R. Each function returns plain
-# R structures (named integer vectors, GRanges, lists) and does no analysis —
+# R structures (named integer vectors, GRanges, lists) and does no analysis -
 # that lives in the other modules.
 #
 # Mirrors the shape of ranges/io.R: a thin yaml::read_yaml wrapper, a
@@ -33,9 +33,9 @@ read_config <- function(path) {
 #' GRanges; here we surface the misconfiguration instead.
 #'
 #' Returns a list with:
-#'   $seqs        — DNAStringSet (renamed in place)
-#'   $seqlengths  — named integer vector keyed by normalised chrom name
-#'   $headers_raw — original FASTA headers (kept for the manifest)
+#'   $seqs        - DNAStringSet (renamed in place)
+#'   $seqlengths  - named integer vector keyed by normalised chrom name
+#'   $headers_raw - original FASTA headers (kept for the manifest)
 load_genome_for_hotspot <- function(fasta_path) {
   seqs <- Biostrings::readDNAStringSet(fasta_path)
   headers_raw <- names(seqs)
@@ -56,7 +56,7 @@ load_genome_for_hotspot <- function(fasta_path) {
 #'
 #' Validates that `mcols$label` is present (this is the per-genus tag attached
 #' by ranges_analysis.R; without it we cannot per-label split). Aborts with a
-#' clear error if missing — easier to debug than the cryptic NULL-subset error
+#' clear error if missing - easier to debug than the cryptic NULL-subset error
 #' the loop would otherwise hit.
 load_hits_gff <- function(gff_path) {
   hits <- rtracklayer::import(gff_path, format = "gff3")
@@ -73,7 +73,7 @@ load_hits_gff <- function(gff_path) {
 #' Fail loud when the input track and the genome FASTA come from different
 #' assemblies / accession namespaces (the classic GenBank `CM*`/`JA*` vs RefSeq
 #' `NC_*`/`NW_*` mismatch). Without this, zero hits overlap the windows and the
-#' run silently degrades to `insufficient_data` — indistinguishable from a
+#' run silently degrades to `insufficient_data` - indistinguishable from a
 #' genome that genuinely has no ERV clusters.
 #'
 #' Aborts when fewer than `min_frac` of hits sit on a contig present in the

@@ -124,7 +124,7 @@ file_md5 <- function(path) {
 }
 
 
-# Emit a YAML run manifest — provenance only. Records which RetroSeek build
+# Emit a YAML run manifest - provenance only. Records which RetroSeek build
 # ran, when, the md5s of the actual input files, the resolved run parameters,
 # and the RNG seed. Genomic counts live in their own per-genome table
 # (`{genome}.counts.*`), not here; the `outputs` paths are derivable and

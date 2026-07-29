@@ -4,17 +4,17 @@
 # Per-label enrichment model: a Negative-Binomial GLM on per-window counts,
 # mask-aware via an offset and optionally chromosome-stratified.
 #
-#   * `fit_nb_model()`     — fit `MASS::glm.nb` on per-window counts with an
+#   * `fit_nb_model()`     - fit `MASS::glm.nb` on per-window counts with an
 #     `offset(log(effective_bp))` and an optional `chrom_stratum` covariate.
 #     Convergence ladder: NB (`MASS::glm.nb`) succeeds with a stable theta ->
 #     "ok"; otherwise -> "failed" (NA p-values + a logged warning in the
 #     orchestrator). We deliberately do NOT fall back to Poisson: a Poisson
 #     fit ignores overdispersion and is anti-conservative, so emitting NA is
 #     the honest, reliability-first choice.
-#   * `score_windows_nb()` — per-window upper-tail p-value from the fitted NB
+#   * `score_windows_nb()` - per-window upper-tail p-value from the fitted NB
 #     plus BH adjustment.
 #
-# The model is fully deterministic — no RNG is involved — so results are
+# The model is fully deterministic - no RNG is involved - so results are
 # reproducible by construction. The global `parameters.seed` is recorded in
 # the run manifest for provenance but the core result does not depend on it.
 #
@@ -63,7 +63,7 @@ suppressMessages({
 #'
 #' Pre-filters windows whose `effective_bp / window_size < 0.1` (rate-
 #' denominator too small) and refuses to fit if fewer than `min_nonzero`
-#' non-zero windows remain — theta is unidentifiable below that.
+#' non-zero windows remain - theta is unidentifiable below that.
 #'
 #' Convergence ladder:
 #'   1. `MASS::glm.nb` succeeds and produces a stable theta -> status = "ok".
@@ -75,12 +75,12 @@ suppressMessages({
 #'      "insufficient_data".
 #'
 #' @return list with:
-#'   $model           — fitted glm.nb object or NULL
-#'   $family          — "nb" | NA
-#'   $theta           — NB dispersion or NA
-#'   $status          — one of: ok | failed | insufficient_data
-#'   $fit_data        — the (filtered) tibble actually fit, for diagnostics
-#'   $strata          — TRUE if chromosome was a covariate
+#'   $model           - fitted glm.nb object or NULL
+#'   $family          - "nb" | NA
+#'   $theta           - NB dispersion or NA
+#'   $status          - one of: ok | failed | insufficient_data
+#'   $fit_data        - the (filtered) tibble actually fit, for diagnostics
+#'   $strata          - TRUE if chromosome was a covariate
 fit_nb_model <- function(window_df,
                          window_size,
                          strata_by_chromosome = TRUE,
@@ -134,7 +134,7 @@ fit_nb_model <- function(window_df,
 #' offset). When `newdata$chrom_stratum` contains levels unseen at fit time
 #' (windows we filtered out before fitting), prediction errors. We coalesce
 #' those to the most-populous fitted level so prediction yields a sensible
-#' baseline rate rather than failing — flagged as a small caveat in the
+#' baseline rate rather than failing - flagged as a small caveat in the
 #' manifest. When `model = NULL` (insufficient_data / failed), returns NA mu.
 .predict_mu <- function(window_df, fit) {
   if (is.null(fit$model)) {
@@ -166,7 +166,7 @@ fit_nb_model <- function(window_df,
 #'
 #' Note: per-window p-values from a model fit on those same windows is
 #' in-sample. Extreme-count windows pull the fit toward themselves, mildly
-#' deflating their own p-values. Acknowledged caveat — see plan.
+#' deflating their own p-values. Acknowledged caveat - see plan.
 score_windows_nb <- function(window_df, fit) {
   mu <- .predict_mu(window_df, fit)
   count <- as.integer(window_df$count)

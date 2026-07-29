@@ -1,11 +1,11 @@
 # =============================================================================
-# plot2sort/plots_sankey.R — alluvial / Sankey builders
+# plot2sort/plots_sankey.R - alluvial / Sankey builders
 # =============================================================================
 # All three Sankey wrappers share `.sankey_two_axis`. Each wrapper tags the
 # returned ggplot with an `intended_dims` attribute so the orchestrator can
 # size the canvas based on the larger of the two axis cardinalities.
 #
-# `top_n = NULL` (the default) shows every stratum — the existing collapsing
+# `top_n = NULL` (the default) shows every stratum - the existing collapsing
 # behaviour is opt-in via `cfg$plots$sankey_top_n`. See helpers.R::collapse_long_tail.
 
 
@@ -76,7 +76,7 @@ sankey_species_probe_plot <- function(data, top_n = NULL,
                                       subset_label = NULL) {
   .sankey_two_axis(data, "species", "probe", fill_axis = "species",
                    top_n = top_n, other_label = other_label,
-                   title    = "Flow: species → probe",
+                   title    = "Flow: species -> probe",
                    subtitle = "Range-count alluvium between species and probe",
                    subset_label = subset_label)
 }
@@ -87,7 +87,7 @@ sankey_label_probe_plot <- function(data, top_n = NULL,
                                     subset_label = NULL) {
   .sankey_two_axis(data, "label", "probe", fill_axis = "label",
                    top_n = top_n, other_label = other_label,
-                   title    = "Flow: label → probe",
+                   title    = "Flow: label -> probe",
                    subtitle = "Range-count alluvium between category label and probe",
                    subset_label = subset_label)
 }
@@ -98,7 +98,7 @@ sankey_species_label_plot <- function(data, top_n = NULL,
                                       subset_label = NULL) {
   .sankey_two_axis(data, "species", "label", fill_axis = "species",
                    top_n = top_n, other_label = other_label,
-                   title    = "Flow: species → label",
+                   title    = "Flow: species -> label",
                    subtitle = "Range-count alluvium between species and category label",
                    subset_label = subset_label)
 }

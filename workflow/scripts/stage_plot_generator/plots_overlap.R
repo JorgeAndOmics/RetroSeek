@@ -1,17 +1,17 @@
 # =============================================================================
-# stage_plot_generator/plots_overlap.R — pre-reduction overlap / redundancy
+# stage_plot_generator/plots_overlap.R - pre-reduction overlap / redundancy
 # =============================================================================
 # How much the UNREDUCED original tier (gr_virus) overlaps itself, and how much
 # that redundancy collapses under reduction. These plots make the reduction
-# step's effect visible. Same builder contract as the other plot modules —
-# `(data, ..., subset_label, warning_caption)` → ggplot. Reuses plot2sort
+# step's effect visible. Same builder contract as the other plot modules -
+# `(data, ..., subset_label, warning_caption)` -> ggplot. Reuses plot2sort
 # helpers. All four describe NON-reduced inputs except the explicit before/after
 # comparisons; the orchestrator stamps the reduced-state note.
 
 .REDUCE_FILL <- c(unreduced = "#7570b3", reduced = "#1b9e77")
 
 
-# Per-probe stacked bars of the self-overlap degree — how many OTHER unreduced
+# Per-probe stacked bars of the self-overlap degree - how many OTHER unreduced
 # loci each locus overlaps. A tall right tail means heavy positional redundancy
 # that reduction will collapse.
 overlap_degree_plot <- function(overlap_df, subset_label = NULL,
@@ -32,7 +32,7 @@ overlap_degree_plot <- function(overlap_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Pre-reduction self-overlap degree",
-    subtitle = "Other unreduced loci each locus overlaps — the redundancy reduction collapses",
+    subtitle = "Other unreduced loci each locus overlaps - the redundancy reduction collapses",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -67,7 +67,7 @@ reciprocal_fraction_plot <- function(overlap_df, subset_label = NULL,
 
 
 # Per-probe dodged bars of locus count before (unreduced gr_virus) vs after
-# (globally reduced gr_global) reduction — the collapse fold per probe.
+# (globally reduced gr_global) reduction - the collapse fold per probe.
 reduction_fold_plot <- function(hits_df, reduced_df, subset_label = NULL,
                                 warning_caption = NULL) {
   if (nrow(hits_df) == 0L && nrow(reduced_df) == 0L) return(empty_plot())

@@ -8,14 +8,14 @@
 # rest of the pipeline's startup (config read, FASTA load, etc.).
 #
 # Vocabulary (see docs/configuration.md and docs/adr/ADR-002):
-#   list        — multi-value preserved as CharacterList / list<string>
-#   concatenate — single string joined by a separator
-#   best        — row with highest `tiebreaker` wins
-#   majority    — mode
-#   first       — alphabetical first unique
-#   strict      — value if unanimous, else a marker
+#   list        - multi-value preserved as CharacterList / list<string>
+#   concatenate - single string joined by a separator
+#   best        - row with highest `tiebreaker` wins
+#   majority    - mode
+#   first       - alphabetical first unique
+#   strict      - value if unanimous, else a marker
 #
-# The helpers are pure — they do not read from config themselves; callers
+# The helpers are pure - they do not read from config themselves; callers
 # pass strategy name and knobs explicitly. This makes them unit-testable
 # without a config fixture.
 
@@ -40,7 +40,7 @@ aggregate_values <- function(values, strategy,
   # plyranges' reduce_ranges_directed presents grouped metadata columns as
   # CompressedAtomicList objects, one top-level element per merged range,
   # each element being the per-row vector of contributing values. The
-  # required output is a single aggregated value per merged range — i.e.
+  # required output is a single aggregated value per merged range - i.e.
   # a vector of length(values), or a CharacterList of length(values) for
   # the `list` strategy. Calling as.character() on a multi-row AtomicList
   # element fails ("top-level elements of length <= 1"), so we must apply
@@ -74,7 +74,7 @@ aggregate_values <- function(values, strategy,
 # vector of length(values) so plyranges can attach the column to the
 # per-merged-range output GRanges of reduce_ranges_directed.
 #
-# IMPORTANT — why "list" is concatenated here:
+# IMPORTANT - why "list" is concatenated here:
 # plyranges (>=1.22) `summarize_rng` compresses list-columns via
 # `Reduce(S4Vectors::pc, ans[[i]])` followed by `as(., "CompressedList")`.
 # With a uniform-inner-length CharacterList of length n, that reducer
@@ -83,7 +83,7 @@ aggregate_values <- function(values, strategy,
 # entries reduces to length 1, then `stopifnot(length == nr)` fires). To
 # avoid the broken path, "list" returns an atomic character with values
 # joined by `separator`. Downstream consumers that need a true CharacterList
-# can split on `separator` post-reduce — the GFF3 / parquet exporters in
+# can split on `separator` post-reduce - the GFF3 / parquet exporters in
 # this pipeline already treat it as a flat string.
 #
 # When `aggregate_values` is called directly (unit tests, non-plyranges

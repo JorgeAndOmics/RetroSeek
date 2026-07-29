@@ -4,7 +4,7 @@
 # Splits the authoritative catalog into per-SEGMENT deliverables (ADR-011).
 #
 # A "segment" is the taxon each locus rolls up to at `classification.segment_rank`
-# — genus by default, but any NCBI rank works: the classifier derives the column
+# - genus by default, but any NCBI rank works: the classifier derives the column
 # by walking the reference taxonomy hierarchy, so nothing here (or there) hard-
 # codes a taxon name. Loci whose call is coarser than the segment rank carry
 # `unassigned_at_<rank>` and get their own segment, rather than being dropped or
@@ -19,7 +19,7 @@
 # Only a CURATED subset of the taxonomy panel is rendered per segment: the full
 # 20-plot panel times N segments would be hundreds of PNGs for little gain.
 # The builders are REUSED from taxonomy_plot_generator.R (sourced for its
-# functions — its `if (sys.nframe() == 0L) main()` guard keeps the CLI dormant).
+# functions - its `if (sys.nframe() == 0L) main()` guard keeps the CLI dormant).
 
 suppressMessages({
   library(argparse)

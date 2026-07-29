@@ -440,7 +440,7 @@ def gb_executor(
     with tqdm(total=len(object_dict), desc="Fetching GenBank sequences") as object_bar:
         for value in object_dict.values():
             # gb_fetcher always returns the instance (updated on success, or
-            # unchanged after exhausting retries) — never None.
+            # unchanged after exhausting retries) - never None.
             result = gb_fetcher(
                 instance=value,
                 online_database=online_database,

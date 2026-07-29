@@ -17,7 +17,7 @@ suppressMessages({
 source(file.path(.script_dir, "granges_build.R"))
 
 
-# Synthetic per-hit BLAST tibble — minimal columns build_blast_gr reads.
+# Synthetic per-hit BLAST tibble - minimal columns build_blast_gr reads.
 .fake_blast_df <- function(viruses, probes, align_len, qstart = 1L, qend = 100L) {
   n <- length(viruses)
   tibble::tibble(
@@ -112,16 +112,16 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
 
 # ---------------------------------------------------------------------------
 # annotate_ltr_flanked_hits KEEPS every candidate (nothing discarded) and labels
-# each with `Parent` (greatest-overlap element — the taxonomic classifier's
+# each with `Parent` (greatest-overlap element - the taxonomic classifier's
 # grouping anchor), a per-provirus `domain_tier`, and a per-hit
 # `domain_hit_class`. See ranges/validation.R + ADR-009.
 # ---------------------------------------------------------------------------
 source(file.path(.script_dir, "validation.R"))
 
 # Three elements exercising every domain_tier:
-#   retroA — carries a config-matched POL domain      -> domain_selected
-#   retroB — carries a protein domain, none config    -> domain_unlisted
-#   retroC — no protein domain at all                 -> non_domain
+#   retroA - carries a config-matched POL domain      -> domain_selected
+#   retroB - carries a protein domain, none config    -> domain_unlisted
+#   retroC - no protein domain at all                 -> non_domain
 .tier_fixture <- function() {
   retros <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(100, 1000, 2000), c(500, 1500, 2500)),
@@ -264,7 +264,7 @@ test_that("cluster_orphan_hits merges overlapping hits but NOT gap-separated one
 })
 
 test_that("cluster_orphan_hits does NOT merge adjacent-but-non-overlapping hits", {
-  # 300 bp gap between the two — a proximity window merged these; overlap does not.
+  # 300 bp gap between the two - a proximity window merged these; overlap does not.
   hits <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(100, 500), c(200, 600)), strand = "+",
     probe = c("POL", "GAG")

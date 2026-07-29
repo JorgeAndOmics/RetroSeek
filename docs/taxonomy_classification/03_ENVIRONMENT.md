@@ -7,9 +7,9 @@ Ground truth of what is actually runnable here. Captured 2026-06-15. Update when
 | Tool | Location | Notes |
 |---|---|---|
 | `tblastn`/`blastn`/`makeblastdb` | `/usr/bin` (system) | present |
-| `hmmsearch`/`hmmalign`/`hmmbuild` | `retroseek` env | present (via LTR_retriever→HMMER dep) |
+| `hmmsearch`/`hmmalign`/`hmmbuild` | `retroseek` env | present (via LTR_retriever->HMMER dep) |
 | `datasets` (NCBI) | `retroseek` env | present |
-| `diamond` | `detectEVE` env | present — used for the weighted-LCA engine |
+| `diamond` | `detectEVE` env | present - used for the weighted-LCA engine |
 | `mafft`, `epa-ng`, `gappa`, `iqtree`/`FastTree` | **absent everywhere** | needed only for Phase-2 placement; would require new deps |
 | `snakemake`, `R`/`Rscript`, `python` | present | base + envs |
 
@@ -17,8 +17,8 @@ Conda envs present: `retroseek` (the pipeline env), `detectEVE`, `phylo-bat103`,
 
 ## Network
 
-- NCBI eutils **reachable** (`curl -sI https://eutils.ncbi.nlm.nih.gov` → OK).
-- `conda search` on bioconda is very slow (timed out at 20s) — installs feasible but slow; prefer
+- NCBI eutils **reachable** (`curl -sI https://eutils.ncbi.nlm.nih.gov` -> OK).
+- `conda search` on bioconda is very slow (timed out at 20s) - installs feasible but slow; prefer
   `mamba`. Pin fetched data to avoid depending on this at runtime.
 
 ## Data
@@ -29,7 +29,7 @@ Conda envs present: `retroseek` (the pipeline env), `detectEVE`, `phylo-bat103`,
 - **Local `results/tracks/valid/`**: `valid_ranges` GFF3 present for the 3 model bats (and many other
   bats from prior runs); **no human/mouse** yet.
 - `/mnt/v/databases/` also holds `bat103`, `globus-bat103*`, `local`, `toy-genomes`, `bat-experimental`
-  — not used (boundary / not needed).
+  - not used (boundary / not needed).
 - No Pfam HMM cache locally (pipeline downloads on demand); no obvious bundled viral protein DB found.
 
 ## Implications

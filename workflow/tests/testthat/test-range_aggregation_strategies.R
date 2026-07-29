@@ -14,7 +14,7 @@ suppressMessages({
 source("../../scripts/range_aggregation_strategies.R")
 
 
-# ───────────────────────────── aggregate_values ─────────────────────────────
+# ----------------------------- aggregate_values -----------------------------
 
 test_that("list strategy returns a CharacterList of length 1 with all unique values", {
   out <- aggregate_values(c("POL", "GAG", "POL"), strategy = "list")
@@ -67,7 +67,7 @@ test_that("majority strategy returns the most frequent value", {
 
 test_that("majority strategy breaks ties alphabetically (table() sort is stable on order)", {
   # With two POL and two GAG, sort() on table() puts the higher count first.
-  # Here both are tied → the specific tie-break behaviour is R's — assert one wins.
+  # Here both are tied -> the specific tie-break behaviour is R's - assert one wins.
   out <- aggregate_values(c("POL", "POL", "GAG", "GAG"), strategy = "majority")
   expect_true(out %in% c("POL", "GAG"))
 })
@@ -111,7 +111,7 @@ test_that("values are coerced to character before processing", {
 })
 
 
-# ───────────────────────────── make_tiebreaker_picker ─────────────────────────────
+# ----------------------------- make_tiebreaker_picker -----------------------------
 
 test_that("make_tiebreaker_picker('bitscore') returns the bitscore vector", {
   pick <- make_tiebreaker_picker("bitscore")
@@ -154,7 +154,7 @@ test_that("tiebreaker picker closure captures tb_name by value (force semantics)
 })
 
 
-# ───────────────────────────── end-to-end composition ─────────────────────────────
+# ----------------------------- end-to-end composition -----------------------------
 
 test_that("aggregate_values + make_tiebreaker_picker compose cleanly for the `best` case", {
   # Simulates the call pattern used in ranges_analysis.R's reduce_ranges_directed.
@@ -168,7 +168,7 @@ test_that("aggregate_values + make_tiebreaker_picker compose cleanly for the `be
 })
 
 
-# ─────────────────── plyranges integration regression ───────────────────────
+# ------------------- plyranges integration regression -----------------------
 #
 # The unit tests above exercise aggregate_values() in isolation. The function
 # is also called from inside plyranges::reduce_ranges_directed(...) via
@@ -191,9 +191,9 @@ test_that("aggregate_values handles CompressedCharacterList input (plyranges sha
   # a CompressedCharacterList of length n, where each element is the
   # per-group character vector of contributing values.
   values <- IRanges::CharacterList(list(
-    c("HIV", "HIV"),               # group 1: all same → unique = "HIV"
+    c("HIV", "HIV"),               # group 1: all same -> unique = "HIV"
     c("HTLV"),                     # group 2: single value
-    c("HIV", "HTLV", "HIV")        # group 3: mixed → unique = "HIV","HTLV"
+    c("HIV", "HTLV", "HIV")        # group 3: mixed -> unique = "HIV","HTLV"
   ))
   expect_s4_class(values, "CompressedCharacterList")
 

@@ -2,21 +2,21 @@
 tree_layout.py
 ==============
 Turns the two trees RetroSeek can draw into flat COORDINATE tables that the R
-plot generators render with `geom_segment` — no R tree library required.
+plot generators render with `geom_segment` - no R tree library required.
 
 Two sources, deliberately different in kind:
 
-* **taxon tree** — built from the reference's ``taxonomy.tsv`` (``name, parent,
+* **taxon tree** - built from the reference's ``taxonomy.tsv`` (``name, parent,
   rank``). This is the ADR-008 classification axis rendered as a cladogram: it
   covers every axis taxon by construction, needs no representative-sequence
   choice, and is rank-agnostic. It is a *classification*, not a phylogeny, so it
   carries no branch lengths (ADR-011).
-* **species tree** — a user-supplied Newick pinned by ``input.species_tree``.
+* **species tree** - a user-supplied Newick pinned by ``input.species_tree``.
   Reproducible (no network at run time) and free to carry real divergence times
   if the user exports a dated tree.
 
 Parsing/pruning uses ``Bio.Phylo`` from biopython, which the pipeline already
-pins for the tBLASTn cache — so trees cost ZERO new dependencies.
+pins for the tBLASTn cache - so trees cost ZERO new dependencies.
 
 Output per tree, written next to the classification tables:
   ``<name>.tree_segments.csv``  x, y, xend, yend   (the drawn lines)

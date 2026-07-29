@@ -5,13 +5,13 @@ This is *Coupling A* of the LTR_retriever integration. RetroSeek's
 candidates as retroviral by domain matching; this script writes two SCN
 files from a single read pass:
 
-* ``{genome}_retroviral.scn`` — the rows whose paired-LTR coordinates
+* ``{genome}_retroviral.scn`` - the rows whose paired-LTR coordinates
   overlap a valid_ranges interval on the same chromosome. This is the
   default LTR_retriever input under ``config.ltr_retriever.source_scn:
   retroviral``: LTR_retriever's family-building and BLAST-back passes
   see only retroviral-confirmed candidates, so the solo LTRs it
   discovers are guaranteed retroviral.
-* ``{genome}_full.scn`` — every well-formed row from the source SCN,
+* ``{genome}_full.scn`` - every well-formed row from the source SCN,
   comments included, byte-equivalent to the source modulo malformed
   rows. This is the LTR_retriever input under
   ``config.ltr_retriever.source_scn: full``, useful for non-retroviral
@@ -40,7 +40,7 @@ LTRharvest SCN
     valid_ranges.gff3.
 
 valid_ranges.gff3
-    RetroSeek's domain-validated retroviral ERV track — output of
+    RetroSeek's domain-validated retroviral ERV track - output of
     ``ranges_analysis_setup``. Standard GFF3: comment lines start with
     ``#``, data rows have 9 tab-separated fields.
 
@@ -80,7 +80,7 @@ def _parse_des(des_path: Path) -> list[str]:
 
     The ``.des`` file produced by ``gt suffixerator`` contains one
     FASTA-header-like string per line, in the order LTRharvest numbers
-    them (``seq-nr=0`` → first line). Whitespace is trimmed; empty
+    them (``seq-nr=0`` -> first line). Whitespace is trimmed; empty
     lines are skipped. Only the first whitespace-separated token is
     retained since LTRharvest uses that as the seqid when ``-seqids``
     is active.
@@ -110,11 +110,11 @@ def _parse_des(des_path: Path) -> list[str]:
         try:
             line = raw_line.decode("utf-8").strip()
         except UnicodeDecodeError:
-            # Mixed-codec garbage — treat as end of textual content.
+            # Mixed-codec garbage - treat as end of textual content.
             break
         if not line:
             continue
-        # Keep only the first token — matches LTRharvest -seqids behaviour.
+        # Keep only the first token - matches LTRharvest -seqids behaviour.
         names.append(line.split()[0])
     return names
 
@@ -123,7 +123,7 @@ def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
     """Return per-chromosome sorted list of (start, end) intervals, 0-indexed.
 
     GFF3 is 1-indexed closed; this converts start to 0-indexed (``- 1``)
-    and leaves end as-is (0-indexed closed ↔ 1-indexed closed have the
+    and leaves end as-is (0-indexed closed <-> 1-indexed closed have the
     same right edge under this convention).
 
     Comments (``#``-prefixed lines) and malformed rows (< 9 fields) are
@@ -141,7 +141,7 @@ def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
                 continue
             try:
                 seqid = fields[0]
-                start = int(fields[3]) - 1  # GFF3 1-indexed → 0-indexed
+                start = int(fields[3]) - 1  # GFF3 1-indexed -> 0-indexed
                 end = int(fields[4])
             except ValueError:
                 continue
@@ -153,7 +153,7 @@ def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
 
 
 def _intervals_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
-    """Closed-interval overlap test (0-indexed). True iff a ∩ b is non-empty."""
+    """Closed-interval overlap test (0-indexed). True iff a  &  b is non-empty."""
     return a_start <= b_end and a_end >= b_start
 
 
@@ -190,7 +190,7 @@ def prefilter_scn(
     Returns
     -------
     tuple[int, int, int]
-        ``(rows_in, rows_kept_retroviral, rows_kept_full)`` — input row
+        ``(rows_in, rows_kept_retroviral, rows_kept_full)`` - input row
         count, the count retained by the retroviral filter, and the
         count emitted to the full output. ``rows_kept_full`` equals
         ``rows_in`` modulo malformed rows.
@@ -211,14 +211,14 @@ def prefilter_scn(
         full_output_path.open("w") as fout_full,
     ):
         for raw in fin:
-            # Preserve SCN header comment lines verbatim — LTR_retriever parses them.
+            # Preserve SCN header comment lines verbatim - LTR_retriever parses them.
             if raw.startswith("#") or not raw.strip():
                 fout_retroviral.write(raw)
                 fout_full.write(raw)
                 continue
             parts = raw.split()
             if len(parts) < 11:
-                # Malformed row — skip (LTR_retriever would likely skip it too).
+                # Malformed row - skip (LTR_retriever would likely skip it too).
                 continue
             rows_in += 1
             try:
@@ -227,12 +227,12 @@ def prefilter_scn(
                 seq_nr = int(parts[10])
             except ValueError:
                 continue
-            # Always emit to the full file — that's the load-bearing
+            # Always emit to the full file - that's the load-bearing
             # contract for ``source_scn: full`` mode.
             fout_full.write(raw)
             rows_kept_full += 1
             if not 0 <= seq_nr < len(chrom_names):
-                # seq_nr references a chromosome we don't know about — drop
+                # seq_nr references a chromosome we don't know about - drop
                 # from retroviral but it's already in full.
                 continue
             chrom = chrom_names[seq_nr]

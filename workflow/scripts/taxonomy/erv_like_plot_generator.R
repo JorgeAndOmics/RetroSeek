@@ -4,22 +4,22 @@
 # Builds RetroSeek's ERV-like *structural* panel: views of the taxon-founded ERV
 # assembly produced by the taxonomy_classify stage. Each valid LTR-element locus
 # (one provirus, grouped by its LTR `Parent`) is one row of
-# `<genome>.loci.parquet`; this panel summarises their structure — how complete
+# `<genome>.loci.parquet`; this panel summarises their structure - how complete
 # they are, whether their genes sit in canonical order, which gene combinations
 # occur, their span, and how taxon relates to the genes recovered.
 #
 # This replaces the retired probe-label-chained erv_like tier: there is now one
-# canonical provirus object (the taxon loci table), viewed two ways — the
+# canonical provirus object (the taxon loci table), viewed two ways - the
 # taxonomic panel (taxonomy_plot_generator.R) and this structural panel.
 #
-# Plots (results/plots/classification/structure/ — the 'structure' panel):
-#   1. completeness        — fraction of main genes present per locus.
-#   2. canonical_order     — canonical vs rearranged main-gene order.
-#   3. gene_combinations   — frequency of each gene set (e.g. GAG,POL).
-#   4. length_distribution — locus span (bp).
-#   5. n_main_genes        — number of main genes per locus.
-#   6. composition_heatmap — taxon x gene (which genes each taxon keeps).
-#   7. structure_class     — discrete full / partial / gene per species.
+# Plots (results/plots/classification/structure/ - the 'structure' panel):
+#   1. completeness        - fraction of main genes present per locus.
+#   2. canonical_order     - canonical vs rearranged main-gene order.
+#   3. gene_combinations   - frequency of each gene set (e.g. GAG,POL).
+#   4. length_distribution - locus span (bp).
+#   5. n_main_genes        - number of main genes per locus.
+#   6. composition_heatmap - taxon x gene (which genes each taxon keeps).
+#   7. structure_class     - discrete full / partial / gene per species.
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R. `testthat` and demo_figures.R source this file for its builders;
@@ -247,7 +247,7 @@ main <- function() {
   max_dim     <- cfg$plots$max_dim     %||% 60
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
-  log_section(sprintf("RetroSeek structure panel — ERV structural plots (output: %s)", args$output))
+  log_section(sprintf("RetroSeek structure panel - ERV structural plots (output: %s)", args$output))
 
   loci <- load_taxon_loci(args$input)
   # Canonicalize the genome stem to the config `species:` display name at the
@@ -271,7 +271,7 @@ main <- function() {
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  # Bare filenames — the structure/ dir already names the panel (no erv_like_ prefix).
+  # Bare filenames - the structure/ dir already names the panel (no erv_like_ prefix).
   emit("completeness.png",        completeness_plot(loci))
   emit("canonical_order.png",     canonical_order_plot(loci), n_species)
   emit("gene_combinations.png",   gene_combinations_plot(loci))
@@ -280,11 +280,11 @@ main <- function() {
   emit("composition_heatmap.png", composition_heatmap_plot(loci), n_species)
   emit("structure_class.png",     structure_class_plot(loci), n_species)
 
-  log_section(sprintf("Done — wrote 7 PNGs to %s", args$output))
+  log_section(sprintf("Done - wrote 7 PNGs to %s", args$output))
 }
 
 
 # ----------------------------------------------------------------------------
-# Entry-point guard — only fire main() under `Rscript erv_like_plot_generator.R`.
+# Entry-point guard - only fire main() under `Rscript erv_like_plot_generator.R`.
 # ----------------------------------------------------------------------------
 if (sys.nframe() == 0L) main()

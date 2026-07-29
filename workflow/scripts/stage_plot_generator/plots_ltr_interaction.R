@@ -1,9 +1,9 @@
 # =============================================================================
-# stage_plot_generator/plots_ltr_interaction.R — hit ↔ LTR feature interplay
+# stage_plot_generator/plots_ltr_interaction.R - hit <-> LTR feature interplay
 # =============================================================================
 # How unreduced tBLASTn loci interact with the LTRharvest/LTRdigest features:
 # distance to the nearest retrotransposon, position within the enclosing
-# element, probe ↔ Pfam-domain agreement, the per-feature overlap breakdown,
+# element, probe <-> Pfam-domain agreement, the per-feature overlap breakdown,
 # element length vs recovered hits, and strand concordance. Same builder
 # contract as the other plot modules. Reuses plot2sort helpers. All describe the
 # NON-reduced original tier; the orchestrator stamps the reduced-state note.
@@ -14,7 +14,7 @@
 
 
 # Histogram of distance from each unreduced locus to its nearest LTR
-# retrotransposon (log10 of distance+1; 0 → inside). The left spike at 0 is the
+# retrotransposon (log10 of distance+1; 0 -> inside). The left spike at 0 is the
 # candidate pool; the bulk to the right are homology-only (disjoint) loci.
 distance_to_retro_plot <- function(ltr_int_df, subset_label = NULL,
                                    warning_caption = NULL) {
@@ -41,7 +41,7 @@ distance_to_retro_plot <- function(ltr_int_df, subset_label = NULL,
 
 
 # Density of where inside-retrotransposon loci sit along the enclosing element
-# (strand-aware 5'→3', 0–1), per probe — a metagene of probe placement.
+# (strand-aware 5'->3', 0-1), per probe - a metagene of probe placement.
 position_within_provirus_plot <- function(ltr_int_df, subset_label = NULL,
                                           warning_caption = NULL) {
   if (nrow(ltr_int_df) == 0L) return(empty_plot())
@@ -55,7 +55,7 @@ position_within_provirus_plot <- function(ltr_int_df, subset_label = NULL,
     scale_colour_manual(values = futurama_unlimited_palette(12, length(probes))) +
     scale_fill_manual(values = futurama_unlimited_palette(12, length(probes))) +
     theme_minimal() +
-    labs(x = "Relative position within provirus (5'→3')", y = "Density",
+    labs(x = "Relative position within provirus (5'->3')", y = "Density",
          colour = "Probe", fill = "Probe") +
     theme(text = element_text(face = "bold"))
   add_titles(
@@ -159,7 +159,7 @@ probe_domain_heatmap <- function(probe_domain_df, subset_label = NULL,
           axis.text.x = element_text(angle = 45, hjust = 1))
   out <- add_titles(
     p,
-    title    = "Probe × Pfam-domain overlap",
+    title    = "Probe x Pfam-domain overlap",
     subtitle = "Diagonal = locus probe matches the overlapped domain's probe (validation agreement)",
     subset_label    = subset_label,
     warning_caption = warning_caption

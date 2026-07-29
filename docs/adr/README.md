@@ -4,7 +4,7 @@ Short, append-only records of significant architectural decisions. One file per 
 
 ## Format
 
-Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep each ADR concise (≈ 1 page): context, decision, consequences, alternatives considered.
+Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep each ADR concise (~ 1 page): context, decision, consequences, alternatives considered.
 
 ## Index
 
@@ -13,14 +13,14 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 001   | [Single conda/mamba env instead of per-rule `--use-conda`](ADR-001-single-mamba-env.md) | Accepted |
 | 002   | [Configurable metadata aggregation strategies](ADR-002-aggregation-strategies.md) | Accepted |
 | 003   | [Retroviral-only pre-filter for LTR_retriever](ADR-003-ltr-retriever-pre-filter.md) | Accepted |
-| 004   | [`SPECIES_POST` → Snakemake checkpoint + runtime `species_with_hits` resolver](ADR-004-species-post-checkpoint.md) | Accepted |
+| 004   | [`SPECIES_POST` -> Snakemake checkpoint + runtime `species_with_hits` resolver](ADR-004-species-post-checkpoint.md) | Accepted |
 | 005   | [LTR_retriever runner script](ADR-005-ltr-retriever-runner.md) | Accepted |
 | 006   | [Genome FASTA normalization](ADR-006-fasta-normalization.md) | Accepted |
 | 007   | [Per-locus ERV taxonomic classification (genus calls)](ADR-007-taxonomic-classification.md) | Accepted |
 | 008   | [Rank-agnostic taxonomic classification (axis-taxon calls)](ADR-008-rank-agnostic-classification.md) | Accepted |
 | 009   | [Anchored domain-tiering, structural ERV class, orphan relabeling](ADR-009-anchored-domain-tiering-and-structure-class.md) | Accepted |
-| 010   | [Orphan proximity-clustering, fragment→orphan rename, authoritative catalog](ADR-010-orphan-clustering-and-authoritative-catalog.md) | Accepted |
-| 011   | [Phylogeny-aware plots, rank segmentation, anchored→ltr-flanked](ADR-011-phylogeny-aware-plots-and-rank-segmentation.md) | Accepted |
+| 010   | [Orphan proximity-clustering, fragment->orphan rename, authoritative catalog](ADR-010-orphan-clustering-and-authoritative-catalog.md) | Accepted |
+| 011   | [Phylogeny-aware plots, rank segmentation, anchored->ltr-flanked](ADR-011-phylogeny-aware-plots-and-rank-segmentation.md) | Accepted |
 
 ## When to write a new ADR
 
@@ -31,7 +31,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 
 ## Status values
 
-- **Proposed** — under discussion, not yet agreed.
-- **Accepted** — decision made, implemented.
-- **Deprecated** — superseded, replacement noted inline.
-- **Superseded** — replaced by a later ADR (reference it).
+- **Proposed** - under discussion, not yet agreed.
+- **Accepted** - decision made, implemented.
+- **Deprecated** - superseded, replacement noted inline.
+- **Superseded** - replaced by a later ADR (reference it).

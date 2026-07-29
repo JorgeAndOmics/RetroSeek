@@ -88,7 +88,7 @@ def directory_file_retriever(input_directory_path: str | Path) -> list[str]:
     -------
     list[str]
         Basenames of regular files present under ``input_directory_path``.
-        Order is unspecified — sort at the call site if determinism is
+        Order is unspecified - sort at the call site if determinism is
         required.
     """
     directory = Path(input_directory_path)
@@ -98,7 +98,7 @@ def directory_file_retriever(input_directory_path: str | Path) -> list[str]:
 def directory_content_eraser(directory_path: str | Path) -> None:
     """Delete every regular file directly inside ``directory_path``.
 
-    Subdirectories are left alone — this is a flat sweep, not a
+    Subdirectories are left alone - this is a flat sweep, not a
     recursive wipe. Individual ``unlink`` failures are logged at
     WARNING and do not abort the sweep.
     """
@@ -127,7 +127,7 @@ def incomplete_dict_cleaner(object_dict: dict[str, Any]) -> dict[str, Any]:
 def random_string_generator(length: int) -> str:
     """Generate an ``A-Z0-9`` random string of the given length.
 
-    Not cryptographically strong — callers use this for short, human-
+    Not cryptographically strong - callers use this for short, human-
     distinguishable identifiers (typically 6 characters).
     """
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))

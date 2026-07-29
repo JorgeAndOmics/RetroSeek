@@ -1,10 +1,10 @@
 # =============================================================================
-# stage_plot_generator/plots_concordance.R — homology ↔ LTR integration
+# stage_plot_generator/plots_concordance.R - homology <-> LTR integration
 # =============================================================================
 # Builders for the homology-vs-LTRdigest middle stage: where tBLASTn loci sit
 # relative to LTR retrotransposons, and how each probe's loci thin out through
 # the candidate / valid refinement steps. Same builder contract as
-# plot2sort/plots_*.R — `(data, ..., subset_label, warning_caption)` →
+# plot2sort/plots_*.R - `(data, ..., subset_label, warning_caption)` ->
 # ggplot, with an `intended_dims` attr for auto-scaled (probe-axis) plots.
 
 .CONCORDANCE_FILL <- c(inside = "#1b9e77", flanking = "#d95f02",
@@ -46,7 +46,7 @@ concordance_plot <- function(hits_df, subset_label = NULL,
 
 
 # Grouped bar: per probe, locus count surviving each refinement stage
-# (homology → candidate → domain_selected). `is_candidate` nests inside
+# (homology -> candidate -> domain_selected). `is_candidate` nests inside
 # homology, and the domain_selected tier nests inside candidate, so the bars are
 # monotonically non-increasing within a probe.
 probe_yield_plot <- function(hits_df, subset_label = NULL,
@@ -82,7 +82,7 @@ probe_yield_plot <- function(hits_df, subset_label = NULL,
   out <- add_titles(
     p,
     title    = "Per-probe yield through the refinement funnel",
-    subtitle = "Loci surviving homology → candidate (LTR-overlapping) → valid (domain-matched)",
+    subtitle = "Loci surviving homology -> candidate (LTR-overlapping) -> valid (domain-matched)",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

@@ -9,7 +9,7 @@ weighted-LCA / placement classification of ERV loci (see ``taxonomy_lca.py`` and
 Independence matters: the classifier must reclassify loci against references that
 were NOT the probes used to find them, otherwise the assignment is circular. So we
 pull RefSeq proteins per **axis taxon** straight from NCBI, balanced by capping the
-number kept per (taxon, gene) — this prevents over-sequenced lineages (e.g. MLV
+number kept per (taxon, gene) - this prevents over-sequenced lineages (e.g. MLV
 gammaretroviruses) from dominating the reference and biasing the LCA.
 
 The **axis** (the taxa the reference is built at) is rank-agnostic and declared, not
@@ -19,10 +19,10 @@ distinct probeset ``Label`` values (``--probe-csv``), else the retroviral-genus 
 valid an axis member as a genus (``Lentivirus``).
 
 Output (pinned under ``data/taxonomy_reference/`` by the ``taxonomy_reference`` rule):
-* ``retro_reference.faa`` — protein FASTA, header = accession.
-* ``retro_reference.csv`` — accession, taxon, gene, defline (the taxonomy map the
+* ``retro_reference.faa`` - protein FASTA, header = accession.
+* ``retro_reference.csv`` - accession, taxon, gene, defline (the taxonomy map the
   weighted-LCA / blastx step joins hits against).
-* ``manifest.yaml`` — provenance: axis taxa queried, per-taxon kept counts, total,
+* ``manifest.yaml`` - provenance: axis taxa queried, per-taxon kept counts, total,
   the content hash of the reference CSV, and the Biopython version that fetched it.
 
 Reuses the project's Biopython/Entrez convention (see ``seq_utils.gb_fetcher``).
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 # Fallback axis when neither --taxa nor --probe-csv is given (CLI/standalone use):
 # the retroviral genera. ICTV renamed the spuma genera, so "Spumaretrovirus"[Organism]
-# is empty — use the modern spuma genera for Class III.
+# is empty - use the modern spuma genera for Class III.
 DEFAULT_TAXA: tuple[str, ...] = (
     "Alpharetrovirus",
     "Betaretrovirus",
@@ -165,7 +165,7 @@ def write_manifest(
     by_taxon = Counter(taxon for _, taxon, _, _ in rows)
     content_hash = hashlib.md5(csv_path.read_bytes()).hexdigest()
     lines = [
-        "# RetroSeek taxonomic-classification reference — provenance manifest",
+        "# RetroSeek taxonomic-classification reference - provenance manifest",
         f"biopython_version: {Bio.__version__}",
         "query_filter: srcdb_refseq[PROP]",
         f"cap_per_taxon_gene: {CAP_PER_TAXON_GENE}",

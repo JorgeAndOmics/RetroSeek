@@ -1,14 +1,14 @@
 # testthat tests for workflow/scripts/ranges/reductions.R
 #
 # Focus areas:
-#   * attach_tiebreak_rank() — the per-row deterministic rank that makes the
+#   * attach_tiebreak_rank() - the per-row deterministic rank that makes the
 #     `best` / `majority` aggregation strategies reproducible. It must survive
 #     reduce_ranges_directed's internal position re-sort.
-#   * reduce_first() determinism — the headline risk: the `best` pick must be
+#   * reduce_first() determinism - the headline risk: the `best` pick must be
 #     identical regardless of input row order.
-#   * reduce_first() n_hits — guards the pre-existing `length()` vs `lengths()`
+#   * reduce_first() n_hits - guards the pre-existing `length()` vs `lengths()`
 #     bug (n_hits must be the per-merged-range contributor count = M1).
-#   * reduce_global() n_loci — the M2 multiplicity column.
+#   * reduce_global() n_loci - the M2 multiplicity column.
 #
 # Run with: make test-r  (or testthat::test_dir on this directory).
 
@@ -60,7 +60,7 @@ source(file.path(.script_dir, "ranges", "reductions.R"))
 }
 
 
-# ───────────────────────────── attach_tiebreak_rank ─────────────────────────
+# ----------------------------- attach_tiebreak_rank -------------------------
 
 test_that("attach_tiebreak_rank adds a per-row rank following the key chain", {
   gr <- attach_tiebreak_rank(.fake_blast_gr(), "bitscore", "identity", "evalue")
@@ -93,7 +93,7 @@ test_that("attach_tiebreak_rank returns an empty GRanges with the column present
 })
 
 
-# ─────────────────── reduce_first determinism (the headline risk) ───────────
+# ------------------- reduce_first determinism (the headline risk) -----------
 
 test_that("reduce_first 'best' label follows the deterministic tie-break chain", {
   gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
@@ -111,7 +111,7 @@ test_that("reduce_first 'best' pick is invariant to input row order", {
     as.character(S4Vectors::mcols(gv[GenomicRanges::start(gv) == 10L])$label)
   }
   # If the rank column did not survive reduce_ranges_directed's internal
-  # position re-sort, these would diverge — the regression guard for the
+  # position re-sort, these would diverge - the regression guard for the
   # whole tie-break approach.
   expect_equal(pick_label(c(1, 2, 3, 4)), "Lenti_B")
   expect_equal(pick_label(c(4, 3, 2, 1)), "Lenti_B")
@@ -119,7 +119,7 @@ test_that("reduce_first 'best' pick is invariant to input row order", {
 })
 
 
-# ───────────── reduce_first n_hits — per-merged-range contributor count ──────
+# ------------- reduce_first n_hits - per-merged-range contributor count ------
 
 test_that("reduce_first n_hits counts per-merged-range contributors (lengths, not length)", {
   gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
@@ -130,7 +130,7 @@ test_that("reduce_first n_hits counts per-merged-range contributors (lengths, no
 })
 
 
-# ───────────────────────── reduce_global n_loci (M2) ────────────────────────
+# ------------------------- reduce_global n_loci (M2) ------------------------
 
 test_that("reduce_global emits an n_loci column", {
   gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
@@ -146,11 +146,11 @@ test_that("n_loci sums to the number of gr_virus loci collapsed", {
   expect_equal(sum(S4Vectors::mcols(gg)$n_loci), length(gv))
 })
 
-test_that("n_loci is distinct from n_hits — at least one global locus collapses >1 locus", {
+test_that("n_loci is distinct from n_hits - at least one global locus collapses >1 locus", {
   gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
   gg <- reduce_global(gv, .agg_opts())
   # The chr1:10-70 global locus merges the POL/HIV and POL/HTLV loci.
   expect_true(any(S4Vectors::mcols(gg)$n_loci > 1L))
-  # n_hits rolls up raw hits; n_loci counts loci — n_hits >= n_loci per locus.
+  # n_hits rolls up raw hits; n_loci counts loci - n_hits >= n_loci per locus.
   expect_true(all(S4Vectors::mcols(gg)$n_hits >= S4Vectors::mcols(gg)$n_loci))
 })

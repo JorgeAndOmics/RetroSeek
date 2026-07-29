@@ -21,8 +21,8 @@ Use a **single conda/mamba environment** for the whole pipeline, pinned in [`dat
 
 - **Positive**:
   - One `mamba env create` on install; one activation before running. Low friction for new contributors.
-  - Single source of truth for all versions — one file to snapshot for reproducibility.
-  - No mamba solve per rule — faster iteration once the env exists.
+  - Single source of truth for all versions - one file to snapshot for reproducibility.
+  - No mamba solve per rule - faster iteration once the env exists.
   - Simpler CI (no nested env management).
 - **Negative**:
   - Heavier env (all deps loaded even if a run only touches a subset).
@@ -46,4 +46,4 @@ Use a **single conda/mamba environment** for the whole pipeline, pinned in [`dat
 ## References
 
 - Snakemake software-deployment docs: https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html
-- `data/config/environment.yml` — the pinned env.
+- `data/config/environment.yml` - the pinned env.

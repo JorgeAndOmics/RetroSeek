@@ -21,7 +21,7 @@ Pass ``--dest /somewhere/else`` to target a different directory, ``--force``
 to overwrite existing outputs, ``--seed N`` to change the RNG seed.
 
 The script is intentionally dependency-light (biopython only) and
-reproducible — same seed, same output bytes.
+reproducible - same seed, same output bytes.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 # Real short retroviral ORF fragments (amino acid strings).
-# Sources: trimmed fragments of published MLV, HERV-K, HIV-1 proteins —
+# Sources: trimmed fragments of published MLV, HERV-K, HIV-1 proteins -
 # enough to produce non-trivial tBLASTn hits when back-translated.
 PROBE_PROTEINS: dict[str, str] = {
     "GAG": (
@@ -136,7 +136,7 @@ def build_erv(
         rng: Seeded RNG.
         ltr_length: Length of each flanking LTR (bp).
         probe_order: Names of probes (keys of PROBE_PROTEINS) to embed,
-            in 5'→3' order inside the internal region.
+            in 5'->3' order inside the internal region.
         padding_per_gap: Random DNA filler length between ORFs.
 
     Returns:
@@ -158,7 +158,7 @@ def build_scaffold(
 ) -> str:
     """Place ERVs into a random-DNA scaffold at quasi-uniform positions.
 
-    ERVs are inserted in 5'→3' order with random DNA filler between them.
+    ERVs are inserted in 5'->3' order with random DNA filler between them.
     The resulting scaffold length is approximately but not exactly ``length``.
     """
     total_erv_length = sum(len(erv) for erv in ervs)
@@ -267,7 +267,7 @@ def fasta_checksum(path: Path) -> str:
 
 
 def default_species_specs() -> list[SpeciesSpec]:
-    """Three toy species spanning easy → moderately complex cases."""
+    """Three toy species spanning easy -> moderately complex cases."""
     return [
         SpeciesSpec(
             name="Toyus_simplex",
@@ -312,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         "--seed",
         type=int,
         default=1337,
-        help="RNG seed. Same seed ⇒ byte-identical output (default: 1337).",
+        help="RNG seed. Same seed => byte-identical output (default: 1337).",
     )
     parser.add_argument(
         "--force",
@@ -330,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
 
     manifest_rows: list[tuple[str, int, int, str]] = []
     for spec in specs:
-        # Flat FASTA at dest/{name}.fa — matches RetroSeek SPECIES_DB layout.
+        # Flat FASTA at dest/{name}.fa - matches RetroSeek SPECIES_DB layout.
         fasta_path = dest / f"{spec.name}.fa"
         if fasta_path.exists() and not args.force:
             print(
@@ -345,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"  wrote {spec.name}: "
             f"{len(records)} scaffolds, {total_bp:,} bp, "
-            f"{size:,} bytes — sha256 {checksum[:12]}…"
+            f"{size:,} bytes - sha256 {checksum[:12]}..."
         )
 
     # Probe CSV always regenerated; trivially small.

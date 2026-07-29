@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 BLASTX = "blastx"  # translated search; all tools resolved from PATH (RetroSeek env)
 MAKEBLASTDB = "makeblastdb"
 # Per-locus marker regions are cut with a Bioconductor (Biostrings) helper rather
-# than bedtools — RetroSeek keeps all range/sequence work inside Bioconductor.
+# than bedtools - RetroSeek keeps all range/sequence work inside Bioconductor.
 _EXTRACT_R = Path(__file__).resolve().parent / "extract_region_fasta.R"
 
 _PROBE = re.compile(r"probe=([^;\t]+)")
@@ -56,7 +56,7 @@ _OVERSIZED = re.compile(r"oversized=([^;\t]+)")
 # shouldn't, since the tier is element-wise, but be defensive). See validation.R.
 _DOMAIN_TIER_RANK = {"non_domain": 0, "domain_unlisted": 1, "domain_selected": 2}
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
-# (from the user's ordered --main-probes and from the reference) — never hard-coded — so the
+# (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
 # classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
 
 
@@ -70,7 +70,7 @@ def run(cmd: list[str], stdout: Any = None) -> None:
     )
     if res.returncode != 0:
         sys.stderr.write((res.stderr or "")[-2000:])
-        raise SystemExit(f"command failed: {' '.join(cmd[:3])}…")
+        raise SystemExit(f"command failed: {' '.join(cmd[:3])}...")
 
 
 # ---------------------------------------------------------------- loci + regions
@@ -375,7 +375,7 @@ def auto_diagnostic(
 ) -> dict[str, str]:
     """Genes whose reference members all belong to ONE axis taxon -> {gene: taxon} (presence-diagnostic).
 
-    Data-derived (e.g. REX/TAX -> Deltaretrovirus), not hard-coded — so any probe set works.
+    Data-derived (e.g. REX/TAX -> Deltaretrovirus), not hard-coded - so any probe set works.
     """
     by_gene: dict[str, set[str]] = defaultdict(set)
     for acc, gene in gene_of.items():
@@ -413,7 +413,7 @@ def segment_of(taxon_call: str, segment_rank: str) -> str:
     """Roll a taxon call up to ``segment_rank`` (ADR-011).
 
     Walks the taxonomy from the call toward the root and returns the first node
-    at the requested rank — the call itself when it is already there. Rank-
+    at the requested rank - the call itself when it is already there. Rank-
     agnostic by construction: ``segment_rank`` is any NCBI rank string, and no
     taxon name is ever hard-coded, so segmenting by family works exactly like
     segmenting by genus.
@@ -475,8 +475,8 @@ def _assemble(
                     "confidence": f"{wconf:.3f}",
                     "method": "lca",
                 }
-        # locus summary: choose by marker reliability (POL>GAG>…>ENV), placement preferred,
-        # then confidence — NOT raw confidence (which is competition-dependent and favours ENV).
+        # locus summary: choose by marker reliability (POL>GAG>...>ENV), placement preferred,
+        # then confidence - NOT raw confidence (which is competition-dependent and favours ENV).
         # 'confident' = resolved to an axis taxon (ADR-008), replacing the old rank=='genus'.
         confident = {g: c for g, c in per_gene.items() if c["taxon_call"] in axis}
         if confident:
@@ -518,7 +518,7 @@ def _assemble(
             )
         # mosaic only over main genes (exclude OTHER; ENV noisy but kept as a main gene)
         distinct = {c["taxon_call"] for g, c in confident.items() if g in main_set}
-        # structural metrics — this loci table IS the genus-founded ERV assembly, so it
+        # structural metrics - this loci table IS the genus-founded ERV assembly, so it
         # carries the same structure the legacy erv_like tier reported: how many main
         # genes are present (completeness) and whether they sit in canonical genomic order.
         present_main = [g for g in main_probes if g in lc["genes"]]
@@ -532,7 +532,7 @@ def _assemble(
         # Discrete structural class over gene content (ADR-009): a single main
         # gene is a 'gene' fragment; a multi-gene locus is 'full' once its
         # completeness clears structure_full_min, else 'partial'. Deliberately
-        # gene-content only — LTR-pair structure lives in the anchoring axis and
+        # gene-content only - LTR-pair structure lives in the anchoring axis and
         # the solo-LTR module, not here.
         completeness_val = len(present_main) / len(main_probes) if main_probes else 0.0
         if len(present_main) <= 1:
@@ -543,10 +543,10 @@ def _assemble(
             structure_class = "partial"
         # blastx evidence depth for this locus (summed over its gene regions). Zero
         # means the locus carries valid LTR structure but NO protein homology to the
-        # reference — the candidate-novel-retrovirus signal the loss analysis surfaces.
+        # reference - the candidate-novel-retrovirus signal the loss analysis surfaces.
         n_blastx_hits = sum(len(hits.get(f"{lc['id']}|{g}", [])) for g in lc["genes"])
         # confidence tag: HC/LC against a user-adjustable floor (classification.confidence_min).
-        # Threshold is inclusive — conf == floor is still High Confidence.
+        # Threshold is inclusive - conf == floor is still High Confidence.
         confidence_tag = "LC" if float(conf) < confidence_min else "HC"
         records.append(
             {
@@ -604,7 +604,7 @@ def gate_classified(records: list[dict[str, str]]) -> list[dict[str, str]]:
     """Keep only records that earned a taxonomic call (drop UNCLASSIFIED).
 
     This is the orphan-recovery gate: a non-LTR-associated orphan is retained
-    only if blastx resolved it to a taxon (axis member/backoff) — earning a
+    only if blastx resolved it to a taxon (axis member/backoff) - earning a
     classification *is* the evidence it is a real (possibly novel) retroviral orphan.
     """
     return [r for r in records if r["taxon_call"] != tlca.UNCLASSIFIED]
@@ -701,7 +701,7 @@ def summarise(records: list[dict[str, str]]) -> str:
 
 
 # ---------------------------------------------------------------- outputs
-# Canonical schema for the loci table — fixed so an empty genome still writes a
+# Canonical schema for the loci table - fixed so an empty genome still writes a
 # well-formed parquet/csv (Snakemake output contract) instead of a headerless file.
 LOCI_COLUMNS = [
     "id",
@@ -838,7 +838,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--threads", type=int, default=1, help="blastx threads")
     p.add_argument("--workdir", type=Path, default=Path("/tmp/taxonomy_classify"))
-    # Ad-hoc single-CSV output (trial reproduction) — or the production output set:
+    # Ad-hoc single-CSV output (trial reproduction) - or the production output set:
     p.add_argument("--out", type=Path, default=None, help="ad-hoc single CSV output")
     p.add_argument("--out-parquet", type=Path, default=None, help="loci table parquet")
     p.add_argument("--out-csv", type=Path, default=None, help="loci table csv")

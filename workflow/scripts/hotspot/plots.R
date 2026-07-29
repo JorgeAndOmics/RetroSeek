@@ -3,15 +3,15 @@
 # -----------------------------------------------------------------------------
 # All hotspot-detector plot families (NB GLM only):
 #
-#   * `plot_manhattan()`           — genome-wide -log10(qval_nb) vs cumulative
+#   * `plot_manhattan()`           - genome-wide -log10(qval_nb) vs cumulative
 #                                    position. One series per chromosome.
-#   * `plot_karyotype()`           — chromosome ideograms with hotspots overlaid.
-#   * `plot_qq()`                  — observed vs expected -log10(p) under the
+#   * `plot_karyotype()`           - chromosome ideograms with hotspots overlaid.
+#   * `plot_qq()`                  - observed vs expected -log10(p) under the
 #                                    uniform null (NB series).
-#   * `plot_summary_panel()`       — patchwork composition: hotspots-per-Mb
+#   * `plot_summary_panel()`       - patchwork composition: hotspots-per-Mb
 #                                    bar chart per chromosome + hotspot-width
 #                                    histogram.
-#   * `save_plots_pdf_pages()`     — multi-page PDF helper.
+#   * `save_plots_pdf_pages()`     - multi-page PDF helper.
 #
 # Pure module: pass tibbles / GRanges in, get ggplot objects out.
 
@@ -253,6 +253,6 @@ save_plots_pdf_pages <- function(plots, path, width, height) {
 
 
 # Local %||% (rlang's is shadowed when scripts source via `source()` rather
-# than `library(rlang)` — we already library(rlang) at the top, but keeping
+# than `library(rlang)` - we already library(rlang) at the top, but keeping
 # this local fallback makes the module self-contained for unit testing).
 `%||%` <- function(x, y) if (is.null(x) || (length(x) == 1L && is.na(x))) y else x

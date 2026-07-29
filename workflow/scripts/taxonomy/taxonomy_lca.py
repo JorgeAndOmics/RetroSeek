@@ -11,15 +11,15 @@ Motivation
 RetroSeek detection produces, per locus, a cloud of cross-genus probe hits
 (retroviral ``pol``/RT is conserved across genera, so one genomic ERV is
 homologous to many reference viruses at once). The legacy taxon assignment either
-picks the single highest-bitscore probe (``best`` — an uncalibrated argmax) or
-dumps the whole genus set (``concatenate`` — uninterpretable). Neither classifies.
+picks the single highest-bitscore probe (``best`` - an uncalibrated argmax) or
+dumps the whole genus set (``concatenate`` - uninterpretable). Neither classifies.
 
 This module replaces that with LCA backoff (the MEGAN / detectEVE paradigm,
 expressed over a taxonomy rather than a tree):
 
 * taxon set collapses to a single axis taxon -> assign that **taxon** (confident);
 * taxon set spans several axis taxa           -> assign their **LCA** (a higher rank
-  — an honest backoff);
+  - an honest backoff);
 * nothing supported                           -> ``unclassified``.
 
 It is intentionally probe- and rank-agnostic: it operates on whatever axis-taxon
@@ -27,7 +27,7 @@ labels the evidence carries, at whatever rank, never on a fixed marker or rank.
 
 This is the *unweighted* baseline (presence/absence of genus support). The
 weighted variant (blastx bitscore-weighted LCA against an independent reference)
-builds on the same taxonomy and ``lca``/``rank_of`` primitives — see
+builds on the same taxonomy and ``lca``/``rank_of`` primitives - see
 ``docs/taxonomy_classification/``.
 """
 
@@ -74,7 +74,7 @@ RANK_OF: dict[str, str] = {
     "Spumaretrovirus": "genus",
 }
 
-# ERV class system (Jern/Blomberg) — a curated biological grouping (NOT an NCBI rank,
+# ERV class system (Jern/Blomberg) - a curated biological grouping (NOT an NCBI rank,
 # so it can't be derived from taxonomy). Operationally loaded from an overridable data
 # file via ``load_erv_class()``; the literal below is only a fallback default.
 ERV_CLASS: dict[str, str] = {
@@ -172,7 +172,7 @@ def weighted_lca(
     Bitscore-weighted LCA over a locus's hits (MEGAN top-percent paradigm).
 
     ``hits`` is ``[(taxon, bitscore), ...]``. Only hits whose bitscore is within
-    ``top_percent`` of the locus's best bitscore count toward the LCA — so a taxon
+    ``top_percent`` of the locus's best bitscore count toward the LCA - so a taxon
     supported only by weak hits does **not** drag the assignment up to a higher
     rank. This is the fix for unweighted LCA's over-backoff.
 

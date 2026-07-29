@@ -13,7 +13,7 @@ source("../../scripts/utils/chrom_names.R")
 source("../../scripts/hotspot/io.R")
 
 
-# ──────────────────────── normalise_chrom_names ─────────────────────────
+# ------------------------ normalise_chrom_names -------------------------
 
 test_that("normalise_chrom_names extracts NCBI accession tokens from full headers", {
   headers <- c(
@@ -42,7 +42,7 @@ test_that("normalise_chrom_names is silent when all headers match", {
 })
 
 
-# ─────────────────────────── read_hotspot_options ───────────────────────────
+# --------------------------- read_hotspot_options ---------------------------
 
 test_that("read_hotspot_options returns documented defaults when the config is empty", {
   config <- list(parameters = list(), hotspot = list())
@@ -79,7 +79,7 @@ test_that("read_hotspot_options reads operational knobs from the top-level hotsp
 })
 
 
-# ─────────────────────────── assert_hits_on_genome ──────────────────────────
+# --------------------------- assert_hits_on_genome --------------------------
 
 test_that("assert_hits_on_genome aborts on a GenBank-vs-RefSeq accession mismatch", {
   hits <- GenomicRanges::GRanges(
@@ -101,7 +101,7 @@ test_that("assert_hits_on_genome passes (frac == 1) when hit seqnames match the 
 })
 
 
-# ─────────────────────────── load_hits_gff (label assertion) ───────────────
+# --------------------------- load_hits_gff (label assertion) ---------------
 
 test_that("load_hits_gff aborts when the GFF lacks an mcols$label column", {
   # Build a minimal GFF3 file via rtracklayer::export with no label column

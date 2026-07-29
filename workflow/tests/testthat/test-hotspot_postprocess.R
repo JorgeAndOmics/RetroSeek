@@ -30,7 +30,7 @@ source("../../scripts/hotspot/postprocess.R")
 }
 
 
-# ───────────────────────── select_significant_windows ──────────────────
+# ------------------------- select_significant_windows ------------------
 
 test_that("select_significant_windows filters by q-value threshold", {
   df <- tibble::tibble(
@@ -55,7 +55,7 @@ test_that("select_significant_windows skips NA q-values silently", {
 })
 
 
-# ───────────────────────── merge_adjacent_hotspots ─────────────────────
+# ------------------------- merge_adjacent_hotspots ---------------------
 
 test_that("merge_adjacent_hotspots merges strictly adjacent windows when gap=0", {
   rows <- list(
@@ -106,7 +106,7 @@ test_that("merge_adjacent_hotspots returns canonical empty schema for empty inpu
 })
 
 
-# ───────────────────────── apply_min_hits_filter ─────────────────────────
+# ------------------------- apply_min_hits_filter -------------------------
 
 test_that("apply_min_hits_filter drops regions below the threshold", {
   rows <- list(
@@ -131,7 +131,7 @@ test_that("apply_min_hits_filter is a pass-through when min_hits <= 0", {
 })
 
 
-# ───────────────────────── assign_hotspot_ids + attach ──────────────────
+# ------------------------- assign_hotspot_ids + attach ------------------
 
 test_that("assign_hotspot_ids stamps zero-padded IDs prefixed by species", {
   rows <- list(

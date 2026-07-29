@@ -3,15 +3,15 @@
 Why this exists
 ---------------
 Genome FASTAs arrive at RetroSeek with several plausible extensions:
-``.fa`` (legacy), ``.fna`` (NCBI Datasets — the common case), ``.fasta``
+``.fa`` (legacy), ``.fna`` (NCBI Datasets - the common case), ``.fasta``
 (manual download convention), and ``.ffn`` (older GenBank exports).
 Every downstream rule (BLAST DB build, suffixerator, LTRharvest,
 LTR_retriever) hard-codes ``.fa`` as the input filename. This rule
 canonicalises whatever shape upstream supplied into a ``{genome}.fa``
-view of the file — without copying the (potentially gigabyte-scale)
+view of the file - without copying the (potentially gigabyte-scale)
 genome.
 
-Strategy: symlink. Repeat invocations are idempotent — a correct
+Strategy: symlink. Repeat invocations are idempotent - a correct
 symlink is left in place; a stale one is replaced atomically. A real
 ``.fa`` file is never overwritten.
 
@@ -22,7 +22,7 @@ Extension preference, in order: ``fa`` > ``fna`` > ``fasta`` > ``ffn``.
 If ``.fa`` is absent and *exactly one* of the other three is present,
 that file becomes the symlink target. If two or more non-``.fa`` variants
 coexist, the script refuses with a ``RuntimeError`` listing the
-candidates — the user must disambiguate by removing duplicates.
+candidates - the user must disambiguate by removing duplicates.
 Silent preference would mask the case where a working `.fna` from
 NCBI Datasets accidentally coexists with an older `.fasta` from a
 prior pipeline that pointed at a different genome.
@@ -92,7 +92,7 @@ def _validate_fasta_first_byte(path: Path) -> None:
 
     Catches misnamed binary blobs (gzip, tarballs) before downstream
     tools choke on them with cryptic errors. Reads at most the first
-    16 bytes — fast even on huge files.
+    16 bytes - fast even on huge files.
     """
     target = path.resolve() if path.is_symlink() else path
     with target.open("rb") as handle:

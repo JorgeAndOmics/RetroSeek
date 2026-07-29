@@ -34,7 +34,7 @@ source("../../scripts/plot2sort.R")
 }
 
 
-# ───────────────────────────── order_by_count ─────────────────────────────
+# ----------------------------- order_by_count -----------------------------
 
 test_that("order_by_count returns levels by count descending, ties alphabetic", {
   df <- tibble::tibble(species = c("Z", "A", "Z", "M", "M", "A", "Z"))
@@ -55,7 +55,7 @@ test_that("order_by_count returns empty character on zero-row input", {
 })
 
 
-# ───────────────────────── collapse_long_tail ─────────────────────────────
+# ------------------------- collapse_long_tail -----------------------------
 
 test_that("collapse_long_tail is a no-op when top_n is NULL", {
   df <- tibble::tibble(probe = c("POL", "GAG", "ENV", "VIF"))
@@ -86,7 +86,7 @@ test_that("collapse_long_tail keeps top N strata by count, folds the rest", {
 test_that("collapse_long_tail breaks ties alphabetically (deterministic)", {
   df <- tibble::tibble(probe = c("POL", "GAG", "ENV"))   # all count 1
   out <- collapse_long_tail(df, "probe", top_n = 1)
-  # alphabetical first wins → ENV kept; POL + GAG fold
+  # alphabetical first wins -> ENV kept; POL + GAG fold
   expect_setequal(unique(out$probe), c("ENV", "Other (2)"))
 })
 
@@ -103,7 +103,7 @@ test_that("collapse_long_tail honours custom other_label", {
 })
 
 
-# ───────────────────────────── empty_plot ─────────────────────────────────
+# ----------------------------- empty_plot ---------------------------------
 
 test_that("empty_plot returns a ggplot with the requested title", {
   p <- empty_plot("nothing here")
@@ -121,7 +121,7 @@ test_that("empty_plot forces a white plot.background", {
 })
 
 
-# ───────────────────────────── stamp_tier_note ────────────────────────────
+# ----------------------------- stamp_tier_note ----------------------------
 
 test_that("stamp_tier_note appends to an existing subtitle", {
   p <- add_titles(empty_plot(), title = "T", subtitle = "Bitscore density")
@@ -142,7 +142,7 @@ test_that("stamp_tier_note is a no-op for NULL / empty tier", {
 })
 
 
-# ───────────────────────────── bar_plot ───────────────────────────────────
+# ----------------------------- bar_plot -----------------------------------
 
 test_that("bar_plot returns empty placeholder on zero-row input", {
   p <- bar_plot(tibble::tibble(species = character(0),
@@ -164,7 +164,7 @@ test_that("bar_plot reorders species levels by total count descending", {
 })
 
 
-# ───────────────────────────── bar_virus_plot ─────────────────────────────
+# ----------------------------- bar_virus_plot -----------------------------
 
 test_that("bar_virus_plot returns empty placeholder on zero-row input", {
   p <- bar_virus_plot(tibble::tibble(species = character(0), virus = character(0),
@@ -186,7 +186,7 @@ test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
 })
 
 
-# ─────────────────────── balloon_virus_species_plot ───────────────────────
+# ----------------------- balloon_virus_species_plot -----------------------
 
 test_that("balloon plot returns empty placeholder on zero-row input", {
   p <- balloon_virus_species_plot(tibble::tibble(
@@ -206,13 +206,13 @@ test_that("balloon plot species y-axis ordered by total contribution", {
     count        = c(  10,    50,    1)
   )
   # Counts descending: S2 (50), S1 (10), S3 (1).
-  # Y axis uses rev(...) so the largest sits at the top → levels c(S3, S1, S2).
+  # Y axis uses rev(...) so the largest sits at the top -> levels c(S3, S1, S2).
   p <- balloon_virus_species_plot(df)
   expect_equal(levels(p$data$species), c("S3", "S1", "S2"))
 })
 
 
-# ─────────────────────────── density / raincloud ──────────────────────────
+# --------------------------- density / raincloud --------------------------
 
 test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   p <- density_bitscore_plot(.fake_plot_df()[0, ], q1 = 0, median = 0, q3 = 0)
@@ -238,7 +238,7 @@ test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", 
 })
 
 
-# ─────────────────────── sankey two-axis ordering + collapse ──────────────
+# ----------------------- sankey two-axis ordering + collapse --------------
 
 .sankey_input <- function() {
   tibble::tibble(
@@ -297,7 +297,7 @@ test_that("sankey_species_label_plot orders both axes by count", {
 })
 
 
-# ───────────────────────── new plot: query_coverage ───────────────────────
+# ------------------------- new plot: query_coverage -----------------------
 
 test_that("query_coverage_plot empty-input guard fires on 0 rows", {
   p <- query_coverage_plot(.fake_plot_df()[0, ])
@@ -327,7 +327,7 @@ test_that("query_coverage_plot returns placeholder when column is all NA", {
 })
 
 
-# ───────────────────────── new plot: heatmap_probe_species ────────────────
+# ------------------------- new plot: heatmap_probe_species ----------------
 
 test_that("heatmap_probe_species_plot empty-input guard fires on 0 rows", {
   p <- heatmap_probe_species_plot(.fake_plot_df()[0, ])
@@ -339,21 +339,21 @@ test_that("heatmap reorders both axes by marginal count", {
   df <- .fake_plot_df()
   p  <- heatmap_probe_species_plot(df)
   # Species totals (main+accessory): S1 = 4, S2 = 2, S3 = 1
-  # Probe totals: POL = 4, GAG = 1, ENV = 1, VIF = 1 (ties → alphabetic)
+  # Probe totals: POL = 4, GAG = 1, ENV = 1, VIF = 1 (ties -> alphabetic)
   expect_equal(levels(p$data$species), c("S1", "S2", "S3"))
   expect_equal(levels(p$data$probe)[1], "POL")
 })
 
-test_that("heatmap fills missing probe×species cells with zero", {
+test_that("heatmap fills missing probexspecies cells with zero", {
   df <- .fake_plot_df()
   p  <- heatmap_probe_species_plot(df)
-  # Original rows: 7. Cells: 3 species × 4 probes = 12.
+  # Original rows: 7. Cells: 3 species x 4 probes = 12.
   expect_equal(nrow(p$data), 12L)
   expect_true(0L %in% p$data$count)
 })
 
 
-# ───────────────────────── new plot: waffle_virus ─────────────────────────
+# ------------------------- new plot: waffle_virus -------------------------
 
 test_that("waffle_virus_plot empty-input guard fires on 0 rows", {
   skip_if_not_installed("waffle")
@@ -382,19 +382,19 @@ test_that("waffle_virus_plot uses unit_hits to bucket squares", {
 
 test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap", {
   skip_if_not_installed("waffle")
-  # 10,000 hits with a 400-square cap → auto-derive forces unit_hits to 25
+  # 10,000 hits with a 400-square cap -> auto-derive forces unit_hits to 25
   df <- tibble::tibble(virus = rep("HIV", 10000))
   p <- waffle_virus_plot(df, unit_hits = NULL)
   expect_match(p$labels$caption, "auto-scaled from 10000 total hits")
 })
 
 
-# ───────────────────────── title / subtitle injection ─────────────────────
+# ------------------------- title / subtitle injection ---------------------
 
 test_that("add_titles prepends subset_label when supplied", {
   p <- ggplot2::ggplot()
   q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
-  expect_equal(q$labels$title,    "Main — Foo")
+  expect_equal(q$labels$title,    "Main - Foo")
   expect_equal(q$labels$subtitle, "Bar")
 })
 
@@ -419,12 +419,12 @@ test_that("add_titles forces a white plot.background", {
 
 test_that("query_coverage_plot threads subset_label into title", {
   p <- query_coverage_plot(.fake_plot_df(), subset_label = "Accessory")
-  expect_equal(p$labels$title, "Accessory — Probe query coverage density")
+  expect_equal(p$labels$title, "Accessory - Probe query coverage density")
   expect_match(p$labels$subtitle, "alignment length / probe length")
 })
 
 
-# ───────────────────────────── auto_dims ──────────────────────────────────
+# ----------------------------- auto_dims ----------------------------------
 
 test_that("auto_dims keeps the base canvas when n is at or below base_strata", {
   d <- auto_dims(5, axis = "x", base_w = 15, base_h = 12)
@@ -447,14 +447,14 @@ test_that("auto_dims grows height with n on the y axis", {
 })
 
 test_that("auto_dims clamps at the cap", {
-  # 1000 strata at 0.18 in/stratum would request ~178 in width — must cap.
+  # 1000 strata at 0.18 in/stratum would request ~178 in width - must cap.
   d <- auto_dims(1000, axis = "x", base_w = 15, base_h = 12,
                  per_stratum = 0.18, cap = 60)
   expect_equal(d$w, 60)
 })
 
 
-# ───────────────────────────── intended_dims attribute ────────────────────
+# ----------------------------- intended_dims attribute --------------------
 
 test_that("species-axis builders attach an intended_dims attribute", {
   df <- .fake_plot_df() %>% group_count()
@@ -468,7 +468,7 @@ test_that("species-axis builders attach an intended_dims attribute", {
 })
 
 
-# ───────────────────────────── save_plot ──────────────────────────────────
+# ----------------------------- save_plot ----------------------------------
 
 test_that("save_plot writes the file and respects dims override", {
   tmp <- tempfile("plot2sort_test_", fileext = "")
@@ -494,7 +494,7 @@ test_that("save_plot falls back to base_w / base_h when dims is NULL", {
 })
 
 
-# ───────────────────────────── verify_required_columns ────────────────────
+# ----------------------------- verify_required_columns --------------------
 
 test_that("verify_required_columns is silent when columns are present", {
   expect_silent(verify_required_columns(.fake_plot_df(),
@@ -511,7 +511,7 @@ test_that("verify_required_columns lists every missing column at once", {
 })
 
 
-# ─────────────────── multi-value aggregation warning ───────────────────────
+# ------------------- multi-value aggregation warning -----------------------
 #
 # aggregation_warning() flags `list` / `concatenate` on virus/label (entry
 # explosion); stamp_warning_caption() applies it to a finished plot. Both are

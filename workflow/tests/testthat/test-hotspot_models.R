@@ -45,7 +45,7 @@ source("../../scripts/hotspot/models.R")
 }
 
 
-# ───────────────────────── fit_nb_model ─────────────────────────────────
+# ------------------------- fit_nb_model ---------------------------------
 
 test_that("fit_nb_model returns insufficient_data when all windows are zero", {
   df <- .fake_window_df(n = 100L, baseline_rate = 0)  # all zeros
@@ -79,7 +79,7 @@ test_that("fit_nb_model honours strata_by_chromosome=FALSE", {
 })
 
 
-# ───────────────────────── score_windows_nb ────────────────────────────
+# ------------------------- score_windows_nb ----------------------------
 
 test_that("score_windows_nb adds mu_nb / pval_nb / qval_nb columns", {
   df <- .fake_window_df(n = 400L, baseline_rate = 1,

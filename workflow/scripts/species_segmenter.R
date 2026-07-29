@@ -90,7 +90,7 @@ for (i in seq_along(species_list)) {
 # 5. Ensure every configured species has a parquet file (empty if no hits)
 # =============================================================================
 # The B1 checkpoint-based DAG expects species_segmenter_setup to produce a
-# {genome}.parquet for every SPECIES passed from the Snakefile — not just
+# {genome}.parquet for every SPECIES passed from the Snakefile - not just
 # the species that happened to produce BLAST hits. Downstream aggregates
 # consume only the subset with hits (via species_with_hits(wildcards) at
 # runtime) but the per-genome rule outputs must exist for Snakemake to

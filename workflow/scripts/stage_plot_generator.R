@@ -1,20 +1,20 @@
 # =============================================================================
-# stage_plot_generator.R — orchestrator
+# stage_plot_generator.R - orchestrator
 # =============================================================================
-# Builds RetroSeek's "middle stage" PNG plots — the homology + LTRharvest/
+# Builds RetroSeek's "middle stage" PNG plots - the homology + LTRharvest/
 # LTRdigest integration step that the final-tier plots from plot2sort.R do not
 # capture. Input is the per-genome ranges-analysis parquet tables that
 # ranges_analysis.R writes to `data/tables/ranges_analysis/` (homology_loci /
 # ltr_structure / reduction_multiplicity / counts).
 #
 # Shared infrastructure (theme, add_titles, auto_dims, empty_plot, save_plot,
-# the aggregation-warning helper) is reused from plot2sort/*.R — not
-# duplicated — so the new plots match the existing panel's format and
+# the aggregation-warning helper) is reused from plot2sort/*.R - not
+# duplicated - so the new plots match the existing panel's format and
 # auto-scaling exactly.
 #
 # Phases:
 #   1. Load the three stage-dataframe parquet types + the counts table.
-#   2. Concordance plots (homology ↔ LTR spatial relationship, per-probe yield).
+#   2. Concordance plots (homology <-> LTR spatial relationship, per-probe yield).
 #   3. LTR structure plots (structural completeness, domain composition).
 #   4. Refinement funnel plots (per-genome + aggregate cohort).
 #   5. Multiplicity plots (M1 by tier, M2 global).
@@ -69,7 +69,7 @@ source(file.path(.script_dir, "stage_plot_generator", "plots_ltr_interaction.R")
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation — same idiom as ranges_analysis.R / plot2sort.R
+# Pipeline instrumentation - same idiom as ranges_analysis.R / plot2sort.R
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {
@@ -111,7 +111,7 @@ main <- function() {
     log_section(paste0("  ", warn_caption))
   }
 
-  # Local save wrapper — extracts the per-builder `intended_dims` attribute
+  # Local save wrapper - extracts the per-builder `intended_dims` attribute
   # (set by auto-scaling builders) and threads it to io.R::save_plot. `tier`
   # stamps a reduced-state note so each PNG is clear about which range tier it
   # shows; stage plots draw from different tiers, so it's passed per plot. Read
@@ -136,7 +136,7 @@ main <- function() {
   tier_counts   <- "pipeline counts (all tiers)"
 
   # ---------- Phase 2: concordance + per-probe yield -------------------------
-  log_section("Rendering concordance plots (homology ↔ LTR)")
+  log_section("Rendering concordance plots (homology <-> LTR)")
   emit("homology_ltr_concordance.png",
        concordance_plot(stage$hits, warning_caption = warn_caption), tier_original)
   emit("probe_yield_funnel.png",
@@ -192,11 +192,11 @@ main <- function() {
   emit("ltr_retro_length_vs_hits.png",
        retro_length_vs_hits_plot(stage$ltr, warning_caption = warn_caption), tier_ltr)
 
-  log_section(sprintf("Done — wrote 18 PNGs to %s", args$output))
+  log_section(sprintf("Done - wrote 18 PNGs to %s", args$output))
 }
 
 
 # ----------------------------------------------------------------------------
-# Entry-point guard — only fire main() under `Rscript stage_plot_generator.R`.
+# Entry-point guard - only fire main() under `Rscript stage_plot_generator.R`.
 # ----------------------------------------------------------------------------
 if (sys.nframe() == 0L) main()

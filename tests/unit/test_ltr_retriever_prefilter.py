@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from ltr_retriever_prefilter import (
     _any_overlap,
     _intervals_overlap,
@@ -70,7 +69,7 @@ def test_parse_des_missing_file_raises(tmp_path: Path) -> None:
 def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(
     tmp_path: Path,
 ) -> None:
-    """GFF3 1-indexed closed → returned as 0-indexed (start - 1, end unchanged).
+    """GFF3 1-indexed closed -> returned as 0-indexed (start - 1, end unchanged).
 
     Single row at GFF3 [100, 200] inclusive should become [99, 200] in
     the 0-indexed half-open / closed convention used by the SCN overlap
@@ -122,8 +121,8 @@ def test_parse_valid_ranges_missing_file_raises(tmp_path: Path) -> None:
 def test_intervals_overlap_closed_inclusive_boundary() -> None:
     """Touching at a single point counts as overlap (closed-closed semantics).
 
-    ``[5, 10]`` and ``[10, 15]`` share the point 10 → True. Off by one
-    (``[5, 9]`` and ``[10, 15]``) → False.
+    ``[5, 10]`` and ``[10, 15]`` share the point 10 -> True. Off by one
+    (``[5, 9]`` and ``[10, 15]``) -> False.
     """
     assert _intervals_overlap(5, 10, 10, 15) is True
     assert _intervals_overlap(5, 9, 10, 15) is False
@@ -150,7 +149,7 @@ def test_any_overlap_short_circuits_when_start_exceeds_end() -> None:
     """The walk must abort once an interval's start is past our end.
 
     Given a sorted list, any later interval's start is also past our
-    end — so further iteration is wasted.
+    end - so further iteration is wasted.
     """
     intervals = [(0, 5), (10, 20), (50, 60), (100, 200)]
     assert _any_overlap(7, 9, intervals) is False
@@ -158,7 +157,7 @@ def test_any_overlap_short_circuits_when_start_exceeds_end() -> None:
 
 
 # ---------------------------------------------------------------------
-# prefilter_scn — dual-output contract
+# prefilter_scn - dual-output contract
 #
 # The prefilter writes both the retroviral-restricted SCN (Coupling A,
 # default consumer for LTR_retriever) AND the unfiltered ``_full.scn``
@@ -183,13 +182,13 @@ def _write_tiny_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     gff = tmp_path / "tiny_valid.gff3"
     gff.write_text(
         "chr1\tRetroSeek\tERV\t101\t501\t.\t+\t.\tID=erv1\n"
-        # No row for chr2 → seq-nr=1 candidate is in full but not retroviral.
+        # No row for chr2 -> seq-nr=1 candidate is in full but not retroviral.
     )
     return scn, des, gff
 
 
 def test_prefilter_writes_both_retroviral_and_full_outputs(tmp_path: Path) -> None:
-    """Single invocation produces both files; retroviral ⊂ full (data rows)."""
+    """Single invocation produces both files; retroviral  subset-of  full (data rows)."""
     scn, des, gff = _write_tiny_fixture(tmp_path)
     retroviral = tmp_path / "tiny_retroviral.scn"
     full = tmp_path / "tiny_full.scn"

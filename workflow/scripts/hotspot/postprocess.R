@@ -9,8 +9,8 @@
 #      summed (count, effective_bp). Conservative under spatial correlation
 #      (sums of correlated NB counts have higher variance than the model
 #      assumes), which is the right direction for a discovery filter. Do NOT
-#      BH-adjust again — this is a post-hoc summary, not a new test family.
-#   4. Apply min-hits filter AFTER merging — a singleton tile next to a
+#      BH-adjust again - this is a post-hoc summary, not a new test family.
+#   4. Apply min-hits filter AFTER merging - a singleton tile next to a
 #      3-hit tile is a legitimate 4-hit hotspot.
 #
 # Pure module. Inputs: scored tibble + fitted model. Output: GRanges.
@@ -26,7 +26,7 @@ suppressMessages({
 
 # Canonical empty hotspot GRanges with the full mcols schema. All
 # postprocess paths return this on the no-data case so that concatenating
-# per-label hotspot GRanges (`do.call(c, list)`) succeeds — `BiocGenerics::c`
+# per-label hotspot GRanges (`do.call(c, list)`) succeeds - `BiocGenerics::c`
 # requires matching mcols columns across operands.
 .empty_merged_gr <- function() {
   gr <- GenomicRanges::GRanges()
@@ -110,12 +110,12 @@ merge_adjacent_hotspots <- function(significant_df, gap = 0L) {
 #' summed (count, effective_bp) of each merged region.
 #'
 #' Per the plan agent's recommendation (point D), this is more honest than
-#' Fisher / Stouffer combination of per-window p-values — those assume
+#' Fisher / Stouffer combination of per-window p-values - those assume
 #' independence, which is false for adjacent windows. The resulting p is
 #' conservative because spatial correlation inflates the variance.
 #'
 #' Adds `mu_nb_region` and `pval_nb_region` to the GRanges mcols. Does NOT
-#' add `qval_nb_region` — these are post-hoc summaries, not new tests.
+#' add `qval_nb_region` - these are post-hoc summaries, not new tests.
 recompute_merged_pvalue <- function(merged_gr, fit) {
   if (length(merged_gr) == 0L) {
     return(merged_gr)
@@ -139,7 +139,7 @@ recompute_merged_pvalue <- function(merged_gr, fit) {
 
 #' Drop hotspot regions whose total count is below `min_hits`.
 #'
-#' Applied AFTER merging — see plan-agent point E. Threshold is on the
+#' Applied AFTER merging - see plan-agent point E. Threshold is on the
 #' aggregated count across the merged span, not per-window.
 apply_min_hits_filter <- function(merged_gr, min_hits) {
   if (length(merged_gr) == 0L || is.null(min_hits) || as.integer(min_hits) <= 0L) {

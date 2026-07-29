@@ -1,5 +1,5 @@
 # =============================================================================
-# RetroSeek hotspot detector — Negative-Binomial GLM.
+# RetroSeek hotspot detector - Negative-Binomial GLM.
 #
 # Per-genome detection of windows enriched for ERV integrations beyond chance.
 # A single deterministic NB GLM models per-window counts with a mask-aware
@@ -8,7 +8,7 @@
 # RNG in the core, so results are reproducible by construction; the global
 # `parameters.seed` is set and recorded in the manifest for provenance only.
 #
-# Orchestrator only — pure transforms live in `hotspot_analysis/*.R`.
+# Orchestrator only - pure transforms live in `hotspot_analysis/*.R`.
 #
 # Outputs (per genome):
 #   {csv_dir}/{species}.csv                         per-window summary

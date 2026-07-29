@@ -4,7 +4,7 @@ These tests pin down the invariants the class is supposed to uphold:
 
 - Identifier-based equality: two RetroSeekers with the same ``identifier``
   compare equal regardless of other fields. The current implementation
-  checks ``isinstance(other, Object)`` against an undefined ``Object`` — so
+  checks ``isinstance(other, Object)`` against an undefined ``Object`` - so
   ``a == b`` raises :class:`NameError` the moment either side is a real
   :class:`RetroSeeker`. The fix is to compare against ``RetroSeeker``.
 - Hash consistency: objects that compare equal must hash equal (Python
@@ -59,7 +59,7 @@ class TestRetroSeekerEquality:
         rs = _make(identifier="solo")
         assert (rs == "not a retroseeker") is False
         assert (rs == 42) is False
-        assert (rs == None) is False  # noqa: E711 — explicit identity-check intent
+        assert (rs == None) is False  # noqa: E711 - explicit identity-check intent
 
 
 class TestRetroSeekerHashContract:
@@ -124,7 +124,7 @@ class TestRetroSeekerIsComplete:
         assert rs.is_complete() is False
 
     def test_is_complete_true_when_all_three_set(self) -> None:
-        """All three of alignment/HSP/genbank populated ⇒ complete."""
+        """All three of alignment/HSP/genbank populated => complete."""
         rs = _make(identifier="cmp01")
         rs.alignment = object()
         rs.HSP = object()

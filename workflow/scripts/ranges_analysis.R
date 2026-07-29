@@ -1,5 +1,5 @@
 # =============================================================================
-# ranges_analysis.R — orchestrator
+# ranges_analysis.R - orchestrator
 # =============================================================================
 # Phase-separated pipeline that integrates tBLASTn results with LTRdigest
 # annotations. The heavy lifting is in workflow/scripts/range_analysis/*.R;
@@ -192,7 +192,7 @@ record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 # sequence. Counted here so the loss funnel sees what falls outside every LTR.
 orphan_hits <- find_orphan_hits(gr_global, retrotransposons)
 # Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
-# classifier assembles them like proviruses — one non-overlapping orphan locus
+# classifier assembles them like proviruses - one non-overlapping orphan locus
 # per overlap cluster (ADR-010). Capped at the widest real provirus in this
 # genome (ground truth): clusters wider than that are flagged `oversized`, kept.
 # `orphans` counts the hits; `orphan_clusters` the loci (the grouping the funnel
@@ -247,7 +247,7 @@ track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
 # Orphan tier: orphan hits exported with the same probe=/label= GFF3
 # attributes as the valid track PLUS a synthetic Parent= from proximity
-# clustering (cluster_orphan_hits) — so the classifier's build_loci groups them
+# clustering (cluster_orphan_hits) - so the classifier's build_loci groups them
 # into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
 track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
 
@@ -260,7 +260,7 @@ track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits,
                         args$overlap_matrix_parquet, args$overlap_matrix_csv)
 
-# Per-genome ranges-analysis tables — each written as parquet (pipeline-internal)
+# Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
 # + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
 .table_path <- function(table, ext) {
   dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
@@ -278,19 +278,19 @@ write_one("ltr_structure",
           build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
                              ltr_data, gr_virus))
 write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
-# Genomic counts as their own long-form table — the run manifest no longer
+# Genomic counts as their own long-form table - the run manifest no longer
 # carries genomic data, and the refinement-funnel plots read this.
 write_one("counts", tibble::tibble(
   metric = names(.counts),
   value  = as.integer(unlist(.counts, use.names = FALSE))
 ))
-# Provirus overlap / LTR-interaction tables — feed the new provirus plots.
+# Provirus overlap / LTR-interaction tables - feed the new provirus plots.
 write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
 write_one("ltr_interaction",
           build_stage_ltr_interaction_df(gr_virus, retrotransposons, domains_w_probes))
 write_one("probe_domain_overlap",
           build_stage_probe_domain_df(gr_virus, domains_w_probes))
-# Pre/post-reduction total range length (bp) — numeric (not in the integer
+# Pre/post-reduction total range length (bp) - numeric (not in the integer
 # counts table, to avoid overflow on large genomes).
 write_one("reduction_coverage", tibble::tibble(
   metric = c("total_bp_unreduced", "total_bp_reduced"),

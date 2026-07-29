@@ -118,7 +118,7 @@ class TestMixedRankAxis:
 
     def test_family_and_genus_axis_resolve_each_at_own_rank(self, tmp_path) -> None:
         # An axis spanning a non-retroviral family (Bornaviridae) and a retroviral
-        # genus (Lentivirus), under a shared root — the trim-free hierarchy ADR-008
+        # genus (Lentivirus), under a shared root - the trim-free hierarchy ADR-008
         # produces. Each resolves at its own rank; together they back off to the root.
         tsv = tmp_path / "taxonomy.tsv"
         tsv.write_text(

@@ -125,14 +125,14 @@ test_that("auto-scaled stage builders set an intended_dims attribute", {
 })
 
 test_that("warning_caption is accepted and still yields a ggplot", {
-  cap <- "⚠ test caption"
+  cap <- "WARNING: test caption"
   expect_true(is_gg(concordance_plot(.fake_hits_df(), warning_caption = cap)))
   expect_true(is_gg(multiplicity_m1_plot(.fake_hits_df(), warning_caption = cap)))
   expect_true(is_gg(refinement_funnel_plot(.fake_counts_df(), warning_caption = cap)))
 })
 
 
-# ─────────────── overlap + LTR-interaction builders (new) ───────────────
+# --------------- overlap + LTR-interaction builders (new) ---------------
 
 .ov_df <- function() tibble::tibble(
   seqnames = "chr1", start = c(100, 150), end = c(400, 500),
