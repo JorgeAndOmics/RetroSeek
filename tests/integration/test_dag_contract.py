@@ -7,7 +7,7 @@ fancy syntax but the existing rules are all top-level and conventionally
 formatted, so it works.
 
 Tests for rules that don't exist yet (e.g. ``genome_fasta_normalizer_setup``)
-are marked ``xfail(strict=True)`` — they flip to PASS when the rule lands
+are marked ``xfail(strict=True)`` - they flip to PASS when the rule lands
 in its target phase, so anyone removing a planned rule prematurely will
 trip a failure.
 """
@@ -65,7 +65,7 @@ def test_ruleorder_normalizer_wins_over_downloader(project_root: Path) -> None:
 
 
 def test_blast_db_generator_no_longer_renames_inline(project_root: Path) -> None:
-    """The inline `find / parallel mv` workaround must be gone — normalizer owns it."""
+    """The inline `find / parallel mv` workaround must be gone - normalizer owns it."""
     text = _read_snakefile(project_root)
     assert "parallel 'mv" not in text
     assert "-iname '*.fna'" not in text
@@ -86,7 +86,7 @@ def test_genome_wildcard_constraint_pinned_to_species_list(
     text = _read_snakefile(project_root)
     match = WILDCARD_BLOCK_RE.search(text)
     assert match is not None, (
-        "wildcard_constraints block for {genome} missing — "
+        "wildcard_constraints block for {genome} missing - "
         "see commit f1a844b for why this matters"
     )
     expr = match.group(1)
@@ -120,7 +120,7 @@ def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
 
 
 # ---------------------------------------------------------------------
-# Retired erv_like assembly tier — its producer outputs must be GONE; the
+# Retired erv_like assembly tier - its producer outputs must be GONE; the
 # erv-like plot panel now reads the genus-founded taxonomy loci table.
 # ---------------------------------------------------------------------
 def test_erv_like_producer_tier_retired(project_root: Path) -> None:

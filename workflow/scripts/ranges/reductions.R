@@ -28,7 +28,7 @@ suppressMessages({
 # `reduce_ranges_directed` re-sorts each merged range's contributing rows by
 # genomic position internally, so a pre-sort of the input is undone before
 # `aggregate_values` sees the rows. A per-row rank rides along through that
-# reordering as ordinary mcols data — `aggregate_values(strategy = "best")`
+# reordering as ordinary mcols data - `aggregate_values(strategy = "best")`
 # then picks `which.max(tiebreak_rank)`, the chain-winning contributor,
 # deterministically and reproducibly across R / plyranges versions.
 #
@@ -63,7 +63,7 @@ attach_tiebreak_rank <- function(gr, primary_col, identity_col, evalue_col) {
 
 # Resolve the configured `best_tiebreaker` name to the actual mcols column at
 # each reduction stage. reduce_first sees the raw per-hit columns; reduce_global
-# sees only the first-reduction composites — and `align_length` is gone by
+# sees only the first-reduction composites - and `align_length` is gone by
 # then, so it falls back to the bitscore composite (graceful, unlike the
 # pre-refactor make_tiebreaker_picker which errored).
 .primary_tiebreak_col <- function(best_tiebreaker, stage = c("first", "global")) {
@@ -127,7 +127,7 @@ reduce_first <- function(gr, merge_option, agg) {
                                              separator = agg$agg_concat_separator,
                                              strict_marker = agg$agg_strict_marker),
           # lengths() (plural): per-merged-range contributor count. length()
-          # (singular) returns the CompressedNumericList element count — the
+          # (singular) returns the CompressedNumericList element count - the
           # number of merged ranges, not the per-range hit tally.
           n_hits          = lengths(bitscore),
           max_bitscore    = max(bitscore),
@@ -175,7 +175,7 @@ reduce_first <- function(gr, merge_option, agg) {
 
 # Global reduction: merge per probe across the virus/label groupings of the
 # first reduction. Aggregation is applied element-wise, composite metrics are
-# re-aggregated. The output is intentionally not arrange()d — plyranges'
+# re-aggregated. The output is intentionally not arrange()d - plyranges'
 # arrange.Ranges hits an internal Reduce length-mismatch on the
 # CompressedAtomicList output of reduce_ranges_directed under some shapes,
 # and downstream consumers (rtracklayer::export, overlap queries) don't

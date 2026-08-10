@@ -12,7 +12,7 @@ LOGFILE="$(realpath -m "$3")" # Log file to store results
 
 # Check if an NCBI API key is provided
 if [ -z "$NCBI_API_KEY" ]; then
-    echo "⚠ Warning: No NCBI API key found. Consider setting it with: export NCBI_API_KEY='your_api_key'"
+    echo "WARNING: Warning: No NCBI API key found. Consider setting it with: export NCBI_API_KEY='your_api_key'"
     API_KEY_FLAG=""
 else
     API_KEY_FLAG="--api-key $NCBI_API_KEY"
@@ -45,12 +45,12 @@ else
         # Capture datasets command output, including warnings
         DATASETS_OUTPUT="$(datasets summary genome taxon "$QUERY" $API_KEY_FLAG 2>&1)"
 
-        # Remove the “New version...” first line if present
+        # Remove the "New version..." first line if present
         FILTERED_OUTPUT="$(echo "$DATASETS_OUTPUT" | sed '/^New version of client (/d')"
 
         # Check if output contains an error message about an ambiguous name
         if echo "$FILTERED_OUTPUT" | grep -q "The taxonomy name"; then
-            echo "⚠ Warning: Ambiguous or invalid name '$QUERY'."
+            echo "WARNING: Warning: Ambiguous or invalid name '$QUERY'."
             echo "$FILTERED_OUTPUT"
             exit 1
         fi
@@ -62,14 +62,14 @@ else
         if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "null" ]; then
             BEST_ASSEMBLY="$CANDIDATE"
             BEST_LEVEL="$LEVEL"
-            echo "✅ Found a $LEVEL assembly: $BEST_ASSEMBLY"
+            echo "[OK] Found a $LEVEL assembly: $BEST_ASSEMBLY"
             break
         fi
     done
 
     # If nothing found, exit with a message
     if [ -z "$BEST_ASSEMBLY" ] || [ "$BEST_ASSEMBLY" == "null" ]; then
-        echo "❌ No valid genome assembly (Complete/Chromosome/Scaffold/Contig) found for: $QUERY"
+        echo "[no] No valid genome assembly (Complete/Chromosome/Scaffold/Contig) found for: $QUERY"
         exit 1
     fi
 
@@ -105,8 +105,8 @@ unzip -p "$ZIPFILE" ncbi_dataset/data/*/*.fna \
 echo "Removing ZIP file: $ZIPFILE"
 echo "$ZIPFILE" | pv -l -s 1 | xargs -d '\n' rm
 
-echo "✅ Download complete: $FASTA_FILE (Assembly: $BEST_ASSEMBLY, Level: $BEST_LEVEL)"
+echo "[OK] Download complete: $FASTA_FILE (Assembly: $BEST_ASSEMBLY, Level: $BEST_LEVEL)"
 
 # Append download info to the log file
 echo -e "$QUERY\t$BEST_ASSEMBLY\t$BEST_LEVEL" >> "$LOGFILE"
-echo "✅ Download logged: $LOGFILE"
+echo "[OK] Download logged: $LOGFILE"

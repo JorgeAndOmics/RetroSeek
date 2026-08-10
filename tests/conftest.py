@@ -3,7 +3,7 @@
 Why stub ``defaults``: the real ``workflow/scripts/defaults.py`` has global
 side effects at import time (reads ``config.yaml``, resolves all pipeline
 paths, and creates every output directory on disk). That makes it unusable
-in unit tests — importing any module that transitively imports ``defaults``
+in unit tests - importing any module that transitively imports ``defaults``
 touches the host filesystem and often fails on non-developer machines.
 
 The fix lives in this conftest: we insert a minimal stub module named
@@ -13,7 +13,7 @@ stub. The stub exposes just enough attributes for the unit tests to run.
 Integration tests that need the real ``defaults`` can opt out via the
 ``real_defaults`` marker.
 
-This is a pragmatic bridge — the long-term fix is to refactor ``defaults.py``
+This is a pragmatic bridge - the long-term fix is to refactor ``defaults.py``
 to a ``load_config()`` function so import has no side effects. Until then,
 this stub pattern keeps Phase 0 unblocked without touching production code.
 """
@@ -28,7 +28,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# ── 1. Make workflow/scripts importable by tests ────────────────────────
+# -- 1. Make workflow/scripts importable by tests ------------------------
 # The production scripts import each other by bare name (``import defaults``,
 # ``from RetroSeeker_class import RetroSeeker``), so tests need the scripts
 # directory on ``sys.path``.
@@ -36,14 +36,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "workflow" / "scripts"
 # Stage scripts now live in per-stage subdirs (e.g. taxonomy/); the scripts still
 # cross-import by bare name, so both the package root (shared infra: defaults,
-# colored_logging, …) and each stage dir tests import from must be on sys.path.
+# colored_logging, ...) and each stage dir tests import from must be on sys.path.
 _STAGE_DIRS = ("taxonomy", "solo_ltr", "blast_search")
 for _p in (SCRIPTS_DIR, *(SCRIPTS_DIR / d for d in _STAGE_DIRS)):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 
-# ── 2. Stub ``defaults`` before any production module imports it ────────
+# -- 2. Stub ``defaults`` before any production module imports it --------
 def _build_defaults_stub() -> types.ModuleType:
     """Construct a stand-in ``defaults`` module.
 
@@ -99,7 +99,7 @@ if "defaults" not in sys.modules:
 sys.modules["defaults"].PATH_DICT["TMP_DIR"].mkdir(parents=True, exist_ok=True)
 
 
-# ── 3. Generic fixtures ─────────────────────────────────────────────────
+# -- 3. Generic fixtures -------------------------------------------------
 @pytest.fixture
 def project_root() -> Path:
     """Absolute path to the repository root."""

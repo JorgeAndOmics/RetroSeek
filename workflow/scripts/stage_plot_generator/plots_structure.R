@@ -1,5 +1,5 @@
 # =============================================================================
-# stage_plot_generator/plots_structure.R — LTR structural components
+# stage_plot_generator/plots_structure.R - LTR structural components
 # =============================================================================
 # Builders characterising the LTRdigest retrotransposon calls themselves: how
 # structurally complete they are (flanking LTRs / Pfam domains / TSD / PPT) and
@@ -7,7 +7,7 @@
 
 
 # Faceted bar panel: retrotransposon counts per structural component. Replaces
-# a former 0–3 composite "completeness score" — under default LTRharvest config
+# a former 0-3 composite "completeness score" - under default LTRharvest config
 # `has_both_ltrs` and `has_tsd` are ~constant (LTRharvest only emits 2-LTR,
 # TSD-flanked elements), so summing them into a score added no discrimination.
 # Each component is shown on its own facet instead; the genuinely-varying
@@ -59,7 +59,7 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
     p,
     title    = "LTR structural components",
     subtitle = sprintf(
-      paste0("Both flanking LTRs %.0f%% · TSD %.0f%% · PPT %.0f%% — ",
+      paste0("Both flanking LTRs %.0f%% - TSD %.0f%% - PPT %.0f%% - ",
              "the first two are ~constant under default LTRharvest config"),
       100 * both_rate, 100 * tsd_rate, 100 * ppt_rate),
     subset_label    = subset_label,

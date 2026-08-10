@@ -1,5 +1,5 @@
 # =============================================================================
-# demo_figures.R — anonymised README showcase figures
+# demo_figures.R - anonymised README showcase figures
 # =============================================================================
 # Regenerates the figures embedded in README.md from REAL RetroSeek output, with
 # host species / provirus / lineage names replaced by neutral placeholders
@@ -8,7 +8,7 @@
 # and all numeric values are kept, so the figures stay biologically legible.
 #
 # Reuses the production plot builders in plot2sort/*.R and
-# erv_like_plot_generator.R — the demo figures are therefore visually identical
+# erv_like_plot_generator.R - the demo figures are therefore visually identical
 # to real pipeline output, only relabelled and rendered on a lighter canvas.
 # Source parquets live outside the repo (gitignored results), so a clean clone
 # cannot regenerate these; the committed PNGs are the artifact and this script is
@@ -22,7 +22,7 @@
 # The erv-like heatmap is read from the sibling results/tables/taxonomy_classification/.
 #
 # The relabel scheme is deterministic (sorted unique value -> letter) and lives
-# in make_label_map() below — adjust the prefixes there if desired.
+# in make_label_map() below - adjust the prefixes there if desired.
 
 suppressMessages({
   library(argparse)
@@ -63,7 +63,7 @@ source(file.path(.script_dir, "erv_like_plot_generator.R"))
 
 
 # ----------------------------------------------------------------------------
-# Instrumentation — io.R helpers call log_section(), so define it (as the
+# Instrumentation - io.R helpers call log_section(), so define it (as the
 # production orchestrators do) before any loader runs.
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
@@ -85,7 +85,7 @@ make_label_map <- function(values, prefix) {
     stop(sprintf(
       paste0(
         "Cannot anonymise %d unique '%s' values with single-letter labels (max %d). ",
-        "Demo figures target a small, representative run — subset --input to a ",
+        "Demo figures target a small, representative run - subset --input to a ",
         "lighter cohort (a 100-category showcase plot is unreadable anyway)."
       ),
       length(u), prefix, length(LETTERS)
@@ -138,7 +138,7 @@ main <- function() {
 
   emit <- function(name, plot) {
     dims <- attr(plot, "intended_dims")
-    plot <- stamp_tier_note(plot, "demo data — anonymised")
+    plot <- stamp_tier_note(plot, "demo data - anonymised")
     save_plot(name, plot, args$output,
               dims = dims, base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
     message("wrote ", file.path(args$output, name))
@@ -201,7 +201,7 @@ main <- function() {
   loci <- load_taxon_loci(taxonomy_dir)
   emit("erv_like_heatmap.png", composition_heatmap_plot(loci))
 
-  message("Done — wrote 6 anonymised demo figures to ", args$output)
+  message("Done - wrote 6 anonymised demo figures to ", args$output)
 }
 
 if (sys.nframe() == 0L) main()

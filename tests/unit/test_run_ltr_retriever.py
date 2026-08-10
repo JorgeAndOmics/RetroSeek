@@ -12,7 +12,6 @@ import stat
 from pathlib import Path
 
 import pytest
-
 from run_ltr_retriever import (
     EXPECTED_OUTPUT_EXTS,
     LTRRetrieverParams,
@@ -163,7 +162,7 @@ def test_finalise_outputs_renames_fa_mod_prefix(tmp_path: Path) -> None:
 
 
 def test_finalise_outputs_raises_on_missing_expected_file(tmp_path: Path) -> None:
-    """Only 2 of 3 expected outputs present → loud failure with a useful message."""
+    """Only 2 of 3 expected outputs present -> loud failure with a useful message."""
     genome_name = "Toyus"
     # Materialise only two of the three.
     (tmp_path / f"{genome_name}.fa.mod.pass.list.gff3").write_text("x")
@@ -184,7 +183,7 @@ def test_finalise_outputs_handles_already_canonical_files(tmp_path: Path) -> Non
 
 
 # ---------------------------------------------------------------------
-# main — end-to-end with a fake LTR_retriever binary
+# main - end-to-end with a fake LTR_retriever binary
 # ---------------------------------------------------------------------
 @pytest.mark.integration
 def test_main_end_to_end_with_fake_binary(tmp_path: Path) -> None:

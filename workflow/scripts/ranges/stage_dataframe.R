@@ -10,11 +10,11 @@
 #
 # Three single-grain tables (one parquet each), mirroring the one-parquet-per-
 # genome pattern of plot_dataframe.R:
-#   * hits     — one row per gr_virus locus (homology tier): spatial
+#   * hits     - one row per gr_virus locus (homology tier): spatial
 #                concordance vs retrotransposons, tier flags, M1 (n_hits).
-#   * ltr      — one row per retrotransposon: structural completeness +
+#   * ltr      - one row per retrotransposon: structural completeness +
 #                probe-domain composition.
-#   * reduced  — one row per gr_global locus: M2 (n_loci) + M1 roll-up.
+#   * reduced  - one row per gr_global locus: M2 (n_loci) + M1 roll-up.
 
 suppressMessages({
   library(GenomicRanges)
@@ -32,8 +32,8 @@ suppressMessages({
 # flags whether the locus is LTR-flanked (overlaps an element). `domain_tier` and
 # `domain_hit_class` carry the per-provirus / per-hit domain labels from
 # annotate_ltr_flanked_hits (NA for non-LTR-flanked loci); the former replaces the old
-# boolean `is_valid` — "valid" is now the whole LTR-flanked set, so domain support
-# is a 3-level tier, not a survive/drop flag (ADR-009). `n_hits` is M1 — the
+# boolean `is_valid` - "valid" is now the whole LTR-flanked set, so domain support
+# is a 3-level tier, not a survive/drop flag (ADR-009). `n_hits` is M1 - the
 # count of threshold-passing raw tBLASTn hits collapsed into the locus.
 build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
                                 valid_hits,
@@ -66,7 +66,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
 
   ids      <- as.character(S4Vectors::mcols(gr_virus)$ID)
   cand_ids <- as.character(S4Vectors::mcols(candidate_hits)$ID)
-  # Per-LTR-flanked-locus domain labels, keyed by ID (valid_hits ⊆ gr_virus IDs).
+  # Per-LTR-flanked-locus domain labels, keyed by ID (valid_hits  subset-or-equal  gr_virus IDs).
   valid_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
   tier_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_tier), valid_ids)
   hitc_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_hit_class), valid_ids)
@@ -117,7 +117,7 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
 
   retro_ids <- as.character(S4Vectors::mcols(retrotransposons)$ID)
   retro_lvl <- factor(retro_ids, levels = retro_ids)
-  # Each retrotransposon's own `Parent` is the enclosing `repeat_region` ID —
+  # Each retrotransposon's own `Parent` is the enclosing `repeat_region` ID -
   # the namespace that target-site-duplication features are parented to.
   retro_parent <- as.character(S4Vectors::mcols(retrotransposons)$Parent)
 
@@ -142,7 +142,7 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   }, character(1))
 
   # All Pfam `protein_match` features per parent, regardless of probe
-  # assignment — LTRdigest's view of coding capacity, independent of the probe
+  # assignment - LTRdigest's view of coding capacity, independent of the probe
   # panel. `protein_match` is a child of the `LTR_retrotransposon`.
   pm <- ltr_data[ltr_data$type == "protein_match"]
   pm_parent <- if (length(pm) > 0L) {
@@ -151,7 +151,7 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   n_domains_total <- as.integer(table(factor(pm_parent, levels = retro_ids)))
 
   # Target-site duplications per parent. TSDs are children of the enclosing
-  # `repeat_region`, not the `LTR_retrotransposon` — so they join on
+  # `repeat_region`, not the `LTR_retrotransposon` - so they join on
   # `retro_parent` (the retrotransposon's own `Parent`), not `retro_ids`.
   tsd <- ltr_data[ltr_data$type == "target_site_duplication"]
   tsd_parent <- if (length(tsd) > 0L) {
@@ -160,7 +160,7 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   n_tsd <- as.integer(table(factor(tsd_parent, levels = retro_parent)))
   has_tsd <- n_tsd > 0L
 
-  # Polypurine tracts (RR_tract / PPT) per parent — a marker of structural
+  # Polypurine tracts (RR_tract / PPT) per parent - a marker of structural
   # intactness. Children of the `LTR_retrotransposon`, so they join on
   # `retro_ids`. LTRdigest emits these for only a fraction of elements.
   ppt <- ltr_data[ltr_data$type == "RR_tract"]
@@ -200,10 +200,10 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
 }
 
 
-# One row per gr_virus locus, characterising PRE-REDUCTION spatial redundancy —
+# One row per gr_virus locus, characterising PRE-REDUCTION spatial redundancy -
 # how much the unreduced original tier overlaps itself (the redundancy that
 # reduction collapses). `overlap_degree` is the number of OTHER gr_virus loci
-# this one overlaps (strand-agnostic — redundancy is positional);
+# this one overlaps (strand-agnostic - redundancy is positional);
 # `max_reciprocal_fraction` is the largest intersection / min(width) over those
 # partners (1.0 = fully contained in / containing a neighbour).
 build_stage_overlap_df <- function(gr_virus) {
@@ -245,8 +245,8 @@ build_stage_overlap_df <- function(gr_virus) {
 
 # One row per gr_virus locus, characterising its interaction with the nearest
 # LTRdigest retrotransposon. `feature_class` refines the homology concordance
-# with a `domain_overlap` level (overlaps a probe-assigned Pfam domain — the
-# validation signal); `relative_position_in_retro` is the strand-aware 5'→3'
+# with a `domain_overlap` level (overlaps a probe-assigned Pfam domain - the
+# validation signal); `relative_position_in_retro` is the strand-aware 5'->3'
 # position [0,1] of the locus midpoint within its enclosing retrotransposon
 # (NA when not inside); `strand_concordant` compares the hit strand to the
 # enclosing element's (NA when not inside; `*` retro strand counts as concordant).
@@ -322,8 +322,8 @@ build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
 }
 
 
-# Long table (one row per gr_virus-locus × overlapped probe-domain pair): the
-# raw co-occurrence used by the probe × Pfam-domain heatmap. `hit_probe` is the
+# Long table (one row per gr_virus-locus x overlapped probe-domain pair): the
+# raw co-occurrence used by the probe x Pfam-domain heatmap. `hit_probe` is the
 # tBLASTn locus's probe; `domain_probe` is the probe assigned to the overlapped
 # Pfam domain. Their agreement is exactly the validation signal made visible.
 build_stage_probe_domain_df <- function(gr_virus, domains_with_probes) {
@@ -339,7 +339,7 @@ build_stage_probe_domain_df <- function(gr_virus, domains_with_probes) {
 }
 
 
-# One row per gr_global locus. `n_loci` is M2 — the count of gr_virus loci
+# One row per gr_global locus. `n_loci` is M2 - the count of gr_virus loci
 # collapsed into this globally-reduced locus by reduce_global; `n_hits` is the
 # M1 roll-up (total raw hits beneath it).
 build_stage_reduced_df <- function(gr_global) {

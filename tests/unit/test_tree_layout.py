@@ -1,7 +1,7 @@
 """Unit tests for tree_layout.py (ADR-011).
 
 Covers the taxonomy-derived cladogram, the user-Newick path, the coordinate
-layout, and determinism — the last matters because the coordinates are a build
+layout, and determinism - the last matters because the coordinates are a build
 artifact that must not churn between runs.
 """
 

@@ -24,7 +24,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | Flag                        | Snakemake target              | Inputs (short)                          | Outputs (short)                              |
 |-----------------------------|-------------------------------|-----------------------------------------|----------------------------------------------|
 | `--download-genomes`        | `genome_downloader`           | `config.species` accessions             | `{genome}.fa` in `SPECIES_DB`                |
-| `--download-hmm`            | `pfam_hmm_downloader`         | —                                       | `Pfam-A.hmm`                                 |
+| `--download-hmm`            | `pfam_hmm_downloader`         | -                                       | `Pfam-A.hmm`                                 |
 | `--blast-dbs`               | `blast_db_generator`          | `{genome}.fa`                           | BLAST nucleotide DB files                    |
 | `--suffix-arrays`           | `ltr_index_generator`         | `{genome}.fa`                           | Suffix-array index files                     |
 | `--ltr-candidates`          | `ltr_harvester`               | Suffix arrays                           | LTR candidate GFF3 + FASTA                   |
@@ -35,12 +35,15 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | `--generate-global-plots`   | `plot_generator`              | Plot dataframes                         | PNG plots (density, raincloud, bar, Sankey)  |
 | `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF            |
 | `--hotspot-detection`       | `hotspot_detector`            | Original GFF3 tracks + FASTA            | Hotspot CSV + GFF3 + histogram/density PDFs  |
+
+> **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and `{genome}_composition.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
+
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
 | `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `valid_ranges.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
 | `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
 | `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `valid_ranges.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + taxonomy plot panel |
 | `--segment`                 | `taxonomy_segments` | `catalog.csv` (from `--classify`) | Catalog split by taxonomic segment: `taxonomy_classification/segments/by_<rank>/<segment>.csv` + a curated plot subset per segment + `segment_summary.csv` |
-| `-skp`, `--skip-validation` | —                             | —                                       | Bypass pre-run validation (debug only)       |
+| `-skp`, `--skip-validation` | -                             | -                                       | Bypass pre-run validation (debug only)       |
 
 **Taxonomic classification** needs the reference built once first: `make reference` (or `./RetroSeek --build-reference`) performs the network Entrez fetch + placement-tree build into `data/taxonomy_reference/` (cached; rebuilt only if deleted). Then `./RetroSeek --classify` assigns each valid ERV locus a calibrated genus call, and `./RetroSeek --segment` splits the resulting catalog by the taxon each locus rolls up to at `classification.segment_rank` (any rank; a call coarser than that rank is reported as `unassigned_at_<rank>` rather than being given invented precision). Set `input.species_tree` to a Newick of your host phylogeny to order the species panels by relatedness; leave it empty and those panels render a placeholder. Behaviour is governed by the [`classification`](#configuration) config block (`placement_genes`, `evalue`, `top_percent`, `min_orf`, `enable`), reusing `parameters.seed`, `parameters.main_probes`, and `execution.entrez_email`.
 
@@ -48,12 +51,12 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 
 Any argument not recognised as a stage flag is forwarded. Common examples:
 
-- `--cores N` (or `--cores all`) — parallelism.
-- `--profile <name>` — HPC/cluster profile.
-- `--keep-going` — continue on rule failure.
-- `--latency-wait N` — filesystem latency tolerance.
-- `--dry-run` / `-n` — DAG-only, no execution.
-- `--configfile <path>` — override default config.
+- `--cores N` (or `--cores all`) - parallelism.
+- `--profile <name>` - HPC/cluster profile.
+- `--keep-going` - continue on rule failure.
+- `--latency-wait N` - filesystem latency tolerance.
+- `--dry-run` / `-n` - DAG-only, no execution.
+- `--configfile <path>` - override default config.
 
 ### Inspecting config fields
 
@@ -75,49 +78,49 @@ The text is sourced directly from [`docs/configuration.md`](configuration.md), s
 
 ```bash
 cp data/config/config.example.yaml data/config/config.local.yaml
-# edit data/config/config.local.yaml — set the four `root` paths and input.probe_csv
+# edit data/config/config.local.yaml - set the four `root` paths and input.probe_csv
 ./RetroSeek --probe-extractor --configfile data/config/config.local.yaml
 ```
 
 `config.local.yaml` is in `.gitignore`. Snakemake's `--configfile` merges its keys over `config.yaml`'s defaults, so the override file only needs the fields you're changing (typically `input.probe_csv` + the four `root` entries + `execution.entrez_email`). Absolute paths in the local config are honoured as-is; relative paths are LTR-flanked against the repo root.
 
-### Pipeline config — [`data/config/config.yaml`](../data/config/config.yaml)
+### Pipeline config - [`data/config/config.yaml`](../data/config/config.yaml)
 
-`config.yaml` is **values-only** — every field's type, default, and meaning lives in [`docs/configuration.md`](configuration.md) (the canonical reference), also reachable via `./RetroSeek --config-help [KEY]`. Top-level sections at a glance:
+`config.yaml` is **values-only** - every field's type, default, and meaning lives in [`docs/configuration.md`](configuration.md) (the canonical reference), also reachable via `./RetroSeek --config-help [KEY]`. Top-level sections at a glance:
 
-- **`blast`** — `e_value`, `optional_parameters`.
-- **`genome_tools`** — `suffix_array_parts`, per-subcommand optional parameters.
-- **`parameters`** — core thresholds and filters:
-  - `identity_threshold`, `bitscore_threshold` — BLAST hit filters.
-  - `probe_min_length` — per-probe minimum alignment length.
-  - `main_probes` — probes subject to Pfam-domain validation.
-  - `merge_option` — how overlapping ranges collapse (`virus` or `label`, strict enum).
-  - `aggregation` — per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
-  - `solo_ltr_aggregation` — separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
+- **`blast`** - `e_value`, `optional_parameters`.
+- **`genome_tools`** - `suffix_array_parts`, per-subcommand optional parameters.
+- **`parameters`** - core thresholds and filters:
+  - `identity_threshold`, `bitscore_threshold` - BLAST hit filters.
+  - `probe_min_length` - per-probe minimum alignment length.
+  - `main_probes` - probes subject to Pfam-domain validation.
+  - `merge_option` - how overlapping ranges collapse (`virus` or `label`, strict enum).
+  - `aggregation` - per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
+  - `solo_ltr_aggregation` - separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
-  - (The composite ERV assembly is no longer a `parameters.erv_like` tier — it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
-- **`hotspot`** — deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
-- **`ltr_retriever`** — LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
-- **`classification`** — per-locus ERV genus calls: `enable`, `placement_genes` (default `[POL]`; GAG opt-in), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
-- **`logging`** — colour styles for console logging.
-- **`plots`** — DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
-- **`execution`** — parallelism and API politeness:
+  - (The composite ERV assembly is no longer a `parameters.erv_like` tier - it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
+- **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
+- **`ltr_retriever`** - LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
+- **`classification`** - per-locus ERV genus calls: `enable`, `placement_genes` (default `[POL]`; GAG opt-in), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
+- **`logging`** - colour styles for console logging.
+- **`plots`** - DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
+- **`execution`** - parallelism and API politeness:
   - `num_cores`, `max_threadpool_workers`.
   - `retrieval_time_lag` (Entrez delay), `max_retrieval_attempts` (retries).
-  - `entrez_email` — **required** (NCBI ToS).
-- **`input`** — `probe_csv` (absolute path to your probe metadata CSV).
-- **`display`** — verbosity toggles.
-- **`root`** — base directories for DB, data, results, logs.
-- **`domains`** — per-probe Pfam domain/regex lists used in validation.
-- **`species`** — map of genome ID → scientific name.
+  - `entrez_email` - **required** (NCBI ToS).
+- **`input`** - `probe_csv` (absolute path to your probe metadata CSV).
+- **`display`** - verbosity toggles.
+- **`root`** - base directories for DB, data, results, logs.
+- **`domains`** - per-probe Pfam domain/regex lists used in validation.
+- **`species`** - map of genome ID -> scientific name.
 
-### Validation — [`data/config/schema.yaml`](../data/config/schema.yaml)
+### Validation - [`data/config/schema.yaml`](../data/config/schema.yaml)
 
 `schema.yaml` defines types, ranges, and enum constraints (e.g., `merge_option` must match `^(virus|label)$`). `validator.py::validation_run()` checks the config against this schema before any stage runs (unless `--skip-validation` is passed).
 
 ### Probe CSV
 
-The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/_input/` (not tracked — user-provided).
+The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/_input/` (not tracked - user-provided).
 
 Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.probe_min_length`, `config.domains`, and `config.parameters.probe_to_pair`.
 
@@ -129,11 +132,11 @@ The pipeline also uses a true Snakemake **checkpoint** (`blast_pkl2parquet`) to 
 
 ## Observability on long-running rules
 
-`gt suffixerator` and `gt ltrharvest` write their primary outputs to stdout (redirected to files) and emit nothing to stderr, so their Snakemake logs are silent for 30-90 min on mammalian genomes. RetroSeek wraps both rules in a trap-backed background heartbeat that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s. Useful for distinguishing a live suffixerator run from a wedged one during multi-hour executions. No configuration needed — the heartbeat is unconditional and zero-cost when rules are fast.
+`gt suffixerator` and `gt ltrharvest` write their primary outputs to stdout (redirected to files) and emit nothing to stderr, so their Snakemake logs are silent for 30-90 min on mammalian genomes. RetroSeek wraps both rules in a trap-backed background heartbeat that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s. Useful for distinguishing a live suffixerator run from a wedged one during multi-hour executions. No configuration needed - the heartbeat is unconditional and zero-cost when rules are fast.
 
 ## Troubleshooting
 
-- **Entrez soft-bans** — ensure `execution.retrieval_time_lag ≥ 0.3` and `execution.entrez_email` is a real address. Optional: register an NCBI API key.
-- **OOM in `ltr_index_generator`** — raise `genome_tools.suffix_array_parts`.
-- **`merge_option` validation failure** — check for typos; must be exactly `virus` or `label`.
-- **Silent missing species** — if `use_species_dict: false`, ensure `{genome}.fa` exists under `SPECIES_DB`. If `true`, ensure genome IDs in `config.species` match the expected file stems.
+- **Entrez soft-bans** - ensure `execution.retrieval_time_lag >= 0.3` and `execution.entrez_email` is a real address. Optional: register an NCBI API key.
+- **OOM in `ltr_index_generator`** - raise `genome_tools.suffix_array_parts`.
+- **`merge_option` validation failure** - check for typos; must be exactly `virus` or `label`.
+- **Silent missing species** - if `use_species_dict: false`, ensure `{genome}.fa` exists under `SPECIES_DB`. If `true`, ensure genome IDs in `config.species` match the expected file stems.

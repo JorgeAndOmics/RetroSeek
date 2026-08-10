@@ -54,7 +54,7 @@ def test_parse_probes_returns_empty_when_no_probe_attr() -> None:
 # parse_valid_ranges
 # ---------------------------------------------------------------------
 def test_parse_valid_ranges_extracts_id_probes_coords(tmp_path: Path) -> None:
-    """ID + probe_labels + coords (1→0-indexed) are read off the GFF3 row."""
+    """ID + probe_labels + coords (1->0-indexed) are read off the GFF3 row."""
     gff = tmp_path / "valid.gff3"
     gff.write_text(
         "##gff-version 3\n"
@@ -64,7 +64,7 @@ def test_parse_valid_ranges_extracts_id_probes_coords(tmp_path: Path) -> None:
     assert len(ranges) == 1
     r = ranges[0]
     assert r.chrom == "chr1"
-    assert r.start == 100  # 1-indexed 101 → 0-indexed 100
+    assert r.start == 100  # 1-indexed 101 -> 0-indexed 100
     assert r.end == 300
     assert r.probes == ["ENV", "GAG"]
     assert r.erv_id == "erv1"
@@ -74,7 +74,7 @@ def test_parse_valid_ranges_extracts_id_probes_coords(tmp_path: Path) -> None:
 # parse_ltr_library_headers
 # ---------------------------------------------------------------------
 def test_parse_ltr_library_headers_with_source_token(tmp_path: Path) -> None:
-    """A header carrying ``source=ID,ID,...`` yields the family→sources map."""
+    """A header carrying ``source=ID,ID,...`` yields the family->sources map."""
     fa = tmp_path / "lib.fa"
     fa.write_text(
         ">family1#LTR/unknown source=erv1,erv2,erv3\n"
@@ -101,7 +101,7 @@ def test_parse_ltr_library_headers_no_source_returns_empty_list(tmp_path: Path) 
 
 
 def test_parse_ltr_library_headers_missing_file_returns_empty(tmp_path: Path) -> None:
-    """Missing LTRlib.fa is non-fatal — fallback path covers the case."""
+    """Missing LTRlib.fa is non-fatal - fallback path covers the case."""
     assert parse_ltr_library_headers(tmp_path / "missing.fa") == {}
 
 
@@ -136,7 +136,7 @@ def test_parse_nmtf_pass_list_extracts_coords_and_family(tmp_path: Path) -> None
 
 
 # ---------------------------------------------------------------------
-# propagate_labels — primary path (family) and fallback (nearest_erv)
+# propagate_labels - primary path (family) and fallback (nearest_erv)
 # ---------------------------------------------------------------------
 def test_propagate_labels_uses_family_path_when_resolvable() -> None:
     """When source-ERV IDs map to valid_ranges entries, label_source=family."""
@@ -170,7 +170,7 @@ def test_propagate_labels_falls_back_to_nearest_erv() -> None:
 
 
 def test_propagate_labels_no_label_when_nearest_outside_window() -> None:
-    """Distance > max_distance → label_source stays ``none``."""
+    """Distance > max_distance -> label_source stays ``none``."""
     valid = [
         ValidRange(chrom="chr1", start=0, end=100, probes=["POL"], erv_id="erv_far"),
     ]

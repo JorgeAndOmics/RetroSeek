@@ -8,8 +8,8 @@
 # BED name column (col 4). Used by taxonomy_classify_loci.py to cut per-locus
 # marker regions before blastx.
 #
-# Memory note: Biostrings loads the genome into a DNAStringSet (≈1 byte/base).
-# That is fine for the model genomes (human ≈ 3.2 GB, ample headroom here); for
+# Memory note: Biostrings loads the genome into a DNAStringSet (~1 byte/base).
+# That is fine for the model genomes (human ~ 3.2 GB, ample headroom here); for
 # very large genomes run with bounded parallelism. `testthat` sources this file
 # (the CLI block is guarded by sys.nframe()), so the pure extractor is testable
 # without invoking the command line.

@@ -12,7 +12,7 @@ suppressMessages({
 source("../../scripts/hotspot/windowing.R")
 
 
-# ─────────────────────────── tile_genome_for_hotspot ───────────────────────
+# --------------------------- tile_genome_for_hotspot -----------------------
 
 test_that("tile_genome_for_hotspot produces full-width tiles for a genome divisible by window_size", {
   out <- tile_genome_for_hotspot(c(chr1 = 30000L), window_size = 10000L)
@@ -29,12 +29,12 @@ test_that("tile_genome_for_hotspot's last tile is shorter when chrom is not divi
 
 test_that("tile_genome_for_hotspot tiles each chromosome independently", {
   out <- tile_genome_for_hotspot(c(chr1 = 15000L, chr2 = 20000L), window_size = 10000L)
-  # chr1: 10000 + 5000; chr2: 10000 + 10000 → 4 tiles total
+  # chr1: 10000 + 5000; chr2: 10000 + 10000 -> 4 tiles total
   expect_equal(length(out), 4L)
 })
 
 
-# ─────────────────────────── count_hits_per_window ───────────────────────────
+# --------------------------- count_hits_per_window ---------------------------
 
 test_that("count_hits_per_window counts overlapping hits exactly", {
   windows <- GenomicRanges::GRanges(
@@ -59,7 +59,7 @@ test_that("count_hits_per_window returns zeros for empty hits", {
 })
 
 
-# ─────────────────────────── assemble_window_table ──────────────────────────
+# --------------------------- assemble_window_table --------------------------
 
 test_that("assemble_window_table builds a tibble with the expected columns", {
   windows <- GenomicRanges::GRanges(
@@ -92,7 +92,7 @@ test_that("assemble_window_table falls back to the raw chrom name when stratum m
     windows,
     counts        = 0L,
     effective_bp  = 1000L,
-    # stratum map keyed only by chr1 — scaffold_99 unmapped
+    # stratum map keyed only by chr1 - scaffold_99 unmapped
     chrom_stratum = c(chr1 = "chr1"),
     label         = "Ungrouped"
   )

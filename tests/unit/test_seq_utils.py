@@ -7,10 +7,10 @@
 Focus: the Entrez kwargs that ``gb_fetcher`` builds are free of the
 deprecated ``expand_by`` variable. The old code tried to pad the hit range
 via ``instance.HSP.sbjct_start + expand_by`` where ``expand_by`` was never
-defined — any call with a populated HSP raised :class:`NameError`, which
+defined - any call with a populated HSP raised :class:`NameError`, which
 was then swallowed by the retry/``except Exception`` block and counted as
 "fetch failed" instead of surfacing the real error. Range expansion belongs
-in ``ranges_analysis.R`` via ``GenomicRanges::resize()`` — not here.
+in ``ranges_analysis.R`` via ``GenomicRanges::resize()`` - not here.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class TestGbFetcherKwargs:
     def test_kwargs_include_seq_start_and_seq_stop_unchanged(self) -> None:
         """With an HSP, gb_fetcher passes the raw sbjct coordinates.
 
-        Not ``sbjct_start + expand_by``, not ``sbjct_end + expand_by`` — the
+        Not ``sbjct_start + expand_by``, not ``sbjct_end + expand_by`` - the
         expansion feature is deprecated and its implementation was broken
         (``expand_by`` was an undefined name).
         """
@@ -69,7 +69,7 @@ class TestGbFetcherKwargs:
         assert efetch.called, "gb_fetcher should have called Entrez.efetch"
         kwargs = efetch.call_args.kwargs
         assert kwargs["seq_start"] == 100, (
-            f"expected raw sbjct_start=100, got {kwargs.get('seq_start')!r} — "
+            f"expected raw sbjct_start=100, got {kwargs.get('seq_start')!r} - "
             "are we still applying a deprecated expand_by offset?"
         )
         assert kwargs["seq_stop"] == 500

@@ -1,12 +1,12 @@
 # =============================================================================
-# stage_plot_generator/plots_multiplicity.R — locus multiplicity metrics
+# stage_plot_generator/plots_multiplicity.R - locus multiplicity metrics
 # =============================================================================
 # How many primitive sequences collapse into each reduced locus:
 #   M1  raw threshold-passing tBLASTn hits per first-reduced (gr_virus) locus
-#       — the `n_hits` column, plottable stratified by tier because
+#       - the `n_hits` column, plottable stratified by tier because
 #       candidate / valid are nested subsets of the original tier.
 #   M2  per-virus (gr_virus) loci per globally-reduced (gr_global) locus
-#       — the `n_loci` column on the reduced dataframe.
+#       - the `n_loci` column on the reduced dataframe.
 # Both metrics span a wide range, so the count axis is log10.
 
 .TIER_FILL <- c(original = "#7570b3", candidate = "#d95f02", domain_selected = "#1b9e77")
@@ -14,7 +14,7 @@
 
 # Overlaid frequency bars of M1 (n_hits) for the original / candidate / valid
 # tiers. n_hits is a small-integer count (typically single digits), so a
-# discrete frequency bar chart is the honest geom — a binned histogram on a
+# discrete frequency bar chart is the honest geom - a binned histogram on a
 # log axis would scatter ~4 values into mostly-empty bins. Tiers are nested
 # subsets, so the bars are drawn overlaid (position identity); if the valid-
 # tier bars sit right of the original-tier ones, evidence depth predicts
@@ -51,7 +51,7 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
 }
 
 
-# Histogram of M2 (n_loci) — per-virus loci collapsed into each per-probe
+# Histogram of M2 (n_loci) - per-virus loci collapsed into each per-probe
 # global locus by reduce_global.
 multiplicity_m2_plot <- function(reduced_df, subset_label = NULL,
                                  warning_caption = NULL) {

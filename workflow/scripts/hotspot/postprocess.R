@@ -9,8 +9,8 @@
 #      summed (count, effective_bp). Conservative under spatial correlation
 #      (sums of correlated NB counts have higher variance than the model
 #      assumes), which is the right direction for a discovery filter. Do NOT
-#      BH-adjust again — this is a post-hoc summary, not a new test family.
-#   4. Apply min-hits filter AFTER merging — a singleton tile next to a
+#      BH-adjust again - this is a post-hoc summary, not a new test family.
+#   4. Apply min-hits filter AFTER merging - a singleton tile next to a
 #      3-hit tile is a legitimate 4-hit hotspot.
 #
 # Pure module. Inputs: scored tibble + fitted model. Output: GRanges.
@@ -26,7 +26,7 @@ suppressMessages({
 
 # Canonical empty hotspot GRanges with the full mcols schema. All
 # postprocess paths return this on the no-data case so that concatenating
-# per-label hotspot GRanges (`do.call(c, list)`) succeeds — `BiocGenerics::c`
+# per-label hotspot GRanges (`do.call(c, list)`) succeeds - `BiocGenerics::c`
 # requires matching mcols columns across operands.
 .empty_merged_gr <- function() {
   gr <- GenomicRanges::GRanges()
@@ -110,12 +110,12 @@ merge_adjacent_hotspots <- function(significant_df, gap = 0L) {
 #' summed (count, effective_bp) of each merged region.
 #'
 #' Per the plan agent's recommendation (point D), this is more honest than
-#' Fisher / Stouffer combination of per-window p-values — those assume
+#' Fisher / Stouffer combination of per-window p-values - those assume
 #' independence, which is false for adjacent windows. The resulting p is
 #' conservative because spatial correlation inflates the variance.
 #'
 #' Adds `mu_nb_region` and `pval_nb_region` to the GRanges mcols. Does NOT
-#' add `qval_nb_region` — these are post-hoc summaries, not new tests.
+#' add `qval_nb_region` - these are post-hoc summaries, not new tests.
 recompute_merged_pvalue <- function(merged_gr, fit) {
   if (length(merged_gr) == 0L) {
     return(merged_gr)
@@ -139,7 +139,7 @@ recompute_merged_pvalue <- function(merged_gr, fit) {
 
 #' Drop hotspot regions whose total count is below `min_hits`.
 #'
-#' Applied AFTER merging — see plan-agent point E. Threshold is on the
+#' Applied AFTER merging - see plan-agent point E. Threshold is on the
 #' aggregated count across the merged span, not per-window.
 apply_min_hits_filter <- function(merged_gr, min_hits) {
   if (length(merged_gr) == 0L || is.null(min_hits) || as.integer(min_hits) <= 0L) {
@@ -187,4 +187,97 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
     }
   }
   dplyr::mutate(window_df, hotspot_id = hotspot_id_col)
+}
+
+
+#' Annotate merged hotspot regions with the composition of the loci inside them
+#' (ADR-012).
+#'
+#' Detection deliberately runs on EVERY locus in the chosen tier: splitting an
+#' already sparse count matrix by structural class would starve the NB fit.
+#' Instead each called region is described by what it is made of, so a hotspot
+#' can be read as intact-provirus-driven or fragment-driven without a second
+#' query. This is annotation, not filtering - no region is added or removed.
+#'
+#' Adds per region:
+#'   n_loci                     loci overlapping the region
+#'   n_full / n_partial / n_gene   structure_class breakdown
+#'   n_ltr_flanked / n_orphan   tier breakdown
+#'   dominant_taxon             most frequent value of `group_col` (ties -> first
+#'                              alphabetically, so the output is deterministic)
+#'   mean_confidence            mean numeric confidence, NA when unavailable
+#'
+#' Columns absent from `loci` yield zero counts / NA rather than an error, so a
+#' raw-hit input (which carries none of them) still passes through unharmed.
+#'
+#' @param merged_gr GRanges of merged hotspot regions
+#' @param loci      GRanges of the loci that were counted
+#' @param group_col mcols column naming the lineage (e.g. "segment")
+annotate_hotspot_composition <- function(merged_gr, loci, group_col = "segment") {
+  n <- length(merged_gr)
+  .rep <- function(value) rep(value, n)
+  S4Vectors::mcols(merged_gr)$n_loci          <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$n_full          <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$n_partial       <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$n_gene          <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$n_ltr_flanked   <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$n_orphan        <- .rep(0L)
+  S4Vectors::mcols(merged_gr)$dominant_taxon  <- .rep(NA_character_)
+  S4Vectors::mcols(merged_gr)$mean_confidence <- .rep(NA_real_)
+  if (n == 0L || length(loci) == 0L) return(merged_gr)
+
+  ov <- GenomicRanges::findOverlaps(loci, merged_gr, ignore.strand = TRUE)
+  if (length(ov) == 0L) return(merged_gr)
+  locus_i  <- as.integer(S4Vectors::queryHits(ov))
+  region_i <- as.integer(S4Vectors::subjectHits(ov))
+
+  mc <- S4Vectors::mcols(loci)
+  col_of <- function(name) {
+    if (name %in% colnames(mc)) as.character(mc[[name]][locus_i]) else NULL
+  }
+  structure_class <- col_of("structure_class")
+  source_col      <- col_of("source")
+  taxon           <- col_of(group_col)
+  conf <- if ("confidence" %in% colnames(mc)) {
+    suppressWarnings(as.numeric(mc$confidence[locus_i]))
+  } else {
+    NULL
+  }
+
+  # tapply over the region index keeps this a single pass per statistic.
+  tally <- function(mask) {
+    out <- integer(n)
+    if (is.null(mask)) return(out)
+    t <- table(region_i[mask])
+    out[as.integer(names(t))] <- as.integer(t)
+    out
+  }
+  S4Vectors::mcols(merged_gr)$n_loci <- tally(rep(TRUE, length(region_i)))
+  if (!is.null(structure_class)) {
+    S4Vectors::mcols(merged_gr)$n_full    <- tally(structure_class == "full")
+    S4Vectors::mcols(merged_gr)$n_partial <- tally(structure_class == "partial")
+    S4Vectors::mcols(merged_gr)$n_gene    <- tally(structure_class == "gene")
+  }
+  if (!is.null(source_col)) {
+    S4Vectors::mcols(merged_gr)$n_ltr_flanked <- tally(source_col == "ltr-flanked")
+    S4Vectors::mcols(merged_gr)$n_orphan      <- tally(source_col == "orphan")
+  }
+  if (!is.null(taxon)) {
+    dom <- vapply(split(taxon, region_i), function(v) {
+      v <- v[!is.na(v) & nzchar(v)]
+      if (length(v) == 0L) return(NA_character_)
+      t <- table(v)
+      # sort() breaks count ties alphabetically -> deterministic output
+      names(sort(t, decreasing = TRUE))[1]
+    }, character(1))
+    S4Vectors::mcols(merged_gr)$dominant_taxon[as.integer(names(dom))] <- unname(dom)
+  }
+  if (!is.null(conf)) {
+    mc_mean <- vapply(split(conf, region_i), function(v) {
+      if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
+    }, numeric(1))
+    S4Vectors::mcols(merged_gr)$mean_confidence[as.integer(names(mc_mean))] <-
+      unname(mc_mean)
+  }
+  merged_gr
 }

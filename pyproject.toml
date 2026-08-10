@@ -1,4 +1,4 @@
-# RetroSeek tooling config. Not a Python package manifest — this repo is a
+# RetroSeek tooling config. Not a Python package manifest - this repo is a
 # Snakemake workflow, not a library. Ruff, mypy, pytest, and coverage are
 # configured here. Runtime dependencies live in data/config/environment.yml.
 
@@ -79,7 +79,7 @@ enable_error_code = [
 module = ["tests.*"]
 disallow_untyped_defs = false
 
-# Third-party libs without stubs — keep overrides narrow.
+# Third-party libs without stubs - keep overrides narrow.
 [[tool.mypy.overrides]]
 module = [
     "Bio.*",

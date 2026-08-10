@@ -1,5 +1,5 @@
 # Hygiene-only pre-commit hooks. Linting, type checking, and tests run via
-# `make check` — kept out of hooks to avoid slow commits. Install once with
+# `make check` - kept out of hooks to avoid slow commits. Install once with
 # `pre-commit install` after activating the conda env.
 
 repos:

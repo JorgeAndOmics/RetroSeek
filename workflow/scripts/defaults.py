@@ -56,7 +56,7 @@ FIELD_STYLES = config["logging"]["field_styles"]
 
 # Anchor relative paths against the repo root so a fresh-clone run
 # from any working directory still resolves the same way.
-# `parents[2]` walks: defaults.py → scripts → workflow → repo root.
+# `parents[2]` walks: defaults.py -> scripts -> workflow -> repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -98,11 +98,11 @@ PATH_DICT["TBLASTN_PICKLE_DIR"] = (PATH_DICT["PICKLE_DIR"] / "tblastn").resolve(
 
 # === Taxonomic-classification reference ===
 # Pinned, build-once reference for per-locus genus calls: the genus-comprehensive
-# protein set (.faa) + accession→genus/gene table (.csv), data-derived taxonomy.tsv,
+# protein set (.faa) + accession->genus/gene table (.csv), data-derived taxonomy.tsv,
 # curated erv_class.tsv, the per-gene placement tree packages (trees/), and a
 # provenance manifest. Lives under /data because it is a reusable input, not a
 # per-run output. Rebuilt only when missing (or via `make reference`). The small
-# blastx DB is built on the fly in each run's workdir (383 proteins — instant).
+# blastx DB is built on the fly in each run's workdir (383 proteins - instant).
 PATH_DICT["TAXONOMY_REFERENCE_DIR"] = (
     PATH_DICT["DATA_DIR"] / "taxonomy_reference"
 ).resolve()
@@ -164,31 +164,31 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["FULL_GENOME_BLAST_PARQUET_DIR"],
     PATH_DICT["FULL_GENOME_BLAST_CSV_DIR"],
 ) = table_dirs("full_genome_blast")
-# Taxonomic-classification output table — per genome <g>.loci (per-locus genus
+# Taxonomic-classification output table - per genome <g>.loci (per-locus genus
 # calls; the genus-founded ERV assembly, with per-gene evidence + mosaic packed
 # in-row). Plot summaries are derived from this table, so they stay concordant.
 (
     PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
     PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
 ) = table_dirs("taxonomy_classification")
-# Tree coordinates (ADR-011) — flat x/y segment + tip tables written by
+# Tree coordinates (ADR-011) - flat x/y segment + tip tables written by
 # tree_layout.py so the R plot generators can draw the taxon and host-species
 # trees with geom_segment, without an R tree library.
 PATH_DICT["TAXONOMY_TREE_COORDS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "trees"
-# Per-segment deliverables (ADR-011) — the catalog split by the taxon each locus
+# Per-segment deliverables (ADR-011) - the catalog split by the taxon each locus
 # rolls up to at classification.segment_rank.
 PATH_DICT["TAXONOMY_SEGMENTS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "segments"
-# Loss-analysis tables — the unified per-stage loss funnel + per-genome novel
+# Loss-analysis tables - the unified per-stage loss funnel + per-genome novel
 # candidates (valid loci with zero blastx homology). Built by loss_analysis.R
 # from the ranges-analysis counts and the blastx-stage classification counts.
 (
     PATH_DICT["LOSS_ANALYSIS_PARQUET_DIR"],
     PATH_DICT["LOSS_ANALYSIS_CSV_DIR"],
 ) = table_dirs("loss_analysis")
-# Run manifest — provenance metadata (generator, timestamp, input md5s,
+# Run manifest - provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
-# LTRharvest screen-format (.scn) intermediate — consumed by LTR_retriever.
+# LTRharvest screen-format (.scn) intermediate - consumed by LTR_retriever.
 # Lives under /data (not /results) because it's a working format, not an output.
 PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
@@ -199,7 +199,7 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 #   plots/
 #     ranges/                 the ranges_analysis stage (pre-classification)
 #       homology/             plot2sort: per-probe/virus/species hit distributions
-#       integration/          stage_plot_generator: hit↔LTR-element integration + reduction
+#       integration/          stage_plot_generator: hit<->LTR-element integration + reduction
 #     classification/         the taxonomy stage (per-locus assembly + calls)
 #       taxonomy/             taxonomy_plot_generator: calls, confidence, mosaic, tiers
 #       structure/            structural views of the assembly (completeness, structure_class)
@@ -240,10 +240,10 @@ PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve(
 PATH_DICT["TRACK_CANDIDATES_DIR"] = (PATH_DICT["TRACK_DIR"] / "candidates").resolve()
 PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
-# Taxonomic-classification tier — per-locus genus calls projected to genome
+# Taxonomic-classification tier - per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
 PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
-# Orphans tier — non-LTR-associated hits recovered + classified by their own
+# Orphans tier - non-LTR-associated hits recovered + classified by their own
 # sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
 PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
 
@@ -251,7 +251,7 @@ PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()
 PATH_DICT["LTRDIGEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrdigest").resolve()
 # LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
-# consensus library — all the files LTR_retriever emits per genome).
+# consensus library - all the files LTR_retriever emits per genome).
 PATH_DICT["LTR_RETRIEVER_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltr_retriever").resolve()
 PATH_DICT["SOLO_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "solo_ltr").resolve()
 PATH_DICT["FLANKING_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "flanking_ltr").resolve()
@@ -292,7 +292,7 @@ SPECIES: list[str]
 if not USE_SPECIES_DICT:
     # Discover genomes by scanning SPECIES_DB. Accept any of the FASTA
     # extension variants the genome_fasta_normalizer rule canonicalises
-    # to .fa — otherwise a fresh machine with only .fna files would see
+    # to .fa - otherwise a fresh machine with only .fna files would see
     # SPECIES = [] before the normalizer ever runs.
     _FASTA_EXTS = {".fa", ".fna", ".fasta", ".ffn"}
     SPECIES = sorted(

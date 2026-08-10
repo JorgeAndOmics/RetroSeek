@@ -12,7 +12,7 @@ suppressMessages({
 source("../../scripts/hotspot/masking.R")
 
 
-# ─────────────────────────── build_n_mask ───────────────────────────
+# --------------------------- build_n_mask ---------------------------
 
 test_that("build_n_mask returns an empty GRanges when mask_size == 0 (no masking)", {
   seqs <- Biostrings::DNAStringSet(c(chr1 = "ACGTACGTACGT"))
@@ -38,7 +38,7 @@ test_that("build_n_mask reduces overlapping matches into a single interval", {
 })
 
 
-# ─────────────────────────── effective_bp_per_window ───────────────────────
+# --------------------------- effective_bp_per_window -----------------------
 
 test_that("effective_bp_per_window equals window width when mask is empty", {
   windows <- GenomicRanges::GRanges(
@@ -79,7 +79,7 @@ test_that("effective_bp_per_window never returns negative values", {
 
 test_that("effective_bp_per_window handles the short last-tile correctly", {
   # Mimic cut.last.tile.in.chrom=TRUE: chr1 has total length 2500 with
-  # window_size 1000 → tiles 1-1000, 1001-2000, 2001-2500 (last is 500bp).
+  # window_size 1000 -> tiles 1-1000, 1001-2000, 2001-2500 (last is 500bp).
   windows <- GenomicRanges::GRanges(
     seqnames = c("chr1", "chr1", "chr1"),
     ranges   = IRanges::IRanges(start = c(1, 1001, 2001),
@@ -90,7 +90,7 @@ test_that("effective_bp_per_window handles the short last-tile correctly", {
 })
 
 
-# ─────────────────────────── pool_small_scaffolds ───────────────────────
+# --------------------------- pool_small_scaffolds -----------------------
 
 test_that("pool_small_scaffolds keeps long chromosomes and pools short ones", {
   seqlengths <- c(chr1 = 1e8, chr2 = 5e7, scaffold_a = 5000, scaffold_b = 2000)
@@ -98,7 +98,7 @@ test_that("pool_small_scaffolds keeps long chromosomes and pools short ones", {
                                window_size = 10000L,
                                min_factor = 10L)
   # Threshold = 10000 * 10 = 100000. chr1, chr2 keep their names.
-  # scaffolds < 100000 → "Unplaced".
+  # scaffolds < 100000 -> "Unplaced".
   expect_equal(unname(out), c("chr1", "chr2", "Unplaced", "Unplaced"))
   expect_equal(names(out), names(seqlengths))
 })

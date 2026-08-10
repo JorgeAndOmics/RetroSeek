@@ -1,9 +1,9 @@
 # =============================================================================
-# stage_plot_generator/io.R — stage-parquet + manifest ingest
+# stage_plot_generator/io.R - stage-parquet + manifest ingest
 # =============================================================================
 # Stage-specific disk I/O. `save_plot` / `verify_required_columns` are reused
 # from plot2sort/io.R (sourced by the orchestrator). `log_section` is defined
-# in the orchestrator and resolved via lexical scope at call time — same
+# in the orchestrator and resolved via lexical scope at call time - same
 # convention as plot2sort.R / ranges_analysis.R.
 
 
@@ -61,10 +61,10 @@ load_reduction_coverage <- function(input_dir) {
 
 # Read every {genome}.counts.parquet and pull the refinement-funnel stages into
 # a tidy long tibble: (genome, stage, count). `stage` is a factor in pipeline
-# order so the funnel plots render homology → valid left-to-right without
+# order so the funnel plots render homology -> valid left-to-right without
 # re-sorting. The counts table is long-form with columns `metric` + `value`.
 load_counts_table <- function(input_dir) {
-  # Pipeline-ordered stages of the homology → valid refinement funnel. Names
+  # Pipeline-ordered stages of the homology -> valid refinement funnel. Names
   # are counts-table `metric` keys; values are the human-readable axis labels.
   stage_keys <- c(
     filtered_blast_hits  = "homology hits",

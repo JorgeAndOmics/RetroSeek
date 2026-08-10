@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from genome_fasta_normalizer import (
     EXT_PREFERENCE,
     normalize,
@@ -20,7 +19,7 @@ from genome_fasta_normalizer import (
 
 
 # ---------------------------------------------------------------------
-# pick_canonical_source — extension preference
+# pick_canonical_source - extension preference
 # ---------------------------------------------------------------------
 def _write_fasta(path: Path) -> None:
     """Write a minimal 2-line FASTA file."""
@@ -35,25 +34,25 @@ def test_pick_canonical_source_prefers_dot_fa(tmp_path: Path) -> None:
 
 
 def test_pick_canonical_source_falls_back_to_fna(tmp_path: Path) -> None:
-    """``.fna`` only — NCBI Datasets common case."""
+    """``.fna`` only - NCBI Datasets common case."""
     _write_fasta(tmp_path / "Toyus.fna")
     assert pick_canonical_source(tmp_path, "Toyus") == tmp_path / "Toyus.fna"
 
 
 def test_pick_canonical_source_falls_back_to_fasta(tmp_path: Path) -> None:
-    """``.fasta`` only — manual-download convention."""
+    """``.fasta`` only - manual-download convention."""
     _write_fasta(tmp_path / "Toyus.fasta")
     assert pick_canonical_source(tmp_path, "Toyus") == tmp_path / "Toyus.fasta"
 
 
 def test_pick_canonical_source_falls_back_to_ffn(tmp_path: Path) -> None:
-    """``.ffn`` only — older GenBank exports."""
+    """``.ffn`` only - older GenBank exports."""
     _write_fasta(tmp_path / "Toyus.ffn")
     assert pick_canonical_source(tmp_path, "Toyus") == tmp_path / "Toyus.ffn"
 
 
 def test_pick_canonical_source_raises_when_none_present(tmp_path: Path) -> None:
-    """No matching FASTA → clear error listing the four extensions tried."""
+    """No matching FASTA -> clear error listing the four extensions tried."""
     with pytest.raises(FileNotFoundError) as excinfo:
         pick_canonical_source(tmp_path, "Toyus")
     msg = str(excinfo.value)
@@ -62,7 +61,7 @@ def test_pick_canonical_source_raises_when_none_present(tmp_path: Path) -> None:
 
 
 def test_pick_canonical_source_refuses_on_ambiguous_pair(tmp_path: Path) -> None:
-    """``.fna`` + ``.fasta`` (no ``.fa``) → refuse, demand user disambiguation.
+    """``.fna`` + ``.fasta`` (no ``.fa``) -> refuse, demand user disambiguation.
 
     A `SPECIES_DB` directory containing two non-`.fa` variants of the same
     genome could plausibly hold a working `.fna` (NCBI Datasets) plus an
@@ -76,10 +75,10 @@ def test_pick_canonical_source_refuses_on_ambiguous_pair(tmp_path: Path) -> None
 
 
 # ---------------------------------------------------------------------
-# normalize — symlink creation, idempotency, FASTA-shape validation
+# normalize - symlink creation, idempotency, FASTA-shape validation
 # ---------------------------------------------------------------------
 def test_normalize_creates_canonical_fa_via_symlink(tmp_path: Path) -> None:
-    """``.fna`` only → symlink ``Toyus.fa → Toyus.fna``."""
+    """``.fna`` only -> symlink ``Toyus.fa -> Toyus.fna``."""
     src = tmp_path / "Toyus.fna"
     _write_fasta(src)
     output = tmp_path / "Toyus.fa"

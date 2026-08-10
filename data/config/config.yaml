@@ -13,8 +13,12 @@ genome_tools:
   ltrdigest_optional_parameters: ''
 
 hotspot:
-  input: valid
-  group_split: false
+  # catalog = one row per integration event (the assembled, non-overlapping
+  # per-locus catalog); original = raw tBLASTn hits, denser but weighted by gene
+  # content. Grouping and tier selection only apply to the catalog tier.
+  input: catalog
+  group_by: segment
+  source: ltr-flanked
   window_size: 500000
   mask_size: 20
   mask_mismatch: 3

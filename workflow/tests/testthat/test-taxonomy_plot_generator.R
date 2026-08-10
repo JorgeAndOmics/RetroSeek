@@ -63,14 +63,14 @@ test_that("build_report is empty-safe", {
 
 test_that("bucket_evidence maps hit counts to ordered buckets", {
   b <- bucket_evidence(c(0L, 1L, 2L, 5L, 6L, 25L))
-  expect_equal(as.character(b), c("0", "1", "2–5", "2–5", "6+", "6+"))
+  expect_equal(as.character(b), c("0", "1", "2-5", "2-5", "6+", "6+"))
   expect_true(is.factor(b))
-  expect_equal(levels(b), c("0", "1", "2–5", "6+"))
+  expect_equal(levels(b), c("0", "1", "2-5", "6+"))
 })
 
 test_that("bucket_evidence handles empty and is robust to numeric input", {
   expect_length(bucket_evidence(integer()), 0L)
-  expect_equal(as.character(bucket_evidence(c(3))), "2–5")  # numeric, not integer
+  expect_equal(as.character(bucket_evidence(c(3))), "2-5")  # numeric, not integer
 })
 
 

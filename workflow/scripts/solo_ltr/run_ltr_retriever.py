@@ -5,10 +5,10 @@ Why this script exists
 LTR_retriever is a Perl pipeline that:
 
 1. expects its working directory to be the directory containing the
-   genome FASTA — it writes outputs alongside the input;
+   genome FASTA - it writes outputs alongside the input;
 2. produces files prefixed with ``<basename>.fa.mod.`` because it
    internally generates a sanitised copy of the genome before running;
-3. emits no machine-readable success signal — the Snakemake rule has
+3. emits no machine-readable success signal - the Snakemake rule has
    to verify the three expected output files materialised.
 
 Embedding all that in a Snakemake ``shell:`` block produced fragile
@@ -79,8 +79,8 @@ def resolve_source_scn(mode: str, retroviral: Path, full: Path) -> Path:
 
     ``mode`` mirrors ``config.ltr_retriever.source_scn``:
 
-    - ``retroviral`` — the prefilter-restricted SCN (Coupling A).
-    - ``full`` — the unfiltered passthrough SCN.
+    - ``retroviral`` - the prefilter-restricted SCN (Coupling A).
+    - ``full`` - the unfiltered passthrough SCN.
 
     Any other value raises ``ValueError`` rather than silently
     defaulting; the validator should have caught it but we double-
@@ -192,12 +192,12 @@ def run_binary(
 # finalise_outputs
 # ---------------------------------------------------------------------
 def finalise_outputs(workdir: Path, genome_name: str) -> list[Path]:
-    """Rename ``{genome}.fa.mod.<ext>`` → ``{genome}.<ext>`` for each expected ext.
+    """Rename ``{genome}.fa.mod.<ext>`` -> ``{genome}.<ext>`` for each expected ext.
 
     If the canonical filename already exists (no ``.fa.mod.`` prefix),
     it is left in place. If neither the prefixed nor the canonical
     file exists for any expected extension, raise ``RuntimeError``
-    with a list of missing files and a workdir directory listing —
+    with a list of missing files and a workdir directory listing -
     the strongest signal that LTR_retriever failed silently.
     """
     canonical: list[Path] = []
@@ -260,7 +260,7 @@ def _resolve_binary(explicit: Path | None) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Entry point — orchestrates the four building blocks."""
+    """Entry point - orchestrates the four building blocks."""
     args = _parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 

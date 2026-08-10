@@ -1,11 +1,11 @@
 # =============================================================================
-# RetroSeek — Snakemake workflow
+# RetroSeek - Snakemake workflow
 # =============================================================================
 # Rule sections (in dependency order; search the banners to jump between them):
 #   1. Genome acquisition & preparation   (download, normalise, Pfam, BLAST db, LTR index)
 #   2. LTR discovery                       (LTRharvest / LTRdigest)
-#   3. Probe extraction & homology search  (tBLASTn → pickle → parquet → segmentation)
-#   4. Range analysis                      (tBLASTn × LTR integration → valid/orphans tracks)
+#   3. Probe extraction & homology search  (tBLASTn -> pickle -> parquet -> segmentation)
+#   4. Range analysis                      (tBLASTn x LTR integration -> valid/orphans tracks)
 #   5. Solo-LTR workstream                 (LTR_retriever prefilter / detect / integrate)
 #   6. Provirus & structural plots         (plot2sort, stage, erv-like, circle panels)
 #   7. Hotspot & pair detection
@@ -27,7 +27,7 @@ from scripts import defaults
 
 BLAST_DB_EXT = ['ndb', 'nhr', 'nin', 'not', 'nsq', 'ntf', 'nto']
 # Note: .ssp is NOT emitted by `gt suffixerator` in the genometools version
-# shipped with the conda env — empirically 8 files are produced, not 9. Older
+# shipped with the conda env - empirically 8 files are produced, not 9. Older
 # versions apparently did produce .ssp. LTRharvest runs fine on the 8-file
 # index, so we omit .ssp here to keep Snakemake's output declarations honest.
 LTR_INDEX_EXT = ['des', 'esq', 'lcp', 'llv', 'md5', 'prj', 'sds', 'suf']
@@ -38,7 +38,7 @@ SPECIES = list(defaults.SPECIES)
 # Pin {genome} to the exact configured species list. Without this, Snakemake
 # defaults {genome} to the regex `.+`, which causes AmbiguousRuleException
 # whenever two rules write to the same directory with overlapping filename
-# patterns — e.g. ltr_harvester_setup ({genome}.scn) and
+# patterns - e.g. ltr_harvester_setup ({genome}.scn) and
 # ltr_retriever_prefilter_setup ({genome}_retroviral.scn), where {genome}
 # would greedily absorb "example_genome_retroviral" for the first rule.
 wildcard_constraints:
@@ -46,7 +46,7 @@ wildcard_constraints:
 
 
 def species_with_hits(wildcards):
-    """Return the species that produced tBLASTn hits — resolved at runtime.
+    """Return the species that produced tBLASTn hits - resolved at runtime.
 
     Called as a lambda by every aggregate rule that used to use the
     parse-time ``SPECIES_POST`` variable. Reading happens from the
@@ -63,8 +63,8 @@ def species_with_hits(wildcards):
     - Re-run after probe changes: checkpoint re-runs, the list refreshes.
 
     Falls back to the full SPECIES list if the parquet somehow produces
-    zero species (shouldn't happen in practice — BLAST with a valid
-    probe set should hit at least one species — but defensive).
+    zero species (shouldn't happen in practice - BLAST with a valid
+    probe set should hit at least one species - but defensive).
     """
     parquet_path = checkpoints.blast_pkl2parquet.get().output.parquet_full
     table = pq.read_table(parquet_path, columns=["species"])
@@ -103,7 +103,7 @@ rule genome_downloader:
 # extensions (.fna from NCBI Datasets, .fasta from manual download, .ffn
 # from older GenBank exports). The script symlinks `{genome}.fa` to the
 # selected source so every downstream rule's `.fa` input contract holds
-# regardless of upstream filename. Idempotent — a real `{genome}.fa`
+# regardless of upstream filename. Idempotent - a real `{genome}.fa`
 # already in place is left untouched. Refuses on multi-extension
 # ambiguity (see workflow/scripts/blast_search/genome_fasta_normalizer.py docstring).
 #
@@ -194,7 +194,7 @@ rule ltr_index_generator_setup:
         md5_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.md5'),
         prj_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.prj'),
         sds_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.sds'),
-        # Note: .ssp not declared — gt suffixerator in this env's genometools
+        # Note: .ssp not declared - gt suffixerator in this env's genometools
         # version does not emit it. See the comment on LTR_INDEX_EXT above.
         suf_file=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}', '{genome}.suf')
     params:
@@ -227,7 +227,7 @@ rule ltr_index_generator:
 
 
 # =============================================================================
-# 2. LTR DISCOVERY — LTRharvest / LTRdigest
+# 2. LTR DISCOVERY - LTRharvest / LTRdigest
 #    detect paired-LTR retrotransposon structures and annotate their Pfam domains.
 # =============================================================================
 rule ltr_harvester_setup:
@@ -237,7 +237,7 @@ rule ltr_harvester_setup:
         ltr_fasta       = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
         ltr_gff3        = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
         ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
-        # Screen-format (.scn) output — LTRharvest writes this to stdout by default.
+        # Screen-format (.scn) output - LTRharvest writes this to stdout by default.
         # Needed as LTR_retriever's primary input format (-inharvest).
         ltr_scn         = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}.scn')
     params:
@@ -318,9 +318,9 @@ rule ltr_digester:
 
 
 # =============================================================================
-# 3. PROBE EXTRACTION & HOMOLOGY SEARCH — tBLASTn
+# 3. PROBE EXTRACTION & HOMOLOGY SEARCH - tBLASTn
 #    fetch probe sequences, tBLASTn against each genome, cache to pickle, convert
-#    to parquet (checkpoint → species_with_hits), and segment per species.
+#    to parquet (checkpoint -> species_with_hits), and segment per species.
 # =============================================================================
 rule probe_extractor:
     input:
@@ -390,7 +390,7 @@ rule species_segmenter_setup:
     input:
         input_parquet = rules.blast_pkl2parquet.output.parquet_full
     output:
-        # Aggregate outputs (all main / all accessory) — always present.
+        # Aggregate outputs (all main / all accessory) - always present.
         all_parquet=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'], 'all{suffix}.parquet'),
                            suffix=['_main', '_accessory']),
         all_csv=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_CSV_DIR'], 'all{suffix}.csv'),
@@ -398,7 +398,7 @@ rule species_segmenter_setup:
         # Per-species outputs: declared over the FULL SPECIES list (not
         # SPECIES_POST-equivalent) so Snakemake can resolve per-{genome}
         # dependencies from downstream rules. species_segmenter.R ensures
-        # every SPECIES gets a table written — empty-schema for species
+        # every SPECIES gets a table written - empty-schema for species
         # with no hits. Downstream aggregates demand only the hit subset
         # via species_with_hits(wildcards) lambdas.
         species_parquet_full=expand(os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'], '{genome}.parquet'),
@@ -425,14 +425,14 @@ rule species_segmenter:
 
 
 # =============================================================================
-# 4. RANGE ANALYSIS — tBLASTn × LTR integration
+# 4. RANGE ANALYSIS - tBLASTn x LTR integration
 #    integrate homology hits with LTRdigest structure into the original /
 #    candidate / valid / orphans tiers (+ per-genome counts for the funnel).
 # =============================================================================
 rule ranges_analysis_setup:
     input:
         # Per-genome scoping (A4): each invocation of this rule needs only
-        # one species's fasta, segmented parquet, and ltrdigest GFF3 — the R
+        # one species's fasta, segmented parquet, and ltrdigest GFF3 - the R
         # script reads exactly those three per run. The pre-refactor
         # expand(...) across SPECIES_POST blocked per-species parallelism
         # and demanded every species' files before ANY genome's ranges-analysis
@@ -452,7 +452,7 @@ rule ranges_analysis_setup:
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix_parquet=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_PARQUET_DIR'],'{genome}.parquet'),
         overlap_matrix_csv=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_CSV_DIR'],'{genome}.csv'),
-        # Per-genome ranges-analysis tables — parquet (pipeline-internal, under
+        # Per-genome ranges-analysis tables - parquet (pipeline-internal, under
         # data/tables/) + CSV (user-facing, under results/tables/) for each.
         final_loci_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
         final_loci_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.final_loci.csv'),
@@ -545,14 +545,14 @@ rule ranges_analysis:
                                genome=species_with_hits(wildcards))
 
 
-# ───────────────────────────── LTR_retriever chain ───────────────────────────
+# ----------------------------- LTR_retriever chain ---------------------------
 # Pre-filter LTRharvest SCN by RetroSeek's retroviral-confirmed ERV set
-# (valid_ranges.gff3) — Coupling A. Then hand the filtered SCN to
+# (valid_ranges.gff3) - Coupling A. Then hand the filtered SCN to
 # LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
 # derived from the retained intact ERVs. See docs/solo_ltr.md for full
 # mechanism and the LTR_retriever stages.
 # =============================================================================
-# 5. SOLO-LTR WORKSTREAM — LTR_retriever
+# 5. SOLO-LTR WORKSTREAM - LTR_retriever
 #    prefilter LTRharvest SCN to retroviral elements, run LTR_retriever, and
 #    integrate solo vs intact LTRs (solo/intact ratio). See docs/solo_ltr.md.
 # =============================================================================
@@ -675,7 +675,7 @@ rule solo_ltr_integrator_setup:
 
 
 # Aggregate per-genome ratio CSVs into all_species.csv via an inline pandas
-# concat. Tiny helper — not worth its own script.
+# concat. Tiny helper - not worth its own script.
 rule solo_intact_ratio_aggregate:
     input:
         per_genome = lambda wildcards: expand(
@@ -701,7 +701,7 @@ rule solo_intact_ratio_aggregate:
         combined.to_parquet(output.all_species_parquet, index=False)
 
 
-# Top-level aggregate — the CLI target. Demands every per-genome GFF3 + the
+# Top-level aggregate - the CLI target. Demands every per-genome GFF3 + the
 # aggregate CSV, triggering the whole LTR_retriever chain transitively.
 rule solo_ltr_detector:
     input:
@@ -823,7 +823,7 @@ rule stage_plot_generator:
 # ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
 # tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
 # of PNGs into results/plots/erv-like/.
-# ERV-like structural panel — views of the taxon-founded ERV assembly (the
+# ERV-like structural panel - views of the taxon-founded ERV assembly (the
 # taxonomy_classify loci table): completeness, canonical order, gene
 # combinations, length, marker count, taxon x gene composition.
 rule erv_like_plot_generator_setup:
@@ -892,14 +892,21 @@ rule circle_plot_generator:
 
 
 # Hotspot input-tier router: `hotspot.input` selects which upstream track feeds
-# the detector. Each tier maps to (directory, per-genome filename) — note the
+# the detector. Each tier maps to (directory, per-genome filename) - note the
 # `valid` tier uses the `_reduced.gff3` filename, `original` uses `{genome}.gff3`.
 # (The retired erv_like tier is gone; the taxon-founded assembly is a separate
 # stage and re-pointing hotspot at it is deferred to the hotspot rework.)
-_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'valid')
+_HOTSPOT_INPUT = config.get('hotspot', {}).get('input', 'catalog')
+# ADR-012: `catalog` counts one row per integration EVENT from the authoritative
+# per-locus assembly, so a multi-gene provirus is one count rather than one per
+# gene. It makes hotspot a consumer of the classification stage: Snakemake will
+# pull taxonomy_classify in when catalog.csv is stale. `original` (raw tBLASTn
+# hits) is kept for dense genome-wide calling, where the extra density is what
+# gives the NB model power on sparse assemblies. The old `valid` tier is retired:
+# it is the same events as `catalog`, multi-counted by gene content.
 _HOTSPOT_TRACK = {
-    'valid':    (defaults.PATH_DICT['TRACK_VALID_DIR'],    '{genome}_reduced.gff3'),
-    'original': (defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
+    'catalog':  (defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv'),
+    'original': (defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],      '{genome}.gff3'),
 }
 if _HOTSPOT_INPUT not in _HOTSPOT_TRACK:
     raise ValueError(
@@ -910,7 +917,7 @@ _HOTSPOT_INPUT_DIR, _HOTSPOT_INPUT_FILE = _HOTSPOT_TRACK[_HOTSPOT_INPUT]
 
 # =============================================================================
 # 7. HOTSPOT & PAIR DETECTION
-#    NB-GLM detection of integration hotspots, and tBLASTn↔LTRdigest pair overlaps.
+#    NB-GLM detection of integration hotspots, and tBLASTn<->LTRdigest pair overlaps.
 # =============================================================================
 rule hotspot_detector_setup:
     input:
@@ -921,12 +928,14 @@ rule hotspot_detector_setup:
         track = os.path.join(_HOTSPOT_INPUT_DIR, _HOTSPOT_INPUT_FILE)
     output:
         hotspot_csv=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'),
+        hotspot_regions=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.hotspots.csv'),
         hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_manifest=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.manifest.yaml'),
         hotspot_manhattan_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'),
         hotspot_karyotype_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'),
         hotspot_qq_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'),
         hotspot_summary_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'),
+        hotspot_composition_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_composition.pdf'),
         hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),
         hotspot_bed=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed')
     params:
@@ -941,7 +950,7 @@ rule hotspot_detector_setup:
         '''
         Rscript scripts/hotspot_detector.R \
         --fasta {input.fasta:q} \
-        --gff {input.track:q} \
+        --hits {input.track:q} \
         --config {params.config_yaml:q} \
         --parquet_dir {params.parquet_dir:q} \
         --csv_dir {params.csv_dir:q} \
@@ -986,11 +995,11 @@ rule pair_detector:
         pair_table_parquet=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet'), genome=species_with_hits(wildcards))
 
 
-# ───────────────────────────── Taxonomic classification ──────────────────────
+# ----------------------------- Taxonomic classification ----------------------
 # Per-locus ERV taxon calls (rank-agnostic axis; ADR-008): each valid LTR-element
 # locus is reclassified from its own marker sequence against a pinned,
-# taxon-comprehensive reference — POL/GAG by phylogenetic placement, weighted-LCA
-# otherwise — replacing best-bitscore probe-label transfer. The loci table is the
+# taxon-comprehensive reference - POL/GAG by phylogenetic placement, weighted-LCA
+# otherwise - replacing best-bitscore probe-label transfer. The loci table is the
 # taxon-founded ERV assembly (consensus taxon_call + rank + mosaic + structure). See
 # docs/configuration.md (`classification`), docs/taxonomy_classification/, and the ADRs.
 _CLASSIFICATION = config.get('classification', {})
@@ -1003,12 +1012,12 @@ _REFERENCE_TAXA = ",".join(_CLASSIFICATION.get('reference_taxa', []) or [])
 _PROBE_CSV = config['input']['probe_csv']
 
 
-# Build the reference package: taxon-comprehensive proteins + accession→taxon/gene
+# Build the reference package: taxon-comprehensive proteins + accession->taxon/gene
 # table (Entrez), NCBI-derived taxonomy.tsv, the curated erv_class.tsv (copied from
 # the tracked source), and a provenance manifest. Network rule; build-once cache,
 # rebuilt only if outputs are missing (mirrors pfam_hmm_downloader).
 # =============================================================================
-# 8. TAXONOMIC CLASSIFICATION — per-locus taxon calls (rank-agnostic axis)
+# 8. TAXONOMIC CLASSIFICATION - per-locus taxon calls (rank-agnostic axis)
 #    build the taxon-comprehensive reference + placement trees, classify LTR-flanked
 #    loci, recover + classify the orphans tier, and render the taxonomy panel.
 # =============================================================================
@@ -1062,7 +1071,7 @@ rule taxonomy_reference_trees_setup:
         '''
 
 
-# `make reference` target — full reference package + every placement-gene tree.
+# `make reference` target - full reference package + every placement-gene tree.
 rule taxonomy_reference_trees:
     input:
         expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREES_DIR'], '{gene}.raxml.bestTree'),
@@ -1128,7 +1137,7 @@ rule taxonomy_classify:
             if _CLASSIFICATION.get('enable', True) else [])
 
 
-# Orphans tier — recover non-LTR-associated orphans by running the SAME
+# Orphans tier - recover non-LTR-associated orphans by running the SAME
 # classifier on the orphans GFF3 (parentless features -> singleton loci), gated
 # to keep only orphans that earned a taxonomic call (--gate-classified). The
 # orphans table shares the loci schema (source='orphan') so the report unions
@@ -1189,7 +1198,7 @@ rule taxonomy_orphans:
             if _CLASSIFICATION.get('enable', True) else [])
 
 
-# Taxonomy plot panel — taxon composition, rank/method resolution, mosaic. Derived
+# Taxonomy plot panel - taxon composition, rank/method resolution, mosaic. Derived
 # from the loci tables (so plots and tables are concordant by construction).
 # =============================================================================
 # 8b. TAXONOMY TREE LAYOUT - flat coordinates for the tree-attached panels
@@ -1293,7 +1302,7 @@ rule taxonomy_plot_generator:
         plots=rules.taxonomy_plot_generator_setup.output
 
 
-# Unified loss funnel — UNIONs the ranges-analysis counts with the blastx-stage
+# Unified loss funnel - UNIONs the ranges-analysis counts with the blastx-stage
 # classification + orphans counts into one per-stage attrition table, exports
 # the per-genome novel candidates (loci with zero blastx homology), and renders
 # the funnel plot. Aggregate rule: demands every genome's counts + loci so the
@@ -1330,7 +1339,7 @@ rule taxonomy_segments:
 
 
 # =============================================================================
-# 9. LOSS ANALYSIS — per-stage funnel + novel candidates
+# 9. LOSS ANALYSIS - per-stage funnel + novel candidates
 #    union the ranges-analysis and blastx-stage counts into one attrition funnel,
 #    export per-genome novel candidates, and render the loss panel.
 # =============================================================================

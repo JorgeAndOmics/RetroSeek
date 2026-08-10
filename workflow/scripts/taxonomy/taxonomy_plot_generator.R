@@ -8,13 +8,13 @@
 # concordant with the tables by construction.
 #
 # Plots:
-#   1. taxon_composition      — per-species stacked counts of confident (axis-resolved) taxon calls.
-#   2. rank_resolution        — per-species resolved-rank distribution (genus /
+#   1. taxon_composition      - per-species stacked counts of confident (axis-resolved) taxon calls.
+#   2. rank_resolution        - per-species resolved-rank distribution (genus /
 #                               subfamily / family / unclassified).
-#   3. method_mix             — how taxon calls were made (placement / lca / presence).
-#   4. erv_class_composition  — per-species Class I/II/III composition (the
+#   3. method_mix             - how taxon calls were made (placement / lca / presence).
+#   4. erv_class_composition  - per-species Class I/II/III composition (the
 #                               literature anchor: bats+human Class I, mouse Class II).
-#   5. mosaic sub-panel       — recombination views over mosaic loci:
+#   5. mosaic sub-panel       - recombination views over mosaic loci:
 #                               mosaic_alluvial (gene -> taxon flows), mosaic_burden
 #                               (per-species mosaic fraction), mosaic_taxon_pairs
 #                               (recombination-partner heatmap), mosaic_gene_discordance
@@ -22,7 +22,7 @@
 # Plus the confidence / evidence / domain-tier / structure-class panels (18 PNGs total).
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
-# plot2sort/*.R — not duplicated — so the panel matches the existing plots.
+# plot2sort/*.R - not duplicated - so the panel matches the existing plots.
 # `testthat` sources this file; the `if (sys.nframe() == 0L) main()` guard keeps
 # the CLI block from firing during sourcing.
 
@@ -62,7 +62,7 @@ source(file.path(.script_dir, "..", "plot2sort", "io.R"))       # save_plot
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation — same idiom as the other plot generators (save_plot
+# Pipeline instrumentation - same idiom as the other plot generators (save_plot
 # calls log_section, so it must exist in the global env at call time).
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
@@ -136,7 +136,7 @@ reconcile_catalog <- function(combined) {
 
 # Build the tidy classification report from the combined (LTR-flanked + orphan)
 # loci frame: counts by genus, by confidence, by method, plus mosaic and
-# integration totals — split by `source` so the two tiers stay distinguishable.
+# integration totals - split by `source` so the two tiers stay distinguishable.
 # Returns a long tibble (source, dimension, level, count); empty-safe.
 build_report <- function(combined) {
   if (nrow(combined) == 0L) {
@@ -176,7 +176,7 @@ build_report <- function(combined) {
 # ----------------------------------------------------------------------------
 # Shared categorical palettes (ADR-009). Levels are declared in full and used
 # with drop = FALSE so a tier/class that is absent in one genome still keeps its
-# colour and legend slot — and the per-hit `positional` mode's extra non_domain
+# colour and legend slot - and the per-hit `positional` mode's extra non_domain
 # level never breaks a plot built on membership-mode data.
 # ----------------------------------------------------------------------------
 .SOURCE_FILL       <- c(`ltr-flanked` = "#1F78B4", orphan = "#33A02C")
@@ -239,7 +239,7 @@ method_mix_plot <- function(loci) {
   add_titles(p, "Taxon-call method mix", "Placement vs weighted-LCA vs presence")
 }
 
-# ERV class (I/II/III) composition per species — the literature anchor.
+# ERV class (I/II/III) composition per species - the literature anchor.
 erv_class_composition_plot <- function(loci) {
   d <- loci %>% filter(nzchar(.data$erv_class))
   if (nrow(d) == 0L) return(empty_plot("no ERV-class assignments"))
@@ -280,7 +280,7 @@ mosaic_alluvial_plot <- function(loci) {
   add_titles(p, "Mosaic composition", "Per-gene taxon calls within mosaic loci")
 }
 
-# Unpack mosaic_composition ("GENE:Taxon;GENE:Taxon") to a long gene→taxon frame
+# Unpack mosaic_composition ("GENE:Taxon;GENE:Taxon") to a long gene->taxon frame
 # with a per-locus id (.locus). Shared by the mosaic sub-panel builders below.
 .unpack_mosaic <- function(loci) {
   loci %>%
@@ -312,7 +312,7 @@ mosaic_burden_plot <- function(loci) {
 }
 
 # Recombination-partner heatmap: within mosaic loci, how often each unordered
-# pair of axis taxa co-occurs (which lineages recombine, e.g. Beta×Gamma). Upper
+# pair of axis taxa co-occurs (which lineages recombine, e.g. BetaxGamma). Upper
 # triangle via the taxon.x < taxon.y filter on a per-locus self-join.
 mosaic_taxon_pairs_plot <- function(loci) {
   flows <- .unpack_mosaic(loci) %>% distinct(.data$.locus, .data$taxon)
@@ -361,7 +361,7 @@ mosaic_gene_discordance_plot <- function(loci) {
 }
 
 # Per-species mosaic composition: within mosaic loci only, the stacked axis-taxon
-# mix per species — which genera drive the chimeras in each host.
+# mix per species - which genera drive the chimeras in each host.
 mosaic_composition_by_species_plot <- function(loci) {
   flows <- .unpack_mosaic(loci)
   if (nrow(flows) == 0L) return(empty_plot("no mosaic loci"))
@@ -415,7 +415,7 @@ confidence_count_plot <- function(combined) {
 }
 
 # Stacked COUNT bar with a continuous confidence GRADIENT: confidence binned
-# (0.05 steps), each species' bar stacked low→high and coloured by the bin
+# (0.05 steps), each species' bar stacked low->high and coloured by the bin
 # midpoint on a sequential viridis scale. Reveals the intra-HC spread that the
 # binary HC/LC view collapses (most calls are HC).
 confidence_gradient_plot <- function(combined) {
@@ -470,7 +470,7 @@ read_tree_part <- function(dir, name, part) {
 
 # Horizontal confidence-gradient bars whose y order is fixed by a tree, with the
 # tree drawn alongside. `key` is the catalog column the tips correspond to
-# (`species` or `taxon_call`) — level-agnostic: the taxon tree's tips are
+# (`species` or `taxon_call`) - level-agnostic: the taxon tree's tips are
 # whatever ranks the calls resolved to.
 tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
                                  title, subtitle) {
@@ -555,17 +555,17 @@ species_confidence_tree_plot <- function(combined, tree_dir) {
 }
 
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
-# (unit-tested): 0 / 1 / 2–5 / 6+. Robust to numeric (non-integer) input.
+# (unit-tested): 0 / 1 / 2-5 / 6+. Robust to numeric (non-integer) input.
 bucket_evidence <- function(n) {
   n <- as.integer(n)
   out <- dplyr::case_when(
     is.na(n) ~ NA_character_,
     n <= 0L  ~ "0",
     n == 1L  ~ "1",
-    n <= 5L  ~ "2–5",
+    n <= 5L  ~ "2-5",
     TRUE     ~ "6+"
   )
-  factor(out, levels = c("0", "1", "2–5", "6+"))
+  factor(out, levels = c("0", "1", "2-5", "6+"))
 }
 
 # Per-locus blastx evidence depth; the zero bin is the candidate-novel-retrovirus
@@ -583,12 +583,12 @@ evidence_depth_plot <- function(combined) {
     labs(x = "blastx hits per locus (pseudo-log)", y = "loci", fill = NULL) +
     theme_bw()
   add_titles(p, "Blastx evidence depth",
-             sprintf("Per-locus homology — %d novel candidates (0 hits)", n_novel))
+             sprintf("Per-locus homology - %d novel candidates (0 hits)", n_novel))
 }
 
 # Raw confidence distribution split by method, with the HC/LC threshold line.
-# A histogram (not a KDE): confidence values pile up at discrete points — most
-# at exactly 1.000 — so a density estimate smears mass past the [0,1] domain and
+# A histogram (not a KDE): confidence values pile up at discrete points - most
+# at exactly 1.000 - so a density estimate smears mass past the [0,1] domain and
 # drops single-value groups (e.g. presence, always 1.0). Faceting by method keeps
 # the very different scales legible; the dashed line marks confidence_min.
 confidence_density_plot <- function(combined, confidence_min = 0.5) {
@@ -606,7 +606,7 @@ confidence_density_plot <- function(combined, confidence_min = 0.5) {
              sprintf("Confidence by method; dashed = confidence_min (%.2f)", confidence_min))
 }
 
-# Call confidence across blastx evidence-depth buckets — does more homology mean
+# Call confidence across blastx evidence-depth buckets - does more homology mean
 # a more confident call?
 confidence_vs_evidence_plot <- function(combined) {
   d <- combined %>%
@@ -620,10 +620,10 @@ confidence_vs_evidence_plot <- function(combined) {
   add_titles(p, "Confidence vs evidence", "Call confidence across blastx hit-count buckets")
 }
 
-# Structural completeness by tier — how many main genes each locus carries,
+# Structural completeness by tier - how many main genes each locus carries,
 # LTR-flanked proviruses vs recovered orphans. (Replaces a novel-vs-classified
-# view: 0-hit "novel" loci are essentially absent here — they are domain-validated
-# so they have homology — so that comparison was empty. This populated view is
+# view: 0-hit "novel" loci are essentially absent here - they are domain-validated
+# so they have homology - so that comparison was empty. This populated view is
 # the useful one: it shows orphans are structurally simpler, mostly single
 # markers, while LTR-flanked loci carry more of the gag/pol/env complement.)
 # Counts are shown as a fraction within each tier so the two tiers' very
@@ -647,7 +647,7 @@ structure_by_tier_plot <- function(combined) {
              "LTR-flanked proviruses carry more genes; orphans are mostly single markers")
 }
 
-# Yield boost from the orphans tier — loci recovered per tier, per species.
+# Yield boost from the orphans tier - loci recovered per tier, per species.
 source_yield_plot <- function(combined) {
   if (nrow(combined) == 0L) return(empty_plot("no loci"))
   counts <- combined %>% count(.data$species, .data$source, name = "n")
@@ -660,7 +660,7 @@ source_yield_plot <- function(combined) {
   add_titles(p, "LTR-flanked vs orphan yield", "Loci recovered per tier, per species")
 }
 
-# Taxon composition split by tier — surfaces taxa present only in the orphan
+# Taxon composition split by tier - surfaces taxa present only in the orphan
 # tier (the novel-lineage check). Long taxon tail folded via collapse_long_tail.
 taxon_by_source_plot <- function(combined) {
   d <- combined %>% filter(.data$resolved == "True")
@@ -680,7 +680,7 @@ taxon_by_source_plot <- function(combined) {
 
 
 # Per-provirus domain-tier composition on LTR-flanked loci: the recall the new
-# labelling preserves — domain_selected (config-matched Pfam) vs domain_unlisted
+# labelling preserves - domain_selected (config-matched Pfam) vs domain_unlisted
 # (a Pfam domain, just not in the curated set) vs non_domain (LTR-flanked purely by
 # position). Fraction within species so genome size doesn't swamp the mix.
 domain_tier_composition_plot <- function(loci) {
@@ -756,7 +756,7 @@ main <- function() {
   plot_width     <- cfg$plots$width  %||% 15
   confidence_min <- cfg$classification$confidence_min %||% 0.5
   # Canvas growth per extra category past the base, and the hard ceiling in
-  # inches (at 300 dpi, 60in is ~18,000 px — the practical PNG limit).
+  # inches (at 300 dpi, 60in is ~18,000 px - the practical PNG limit).
   per_stratum    <- cfg$plots$per_stratum %||% 0.18
   max_dim        <- cfg$plots$max_dim     %||% 60
 
@@ -855,7 +855,7 @@ main <- function() {
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 
-  # Unified authoritative catalog: every locus as ONE non-overlapping record —
+  # Unified authoritative catalog: every locus as ONE non-overlapping record -
   # LTR-flanked proviruses (LTR-confirmed) + clustered orphan loci (proximity-
   # inferred), `source` keeping the confidence gradient explicit. The single
   # "this is what we found at this location, and here's everything about it" table.
@@ -876,12 +876,12 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done — wrote 22 PNGs to %s + report %s + catalog %s",
+  log_section(sprintf("Done - wrote 22 PNGs to %s + report %s + catalog %s",
                       args$output, args$report_csv, args$catalog_csv))
 }
 
 
 # ----------------------------------------------------------------------------
-# Entry-point guard — only fire main() under `Rscript taxonomy_plot_generator.R`.
+# Entry-point guard - only fire main() under `Rscript taxonomy_plot_generator.R`.
 # ----------------------------------------------------------------------------
 if (sys.nframe() == 0L) main()

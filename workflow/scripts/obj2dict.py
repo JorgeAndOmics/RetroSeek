@@ -77,7 +77,7 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
     """
     # Defensive accession cleanup: older pickles (pre-seq_utils-fix) stored
     # the full BLAST hit_def ("CM138268.1 Molossus molossus chromosome 3,
-    # ...") as accession. Split on whitespace and keep the first token —
+    # ...") as accession. Split on whitespace and keep the first token -
     # idempotent for already-clean accessions. Keeps the parquet seqid
     # column compatible with LTRdigest / GRanges seqnames downstream.
     raw_accession = obj.accession or ""

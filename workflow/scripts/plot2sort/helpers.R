@@ -1,5 +1,5 @@
 # =============================================================================
-# plot2sort/helpers.R — pure utilities shared by every plot builder
+# plot2sort/helpers.R - pure utilities shared by every plot builder
 # =============================================================================
 # Palette + ordering + long-tail collapse + empty placeholder + aggregation +
 # title styling + dimension auto-scaling. None of these functions touch disk
@@ -68,7 +68,7 @@ order_by_count <- function(df, col, weight = NULL) {
 # Keep only the top-N strata of `col` by count (or summed `weight`); fold the
 # rest into a single labelled "Other (k)" stratum that records how many strata
 # were collapsed. `top_n = NULL | NA | <=0` short-circuits and returns `df`
-# unchanged — the default "show every stratum" behaviour.
+# unchanged - the default "show every stratum" behaviour.
 #
 # Note: returns a possibly-non-aggregated frame; callers that grouped on `col`
 # should re-aggregate after calling this so duplicate "Other" rows fold.
@@ -93,7 +93,7 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 
 
 # Placeholder ggplot for zero-row inputs. Keeps the Snakemake DAG flowing on
-# genomes / probe_types with no hits — the rule still produces an output PNG.
+# genomes / probe_types with no hits - the rule still produces an output PNG.
 # Forces white plot.background so the diagnostic title remains legible in
 # viewers that compose transparent PNGs on a dark canvas (same reason as
 # add_titles).
@@ -111,12 +111,12 @@ empty_plot <- function(label = "no data") {
 # Attach a centred title + subtitle to a plot. `subset_label` (e.g. "Main",
 # "Accessory") is prepended to the title so the same builder can produce
 # differently-named PNGs without duplicating logic. `warning_caption`, when
-# supplied, stamps a bold red caption on the plot — used to flag multi-value
+# supplied, stamps a bold red caption on the plot - used to flag multi-value
 # aggregation (entry explosion) so the caveat travels with the PNG artifact.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
                        warning_caption = NULL) {
   full_title <- if (!is.null(subset_label) && nzchar(subset_label)) {
-    sprintf("%s — %s", subset_label, title)
+    sprintf("%s - %s", subset_label, title)
   } else {
     title
   }
@@ -141,14 +141,14 @@ add_titles <- function(p, title, subtitle, subset_label = NULL,
 # Append a neutral tier / reduced-state note to a finished plot's subtitle so
 # each PNG is self-documenting about which range tier it shows and whether those
 # ranges are reduced (overlaps merged) or non-reduced. Stamped at the
-# orchestrator's emit() choke point — no per-builder change needed. Reads the
+# orchestrator's emit() choke point - no per-builder change needed. Reads the
 # builder's existing subtitle from the ggplot object and appends to it; the
 # subtitle theme set by add_titles() then styles the whole line uniformly.
 stamp_tier_note <- function(p, tier) {
   if (is.null(tier) || !nzchar(tier)) return(p)
   existing <- p$labels$subtitle
   combined <- if (!is.null(existing) && nzchar(existing)) {
-    paste0(existing, "  ·  ", tier)
+    paste0(existing, "  -  ", tier)
   } else {
     tier
   }
@@ -185,7 +185,7 @@ aggregation_warning <- function(cfg) {
     if (!is.null(agg$label) && agg$label %in% multi) sprintf("label=%s", agg$label)
   )
   if (length(offenders) == 0L) return(NULL)
-  sprintf(paste0("⚠ multi-value aggregation active (%s) — plot counts ",
+  sprintf(paste0("WARNING: multi-value aggregation active (%s) - plot counts ",
                  "may be inflated by entry explosion; interpret with caution"),
           paste(offenders, collapse = ", "))
 }
@@ -218,14 +218,14 @@ group_count <- function(df) {
 # helper covers x-axis (bar / heatmap) and y-axis (balloon) plots.
 #
 #   n            number of strata that will appear on the scaled axis.
-#   axis         "x" → width grows with n, height stays at base_h.
-#                "y" → height grows with n, width stays at base_w.
+#   axis         "x" -> width grows with n, height stays at base_h.
+#                "y" -> height grows with n, width stays at base_w.
 #   base_w/h     fallback canvas (inches) for small inputs.
 #   per_stratum  inches added per stratum past the `base_strata` floor.
 #   base_strata  number of strata that fit in the base canvas; below this,
 #                the canvas stays at base_w / base_h.
 #   cap          hard upper bound (inches) so PNGs stay renderable. At
-#                300 dpi the default 60in × 18,000 px is the practical limit.
+#                300 dpi the default 60in x 18,000 px is the practical limit.
 #
 # Returns list(w, h) of doubles in inches.
 auto_dims <- function(n, axis = c("x", "y"),
@@ -245,7 +245,7 @@ auto_dims <- function(n, axis = c("x", "y"),
 # Point size for a categorical axis carrying `n` tick labels. auto_dims() grows
 # the CANVAS but not the TEXT, so at high cardinality (102 host genomes) labels
 # still collide on a wider page. Shrink linearly from `base_size` once past
-# `base_strata`, with a legibility floor — below ~5pt a label is unreadable
+# `base_strata`, with a legibility floor - below ~5pt a label is unreadable
 # anyway, and the canvas growth has to carry the rest.
 categorical_text_size <- function(n, base_size = 11, base_strata = 12L,
                                   floor_size = 5) {
@@ -258,7 +258,7 @@ categorical_text_size <- function(n, base_size = 11, base_strata = 12L,
 # `intended_dims` attribute save_plot() reads, AND apply the matching theme so
 # the text scales with the canvas. Rotates x tick labels once they are too dense
 # to sit side by side (y labels read horizontally at any n, so they are left
-# alone). Wraps auto_dims() rather than replacing it — the 12 existing call
+# alone). Wraps auto_dims() rather than replacing it - the 12 existing call
 # sites keep their signature.
 #
 #   n     number of strata on the scaled axis (species, probes, taxa, ...).

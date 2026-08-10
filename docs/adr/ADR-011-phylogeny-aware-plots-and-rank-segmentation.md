@@ -1,4 +1,4 @@
-# ADR-011 — Phylogeny-aware plots, rank segmentation, and the `ltr-flanked` rename
+# ADR-011 - Phylogeny-aware plots, rank segmentation, and the `ltr-flanked` rename
 
 - **Status**: Accepted
 - **Date**: 2026-07-23
@@ -12,7 +12,7 @@ reached:
 
 1. **Plots were built for ~5 genomes.** `auto_dims()` existed and the older
    plot2sort/stage generators used it, but the taxonomy, structure and loss
-   generators never called it — their `emit()` passed only the fixed config
+   generators never called it - their `emit()` passed only the fixed config
    width/height, so every ADR-009/010 panel rendered on a 15x12in canvas
    regardless of genome count. Even where it did run, the canvas grew but the
    text did not, so labels still collided.
@@ -20,7 +20,7 @@ reached:
    alphabetically is not just cramped, it is the wrong question: the reader wants
    to know whether ERV burden tracks host relatedness, and which viral lineages
    dominate where.
-3. **No way to segment results by genus** — a natural unit for reporting, but one
+3. **No way to segment results by genus** - a natural unit for reporting, but one
    that must not re-hard-code a rank the pipeline deliberately abstracted away.
 4. **"Anchored" named the method, not the object.** The tier is defined by being
    flanked by LTRs; "anchored" said only that it attached to something.
@@ -31,10 +31,10 @@ reached:
 - **Taxon tree = a cladogram derived from the reference's `taxonomy.tsv`.**
   It covers every axis taxon by construction, needs no representative-sequence
   choice, and is rank-agnostic. It is a **classification, not a phylogeny**, and
-  therefore carries **no branch lengths** — stated plainly on the panel.
+  therefore carries **no branch lengths** - stated plainly on the panel.
   *Rejected*: collapsing the real `POL.contree` ML phylogeny to one tip per taxon.
   It has real branch lengths, but requires picking an arbitrary representative
-  accession (or an MRCA policy) and breaks on paraphyletic taxa — a defensible
+  accession (or an MRCA policy) and breaks on paraphyletic taxa - a defensible
   phylogeny bought with an indefensible choice.
 - **Species tree = a user-supplied Newick pinned by `input.species_tree`.**
   Reproducible with no run-time network, and free to carry real divergence times
@@ -45,11 +45,11 @@ reached:
   runs. The pinned-file contract is designed so a build-once fetch rule can write
   that same file later.
 
-### 2. Zero new dependencies — Python lays out, R draws
+### 2. Zero new dependencies - Python lays out, R draws
 `tree_layout.py` uses **Bio.Phylo** (biopython is already pinned for the tBLASTn
 cache) to parse, prune and ladderize, then writes flat `x/y` segment and tip
 CSVs. The R panels draw them with `geom_segment` and align tree-to-bars with
-`patchwork`. No `ape`, `ggtree`, `treeio` or `aplot` — a prototype proved the
+`patchwork`. No `ape`, `ggtree`, `treeio` or `aplot` - a prototype proved the
 coordinate bridge is sufficient, and the environment stays lean.
 
 Layout is **deterministic**: ladderized, with sibling sets ordered by a stable
@@ -59,7 +59,7 @@ name key, so identical inputs give byte-identical coordinates.
 `segment_of(taxon_call, segment_rank)` walks the reference hierarchy (reusing the
 existing `taxonomy_lca.ancestors()` / `rank_of()`) and returns the first ancestor
 at the requested rank. `classification.segment_rank` is **any** NCBI rank, and no
-taxon name is hard-coded — set it to `family` and the same code segments by
+taxon name is hard-coded - set it to `family` and the same code segments by
 family.
 
 A call **coarser** than the requested rank (e.g. `Retroviridae` when segmenting by
@@ -69,13 +69,13 @@ does not support, and segmentation must not smuggle that back in.
 
 `segment` is derived **in the classifier**, so it rides the loci table -> GFF3 ->
 catalog like `structure_class` and `oversized` before it. The `taxonomy_segments`
-stage is then a pure split plus a **curated** 3-plot subset per segment — the full
+stage is then a pure split plus a **curated** 3-plot subset per segment - the full
 20-plot panel per segment would be hundreds of PNGs for little gain.
 
 ### 4. `anchored` -> `ltr-flanked`
 Data values, labels and `--source` use `ltr-flanked`; identifiers use
 `ltr_flanked`; prose uses `LTR-flanked`. `find_unanchored_hits` becomes
-`find_orphan_hits` — it returns the orphan tier, and a naive substitution would
+`find_orphan_hits` - it returns the orphan tier, and a naive substitution would
 have produced `unltr_flanked`.
 
 **Forward-only.** Catalogs already written carry `source=anchored` until the run
@@ -104,7 +104,7 @@ render byte-identically to before.
   display names (case- and separator-insensitive), and unmatched names are
   reported in **both** directions rather than silently dropped. This is why
   `erv_like_plot_generator`'s missing `relabel_species()` call was fixed in the
-  same arc — mismatched labels would have silently emptied the species panel.
+  same arc - mismatched labels would have silently emptied the species panel.
 
 ## Verification
 

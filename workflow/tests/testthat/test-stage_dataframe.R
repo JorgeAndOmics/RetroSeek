@@ -46,14 +46,14 @@ source(file.path(.script_dir, "stage_dataframe.R"))
   )
   S4Vectors::mcols(gr)$type   <- "LTR_retrotransposon"
   S4Vectors::mcols(gr)$ID     <- c("retro_1", "retro_2")
-  # Each retrotransposon's Parent is its enclosing repeat_region — the
+  # Each retrotransposon's Parent is its enclosing repeat_region - the
   # namespace target-site-duplication features are parented to.
   S4Vectors::mcols(gr)$Parent <- c("repeat_region_1", "repeat_region_2")
   gr
 }
 
 
-# ───────────────────────────── build_stage_hits_df ──────────────────────────
+# ----------------------------- build_stage_hits_df --------------------------
 
 test_that("build_stage_hits_df classifies inside / flanking / disjoint concordance", {
   gv     <- .fake_gr_virus()
@@ -87,7 +87,7 @@ test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
 })
 
 
-# ───────────────────────────── build_stage_ltr_df ───────────────────────────
+# ----------------------------- build_stage_ltr_df ---------------------------
 
 test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotransposon", {
   retros <- .fake_retros()
@@ -107,7 +107,7 @@ test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotrans
   S4Vectors::mcols(doms)$probe  <- c("POL", "GAG")
 
   # ltr_data mixes three child types. Critically, target_site_duplication is
-  # parented to the *repeat_region*, not the LTR_retrotransposon — the join in
+  # parented to the *repeat_region*, not the LTR_retrotransposon - the join in
   # build_stage_ltr_df must translate through retrotransposons$Parent. RR_tract
   # and protein_match are parented to the LTR_retrotransposon directly. retro_1
   # carries 2 TSD arms, 1 PPT and 3 Pfam domains (2 probe-assigned); retro_2 has
@@ -166,7 +166,7 @@ test_that("build_stage_ltr_df returns a typed empty tibble for no retrotransposo
 })
 
 
-# ──────────────────────────── build_stage_reduced_df ────────────────────────
+# ---------------------------- build_stage_reduced_df ------------------------
 
 test_that("build_stage_reduced_df carries n_loci (M2) and n_hits (M1 roll-up)", {
   gg <- GenomicRanges::GRanges(
@@ -200,7 +200,7 @@ test_that("build_stage_reduced_df returns a typed empty tibble for empty input",
 })
 
 
-# ───── build_stage_overlap_df / ltr_interaction / probe_domain (new) ─────
+# ----- build_stage_overlap_df / ltr_interaction / probe_domain (new) -----
 
 .fake_domains <- function() {
   gr <- GenomicRanges::GRanges("chr1", IRanges::IRanges(110, 190), "+")

@@ -1,5 +1,5 @@
 # =============================================================================
-# plot2sort/plots_categorical.R — categorical / proportional plot builders
+# plot2sort/plots_categorical.R - categorical / proportional plot builders
 # =============================================================================
 # Plots whose readability scales with input cardinality. Each builder reports
 # an `intended_dims` attribute on its return value so the orchestrator can
@@ -13,8 +13,8 @@
 # ticks carry information.
 .HEATMAP_LABEL_THRESHOLD <- 40L
 
-# Threshold past which a 45° x-axis label collides with its neighbours. Above
-# this, rotate the labels to 90°.
+# Threshold past which a 45 deg x-axis label collides with its neighbours. Above
+# this, rotate the labels to 90 deg.
 .BAR_VERTICAL_LABEL_THRESHOLD <- 50L
 
 
@@ -122,7 +122,7 @@ balloon_virus_species_plot <- function(data, subset_label = NULL) {
     ) +
     guides(size = "none")
   out <- add_titles(p,
-                    title    = "Hits across virus × species",
+                    title    = "Hits across virus x species",
                     subtitle = "Bubble area scales with range count; faceted by probe",
                     subset_label = subset_label)
   attr(out, "intended_dims") <- auto_dims(n_species, axis = "y")
@@ -130,10 +130,10 @@ balloon_virus_species_plot <- function(data, subset_label = NULL) {
 }
 
 
-# Cross-species heatmap — `geom_tile`, fill = hit count, both axes ordered by
+# Cross-species heatmap - `geom_tile`, fill = hit count, both axes ordered by
 # marginal totals. Missing (probe, species) cells expand to zero so users see
 # absences rather than missing columns. Per-cell text labels are dropped past
-# `.HEATMAP_LABEL_THRESHOLD` species — the gradient still conveys magnitude
+# `.HEATMAP_LABEL_THRESHOLD` species - the gradient still conveys magnitude
 # and the labels would be unreadable.
 heatmap_probe_species_plot <- function(data, subset_label = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
@@ -170,10 +170,10 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL) {
     p <- p + geom_text(aes(label = count), size = 3, fontface = "bold")
   }
   subtitle_suffix <- if (show_cell_labels) "" else
-    sprintf(" (cell labels hidden — %d species exceeds threshold of %d)",
+    sprintf(" (cell labels hidden - %d species exceeds threshold of %d)",
             n_species, .HEATMAP_LABEL_THRESHOLD)
   out <- add_titles(p,
-                    title    = "Hits across probe × species",
+                    title    = "Hits across probe x species",
                     subtitle = paste0("Tile fill = hit count (sqrt scale); axes ordered by marginal totals; ",
                                       "zero-hit cells visible", subtitle_suffix),
                     subset_label = subset_label)
@@ -182,10 +182,10 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL) {
 }
 
 
-# Waffle chart — virus-genus proportions. Each square represents `unit_hits`
+# Waffle chart - virus-genus proportions. Each square represents `unit_hits`
 # range counts. `unit_hits = NULL` (or any value that would yield more than
 # `target_squares` total tiles) auto-derives a unit so the waffle stays
-# legible. waffle::waffle() degrades badly past a few thousand squares —
+# legible. waffle::waffle() degrades badly past a few thousand squares -
 # without this guard, production-scale inputs render as an unreadable block.
 # Canvas is fixed; the waffle does its own auto-scaling internally so a
 # wider PNG would just add whitespace.

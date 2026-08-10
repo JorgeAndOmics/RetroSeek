@@ -50,7 +50,7 @@ def run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]:
     )
     if res.returncode != 0:
         sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"command failed: {' '.join(cmd[:3])}…")
+        raise SystemExit(f"command failed: {' '.join(cmd[:3])}...")
     return res
 
 
@@ -71,12 +71,12 @@ def gene_subset(
                 out.write(f">{acc}\n{rec.seq!s}\n")
                 n += 1
     if n < 4:
-        raise SystemExit(f"only {n} {gene} references — too few to build a tree")
+        raise SystemExit(f"only {n} {gene} references - too few to build a tree")
     return wanted
 
 
 def alignment_quality(afa: Path) -> str:
-    """n seqs, columns, % gap, mean pairwise %identity (sampled) — a quality flag."""
+    """n seqs, columns, % gap, mean pairwise %identity (sampled) - a quality flag."""
     seqs = [str(r.seq) for r in SeqIO.parse(str(afa), "fasta")]  # type: ignore[no-untyped-call]
     ncol = len(seqs[0]) if seqs else 0
     gap = sum(s.count("-") for s in seqs) / max(1, len(seqs) * ncol)
@@ -99,7 +99,7 @@ def alignment_quality(afa: Path) -> str:
 
 
 def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
-    """tip(accession) -> 'root;…;taxon' lineage for gappa (any rank; ADR-008)."""
+    """tip(accession) -> 'root;...;taxon' lineage for gappa (any rank; ADR-008)."""
     with out_tsv.open("w", encoding="utf-8") as fh:
         for acc, taxon in acc_taxon.items():
             lineage = ";".join(reversed(tlca.ancestors(taxon)))  # root..taxon
@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("[%s] alignment: %s", gene, alignment_quality(afa))
 
     prefix = trees / gene
-    # fixed standard protein model (LG+F+G4) — skips slow ModelFinder; gives the topology.
+    # fixed standard protein model (LG+F+G4) - skips slow ModelFinder; gives the topology.
     # -seed makes the search reproducible (UFBoot resampling + NNI tie-breaks).
     run(
         [

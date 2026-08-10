@@ -9,7 +9,7 @@
 Covers two prior defects:
 
 1. ``green_light`` handled invalid user input by recursing but not
-   returning — the top-level caller then saw the implicit ``None`` and
+   returning - the top-level caller then saw the implicit ``None`` and
    treated it as "abort", even though the user may have simply mistyped.
 2. The module used to self-import (``import validator``) at the top,
    which is pointless and confusing. The import should be gone.
@@ -78,7 +78,7 @@ class TestGreenLight:
         assert result is True
 
     def test_invalid_then_no_returns_false(self) -> None:
-        """Invalid input → retry → 'N' → returns False."""
+        """Invalid input -> retry -> 'N' -> returns False."""
         import validator as v
 
         with patch("builtins.input", side_effect=["blarg", "N"]):
@@ -98,5 +98,5 @@ class TestNoSelfImport:
         text = Path(source.origin).read_text(encoding="utf-8")
         lines = [line.strip() for line in text.splitlines()]
         assert "import validator" not in lines, (
-            "validator.py should not import itself — remove the dead import"
+            "validator.py should not import itself - remove the dead import"
         )

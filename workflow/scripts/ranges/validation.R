@@ -8,7 +8,7 @@
 #   - LTR-flanked hits   = the candidate set, LABELLED (not filtered): every
 #                       candidate is kept and annotated with its enclosing
 #                       element (`Parent`), a per-provirus `domain_tier`, and a
-#                       per-hit `domain_hit_class`. Nothing is discarded — the
+#                       per-hit `domain_hit_class`. Nothing is discarded - the
 #                       "valid" tier is now the whole LTR-flanked set carrying the
 #                       labels needed to judge domain support downstream (ADR-009).
 #   - orphan hits     = the strand-aware complement: hits overlapping no element.
@@ -38,7 +38,7 @@ find_candidate_hits <- function(gr_hits, retrotransposons) {
 
 
 # The strand-aware complement of find_candidate_hits: reduced BLAST hits that
-# overlap NO retrotransposon. These are the non-LTR-associated orphans — solo
+# overlap NO retrotransposon. These are the non-LTR-associated orphans - solo
 # ORFs, degraded proviruses, and candidate novel retroviruses whose LTRs are too
 # diverged for LTRharvest to pair. They are recovered into the orphan tier and
 # classified by their own sequence (taxonomy_classify_loci.py --source orphan).
@@ -54,7 +54,7 @@ find_orphan_hits <- function(gr_hits, retrotransposons) {
 
 # Cluster orphan (non-LTR-associated) hits by physical OVERLAP only and stamp each
 # with a synthetic `Parent`, so the taxonomic classifier's build_loci groups them
-# into single, non-overlapping orphan loci — the grouping an LTR-flanked provirus gets
+# into single, non-overlapping orphan loci - the grouping an LTR-flanked provirus gets
 # from its LTR element, but keyed on co-location because an orphan has no element
 # (ADR-010). Only hits whose ranges OVERLAP (or are book-ended) merge; gap-separated
 # hits stay separate. Strand is ignored (a degraded provirus's genes may be on
@@ -63,7 +63,7 @@ find_orphan_hits <- function(gr_hits, retrotransposons) {
 # Overlap is EVIDENCE the hits are the same feature (vs. the retired proximity
 # window, which INFERRED a provirus from nearness). Consequence: adjacent genes
 # (gag/pol/env occupy distinct, non-overlapping positions) do NOT merge, so orphan
-# loci are mostly single-gene — a deliberate, conservative deduplication rather
+# loci are mostly single-gene - a deliberate, conservative deduplication rather
 # than speculative multi-gene assembly. Orphan loci stay flagged `source=orphan`.
 #
 # `max_provirus_len` is the per-genome ground-truth cap: the widest LTRdigest
@@ -102,7 +102,7 @@ build_retrotransposon_probe_sets <- function(retrotransposons, domains_with_prob
   if (length(retrotransposons) == 0L) return(list())
 
   retro_ids <- as.character(retrotransposons$ID)
-  # Initialise empty probe set for every retrotransposon — even ones with no
+  # Initialise empty probe set for every retrotransposon - even ones with no
   # Pfam-domain children, so a candidate over a "domain-empty" ERV cleanly
   # gets the empty set and is dropped by the membership test.
   probe_sets <- setNames(rep(list(character(0)), length(retro_ids)), retro_ids)
@@ -172,7 +172,7 @@ build_retrotransposon_domain_presence <- function(retrotransposons, all_domains)
 # Annotate every candidate (LTR-flanked) hit WITHOUT discarding any. Emits three
 # mcols columns (ADR-009):
 #
-#   Parent            greatest-overlap LTR_retrotransposon id — the anchor the
+#   Parent            greatest-overlap LTR_retrotransposon id - the anchor the
 #                     taxonomic classifier groups a locus's per-gene hits by.
 #   domain_tier       per-provirus, strongest across straddled elements:
 #                       domain_selected   >=1 config-matched domain (any gene)

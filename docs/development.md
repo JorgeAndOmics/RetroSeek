@@ -25,7 +25,7 @@ git push -u origin feat/<short-name>   # open a PR; CI runs the gate
 ```
 
 Trivial doc/typo fixes may go straight to `main`. Long-lived archival branches
-(e.g. `hotspot-v2-archive`) are kept deliberately — don't treat them as active.
+(e.g. `hotspot-v2-archive`) are kept deliberately - don't treat them as active.
 
 ## Test-driven development
 
@@ -38,24 +38,24 @@ Three layers:
 ### Cycle
 
 1. Add a failing test that expresses the new behaviour.
-2. Run `make test-py` (or `make test-r`) — confirm red.
+2. Run `make test-py` (or `make test-r`) - confirm red.
 3. Write the minimum code to turn it green.
-4. Run `make check` — all gates must pass.
+4. Run `make check` - all gates must pass.
 5. Refactor for SOLID / DRY while keeping tests green.
 6. Update [`docs/`](.) and [`README.md`](../README.md) as relevant.
 7. Commit.
 
 ### Coverage
 
-- Python: target ≥ 80 % line coverage on `workflow/scripts/` (growing from 0 %).
+- Python: target >= 80 % line coverage on `workflow/scripts/` (growing from 0 %).
 - R: "every non-trivial helper has at least one test."
 - Integration: every Snakefile rule exercised at least once by fixtures.
 
 ### Markers
 
-- `@pytest.mark.slow` — deselect with `-m 'not slow'`.
-- `@pytest.mark.integration` — requires BLAST / GenomeTools.
-- `@pytest.mark.network` — requires internet.
+- `@pytest.mark.slow` - deselect with `-m 'not slow'`.
+- `@pytest.mark.integration` - requires BLAST / GenomeTools.
+- `@pytest.mark.network` - requires internet.
 
 ## Code style
 
@@ -65,10 +65,10 @@ Three layers:
 
 ## Configuration data hygiene
 
-The committed `data/config/config.yaml` carries **example values only** — generic placeholder genomes, no machine paths, no real probe CSV. The same applies to tracked fixtures under `tests/fixtures/`. Keep real study data out of version control:
+The committed `data/config/config.yaml` carries **example values only** - generic placeholder genomes, no machine paths, no real probe CSV. The same applies to tracked fixtures under `tests/fixtures/`. Keep real study data out of version control:
 
 - Real genome catalog (`species:`), the four `root` paths, `input.probe_csv`, and `execution.entrez_email` belong in `data/config/config.local.yaml` (gitignored via `data/config/*.local.yaml`); run with `--configfile data/config/config.local.yaml`.
-- When you add or change a config field, update the **placeholder** in `config.yaml` and the row in [`configuration.md`](configuration.md) — never paste real data into either.
+- When you add or change a config field, update the **placeholder** in `config.yaml` and the row in [`configuration.md`](configuration.md) - never paste real data into either.
 
 ## Commit messages
 
@@ -97,7 +97,7 @@ Minimal hygiene via `pre-commit` (configured in [`.pre-commit-config.yaml`](../.
 pre-commit install
 ```
 
-Hooks: trailing whitespace, end-of-file, YAML/JSON validity, mixed line endings, large-file guard. Lint, typecheck, and tests are **not** in hooks — run them via `make check`.
+Hooks: trailing whitespace, end-of-file, YAML/JSON validity, mixed line endings, large-file guard. Lint, typecheck, and tests are **not** in hooks - run them via `make check`.
 
 ## Before every commit
 
@@ -136,9 +136,9 @@ A few non-obvious patterns are used in [`workflow/Snakefile`](../workflow/Snakef
 
 - **Checkpoint-gated aggregates.** `blast_pkl2parquet` is a Snakemake `checkpoint`, and the `species_with_hits(wildcards)` function at the top of the Snakefile reads its parquet at DAG-evaluation time. Aggregate rules that previously used a parse-time `SPECIES_POST` constant now use `lambda wildcards: expand(..., genome=species_with_hits(wildcards))`. This makes the DAG a pure function of config + inputs rather than of prior-run disk state. See [ADR-004](adr/ADR-004-species-post-checkpoint.md).
 
-- **Global `wildcard_constraints` on `{genome}`.** Pinned to the exact configured species list via `"|".join(re.escape(s) for s in SPECIES)` near the top of the Snakefile. Prevents the default `.+` regex from greedily absorbing suffixes like `_retroviral` into the wildcard and producing `AmbiguousRuleException` at runtime when two rules write into the same directory with overlapping filename patterns. When adding a new rule whose output shares a directory with another rule's output, prefer unambiguous filename prefixes *and* rely on the constraint — defense in depth.
+- **Global `wildcard_constraints` on `{genome}`.** Pinned to the exact configured species list via `"|".join(re.escape(s) for s in SPECIES)` near the top of the Snakefile. Prevents the default `.+` regex from greedily absorbing suffixes like `_retroviral` into the wildcard and producing `AmbiguousRuleException` at runtime when two rules write into the same directory with overlapping filename patterns. When adding a new rule whose output shares a directory with another rule's output, prefer unambiguous filename prefixes *and* rely on the constraint - defense in depth.
 
-- **Trap-backed heartbeat on silent long-running rules.** `ltr_index_generator_setup` (suffixerator) and `ltr_harvester_setup` (ltrharvest) wrap their shell commands in a background subshell that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s, with `trap '... EXIT'` for cleanup. Adopt the same pattern for any new rule whose primary tool writes all output to stdout (and therefore leaves stderr silent). Do *not* add heartbeats to rules whose tool already emits chatty stderr (e.g. `gt ltrdigest -v`, anything using Python `logging` / `coloredlogs` / `tqdm`) — the cost is zero but the duplication is noise.
+- **Trap-backed heartbeat on silent long-running rules.** `ltr_index_generator_setup` (suffixerator) and `ltr_harvester_setup` (ltrharvest) wrap their shell commands in a background subshell that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s, with `trap '... EXIT'` for cleanup. Adopt the same pattern for any new rule whose primary tool writes all output to stdout (and therefore leaves stderr silent). Do *not* add heartbeats to rules whose tool already emits chatty stderr (e.g. `gt ltrdigest -v`, anything using Python `logging` / `coloredlogs` / `tqdm`) - the cost is zero but the duplication is noise.
 
 ## Architectural decision records
 

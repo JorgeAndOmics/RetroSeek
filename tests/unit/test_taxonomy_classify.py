@@ -15,7 +15,7 @@ import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
 import taxonomy_placement as tplace
 
-# Default (retroviral-genus) axis used by most tests — matches the fallback taxonomy.
+# Default (retroviral-genus) axis used by most tests - matches the fallback taxonomy.
 _AXIS = {
     "Alpharetrovirus",
     "Betaretrovirus",
@@ -228,7 +228,7 @@ class TestAxisResolution:
         assert rec["resolved"] == "False"
 
     def test_non_genus_axis_member_resolves(self, tmp_path) -> None:
-        # A family-rank axis member (Bornaviridae) is a first-class resolved call —
+        # A family-rank axis member (Bornaviridae) is a first-class resolved call -
         # the rank-agnostic guarantee. Requires the taxon in the loaded taxonomy.
         tsv = tmp_path / "taxonomy.tsv"
         tsv.write_text(

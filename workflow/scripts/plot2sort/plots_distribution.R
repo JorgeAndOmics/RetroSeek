@@ -1,8 +1,8 @@
 # =============================================================================
-# plot2sort/plots_distribution.R — density-family builders
+# plot2sort/plots_distribution.R - density-family builders
 # =============================================================================
 # Probe-keyed distributions over a continuous variable. None of these scale
-# with species count — the x-axis is bitscore (density / raincloud) or
+# with species count - the x-axis is bitscore (density / raincloud) or
 # query_coverage in [0, 1], and the fill is probe (~3 levels). Fixed canvas.
 
 
@@ -15,7 +15,7 @@ density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
   # in a deferred-evaluation context where it can mis-resolve.
   max_bs <- max(data$max_bitscore, na.rm = TRUE)
 
-  # Unweighted density over max_bitscore — see commit history for the prior
+  # Unweighted density over max_bitscore - see commit history for the prior
   # weighted version. If per-range identity needs visual emphasis, prefer a
   # separate plot rather than a weight aesthetic.
   p <- ggplot(data, aes(x = max_bitscore, fill = probe, colour = probe)) +
@@ -77,7 +77,7 @@ raincloud_bitscore_plot <- function(data, x_scale = "linear",
 }
 
 
-# Distribution of `query_coverage` per probe — reveals under-aligned probes
+# Distribution of `query_coverage` per probe - reveals under-aligned probes
 # whose hits cover only a fraction of the probe sequence (candidates for pHMM
 # follow-up). Input: per-range tibble (one row = one merged range).
 query_coverage_plot <- function(data, subset_label = NULL) {

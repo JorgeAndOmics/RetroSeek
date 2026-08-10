@@ -30,7 +30,7 @@ source("../../scripts/hotspot/postprocess.R")
 }
 
 
-# ───────────────────────── select_significant_windows ──────────────────
+# ------------------------- select_significant_windows ------------------
 
 test_that("select_significant_windows filters by q-value threshold", {
   df <- tibble::tibble(
@@ -55,7 +55,7 @@ test_that("select_significant_windows skips NA q-values silently", {
 })
 
 
-# ───────────────────────── merge_adjacent_hotspots ─────────────────────
+# ------------------------- merge_adjacent_hotspots ---------------------
 
 test_that("merge_adjacent_hotspots merges strictly adjacent windows when gap=0", {
   rows <- list(
@@ -106,7 +106,7 @@ test_that("merge_adjacent_hotspots returns canonical empty schema for empty inpu
 })
 
 
-# ───────────────────────── apply_min_hits_filter ─────────────────────────
+# ------------------------- apply_min_hits_filter -------------------------
 
 test_that("apply_min_hits_filter drops regions below the threshold", {
   rows <- list(
@@ -131,7 +131,7 @@ test_that("apply_min_hits_filter is a pass-through when min_hits <= 0", {
 })
 
 
-# ───────────────────────── assign_hotspot_ids + attach ──────────────────
+# ------------------------- assign_hotspot_ids + attach ------------------
 
 test_that("assign_hotspot_ids stamps zero-padded IDs prefixed by species", {
   rows <- list(
@@ -166,4 +166,77 @@ test_that("attach_hotspot_id_to_windows propagates IDs to overlapping windows an
   merged <- assign_hotspot_ids(merged, species = "X")
   attached <- attach_hotspot_id_to_windows(win_df, merged)
   expect_equal(attached$hotspot_id, c("X_HS_00001", "X_HS_00001", NA_character_))
+})
+
+
+# ---------------- annotate_hotspot_composition (ADR-012) ----------------
+# Detection runs on every locus in the tier; each called region is then
+# DESCRIBED by what it contains. Annotation must never add, drop or re-score a
+# region - only attach columns.
+
+.loci_gr <- function() {
+  gr <- GenomicRanges::GRanges(
+    seqnames = c("chr1", "chr1", "chr1", "chr2"),
+    ranges = IRanges::IRanges(start = c(10L, 20L, 30L, 10L),
+                              end   = c(15L, 25L, 35L, 15L))
+  )
+  S4Vectors::mcols(gr)$structure_class <- c("full", "gene", "gene", "full")
+  S4Vectors::mcols(gr)$source <- c("ltr-flanked", "orphan", "ltr-flanked",
+                                   "ltr-flanked")
+  S4Vectors::mcols(gr)$segment <- c("Gammaretrovirus", "Betaretrovirus",
+                                    "Gammaretrovirus", "Betaretrovirus")
+  S4Vectors::mcols(gr)$confidence <- c("1.0", "0.5", "0.9", "0.8")
+  gr
+}
+
+.regions_gr <- function() {
+  GenomicRanges::GRanges(
+    seqnames = c("chr1", "chr2"),
+    ranges = IRanges::IRanges(start = c(1L, 1L), end = c(100L, 100L))
+  )
+}
+
+test_that("composition counts structural classes and tiers per region", {
+  out <- annotate_hotspot_composition(.regions_gr(), .loci_gr(), "segment")
+  mc <- S4Vectors::mcols(out)
+  expect_equal(mc$n_loci, c(3L, 1L))
+  expect_equal(mc$n_full, c(1L, 1L))
+  expect_equal(mc$n_gene, c(2L, 0L))
+  expect_equal(mc$n_partial, c(0L, 0L))
+  expect_equal(mc$n_ltr_flanked, c(2L, 1L))
+  expect_equal(mc$n_orphan, c(1L, 0L))
+})
+
+test_that("composition reports the dominant lineage and mean confidence", {
+  out <- annotate_hotspot_composition(.regions_gr(), .loci_gr(), "segment")
+  mc <- S4Vectors::mcols(out)
+  expect_equal(mc$dominant_taxon[1], "Gammaretrovirus")   # 2 of 3 on chr1
+  expect_equal(mc$dominant_taxon[2], "Betaretrovirus")
+  expect_equal(mc$mean_confidence[1], mean(c(1.0, 0.5, 0.9)))
+})
+
+test_that("composition never changes the number of regions", {
+  regions <- .regions_gr()
+  out <- annotate_hotspot_composition(regions, .loci_gr(), "segment")
+  expect_equal(length(out), length(regions))
+  expect_equal(BiocGenerics::start(out), BiocGenerics::start(regions))
+})
+
+test_that("composition is empty-safe for no regions and for no loci", {
+  empty_loci <- GenomicRanges::GRanges()
+  out <- annotate_hotspot_composition(.regions_gr(), empty_loci, "segment")
+  expect_equal(S4Vectors::mcols(out)$n_loci, c(0L, 0L))
+  expect_equal(length(annotate_hotspot_composition(GenomicRanges::GRanges(),
+                                                   .loci_gr(), "segment")), 0L)
+})
+
+test_that("composition tolerates a raw-hit input carrying none of the columns", {
+  bare <- GenomicRanges::GRanges(
+    seqnames = "chr1", ranges = IRanges::IRanges(start = 10L, end = 15L)
+  )
+  out <- annotate_hotspot_composition(.regions_gr(), bare, "segment")
+  mc <- S4Vectors::mcols(out)
+  expect_equal(mc$n_loci, c(1L, 0L))        # still counts events
+  expect_equal(mc$n_full, c(0L, 0L))        # but no structural breakdown
+  expect_true(all(is.na(mc$dominant_taxon)))
 })

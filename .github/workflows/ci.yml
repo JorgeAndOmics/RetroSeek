@@ -3,7 +3,7 @@ name: CI
 # Fast quality gate mirroring `make check` (lint + format-check + typecheck +
 # Python and R unit tests). The heavy bioinformatics integration tests (BLAST+,
 # GenomeTools, NCBI Datasets, full conda env) are intentionally left to local
-# `make check` — they are too slow/large to install on every push.
+# `make check` - they are too slow/large to install on every push.
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   python:
-    name: Python — lint, type-check, fast tests
+    name: Python - lint, type-check, fast tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,11 +35,11 @@ jobs:
         run: ruff format --check workflow/scripts tests workflow/tests
       - name: Mypy (strict, workflow/scripts)
         run: mypy workflow/scripts
-      - name: Pytest (fast subset — excludes slow/integration/network)
+      - name: Pytest (fast subset - excludes slow/integration/network)
         run: pytest -m "not slow and not integration and not network"
 
   r:
-    name: R — testthat unit tests
+    name: R - testthat unit tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # R + Bioconductor from conda/bioconda BINARIES (reliable, no source
-      # builds — pak/PPM source-built DelayedArray and failed). Mirrors the R
+      # builds - pak/PPM source-built DelayedArray and failed). Mirrors the R
       # subset of data/config/environment.yml.
       - uses: mamba-org/setup-micromamba@v2
         with:

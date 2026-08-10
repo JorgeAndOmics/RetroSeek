@@ -18,7 +18,7 @@ import utils
 
 
 class TestPicklerUnpicklerRoundtrip:
-    """``pickler`` writes what ``unpickler`` reads — for both str and Path."""
+    """``pickler`` writes what ``unpickler`` reads - for both str and Path."""
 
     def test_string_path_roundtrip(self, tmp_path: Path) -> None:
         """Canonical caller: Snakefile-style string paths."""
@@ -36,14 +36,14 @@ class TestPicklerUnpicklerRoundtrip:
 
     def test_uses_dill_not_stdlib_pickle(self, tmp_path: Path) -> None:
         """Pickles must be dill-compatible (production code relies on dill)."""
-        payload = lambda x: x + 1  # noqa: E731 — lambdas require dill, not pickle
+        payload = lambda x: x + 1  # noqa: E731 - lambdas require dill, not pickle
         utils.pickler(payload, tmp_path, "lam.pkl")
         with (tmp_path / "lam.pkl").open("rb") as handle:
             reloaded = dill.load(handle)
         assert reloaded(41) == 42
 
     def test_unpickler_missing_file_raises(self, tmp_path: Path) -> None:
-        """Missing file → Exception with path in message (current contract)."""
+        """Missing file -> Exception with path in message (current contract)."""
         with pytest.raises(Exception, match="Failed to unpickle"):
             utils.unpickler(tmp_path, "does-not-exist.pkl")
 
@@ -68,7 +68,7 @@ class TestDirectoryFileRetriever:
         assert result == ["only.txt"]
 
     def test_empty_directory_returns_empty_list(self, tmp_path: Path) -> None:
-        """Empty dir → empty list, not None."""
+        """Empty dir -> empty list, not None."""
         assert utils.directory_file_retriever(tmp_path) == []
 
 
@@ -112,7 +112,7 @@ class TestIncompleteDictCleaner:
         assert "drop" not in result
 
     def test_empty_in_empty_out(self) -> None:
-        """No inputs → no outputs."""
+        """No inputs -> no outputs."""
         assert utils.incomplete_dict_cleaner({}) == {}
 
 

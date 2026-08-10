@@ -1,5 +1,5 @@
 # =============================================================================
-# plot2sort.R — orchestrator
+# plot2sort.R - orchestrator
 # =============================================================================
 # Builds RetroSeek's global PNG plots from the per-genome `final_loci` tables
 # that `ranges_analysis.R` writes to `data/tables/ranges_analysis/`. Heavy
@@ -13,10 +13,10 @@
 #   3. Aggregate per-probe-type frames + bitscore quartile summaries.
 #   4. Render distribution plots (density, raincloud, query coverage).
 #   5. Render categorical plots (bar, balloon, heatmap, waffle).
-#   6. Render alluvial / Sankey plots (species×probe, label×probe, species×label).
+#   6. Render alluvial / Sankey plots (speciesxprobe, labelxprobe, speciesxlabel).
 #
 # `testthat` sources this file. The bottom-of-file `if (sys.nframe() == 0L) main()`
-# guard prevents the CLI block from firing during sourcing — testthat then sees
+# guard prevents the CLI block from firing during sourcing - testthat then sees
 # every helper + builder via the sourced sub-modules.
 
 suppressMessages({
@@ -60,7 +60,7 @@ source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation — same idiom as ranges_analysis.R / hotspot_detector.R
+# Pipeline instrumentation - same idiom as ranges_analysis.R / hotspot_detector.R
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {
@@ -91,7 +91,7 @@ main <- function() {
   x_scale     <- cfg$plots$bitscore_x_scale %||% "linear"
   top_n       <- cfg$plots$sankey_top_n            # NULL = show all
   other_label <- cfg$plots$sankey_other_label %||% "Other"
-  unit_hits   <- cfg$plots$waffle_unit_hits        # NULL → auto-derive
+  unit_hits   <- cfg$plots$waffle_unit_hits        # NULL -> auto-derive
 
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
   log_section(sprintf("RetroSeek plot generation (output: %s)", args$output))
@@ -108,11 +108,11 @@ main <- function() {
   # Local save wrapper that:
   #   1) captures output_dir + base canvas + dpi from config,
   #   2) extracts the per-builder `intended_dims` attribute (set by
-  #      auto-scaling builders) — read BEFORE stamping, since `+` drops attrs,
+  #      auto-scaling builders) - read BEFORE stamping, since `+` drops attrs,
   #   3) stamps the multi-value aggregation warning caption when active,
   #   4) passes the captured dims to io.R::save_plot.
-  # Every plot2sort PNG is built from the `final_loci` table — i.e. the valid
-  # tier after global reduction — so a single reduced-state note is accurate for
+  # Every plot2sort PNG is built from the `final_loci` table - i.e. the valid
+  # tier after global reduction - so a single reduced-state note is accurate for
   # all 21. Read intended_dims BEFORE stamping, since `+` drops attributes.
   emit <- function(name, plot) {
     dims <- attr(plot, "intended_dims")
@@ -216,7 +216,7 @@ main <- function() {
                          subset_label = "Accessory"))
 
   # ---------- Phase 6: alluvial / Sankey -------------------------------------
-  log_section("Rendering alluvial plots (sankey × {a, b, c} × {main, accessory})")
+  log_section("Rendering alluvial plots (sankey x {a, b, c} x {main, accessory})")
   emit("main_sankey_a.png",
        sankey_species_probe_plot(data.main.sankey.species.probe,
                                  top_n = top_n, other_label = other_label,
@@ -242,14 +242,14 @@ main <- function() {
                                  top_n = top_n, other_label = other_label,
                                  subset_label = "Accessory"))
 
-  log_section(sprintf("Done — wrote 21 PNGs to %s", args$output))
+  log_section(sprintf("Done - wrote 21 PNGs to %s", args$output))
 }
 
 
 # ----------------------------------------------------------------------------
 # Entry-point guard
 # ----------------------------------------------------------------------------
-# Only invoke main() under `Rscript plot2sort.R …`. testthat sources this file
+# Only invoke main() under `Rscript plot2sort.R ...`. testthat sources this file
 # inside test functions where sys.nframe() > 0, so unit tests get the helpers
 # and builders without firing the CLI.
 if (sys.nframe() == 0L) main()

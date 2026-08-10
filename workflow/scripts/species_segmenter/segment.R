@@ -30,7 +30,7 @@ parse_species_list <- function(species_arg) {
 }
 
 # Configured species that produced no hits, so the orchestrator can write an
-# empty placeholder table for each — keeping the B1 checkpoint DAG's declared
+# empty placeholder table for each - keeping the B1 checkpoint DAG's declared
 # per-genome outputs materialised even when a genome has zero hits.
 species_to_backfill <- function(all_species, written) {
   setdiff(all_species, written)

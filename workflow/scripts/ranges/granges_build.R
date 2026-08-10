@@ -2,7 +2,7 @@
 # ranges / granges_build.R
 # -----------------------------------------------------------------------------
 # Convert tabular / GFF3 inputs into well-typed GRanges objects with the
-# metadata the downstream phases expect. Pure construction — no filtering or
+# metadata the downstream phases expect. Pure construction - no filtering or
 # aggregation here.
 
 suppressMessages({
@@ -82,7 +82,7 @@ extract_repeat_regions <- function(ltr_data) {
 }
 
 
-# Build a domain-name → probe regex map from the config$domains list.
+# Build a domain-name -> probe regex map from the config$domains list.
 # Each probe's pattern alternates its domain regexes via "|".
 build_domain_map <- function(config_domains) {
   vapply(config_domains, function(domain_regexes) {
@@ -106,7 +106,7 @@ assign_probe_to_domain_name <- function(domain_name, domain_map) {
 
 # Pull ALL LTRdigest protein domains (the `protein_match` features), regardless
 # of whether they match the config probe regexes. This is LTRdigest's full view
-# of an element's coding capacity — the superset from which
+# of an element's coding capacity - the superset from which
 # `extract_domains_with_probes` selects the config-matched subset. It backs the
 # "does this element carry ANY protein domain?" signal that separates the
 # `domain_unlisted` tier (has domains, none config-matched) from `non_domain`
@@ -118,7 +118,7 @@ extract_all_domains <- function(ltr_data) {
 
 # Pull domain features (those with a non-NA `name` attribute) and assign each
 # a probe label via the domain_map. Domains without a probe assignment are
-# dropped — they cannot contribute to validation.
+# dropped - they cannot contribute to validation.
 extract_domains_with_probes <- function(ltr_data, domain_map) {
   doms <- ltr_data[!is.na(ltr_data$name)]
   if (length(doms) == 0L) {
