@@ -11,7 +11,7 @@ Miniature inputs for integration and end-to-end tests. Keep everything here:
 `build_toy_genomes.py` generates a deterministic, seeded set of synthetic ERV-containing genomes for rapid iteration. Default output: `/path/to/databases/toy-genomes/`.
 
 ```bash
-conda activate retroseek
+conda activate RetroSeek
 python tests/fixtures/build_toy_genomes.py              # default: /path/to/databases/toy-genomes, seed 1337
 python tests/fixtures/build_toy_genomes.py --force      # overwrite existing
 python tests/fixtures/build_toy_genomes.py --dest /tmp  # elsewhere

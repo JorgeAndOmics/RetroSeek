@@ -30,7 +30,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | `--ltr-candidates`          | `ltr_harvester`               | Suffix arrays                           | LTR candidate GFF3 + FASTA                   |
 | `--ltr-domains`             | `ltr_digester`                | LTR GFF3 + Pfam HMMs + FASTA            | Domain-annotated LTR GFF3                    |
 | `--probe-extractor`         | `probe_extractor`             | `config.input.probe_csv`                | `probe_dict.pkl` (+ CSV / Parquet)           |
-| `--blast`                   | `full_genome_blaster`         | BLAST DBs + probe dict                  | `{genome}.pkl` (tBLASTn results)             |
+| `--blast`                   | `blast_pkl2parquet`           | BLAST DBs + probe dict                  | `{genome}.pkl` -> `full_genome_blast.parquet` |
 | `--ranges-analysis`         | `ranges_analysis`             | BLAST Parquet + LTRdigest GFF3          | GFF3 tracks + overlap matrices + dataframes  |
 | `--generate-global-plots`   | `plot_generator`              | Plot dataframes                         | PNG plots (density, raincloud, bar, Sankey)  |
 | `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF            |
@@ -116,7 +116,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 
 ### Validation - [`data/config/schema.yaml`](../data/config/schema.yaml)
 
-`schema.yaml` defines types, ranges, and enum constraints (e.g., `merge_option` must match `^(virus|label)$`). `validator.py::validation_run()` checks the config against this schema before any stage runs (unless `--skip-validation` is passed).
+`schema.yaml` defines types, ranges, and enum constraints (e.g., `merge_option` must match `^(virus|label)$`). `validator.py::validation_run()` checks the config against this schema before any stage runs (unless `--skip-validation` is passed). Validation is safe to run unattended: its two prompts (NCBI API key, and the final confirmation) fall back to their defaults when no terminal is attached, so scheduled and CI runs proceed without input.
 
 ### Probe CSV
 

@@ -14,7 +14,7 @@ default, alongside a small probe CSV at ``.../toy_probes.csv`` suitable for
 
 Run inside the retroseek conda env::
 
-    conda activate retroseek
+    conda activate RetroSeek
     python tests/fixtures/build_toy_genomes.py
 
 Pass ``--dest /somewhere/else`` to target a different directory, ``--force``

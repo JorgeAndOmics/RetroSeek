@@ -86,7 +86,9 @@ its consensus genus, confidence, mosaic status, ERV class, and structural comple
 ## 5. Where to find the outputs (for figures + tables)
 
 All paths are under the run's results folder
-(`results/` locally, or `/mnt/v/workshop/testing-genomes/results/` for the 5-genome run):
+(`results/` locally, or `/mnt/v/workshop/retroseek-dev/testing-genomes/results/` for the
+5-genome run; earlier documents in this folder cite the pre-2026-08-10 location
+`/mnt/v/workshop/testing-genomes/`, which has moved):
 
 | Output | Location | Use it for |
 |--------|----------|------------|

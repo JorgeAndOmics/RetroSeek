@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Input validation no longer aborts unattended runs. `validate_ncbi_key` and
+  `green_light` called bare `input()`, so a run with no terminal attached (CI, a
+  scheduler, `nohup`) died with `EOFError` before Snakemake started. Both now use
+  `validator.ask`, which falls back to the default answer. A failed validation
+  still refuses to proceed.
+
+- `PATH_DICT["CONFIG_DIR"]` now resolves from the repository root instead of
+  `root.data_root_folder`. The two files read from it - `schema.yaml`
+  (`validator.py`) and `erv_class.tsv` (the `taxonomy_reference` rule) - ship with
+  the code, so pointing the data root outside the repo made validation fail with
+  `FileNotFoundError: <data_root>/config/schema.yaml`. Guarded by
+  `tests/unit/test_defaults_paths.py`.
+- Corrected the `--blast` target in the CLI reference (`docs/usage.md`): the flag
+  builds the `blast_pkl2parquet` checkpoint, not `full_genome_blaster`.
+- Corrected the conda environment name in the test-fixture docs (`RetroSeek`, not
+  `retroseek`), which fails on case-sensitive filesystems.
+
 ## [1.1.1] - 2026-05-27
 
 ### Added
