@@ -86,7 +86,15 @@ PATH_DICT["SPECIES_DB"] = (PATH_DICT["ROOT_DB"]).resolve()
 PATH_DICT["ACCESSORY_DB"] = (PATH_DICT["ROOT"] / "accessory").resolve()
 
 # === Data Subdirectories ===
-PATH_DICT["CONFIG_DIR"] = (PATH_DICT["DATA_DIR"] / "config").resolve()
+# CONFIG_DIR is REPO-relative, not DATA_DIR-relative: the only two files read
+# from it - `schema.yaml` (validator.py) and `erv_class.tsv` (the
+# `taxonomy_reference` rule) - are source artifacts versioned with the code,
+# not pipeline outputs. Deriving it from DATA_DIR worked by coincidence under
+# the committed config (`data_root_folder: 'data'` is already inside the repo)
+# but broke whenever the data root pointed elsewhere: the mkdir loop below
+# would create an empty `<data_root>/config/` and validation died on a missing
+# schema.yaml. Everything else here stays DATA_DIR-relative on purpose.
+PATH_DICT["CONFIG_DIR"] = (_REPO_ROOT_FOR_CONFIG / "data" / "config").resolve()
 PATH_DICT["SPECIES_DIR"] = (PATH_DICT["DATA_DIR"] / "species").resolve()
 # User-provided input tables (e.g. the probe CSV). Kept under a dedicated
 # `_input/` subdir so it doesn't sit loose alongside the pipeline's own
