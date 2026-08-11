@@ -198,6 +198,40 @@ def validate_programs() -> bool:
 
 
 # -----------------------------
+# INTERACTIVE PROMPTS
+# -----------------------------
+
+
+def ask(question: str, default: str = "") -> str:
+    """
+    Asks the user a question, falling back to `default` when nobody answers.
+
+    Unattended runs (CI, an agent, `nohup`) have no terminal attached, so a
+    bare `input()` raises EOFError and takes the whole pipeline down before
+    Snakemake is ever reached. An empty answer means the same thing as no
+    answer at all: use the default.
+
+    Parameters
+    ----------
+    question : str
+        Prompt shown to the user.
+    default : str
+        Answer to assume when the user just hits enter, or when there is no
+        terminal to ask.
+
+    Returns
+    -------
+    str
+        The user's answer, or `default`.
+    """
+    try:
+        return input(question) or default
+    except EOFError:
+        logger.info("No terminal attached. Continuing with the default answer.")
+        return default
+
+
+# -----------------------------
 # NCBI API KEY VALIDATION
 # -----------------------------
 
@@ -211,7 +245,7 @@ def validate_ncbi_key() -> None:
         logger.warning(
             'No NCBI API key found. You can set it with: export NCBI_API_KEY="your_api_key".'
         )
-        if api_key := input("Enter your NCBI API key [Leave empty to skip]: ") or None:
+        if api_key := ask("Enter your NCBI API key [Leave empty to skip]: "):
             os.environ["NCBI_API_KEY"] = api_key
             logger.info("NCBI API key set in environment variables.")
         else:
@@ -289,7 +323,7 @@ def green_light(all_valid: bool) -> bool:
     logger.info("All systems green, ready to rock.")
     time.sleep(0.1)
 
-    proceed = input("Proceed [Y/n]: ") or "Y"
+    proceed = ask("Proceed [Y/n]: ", default="Y")
     if proceed.upper() == "Y":
         logger.info(
             "RetroSeek started. Depending on your system, this may take some time."

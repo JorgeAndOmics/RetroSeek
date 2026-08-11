@@ -21,6 +21,7 @@ Also verifies the positive / negative user-input paths and the
 from __future__ import annotations
 
 import importlib
+import os
 from unittest.mock import patch
 
 
@@ -83,6 +84,55 @@ class TestGreenLight:
 
         with patch("builtins.input", side_effect=["blarg", "N"]):
             assert v.green_light(all_valid=True) is False
+
+
+class TestUnattendedRuns:
+    """Prompts must not abort a run that has nobody to answer them.
+
+    Regression: ``validate_ncbi_key`` and ``green_light`` called bare
+    ``input()``. With no terminal attached (CI, an agent, ``nohup``) that
+    raises ``EOFError`` and killed the whole pipeline before Snakemake was
+    ever reached.
+    """
+
+    def test_ask_returns_the_typed_answer(self) -> None:
+        """With a terminal present, the answer is used, not the default."""
+        import validator as v
+
+        with patch("builtins.input", return_value="N"):
+            assert v.ask("Proceed [Y/n]: ", default="Y") == "N"
+
+    def test_ask_falls_back_to_default_without_stdin(self) -> None:
+        """No stdin means the default answer, not an exception."""
+        import validator as v
+
+        with patch("builtins.input", side_effect=EOFError):
+            assert v.ask("Proceed [Y/n]: ", default="Y") == "Y"
+
+    def test_green_light_proceeds_without_stdin(self) -> None:
+        """An unattended run continues once validation has passed."""
+        import validator as v
+
+        with patch("builtins.input", side_effect=EOFError):
+            assert v.green_light(all_valid=True) is True
+
+    def test_green_light_still_aborts_when_validation_failed(self) -> None:
+        """The fallback must not turn a failed validation into a go-ahead."""
+        import validator as v
+
+        with patch("builtins.input", side_effect=EOFError):
+            assert v.green_light(all_valid=False) is False
+
+    def test_ncbi_key_prompt_is_skipped_without_stdin(self) -> None:
+        """A missing API key downgrades to a warning instead of crashing."""
+        import validator as v
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("builtins.input", side_effect=EOFError),
+        ):
+            v.validate_ncbi_key()
+            assert "NCBI_API_KEY" not in os.environ
 
 
 class TestNoSelfImport:
