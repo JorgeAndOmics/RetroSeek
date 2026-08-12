@@ -56,7 +56,7 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 
 - Automated genome acquisition via NCBI Datasets, with BLAST database and GenomeTools suffix-array generation per genome.
 - Configurable homology-based search via BLAST+ and *de novo* LTR discovery via LTRharvest / LTRdigest, reconciled into high-confidence ERV candidate tracks.
-- **Solo-LTR detection via LTR_retriever**, pre-filtered to retroviral-only candidates by intersecting LTRharvest output with RetroSeek's `valid_ranges.gff3`. Solo LTRs inherit probe labels from their seed ERVs via a hybrid consensus-family + nearest-ERV fallback, and per-family solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
+- **Solo-LTR detection via LTR_retriever**, pre-filtered to retroviral-only candidates by intersecting LTRharvest output with RetroSeek's `valid_ranges.gff3`. Solo LTRs are called from LTR_retriever's whole-genome annotation and inherit `taxon_call` from the classified locus whose LTR library entry they matched - sequence homology rather than proximity. They join `catalog.csv` as a third tier, and per-lineage solo/intact ratios are emitted as an age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
 - **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) - POL/GAG by phylogenetic placement, weighted-LCA otherwise - against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
@@ -96,7 +96,7 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--generate-circle-plots`   | Per-genome Circos-style plots                            |
 | `--hotspot-detection`       | Permutation-based hotspot analysis                       |
 | `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
-| `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo-LTR probe-label propagation, solo/intact ratio tables |
+| `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo LTRs annotated with `taxon_call`, solo/intact ratio tables |
 | `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
 | `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
 | `-skp`, `--skip-validation` | Skip pre-run validation (debug use)                      |

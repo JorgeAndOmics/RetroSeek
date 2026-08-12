@@ -41,6 +41,7 @@ def _all_rules(project_root: Path) -> set[str]:
     "rule_name",
     [
         "ltr_harvester_setup",
+        "ltr_scn_from_gff3_setup",
         "ltr_retriever_prefilter_setup",
         "ltr_retriever_setup",
         "solo_ltr_integrator_setup",
@@ -256,3 +257,67 @@ def test_curated_erv_class_committed(project_root: Path) -> None:
     erv_class = project_root / "data" / "config" / "erv_class.tsv"
     assert erv_class.exists()
     assert "erv_class" in erv_class.read_text()
+
+
+# ---------------------------------------------------------------------
+# ADR-013 contract
+# ---------------------------------------------------------------------
+def test_scn_rebuild_rule_takes_only_the_ltrharvest_gff3(project_root: Path) -> None:
+    """The SCN rebuild must never depend on the suffix-array index.
+
+    ``ltr_harvester_setup`` declares ``input: rules.ltr_index_generator.input`` -
+    an expand() over EVERY genome - so any rule reaching for the index, or for
+    ``ltr_scn/{genome}.scn``, drags LTRharvest and LTRdigest for all species back
+    into the DAG. Antrozous has neither a SCN nor a non-empty index, which is why
+    the solo-LTR chain was unrunnable before ADR-013.
+    """
+    text = _read_snakefile(project_root)
+    start = text.index("rule ltr_scn_from_gff3_setup:")
+    body = text[start : text.index("rule ltr_scn_from_gff3:", start)]
+    assert "LTRHARVEST_DIR" in body
+    assert "ltr_index_generator" not in body
+    assert "LTR_INDEX_EXT" not in body
+
+
+def test_solo_chain_does_not_consume_the_raw_scn(project_root: Path) -> None:
+    """The prefilter reads the rebuilt SCN, not LTRharvest's stdout redirect."""
+    text = _read_snakefile(project_root)
+    start = text.index("rule ltr_retriever_prefilter_setup:")
+    body = text[start : text.index("rule ltr_retriever_prefilter:", start)]
+    assert "{genome}_from_gff3.scn" in body
+    assert "'{genome}.scn'" not in body
+
+
+def _code_lines(text: str) -> str:
+    """Drop whole-line comments so contract checks read code, not prose.
+
+    The Snakefile deliberately *names* the retired `-noanno` flag and
+    `nmtf.pass.list` in comments explaining why neither is used, so a naive
+    substring check over the whole file would fail on its own documentation.
+    """
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+def test_runner_never_passes_noanno(project_root: Path) -> None:
+    """`-noanno` suppresses the RepeatMasker table solo_finder.pl reads.
+
+    With it, the stage cannot produce a single solo LTR, so neither the Snakefile
+    nor the runner may reintroduce the flag or its retired config key.
+    """
+    assert "noanno" not in _code_lines(_read_snakefile(project_root))
+    runner = (
+        project_root / "workflow" / "scripts" / "solo_ltr" / "run_ltr_retriever.py"
+    ).read_text()
+    assert '"-noanno"' not in runner
+    config = (project_root / "data" / "config" / "config.yaml").read_text()
+    assert "noanno:" not in _code_lines(config)
+
+
+def test_solo_integrator_reads_the_solo_list_not_nmtf(project_root: Path) -> None:
+    """``nmtf.pass.list`` holds intact non-TGCA elements, not solo LTRs."""
+    text = _read_snakefile(project_root)
+    assert "nmtf" not in _code_lines(text)
+    assert "--solo-list" in text
+    assert "--loci-csv" in text

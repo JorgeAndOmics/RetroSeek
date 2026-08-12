@@ -192,9 +192,11 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         "--solo-ltr-detection",
         action="store_true",
         help="Solo-LTR detection via LTR_retriever; retroviral-only pre-filter "
-        "via valid_ranges; multi-label probe-label propagation; emits "
-        "solo_ltr/{genome}.gff3 + solo_intact_ratio/{genome}.csv + "
-        "solo_intact_ratio/all_species.csv.",
+        "via valid_ranges; solos called from the whole-genome annotation and "
+        "annotated with taxon_call; emits solo_ltr/{genome}.gff3 + "
+        "solo_ltr/{genome}.solo_ltr.csv + solo_intact_ratio/{genome}.csv + "
+        "solo_intact_ratio/all_species.csv. Slow: includes a whole-genome "
+        "RepeatMasker pass per genome.",
     )
 
     parser.add_argument(

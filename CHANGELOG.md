@@ -7,7 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Solo-LTR detection now runs** (ADR-013). The stage was fully scaffolded but had
+  never produced output. Solo LTRs are the single-LTR remnants of proviruses whose
+  flanking LTRs recombined away; in mammals they outnumber intact ERVs by one to
+  two orders of magnitude, so this is the catalog's most numerous tier.
+  - New `ltr_scn_from_gff3` rule reconstructs LTRharvest's `.scn` from its GFF3,
+    which carries every SCN field. Verified byte-identical on *Desmodus rotundus*
+    (9,893/9,893 data rows). This unblocks *Antrozous pallidus*, whose SCN is gone
+    and whose suffix-array files are all zero bytes, without a ~20 GB index rebuild.
+  - Solo LTRs inherit `taxon_call`, `rank`, `segment` and `erv_class` from the
+    classified locus their LTR library entry came from - sequence homology rather
+    than proximity - because LTR_retriever names library sequences by genomic
+    coordinate. A nearest-locus fallback remains for names without coordinates and
+    is recorded distinctly in `label_source`.
+  - Solos join `catalog.csv` as a third tier (`source=solo-ltr`) under
+    `classification.include_solo_ltr`, with `reconcile_catalog` generalised to
+    `ltr-flanked > solo-ltr > orphan` precedence.
+  - New `ltr_retriever.group_by` for the solo/intact ratio table, following
+    ADR-012's grouping vocabulary.
+
 ### Fixed
+
+- **Solo LTRs were being read from the wrong file.** The integrator consumed
+  `nmtf.pass.list`, which holds *intact* LTR-RTs whose termini lack the canonical
+  TGCA motif ("Non-TGCA LTR-RTs" in LTR_retriever's own banner), not solo LTRs.
+  Solos now come from `solo_finder.pl` driven off the whole-genome RepeatMasker
+  annotation, as LTR_retriever intends.
+- **`ltr_retriever.noanno` made solo detection impossible** and is retired.
+  `-noanno` suppresses the whole-genome annotation, which produces the only file
+  solo detection can read, so the stage could never have found a solo. The runner
+  never passes the flag.
+- The LTR_retriever pre-filter treated LTRharvest SCN coordinates as 0-based and
+  shifted GFF3 starts by `- 1`, widening every valid interval by one base. Both
+  formats are 1-based closed, as the byte-identical SCN reconstruction proves. The
+  corrected filter reproduces the catalog's locus counts exactly (406 for
+  *Desmodus*, 905 for *Antrozous*).
+- The pre-filter no longer reads the suffix array's `.des` file, taking the
+  `seq-nr` to chromosome mapping from the LTRharvest GFF3 instead. `.des` is zero
+  bytes for *Antrozous*.
+
+### Removed
+
+- `parameters.solo_ltr_aggregation` and `ltr_retriever.noanno`. The first
+  propagated probe labels onto solo LTRs, a vocabulary ADR-007/008 replaced with
+  `taxon_call`; `nearest_erv_max_distance` is renamed `nearest_locus_max_distance`
+  for the same reason.
 
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
   `green_light` called bare `input()`, so a run with no terminal attached (CI, a

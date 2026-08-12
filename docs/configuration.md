@@ -94,15 +94,6 @@ applied as a sort of the reduction input: `bitscore` desc -> `query_coverage`
 desc -> `identity` desc -> `evalue` asc -> genomic position -> `label` name. This
 makes `best` reproducible across R / plyranges versions.
 
-#### `parameters.solo_ltr_aggregation`
-
-Separate block for solo-LTR probe-label propagation (produced by the LTR_retriever workstream).
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `solo_ltr_aggregation.probe` | strategy | `list` | Strategy for propagating probe labels from contributing ERVs to solo LTRs. |
-| `solo_ltr_aggregation.best_tiebreaker` | `consensus_members` \| `bitscore` \| `identity` | `consensus_members` | Column used when strategy is `best`. `consensus_members` = number of ERVs that seeded the consensus family. |
-
 #### Choosing a strategy
 
 - **Default (`best`)** - recommended for `virus`/`label`. One deterministic "dominant" value per merged range based on alignment strength; clean single-value GFF3/parquet output and statistically meaningful plots.
@@ -114,18 +105,24 @@ Separate block for solo-LTR probe-label propagation (produced by the LTR_retriev
 
 ## `ltr_retriever`
 
-Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr.md) for the full mechanism (how LTR_retriever works end-to-end, what "family" means, how the pre-filter + label-propagation couplings with RetroSeek work, and the biology of solo LTRs) and [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md) for the pre-filter decision rationale.
+Solo-LTR detection built on LTR_retriever. See [`docs/solo_ltr.md`](solo_ltr.md) for
+the full mechanism (the biology of solo LTRs, how LTR_retriever finds them, and how
+the pre-filter and taxonomy couplings with RetroSeek work), [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md)
+for the pre-filter rationale, and [ADR-013](adr/ADR-013-solo-ltrs-on-the-assembled-catalog.md)
+for the move onto the catalog.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `substitution_rate` | number >= 0 | `1.3e-8` | bp substitutions per site per year used by LTR_retriever for age estimation. Mammals: `1.3e-8`; plants: `7e-9`. Does not affect solo-LTR detection sensitivity - only age annotations. |
 | `min_ltr_similarity` | number 0-100 | `91` | LTR pair similarity floor (percent) for LTR_retriever's intact-ERV filter (`-miniden` flag). |
-| `threads_per_genome` | int >= 1 | `4` | CPU threads per-genome LTR_retriever invocation. |
-| `noanno` | bool | `true` | Skip LTR_retriever's internal TE-library annotation (`-noanno` flag). RetroSeek has its own probe-based classification. |
+| `threads_per_genome` | int >= 1 | `4` | CPU threads per per-genome LTR_retriever invocation. This is also what RepeatMasker gets as `-pa`, and the whole-genome annotation is by far the slowest step, so raise it on large genomes. |
 | `source_scn` | str (`retroviral` \| `full`) | `retroviral` | **Coupling A toggle.** Picks which SCN feeds LTR_retriever. `retroviral` (default) uses the prefilter-restricted SCN - rows overlapping `valid_ranges.gff3` - guaranteeing retroviral-only consensus families. `full` uses the unfiltered LTRharvest passthrough, useful for debugging or non-retroviral exploration. The prefilter rule always materialises both SCN files in `data/ltr_scn/` regardless of this setting. |
-| `nearest_erv_max_distance` | int >= 0 | `10000` | Bp window for the solo-LTR -> valid-ERV **nearest-ERV fallback** in Coupling B's label-propagation. Only used when the primary consensus-family path yields no labels for a given solo LTR. |
+| `group_by` | str (`segment` \| `taxon_call` \| `none`) | `segment` | Grouping for the solo/intact ratio table, following ADR-012's vocabulary. `segment` rolls up to `classification.segment_rank`; `none` pools every locus into a single row. |
+| `nearest_locus_max_distance` | int >= 0 | `10000` | Bp window for the **nearest-locus fallback**, used only when a solo LTR's library ID carries no coordinates or its element overlaps no classified locus. Solos labelled this way carry `label_source=nearest_locus` so they can be filtered out. |
 
-Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
+There is no `noanno` key. LTR_retriever's whole-genome annotation produces the
+RepeatMasker table that solo detection reads, so this stage always runs it; see
+[`docs/solo_ltr.md`](solo_ltr.md#where-solo-ltrs-come-from).
 
 ## `classification`
 
@@ -140,6 +137,7 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 | `top_percent` | number 0-1 | `0.1` | Weighted-LCA bitscore band: hits within this fraction of the best bitscore per marker vote on the lowest-common-ancestor call. Smaller = stricter (fewer, higher-confidence ancestors). |
 | `min_orf` | int >= 0 | `30` | Minimum translated marker length (amino acids) for a region to be eligible for phylogenetic placement; shorter markers fall back to weighted-LCA. |
 | `confidence_min` | number 0-1 | `0.5` | Confidence floor for the high/low confidence tag. A locus whose call confidence is **below** this value is tagged `LC` (low confidence) in the `confidence_tag` column of the loci/fragments tables; at or above it is `HC`. The threshold is inclusive (`conf == confidence_min` => `HC`) and applies to every method (placement, weighted-LCA, presence). Raise it to flag more marginal calls. |
+| `include_solo_ltr` | bool | `false` | Fold the `solo-ltr` tier into `catalog.csv` alongside `ltr-flanked` and `orphan`. Opt-in because it makes `--classify` wait on the solo-LTR stage, and therefore on LTR_retriever's whole-genome RepeatMasker pass. |
 | `structure_full_min` | number 0-1 | `1.0` | Minimum gene completeness (fraction of `main_probes` present) for a locus to be catalogued as a **`full`** ERV in the `structure_class` column. `1.0` requires every main gene. A single-main-gene locus is always `gene`; a multi-gene locus present but below this floor is `partial`. Deliberately gene-content only - flanking-LTR evidence stays in the anchoring axis (`source`) and the solo-LTR module, not here. |
 | `segment_rank` | str | `genus` | Taxonomic rank each `taxon_call` is rolled up to for the by-segment stage (ADR-011). Any NCBI rank (`genus`, `subfamily`, `family`, ...) - the roll-up walks the reference `taxonomy.tsv` hierarchy, so no taxon name is ever hard-coded and the pipeline stays rank-agnostic. A locus whose call is *coarser* than this rank (e.g. `Retroviridae` when segmenting by genus) becomes `unassigned_at_<rank>` rather than being given precision its evidence does not support. |
 | `reference_taxa` | list of str | `[]` | The **classification axis** (ADR-008): the taxa - at **any** rank (genus `Lentivirus`, family `Bornaviridae`, ...) - the reference is built at and that a locus can resolve to as a first-class `taxon_call`. Empty or absent derives the axis from the distinct probeset `Label` values, so `Label` seeds the classifier; setting an explicit list decouples the classifier from the probeset. Changing it requires rebuilding the reference (`make reference`). |

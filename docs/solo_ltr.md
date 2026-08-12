@@ -1,8 +1,8 @@
 # Solo-LTR detection in RetroSeek
 
-This document explains how RetroSeek detects **solo LTRs** - the single-LTR remnants of ancient retroviral integrations that LTRharvest cannot find structurally - by integrating [LTR_retriever](https://github.com/oushujun/LTR_retriever) into the pipeline. It covers the biology, the mechanism, and the coupling with RetroSeek's existing probe-based detection.
+This document explains how RetroSeek detects **solo LTRs** - the single-LTR remnants of ancient retroviral integrations that LTRharvest cannot find structurally - by integrating [LTR_retriever](https://github.com/oushujun/LTR_retriever) into the pipeline. It covers the biology, the mechanism, and the coupling with RetroSeek's existing probe-based detection and taxonomic classification.
 
-If you just want to configure or run it, jump to [Configuration & usage](#configuration--usage). For the full biological and algorithmic detail, start from the top.
+If you just want to configure or run it, jump to [Configuration and usage](#configuration-and-usage). For the full biological and algorithmic detail, start from the top.
 
 ---
 
@@ -14,249 +14,268 @@ This is not a degenerate case: in most mammalian genomes, solo LTRs outnumber in
 
 From a RetroSeek perspective, solo LTRs are valuable because:
 
-- They **extend the ERV inventory** - finding integrations our probe-based tBLASTn search would miss entirely, because there's no retroviral protein left at the locus.
-- They **enable dating proxies** - the solo/intact ratio per family is a simple, interpretable age signal.
+- They **extend the ERV inventory** - finding integrations our probe-based tBLASTn search would miss entirely, because there is no retroviral protein left at the locus.
+- They **enable dating proxies** - the solo/intact ratio per lineage is a simple, interpretable age signal.
 - They **complete hotspot maps** - a hotspot defined only by intact ERVs systematically underrepresents high-activity lineages that have recombined heavily.
 
 ## Why LTRharvest alone cannot find them
 
 LTRharvest detects paired-LTR structures: two sufficiently-similar direct repeats flanking an inner region of plausible length. It scans the genome with a suffix-array index and reports candidates with two LTRs. A solo LTR has no pair - only one LTR, surrounded by non-retroviral genomic context. LTRharvest silently ignores it.
 
-No parameter adjustment fixes this. LTRharvest's search primitive **requires** the pair. Finding solo LTRs requires a different approach: start with the paired LTRs LTRharvest *did* find, build a consensus of them, and then search the genome for **single instances** of that consensus that don't overlap any intact ERV. This is what LTR_retriever's pipeline does.
+No parameter adjustment fixes this. LTRharvest's search primitive **requires** the pair. Finding solo LTRs requires a different approach: start with the paired LTRs LTRharvest *did* find, build a library from them, annotate the whole genome with that library, and then keep the matches that stand alone. That is what LTR_retriever does.
 
 ---
 
-## How LTR_retriever works
+## How LTR_retriever finds solo LTRs
 
-LTR_retriever ([Ou & Jiang 2018](https://doi.org/10.1104/pp.17.01310)) is a post-processor that consumes LTRharvest output (and optionally LTR_FINDER output) and produces a filtered, classified, and enriched ERV inventory - including solo LTRs. It runs in three conceptual stages.
+LTR_retriever ([Ou and Jiang 2018](https://doi.org/10.1104/pp.17.01310)) post-processes LTRharvest output into a filtered, classified ERV inventory, and can then annotate the whole genome with the library it built.
 
 ### Stage 1 - Structural filtering of intact candidates
 
-LTRharvest's reported paired-LTR structures have a high false-positive rate: many are tandem repeats, segmental duplications, or non-LTR elements that happen to resemble the pattern. LTR_retriever filters them with biological criteria:
+LTRharvest's reported paired-LTR structures have a high false-positive rate: many are tandem repeats, segmental duplications, or non-LTR elements that resemble the pattern. LTR_retriever filters them with biological criteria: **target site duplication** (a 4-6 bp host duplication flanking a real integration), **LTR similarity in a biological range**, **internal retroviral features** (PBS, PPT, minimum internal length, via HMMER), **tandem-repeat screening** with TRF, and **nesting detection** for an ERV integrated inside another.
 
-- **Target Site Duplication (TSD).** Real retroviral integrations leave a 4-6 bp host sequence duplication flanking the LTR pair. LTR_retriever verifies TSD presence and typical length.
-- **LTR similarity in biological range.** Too-similar LTRs (>99%) suggest very recent events or segmental duplication; too-divergent (<70%) often aren't related at all.
-- **Internal retroviral features.** Primer Binding Site (PBS), PolyPurine Tract (PPT), and minimum internal length are checked via HMMER.
-- **Tandem-repeat screening.** TRF (Tandem Repeat Finder) rejects candidates whose internal regions are tandem-repeat-dominant.
-- **Nesting detection.** Resolves the case where an ERV integrated inside another ERV.
+Survivors are written to `{genome}.pass.list` (plus `.pass.list.gff3`). These are the **intact ERVs**.
 
-Surviving candidates are written to `*.pass.list` (plus `*.pass.list.gff3` in GFF3 format). These are the **intact ERVs** used in later stages.
+> Stage 1 filters for "real LTR retrotransposons", which includes non-retroviral families like Copia, Gypsy and BEL/Pao. It does not filter for retroviruses - that is what RetroSeek's pre-filter adds, see [Coupling A](#coupling-a---retroviral-only-pre-filter).
 
-> Note: Stage 1 filters for "real LTR retrotransposons," which includes non-retroviral LTR-retrotransposons like Copia, Gypsy, and BEL/Pao. It does not specifically filter for retroviruses. That's where RetroSeek's coupling kicks in - see [Coupling A](#coupling-a--retroviral-only-pre-filter) below.
+### Stage 2 - The LTR library
 
-### Stage 2 - Family classification via de novo clustering
+LTR_retriever clusters the intact elements' sequences into a non-redundant library, `{genome}.LTRlib.fa`. Crucially for RetroSeek, each library sequence is **named after the genomic span of the intact element that seeded it**:
 
-LTR_retriever then clusters the intact ERVs' flanking-LTR sequences into **families**. A family is a **sequence-similarity cluster**, not a taxonomic classification - and this distinction matters.
+```
+>Chr1:106472..118130#LTR/unknown
+```
 
-Mechanically:
+The name is a coordinate, not an opaque `family1` identifier. That is what makes the taxonomy coupling below a plain interval join.
 
-1. Extract both flanking LTRs from every intact ERV as FASTA.
-2. Run all-versus-all BLAST on these LTR sequences.
-3. Use the BLAST similarity graph (edges above a configurable identity threshold, typically 80%) to build connected-component clusters.
-4. Each cluster is a family. For each family, build a consensus sequence from its member LTRs via multiple alignment.
+### Stage 3 - Whole-genome annotation, then solo calling
 
-Families are numbered generically: `family1`, `family2`, ... The numbers are **opaque** - they say "these LTR sequences cluster together by similarity" and nothing more. Two families may correspond to one retroviral genus in taxonomy; one family may split a genus that's diverged heavily; families are **within-genome, de novo** and carry no biological interpretation by themselves.
+LTR_retriever runs **RepeatMasker** over the genome using that library, producing `{genome}.out` - a table of every genomic region matching a library sequence. Two of its own helpers then turn that into a solo list:
 
-Output of this stage: `*.LTRlib.fa` - the consensus library, where each FASTA entry is one family's consensus sequence. Header format varies across LTR_retriever releases, but typically includes the family ID and a list of **source ERV IDs** that contributed to the consensus.
+```
+bin/find_LTR.pl   -lib {genome}.LTRlib.fa              > {genome}.LTR.info
+bin/solo_finder.pl -i {genome}.out -info {genome}.LTR.info > {genome}.solo_list
+```
 
-Optional: if you supply `-u custom_te_lib.fa`, LTR_retriever can cross-annotate families against a known TE library (Dfam, Repbase, etc.), assigning Copia/Gypsy/... superfamily labels. RetroSeek **doesn't use this** (`noanno: true` in config) because RetroSeek already provides meaningful biological labelling through its probe-based system - see [Coupling B](#coupling-b--multi-label-probe-propagation) below.
+`find_LTR.pl` records where the LTR regions sit inside each library sequence, so `solo_finder.pl` can tell an LTR match from an internal-region match. A match is called solo when it:
 
-### Stage 3 - Solo-LTR discovery via BLAST-back
+- lies in an **LTR region** of the library sequence, not the internal region;
+- covers **0.8 to 1.2** of that library LTR's length (a partial match is a truncated fragment, an over-long one is spurious);
+- is at least **80 bp** long with a Smith-Waterman score above 300;
+- sits at least **300 bp clear** of any internal-region annotation - if the internal region is right there, this LTR is a flank of an intact element, not a solo;
+- differs in divergence by more than 4% from other LTRs matching the same library entry nearby, which separates a genuine lone LTR from the two flanks of one element.
 
-This is the payoff stage. LTR_retriever takes the consensus library from Stage 2 and **BLASTs it against the whole genome** (using `blastn`). For every genome hit:
+Output columns:
 
-- If the hit **overlaps an intact ERV** from Stage 1, it's already accounted for as an LTR flank of that ERV - skip.
-- If the hit is **full-length** (close to the consensus's length) and **standalone** (doesn't overlap any intact ERV), it's a **solo LTR**.
-- If the hit is **partial** (significantly shorter than the consensus), it's a **truncated LTR fragment**.
+```
+chrom    start    end    chrom:start..end    library_id    coverage
+```
 
-Solo LTRs and truncated LTRs are written together to `*.nmtf.pass.list` ("non-matching-full pass list"). Each entry records the genomic coordinates, family assignment, length, identity to the consensus, and strand. RetroSeek's integrator reads this file.
+### Where solo LTRs are NOT
 
-The key conceptual point: **solo LTRs come from the genome matching the consensus, not from filtering LTRharvest false positives**. The family consensus is built from intact ERVs. A solo LTR is a real genomic position that used to have an intact provirus but has since lost its internal region via homologous recombination - leaving a sequence that still matches the family's LTR consensus.
+`{genome}.nmtf.pass.list` is **not** the solo list, despite the suggestive name. "nmtf" means **non-motif**: these are *intact* LTR-RTs whose termini lack the canonical TGCA motif. LTR_retriever's own result banner labels the file `(Non-TGCA LTR-RTs)` and its summary prints "Total intact non-TGCA LTR-RTs found".
+
+An earlier revision of this workstream read "nmtf" as "non-matching-full" and wired the integrator to that file. Because the stage never ran (see [SCN reconstruction](#scn-reconstruction) below), the error never produced output - but it would have reported intact elements as solo LTRs, with real coordinates and plausible counts. This is recorded in [ADR-013](adr/ADR-013-solo-ltrs-on-the-assembled-catalog.md).
+
+---
+
+## SCN reconstruction
+
+LTR_retriever consumes LTRharvest's screen-format `.scn`. That file is a **stdout redirect**, which makes it the most losable artefact in the pipeline: for *Antrozous pallidus* it was gone, along with every byte of the suffix-array index.
+
+Rebuilding the index was not an option. `ltr_harvester_setup` declares `input: rules.ltr_index_generator.input`, which is an `expand()` over **every** genome, so regenerating one index would invalidate LTRharvest and LTRdigest for all five species - a full-pipeline re-run costing days, to recover one redirect.
+
+It is also unnecessary. The SCN contains nothing the GFF3 lacks:
+
+| SCN column | GFF3 source |
+|---|---|
+| `s(ret)` / `e(ret)` | `LTR_retrotransposon` start / end |
+| `l(ret)` | computed, `end - start + 1` |
+| `s(lLTR)` / `e(lLTR)` | first `long_terminal_repeat` child |
+| `s(rLTR)` / `e(rLTR)` | second `long_terminal_repeat` child |
+| `sim(LTRs)` | `ltr_similarity=` attribute |
+| `seq-nr` | `seq_number=` attribute |
+
+`workflow/scripts/solo_ltr/scn_from_ltrharvest_gff3.py` does the reconstruction. Verified against Desmodus rotundus, the one model genome holding both artefacts: all **9,893 data rows byte-identical**, including two-space field separators and two-decimal similarity. Antrozous rebuilds to 26,499 rows in under a second.
+
+Similarity is carried through as **text**, never parsed to float: `90.90` round-tripped through a float renders as `90.9` and silently breaks the match.
+
+The `seq_number=` attribute sits on the same GFF3 row as the chromosome name, so this module also supplies the `seq-nr -> chromosome` mapping the pre-filter used to read from the index's `.des` file - which for Antrozous is zero bytes.
 
 ---
 
 ## How RetroSeek couples with LTR_retriever
 
-RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classification that separates retroviral from non-retroviral LTR-retrotransposons, and (2) meaningful biological labels (GAG, POL, ENV, PRO, etc.) LTR-flanked to the user's probe set. We use those at two points in the LTR_retriever flow.
+RetroSeek brings two things LTR_retriever does not: a probe-based validation that separates retroviral from non-retroviral LTR-retrotransposons, and a per-locus **taxonomic call** (ADR-007/008). Both are used.
 
 ### Coupling A - retroviral-only pre-filter
 
-**Problem.** LTR_retriever's Stage 1 keeps all structurally-sound LTR retrotransposons, including Copia/Gypsy/BEL/Pao. Their LTRs cluster into families in Stage 2, those families' consensuses are BLASTed back in Stage 3, and the solo LTRs reported include non-retroviral solos. Most of them, for typical eukaryotic genomes.
+**Problem.** LTR_retriever's Stage 1 keeps all structurally-sound LTR retrotransposons, including Copia, Gypsy and BEL/Pao. Their sequences enter the library, the library annotates the genome, and the solo LTRs reported are dominated by non-retroviral entries - most of them, in a typical eukaryotic genome.
 
-**Solution.** Before handing LTRharvest output to LTR_retriever, we **intersect the SCN file with RetroSeek's `valid_ranges.gff3`** - the domain-validated retroviral ERV track. Only LTRharvest candidates that overlap a retroviral-confirmed valid range survive into LTR_retriever's input. As a result:
+**Solution.** Before handing LTRharvest output to LTR_retriever, **intersect the SCN with RetroSeek's `valid_ranges.gff3`** - the domain-validated retroviral ERV track. Only candidates overlapping a retroviral-confirmed range survive, so the library is built from retroviral sequence only and every solo it finds is retroviral by construction.
 
-- LTR_retriever's Stage 1 sees a candidate pool restricted to retroviral-confirmed positions.
-- Stage 2's consensus library is built from retroviral LTR sequences only.
-- Stage 3's BLAST-back hits match retroviral consensuses.
-- Solo LTRs reported are guaranteed retroviral by construction.
+`workflow/scripts/solo_ltr/ltr_retriever_prefilter.py` emits both SCN files from one read pass:
 
-This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`. From a single read pass over the input `.scn` + `.des` (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, the script emits **both** SCN files:
+- `data/ltr_scn/{genome}_retroviral.scn` - rows overlapping a valid range. The default LTR_retriever input.
+- `data/ltr_scn/{genome}_full.scn` - every well-formed row, byte-equivalent to the source.
 
-- `data/ltr_scn/{genome}_retroviral.scn` - rows whose `[s(ret), e(ret)]` overlaps a `valid_ranges` interval on the same chromosome. Closed-interval, 0-indexed semantics. This is the file LTR_retriever currently consumes.
-- `data/ltr_scn/{genome}_full.scn` - every well-formed source row, byte-equivalent to the LTRharvest stdout (modulo malformed rows). This is the unfiltered passthrough, kept on disk for inspection and as the backing file for the upcoming `source_scn: full` mode.
+Both always materialise; `ltr_retriever.source_scn` picks which one feeds the runner. Keeping the full SCN on disk makes side-by-side comparison trivial.
 
-Both files always materialise; which one drives LTR_retriever is a runtime config decision via `config.ltr_retriever.source_scn` (`retroviral` | `full`, default `retroviral`). Keeping the full SCN on disk makes ad-hoc inspection trivial and supports side-by-side comparisons between filter modes.
+Measured reduction on the model genomes, which also cross-checks the filter - the survivor count matches the classified LTR-flanked locus count exactly:
 
-The filename underscore separator (`_retroviral.scn`, `_full.scn`, not dotted forms) avoids a Snakemake wildcard-resolution collision with LTRharvest's own `{genome}.scn`.
+| genome | LTRharvest candidates | retroviral | reduction |
+|---|---|---|---|
+| *Antrozous pallidus* | 26,499 | 905 | 29.3x |
+| *Desmodus rotundus* | 9,893 | 406 | 24.4x |
+| *Molossus molossus* | 36,119 | 1,069 | 33.8x |
 
-### Coupling B - multi-label probe propagation
+Both the SCN and GFF3 are **1-based closed**, so coordinates compare directly. An earlier revision believed the SCN was 0-based and shifted GFF3 starts by `- 1`, widening every valid interval by one base; the byte-equal reconstruction above disproved that.
 
-**Problem.** LTR_retriever's family IDs (`family1`, `family2`, ...) are sequence-similarity clusters, opaque without biological context. We want solo LTRs labelled with the probe families RetroSeek knows about (GAG, POL, ENV, etc.), because:
+### Coupling B - taxonomy inheritance
 
-- Those labels drive hotspot analysis, plot categorisation, and probe-pair detection.
-- Users think in probe-family terms, not in LTR_retriever's internal cluster IDs.
+**Problem.** A solo LTR carries no genes, so RetroSeek's probe-based classification cannot reach it directly. It still needs a lineage, because that is what drives grouping, plots and the catalog.
 
-**Solution.** `workflow/scripts/solo_ltr_integrator.py` propagates probe labels from RetroSeek's `valid_ranges.gff3` onto LTR_retriever's solo LTRs using a **hybrid two-tier approach**.
+**Solution.** `workflow/scripts/solo_ltr/solo_ltr_integrator.py` inherits the call from the intact element the solo's sequence came from.
 
-#### Primary path - consensus-family mapping
+#### Primary path - the library element
 
-For each solo LTR:
+Each solo's `library_id` is the genomic span of its seeding element (`Chr1:106472..118130#LTR/unknown`). Parse it, overlap it against `{genome}.loci.csv`, and inherit `taxon_call`, `rank`, `segment` and `erv_class` from the classified locus with the largest overlap. `label_source=library`.
 
-1. Look up its family in `LTRlib.fa` (the headers list source-ERV IDs contributing to the consensus).
-2. Match those source-ERV IDs against `valid_ranges.gff3` - the RetroSeek ERVs that seeded this family's consensus.
-3. Collect probe labels from every matching valid ERV.
-4. Assign the union of those labels to the solo LTR.
-5. Record `label_source=family` and list the contributing ERVs in the GFF3 attributes.
+This follows **sequence homology, not proximity**: a solo on chromosome 4 whose sequence matched an element on chromosome 1 inherits that element's lineage, which is exactly the biological claim - they descend from the same invasion.
 
-This is biologically principled: the sequence similarity that clustered the consensus drives the label inheritance. A solo LTR matched to `family1` inherits labels from the specific intact ERVs whose LTRs are in family1, regardless of where those ERVs sit on the chromosome.
+Overlap rather than exact coordinate equality, because LTR_retriever adjusts element boundaries during filtering, and a RetroSeek locus sits *inside* its LTR element rather than sharing its edges. Only `source=ltr-flanked` loci donate: an orphan has no LTR element, so it cannot have contributed sequence to an LTR library.
 
-#### Fallback path - nearest-ERV
+#### Fallback - nearest classified locus
 
-The primary path may fail for several reasons:
+If the library name carries no coordinates, or its span overlaps no classified locus, fall back to the nearest classified locus on the same chromosome within `nearest_locus_max_distance` bp. `label_source=nearest_locus`.
 
-- The solo LTR's family is unresolved (e.g., LTR_retriever couldn't confidently classify it).
-- `LTRlib.fa` header format doesn't surface source-ERV IDs parseably (version-dependent).
-- Source-ERV IDs from LTR_retriever (e.g., `LTR_retrotransposon5`, which references LTRharvest's candidate numbering) don't match RetroSeek's ID nomenclature in `valid_ranges.gff3`.
-- A family exists but none of its source ERVs are in `valid_ranges.gff3` (e.g., filtered out at RetroSeek's domain-validation stage).
+Proximity is a weaker signal than homology - retroviruses do not always integrate in tight clusters - so it is recorded distinctly. A strict analysis keeps only `label_source=library`; a permissive one keeps both. A sudden rise in `nearest_locus` is the signal that LTR_retriever has changed its library naming.
 
-When the primary path yields zero labels, the integrator falls back:
+Solos matching neither get `label_source=none` and empty taxonomy. They are **never dropped**: the count is a real observation even when the lineage is not resolvable.
 
-1. Find the **nearest valid ERV on the same chromosome** within `config.ltr_retriever.nearest_erv_max_distance` bp (default 10 kb).
-2. Inherit its probe labels.
-3. Record `label_source=nearest_erv` and list the single nearest ERV as the contributor.
+---
 
-Nearest-ERV is a weaker signal - retroviruses don't always integrate in tight clusters - but it handles the edge cases the primary path doesn't. For a genome where the pre-filter has already constrained families to be retroviral, nearest-ERV is usually correct: solo LTRs tend to cluster near intact ERVs of the same lineage because invasion events have spatial structure.
+## Solo LTRs in the catalog
 
-#### Records left in the output
-
-Every solo LTR in the final `{genome}.gff3` has these attributes:
+Solo LTRs join `catalog.csv` as a third tier beside `ltr-flanked` and `orphan`, with `source=solo-ltr` and `structure_class=solo_ltr`. `reconcile_catalog` keeps the catalog non-overlapping by tier precedence:
 
 ```
-ID=soloLTR_<n>
-family=<LTR_retriever family ID or "unresolved">
-probe_labels=<comma-separated labels, or "none">
-contributing_ervs=<comma-separated ERV IDs, or "none">
-label_source=family | nearest_erv | none
+ltr-flanked  >  solo-ltr  >  orphan
 ```
 
-`label_source` lets downstream analyses filter by confidence. For instance, a strict analysis might keep only `label_source=family` solos; a permissive analysis keeps both.
+A "solo" overlapping a real provirus is that element's flank, not a solo, so the LTR-confirmed call wins. A solo outranks an orphan because a homology match against a curated library is stronger evidence than a proximity-inferred cluster of gene hits. Precedence is evaluated against survivors only, so a solo beaten by a provirus does not go on to displace an orphan.
+
+Solos enter the catalog but **not** the classification plots: all 22 figures key on gene-content columns a solo has lost by definition, and folding solos in would silently change every one of them.
+
+The tier is opt-in via `classification.include_solo_ltr`, because demanding it makes `--classify` wait on the whole-genome RepeatMasker pass.
 
 ---
 
 ## Solo/intact ratio as an age proxy
 
-With solo LTRs and intact ERVs both labelled by probe family, RetroSeek computes a per-family ratio:
+With solos and intact proviruses both carrying a taxonomic call, RetroSeek computes a per-group ratio:
 
 ```
 solo_to_intact_ratio = solo_count / intact_count
 ```
 
-High ratios mean the lineage has been present long enough for many of its integrations to have undergone LTR-LTR recombination. Low ratios suggest a recent invasion, where intact proviruses still dominate the inventory. It's one of the classical ways to order retroviral lineages by age without requiring a full molecular-clock analysis.
+where the denominator is the count of **LTR-flanked catalog loci** in that group. Grouping follows the ADR-012 vocabulary - `segment` (default, rolled up to `classification.segment_rank`), `taxon_call`, or `none`.
 
-Two counting modes are emitted side-by-side in the ratio CSV:
+High ratios mean the lineage has been present long enough for many of its integrations to have undergone LTR-LTR recombination. Low ratios suggest a recent invasion where intact proviruses still dominate. Groups with intact loci but no solos are emitted with `solo_count = 0` rather than dropped - a lineage whose proviruses have not recombined away is a finding, not a missing row.
 
-- **`label_mode=exclusive`** - counts a solo/intact LTR only if its labels form a single-element set. A record labelled just `POL` counts in POL's row. A record labelled `POL,GAG` doesn't count in exclusive rows. This view is the "pure signal" - it excludes multi-labelled records whose family attribution is ambiguous.
-- **`label_mode=shared`** - counts a solo/intact LTR in every family it claims. A record labelled `POL,GAG` counts in both POL's and GAG's rows. This view is the "inclusive signal" - no record is dropped, at the cost of inflating counts for multi-labelled elements.
-
-Both modes are written so downstream analysis can pick either. `label_mode` is a column in the CSV; filter on it to choose.
-
-Per-genome CSVs live at `results/tables/solo_intact_ratio/{genome}.csv` (pipeline-internal Parquet copies under `data/tables/solo_intact_ratio/`). The aggregate across species is `results/tables/solo_intact_ratio/all_species.csv` (+ `.parquet`), built by an inline `pandas.concat` in the Snakemake aggregate rule.
+Per-genome CSVs live at `results/tables/solo_intact_ratio/{genome}.csv`, the aggregate at `all_species.csv`.
 
 ---
 
-## Configuration & usage
+## Configuration and usage
 
 ### Prerequisites
 
-LTR_retriever must be in the conda env. After pulling the latest `data/config/environment.yml`:
+LTR_retriever must be in the conda env (it pulls Perl, HMMER, TRF, cd-hit and RepeatMasker as transitive dependencies):
 
 ```bash
 mamba env update -f data/config/environment.yml
-# or for a first-time install
-mamba env create -f data/config/environment.yml
 ```
 
 ### Running solo-LTR detection
 
-With a config pointing at genomes + probes + `execution.entrez_email` set:
-
 ```bash
-./RetroSeek --solo-ltr-detection --cores all
+./RetroSeek --solo-ltr-detection --configfile /abs/path/to/config.local.yaml
 ```
 
-This triggers the full dependency chain: genome download -> BLAST DB -> suffix arrays -> LTRharvest (with SCN output) -> probe extraction -> tBLASTn -> ranges analysis -> pre-filter -> LTR_retriever -> solo-LTR integrator -> ratio aggregate. Any stage already completed is skipped by Snakemake's freshness tracking.
+This triggers the chain: SCN reconstruction -> pre-filter -> LTR_retriever (including whole-genome RepeatMasker) -> solo_finder -> integrator -> ratio aggregate. Snakemake skips anything already complete.
+
+**Runtime.** The whole-genome RepeatMasker pass dominates and is the reason this stage is slow on mammalian assemblies. `ltr_retriever.threads_per_genome` is passed straight through as RepeatMasker's `-pa`, so raise it. Always dry-run first (`-n`) and read the `Job stats` table.
 
 Expected outputs per genome:
 
 | Path | Content |
 |---|---|
-| `data/ltr_scn/{genome}.scn` | LTRharvest screen-format SCN (all candidates). |
+| `data/ltr_scn/{genome}_from_gff3.scn` | SCN reconstructed from the LTRharvest GFF3. |
 | `data/ltr_scn/{genome}_retroviral.scn` | SCN filtered to retroviral-confirmed candidates (Coupling A). |
-| `data/ltr_scn/{genome}_full.scn` | SCN passthrough - byte-equal to LTRharvest stdout, kept for inspection. |
-| `results/tracks/ltr_retriever/{genome}/{genome}.pass.list.gff3` | LTR_retriever-filtered intact ERVs. |
-| `results/tracks/ltr_retriever/{genome}/{genome}.nmtf.pass.list` | Solo + truncated LTRs. |
-| `results/tracks/ltr_retriever/{genome}/{genome}.LTRlib.fa` | Consensus library. |
-| `results/tracks/solo_ltr/{genome}.gff3` | **Annotated solo LTRs with probe_labels.** |
-| `results/tables/solo_intact_ratio/{genome}.csv` | Per-family solo/intact counts + ratio. |
-| `results/tables/solo_intact_ratio/all_species.csv` | Aggregated across all genomes. |
+| `data/ltr_scn/{genome}_full.scn` | Unfiltered passthrough, kept for inspection. |
+| `results/tracks/ltr_retriever/{genome}/{genome}.pass.list` | Intact LTR-RTs (the ratio denominator's source). |
+| `results/tracks/ltr_retriever/{genome}/{genome}.out` | RepeatMasker whole-genome annotation. |
+| `results/tracks/ltr_retriever/{genome}/{genome}.LTRlib.fa` | The LTR library. |
+| `results/tracks/ltr_retriever/{genome}/{genome}.solo_list` | Raw solo calls from `solo_finder.pl`. |
+| `results/tracks/solo_ltr/{genome}.gff3` | **Solo LTRs annotated with `taxon_call`.** |
+| `results/tables/solo_ltr/{genome}.solo_ltr.csv` | Per-solo table in catalog vocabulary. |
+| `results/tables/solo_intact_ratio/{genome}.csv` | Per-group solo/intact counts + ratio. |
+| `results/tables/solo_intact_ratio/all_species.csv` | Aggregated across genomes. |
 
 ### Tunable parameters
 
-All under `config.ltr_retriever` in `data/config/config.yaml`. See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full field reference. Brief summary:
+All under `config.ltr_retriever`; see [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference.
 
 | Key | Default | Effect |
 |---|---|---|
-| `substitution_rate` | `1.3e-8` | Mammalian bp-substitutions/site/year - used by LTR_retriever for age estimation. Use `7e-9` for plants. |
-| `min_ltr_similarity` | `91` | Percent identity floor for LTR pairs. LTR_retriever's `-miniden`. |
-| `threads_per_genome` | `4` | CPU threads passed to each LTR_retriever invocation. |
-| `noanno` | `true` | Skip LTR_retriever's internal TE library annotation (RetroSeek has its own). |
-| `source_scn` | `retroviral` | **Coupling A toggle.** `retroviral` (default) feeds the prefilter-restricted SCN to LTR_retriever. `full` feeds the unfiltered passthrough. |
-| `nearest_erv_max_distance` | `10000` | bp window for Coupling B's nearest-ERV fallback. |
+| `substitution_rate` | `1.3e-8` | Mammalian bp-substitutions/site/year, for LTR_retriever's age estimates. `7e-9` for plants. |
+| `min_ltr_similarity` | `91` | Percent identity floor for LTR pairs (`-miniden`). |
+| `threads_per_genome` | `4` | Threads for LTR_retriever, and RepeatMasker's `-pa`. The main runtime lever. |
+| `source_scn` | `retroviral` | **Coupling A toggle.** `retroviral` or `full`. |
+| `group_by` | `segment` | Grouping for the ratio table: `segment`, `taxon_call` or `none`. |
+| `nearest_locus_max_distance` | `10000` | bp window for Coupling B's nearest-locus fallback. |
 
-Probe-label aggregation across contributors follows the same strategy vocabulary as `parameters.aggregation` (see ADR-002). Configure via `parameters.solo_ltr_aggregation`.
+Plus `classification.include_solo_ltr` (default `false`) to fold solos into `catalog.csv`.
+
+There is no `noanno` key. Whole-genome annotation produces the RepeatMasker table solo detection reads, so this stage always runs it.
 
 ---
 
 ## Caveats and known limitations
 
-### LTR_retriever output-format variance
+### Zero solos means something is wrong
 
-Between LTR_retriever releases, the header format of `LTRlib.fa` and the column layout of `nmtf.pass.list` have changed slightly. Our integrator parser is defensive - it uses regex-heuristic extraction for family IDs and source-ERV lists, and falls back to nearest-ERV if the primary parse yields no labels. If a new LTR_retriever version produces a format our parser can't extract, solo LTRs will still be produced (via fallback) but with `label_source=nearest_erv` rather than `family` for every record. If you see this in `solo_ltr/{genome}.gff3`, either update the parser or pin LTR_retriever to a known-good version.
+On a real mammalian genome, solo LTRs normally outnumber intact proviruses by 1-2 orders of magnitude. A genome with LTR-flanked loci but no solos indicates a broken search, not a quiet genome, and the integrator logs a warning saying so. Check the RepeatMasker section of the LTR_retriever log first.
 
-### Synthetic toy genomes typically produce zero solos
+Synthetic toy genomes are the honest exception: `tests/fixtures/build_toy_genomes.py` plants tightly-paired identical LTRs, so every planted element is found intact and nothing stands alone. Toy genomes exist for rule-chain smoke-testing, not biological realism.
 
-The toy genomes at `/path/to/databases/toy-genomes/` (generated by `tests/fixtures/build_toy_genomes.py`) plant tightly-paired LTRs with identical sequences - both flanks of every planted ERV are perfect matches of each other. LTRharvest finds all of them as intact, LTR_retriever keeps them all as intact, and Stage 3's BLAST-back finds no solos because there are no unpaired LTR-like positions. This is expected. Real bat genomes will produce solo LTRs; toy genomes exist for rule-chain smoke-testing, not biological realism.
+### Sensitivity is bounded by probe quality
 
-### Pre-filter excludes non-retroviral LTR-retrotransposons
+Coupling A means the library is built only from probe-validated retroviral elements. If RetroSeek's probe set misses a retroviral lineage entirely, no intact element from that lineage reaches `valid_ranges.gff3`, nothing from it enters the library, and its solo LTRs are invisible. This amplifies the importance of comprehensive probe design.
 
-By design - Coupling A's entire purpose. If you want Copia/Gypsy/other LTR-retrotransposon solos, set `config.ltr_retriever.source_scn: full`. LTR_retriever will then see the unfiltered LTRharvest output, and the solo LTRs include every LTR-retrotransposon class its consensus library captures. You'll likely need to adjust the probe-label propagation strategy since those solos won't have RetroSeek-known probe labels.
+### Non-retroviral LTR-retrotransposons are excluded
+
+By design - Coupling A's entire purpose. Set `source_scn: full` for Copia/Gypsy/other solos, and expect most of them to have no RetroSeek taxonomy.
 
 ### Solo/intact ratios are approximations
 
-The solo/intact ratio is a **crude** proxy for lineage age. Confounders:
+The ratio is a **crude** age proxy. Confounders:
 
-- **Unequal discovery sensitivity.** Solo LTRs degrade faster than intact ERVs (single-copy sequences accumulate mutations without gene-conversion repair), so very ancient lineages may have solo LTRs diverged past the detection threshold.
-- **Integration preference.** Some lineages integrate into heterochromatin, where repair is less efficient; others prefer euchromatin.
-- **Non-homologous deletion.** Some intact ERVs are lost via deletion rather than LTR-LTR recombination, reducing both counts.
+- **Unequal discovery sensitivity.** Solo LTRs degrade faster than intact ERVs (single-copy sequence accumulates mutations without gene-conversion repair), so the oldest lineages may have solos diverged past detection.
+- **Integration preference.** Lineages differ in their chromatin targeting, and repair efficiency differs with it.
+- **Non-homologous deletion.** Some proviruses are lost by deletion rather than LTR-LTR recombination, reducing both counts.
+- **Denominator scope.** Intact counts come from catalogued LTR-flanked loci, which require retroviral *gene* evidence, so the denominator is itself bounded by probe coverage.
 
-For rigorous lineage dating, use a proper molecular-clock analysis on the LTR sequences themselves (LTR_retriever's age estimates, available via the `substitution_rate` config key, are one such mechanism).
+For rigorous dating, use a molecular-clock analysis on the LTR sequences themselves.
 
 ---
 
 ## Further reading
 
-- **LTR_retriever paper:** Ou & Jiang 2018, *Plant Physiology* 176:1410-1422. [doi:10.1104/pp.17.01310](https://doi.org/10.1104/pp.17.01310). Explains the three-stage pipeline and the family-clustering algorithm in detail.
-- **LTRharvest paper:** Ellinghaus et al. 2008, *BMC Bioinformatics* 9:18. [doi:10.1186/1471-2105-9-18](https://doi.org/10.1186/1471-2105-9-18). Covers the suffix-array-based paired-LTR detection.
-- **ADR-003:** [`docs/adr/ADR-003-ltr-retriever-pre-filter.md`](adr/ADR-003-ltr-retriever-pre-filter.md) - decision record for Coupling A.
-- **Configuration reference:** [`docs/configuration.md`](configuration.md) - the `ltr_retriever` section.
-- **Architecture overview:** [`docs/architecture.md`](architecture.md) - RetroSeek's full rule graph including the LTR_retriever branch.
+- **LTR_retriever paper:** Ou and Jiang 2018, *Plant Physiology* 176:1410-1422. [doi:10.1104/pp.17.01310](https://doi.org/10.1104/pp.17.01310).
+- **LTRharvest paper:** Ellinghaus et al. 2008, *BMC Bioinformatics* 9:18. [doi:10.1186/1471-2105-9-18](https://doi.org/10.1186/1471-2105-9-18).
+- **ADR-003:** [`docs/adr/ADR-003-ltr-retriever-pre-filter.md`](adr/ADR-003-ltr-retriever-pre-filter.md) - the pre-filter decision.
+- **ADR-013:** [`docs/adr/ADR-013-solo-ltrs-on-the-assembled-catalog.md`](adr/ADR-013-solo-ltrs-on-the-assembled-catalog.md) - SCN reconstruction, the solo-source correction, taxonomy inheritance, and the catalog tier.
+- **Configuration reference:** [`docs/configuration.md`](configuration.md).
+- **Architecture overview:** [`docs/architecture.md`](architecture.md).

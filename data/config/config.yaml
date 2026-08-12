@@ -65,17 +65,16 @@ parameters:
     best_tiebreaker: "bitscore"
     concat_separator: "; "
     strict_marker: "ambiguous"
-  solo_ltr_aggregation:
-    probe: "list"
-    best_tiebreaker: "consensus_members"
 
 ltr_retriever:
   substitution_rate: 1.3e-8
   min_ltr_similarity: 91
   threads_per_genome: 4
-  noanno: true
   source_scn: retroviral
-  nearest_erv_max_distance: 10000
+  # Grouping for the solo/intact ratio table, following the ADR-012 vocabulary:
+  # 'segment' (rolled up to classification.segment_rank), 'taxon_call', or 'none'.
+  group_by: segment
+  nearest_locus_max_distance: 10000
 
 classification:
   enable: true
@@ -95,6 +94,9 @@ classification:
   # Rank each taxon_call is rolled up to for the by-segment stage (any NCBI rank:
   # genus, subfamily, family). Calls coarser than this become unassigned_at_<rank>.
   segment_rank: 'genus'
+  # Fold the solo-LTR tier into catalog.csv. Opt-in because it makes the
+  # classification stage wait on LTR_retriever's whole-genome RepeatMasker pass.
+  include_solo_ltr: false
   # Classification axis (ADR-008, rank-agnostic): the taxa - at ANY rank - the
   # reference is built at and that a locus can resolve to. Empty (or absent) derives
   # the axis from the distinct probeset Label values; set an explicit list to decouple
