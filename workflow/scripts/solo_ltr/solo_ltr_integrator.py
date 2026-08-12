@@ -1,80 +1,78 @@
-"""Post-process LTR_retriever output into RetroSeek-annotated solo LTRs.
+"""Annotate LTR_retriever's solo LTRs with RetroSeek's per-locus taxonomy.
 
-This is *Coupling B* of the LTR_retriever integration: we propagate
-RetroSeek's probe labels (from ``valid_ranges.gff3``) onto the solo
-LTRs that LTR_retriever discovered, using a hybrid two-tier approach
-that favours LTR_retriever's own family-clustering when available and
-falls back to nearest-valid-ERV location inheritance when it isn't.
+What a solo LTR is here
+-----------------------
+When a provirus's two flanking LTRs recombine homologously, the internal region
+is excised and a single LTR is left at the integration site. Each solo LTR marks
+one ancestral integration whose provirus is gone, so they extend the ERV
+inventory into events the probe-based search cannot see - there is no retroviral
+protein left at the locus to find.
 
-Data sources
-------------
-``nmtf.pass.list``
-    LTR_retriever's list of solo + truncated LTRs. Tab-separated. The
-    first column is typically ``chrom:start..end`` or similar
-    coordinate encoding; later columns include family ID, length,
-    and identity. The exact format varies slightly across
-    LTR_retriever releases - the parser here is defensive: it looks
-    for a coordinate column and a family column by heuristic.
+Where they come from
+--------------------
+``solo_finder.pl`` (LTR_retriever's own helper, driven by
+``run_ltr_retriever.py``) walks the whole-genome RepeatMasker table and keeps
+hits that look like a lone LTR rather than one flank of an intact element. Its
+output is six tab-separated columns::
 
-``LTRlib.fa``
-    LTR_retriever's family consensus library. FASTA headers carry
-    the family ID plus a listing of source intact-ERV IDs that seeded
-    the consensus. We parse the headers to build a ``family -> list of
-    source-ERV-IDs`` mapping.
+    chrom    start    end    chrom:start..end    library_id    coverage
 
-``valid_ranges.gff3``
-    RetroSeek's domain-validated retroviral ERV track. Each row has
-    genomic coordinates + ``probe`` (or ``probe_labels``) attribute
-    encoding the probe family or families the ERV matched. We parse
-    this into a per-chromosome interval structure so location-based
-    lookup can find the valid ERV covering (or adjacent to) any
-    LTR_retriever intact ERV.
+A previous revision of this module read ``nmtf.pass.list`` instead. That file
+holds *intact* LTR-RTs whose termini lack the canonical TGCA motif -
+LTR_retriever's own banner calls it ``(Non-TGCA LTR-RTs)`` - so it would have
+reported intact elements as solo LTRs.
 
-Label propagation - hybrid approach
------------------------------------
-For each solo LTR in ``nmtf.pass.list``:
+How a solo inherits a taxon
+---------------------------
+LTR_retriever names each library sequence after the genomic span of the intact
+element that seeded it (``>{chr}:{start}..{end}#LTR/{fam}``, see
+``bin/annotate_lib.pl``). The library ID is therefore a **coordinate**, not an
+opaque ``family1``, which makes the mapping back to RetroSeek a plain interval
+join:
 
-1. **Primary path - consensus-family mapping.** Look up the solo
-   LTR's family ID in the ``family -> source-ERVs`` map built from
-   ``LTRlib.fa``. For each source ERV, find the corresponding valid
-   range in ``valid_ranges.gff3`` by coordinate overlap. Collect the
-   probe labels from those valid ranges. Label the solo LTR with the
-   union.
-2. **Fallback path - nearest-ERV.** If the primary path produced zero
-   labels (family unresolved, source ERVs couldn't be resolved to
-   valid-range entries, or the LTRlib.fa header format was
-   unparseable), find the nearest valid ERV on the same chromosome
-   within ``nearest_erv_max_distance`` bp. Inherit its labels.
+1. **Primary path - library element.** Parse the solo's ``library_id`` into a
+   span and overlap it against the classified LTR-flanked loci
+   (``{genome}.loci.csv``). The solo inherits ``taxon_call`` / ``rank`` /
+   ``segment`` / ``erv_class`` from the locus with the largest overlap.
+   ``label_source=library``. This follows sequence homology: the solo's DNA
+   matched *that* element's library entry, wherever the two sit on the
+   chromosome.
+2. **Fallback - nearest locus.** If the library ID carries no coordinates, or
+   its span overlaps no classified locus, inherit from the nearest classified
+   locus on the same chromosome within ``max_distance`` bp.
+   ``label_source=nearest_locus``. Proximity is a weaker signal than homology,
+   so it is recorded distinctly and downstream analyses can filter on it.
+3. Otherwise ``label_source=none`` and the taxonomy fields stay empty. A solo is
+   never dropped for being unlabelled - the count is a real observation even
+   when its lineage is not resolvable.
 
-Either way, the output GFF3 records which mechanism produced the
-labels via the ``label_source`` attribute (``family`` or
-``nearest_erv``) plus the list of contributing ERVs, so downstream
-consumers can reaggregate as needed.
+Overlap rather than exact coordinate equality is deliberate: LTR_retriever
+adjusts element boundaries during filtering, and a RetroSeek locus sits *inside*
+its LTR element rather than sharing its edges.
 
-Solo / intact ratio
--------------------
-In addition to the GFF3 output, this script computes a per-genome
-CSV recording, per probe family (main + accessory), the solo and
-intact counts and their ratio. Rows with ``label_mode='exclusive'``
-count a solo/intact LTR in exactly one family (its labels were a
-single-value set); rows with ``label_mode='shared'`` count
-multi-labelled records in every family they claim. Both views are
-emitted so downstream choice of counting rule stays flexible.
+Only ``source=ltr-flanked`` loci act as donors. An orphan has no LTR element by
+definition, so it cannot have contributed a sequence to the LTR library.
 
-Usage
------
-::
+Outputs
+-------
+``{genome}.gff3``
+    The solo-LTR track, one feature per solo, taxonomy in the attributes.
+``{genome}.solo_ltr.csv`` / ``.parquet``
+    Per-solo table in ``catalog.csv``'s column vocabulary, so solos can join the
+    catalog as the ``solo-ltr`` tier beside ``ltr-flanked`` and ``orphan``.
+``{genome}.csv`` / ``.parquet`` (ratio)
+    Solo/intact counts and ratio per group, where the denominator is the count
+    of LTR-flanked loci in that group. Grouping follows ADR-012's vocabulary:
+    ``segment`` (default), ``taxon_call`` or ``none``.
 
-    python solo_ltr_integrator.py \\
-        --nmtf-pass-list <path> \\
-        --ltr-library <path> \\
-        --pass-list-gff3 <path> \\
-        --valid-ranges <path> \\
-        --genome <name> \\
-        --output-gff3 <path> \\
-        --output-ratio-csv <path> \\
-        --output-ratio-parquet <path> \\
-        --nearest-erv-max-distance 10000
+Interpreting the ratio
+----------------------
+A high solo/intact ratio means many of a lineage's integrations have had time to
+recombine away, so the ratio orders lineages by relative age. It is a crude
+proxy: solo LTRs degrade faster than intact elements, integration preferences
+differ between lineages, and some proviruses are lost by deletion rather than
+recombination. The denominator counts proviruses with retroviral *gene*
+evidence, so it is also bounded by probe coverage.
 """
 
 from __future__ import annotations
@@ -91,30 +89,37 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+VALID_GROUP_BY = ("segment", "taxon_call", "none")
 
-# ------------------------------------------------------------------
-# Data classes
-# ------------------------------------------------------------------
+# >{chr}:{start}..{end}[_REGION][#LTR/{family}] - annotate_lib.pl. RepeatMasker
+# reports the name without the #class suffix, so that part is optional.
+_LIBRARY_ID_RE = re.compile(r"^(?P<chrom>.+?):(?P<start>\d+)\.\.(?P<end>\d+)")
+
+
 @dataclass
-class ValidRange:
-    """One retroviral-confirmed ERV from valid_ranges.gff3."""
+class ClassifiedLocus:
+    """One classified LTR-flanked locus - a potential taxonomy donor."""
 
-    chrom: str
-    start: int  # 0-indexed inclusive
-    end: int  # 0-indexed inclusive (GFF3 5th field is 1-indexed closed; we normalise)
-    probes: list[str] = field(default_factory=list)
-    erv_id: str = ""
+    id: str
+    seqname: str
+    start: int
+    end: int
+    taxon_call: str
+    rank: str
+    segment: str
+    segment_rank: str
+    erv_class: str
+    confidence: str
 
-    def overlaps(self, chrom: str, start: int, end: int) -> bool:
-        """Closed-interval overlap test, 0-indexed."""
-        return self.chrom == chrom and self.start <= end and self.end >= start
+    def overlap_with(self, seqname: str, start: int, end: int) -> int:
+        """Return the number of shared bases, 0 when disjoint or on another chrom."""
+        if self.seqname != seqname:
+            return 0
+        return max(0, min(self.end, end) - max(self.start, start) + 1)
 
-    def distance_to(self, chrom: str, start: int, end: int) -> int | None:
-        """Minimum bp distance to the given interval on the same chromosome.
-
-        Returns None if the chromosomes differ. Zero on overlap.
-        """
-        if self.chrom != chrom:
+    def distance_to(self, seqname: str, start: int, end: int) -> int | None:
+        """Minimum bp gap on the same chromosome; 0 on overlap, None if different."""
+        if self.seqname != seqname:
             return None
         if self.end < start:
             return start - self.end
@@ -125,463 +130,420 @@ class ValidRange:
 
 @dataclass
 class SoloLTR:
-    """One solo LTR from LTR_retriever nmtf.pass.list with annotations."""
+    """One solo LTR from ``solo_finder.pl``, with inherited taxonomy."""
 
     chrom: str
-    start: int  # 1-indexed (kept as emitted - we convert at GFF3 write time only)
+    start: int
     end: int
-    strand: str = "."
-    family: str | None = None
-    probe_labels: list[str] = field(default_factory=list)
-    contributing_ervs: list[str] = field(default_factory=list)
-    label_source: str = "none"  # "family" | "nearest_erv" | "none"
+    library_id: str
+    coverage: float
+    taxon_call: str = ""
+    rank: str = ""
+    segment: str = ""
+    segment_rank: str = ""
+    erv_class: str = ""
+    confidence: str = ""
+    source_loci: list[str] = field(default_factory=list)
+    label_source: str = "none"  # "library" | "nearest_locus" | "none"
 
 
-# ------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Parsers
-# ------------------------------------------------------------------
-def _parse_probes_from_gff3_attrs(attrs: str) -> list[str]:
-    """Extract probe labels from a GFF3 attribute string.
+# ---------------------------------------------------------------------
+def parse_library_locus(library_id: str) -> tuple[str, int, int] | None:
+    """Return ``(chrom, start, end)`` encoded in an LTR library sequence name.
 
-    Looks for ``probe_labels=...`` (multi-label), ``probe_category=...``,
-    and ``probe=...`` in that preference order. Comma-separated values
-    are split into a list.
+    **Coordinates are normalised so start <= end.** LTR_retriever writes
+    minus-strand elements in descending order (``CM040301.1:40850808..40843686``),
+    and on the Desmodus pilot that was 47% of all solos - every one of them
+    silently failed the overlap join and lost its taxon, because a reversed
+    interval makes the shared-base arithmetic return zero rather than error.
+
+    Returns ``None`` when the name carries no coordinates - an older
+    LTR_retriever naming scheme, or a RepeatMasker rename. That is not an error;
+    the caller falls back to the nearest classified locus.
     """
-    for key in ("probe_labels", "probe", "probe_category"):
-        match = re.search(rf"(?:^|;){re.escape(key)}=([^;]+)", attrs)
-        if match:
-            raw = match.group(1).strip()
-            return [p.strip() for p in raw.split(",") if p.strip()]
-    return []
-
-
-def parse_valid_ranges(path: Path) -> list[ValidRange]:
-    """Return all ranges from valid_ranges.gff3 with their probe labels."""
-    if not path.exists():
-        raise FileNotFoundError(f"valid_ranges GFF3 not found: {path}")
-    ranges: list[ValidRange] = []
-    with path.open() as handle:
-        for raw in handle:
-            if raw.startswith("#") or not raw.strip():
-                continue
-            fields = raw.rstrip("\n").split("\t")
-            if len(fields) < 9:
-                continue
-            try:
-                start = int(fields[3]) - 1
-                end = int(fields[4])
-            except ValueError:
-                continue
-            chrom = fields[0]
-            attrs = fields[8]
-            id_match = re.search(r"(?:^|;)ID=([^;]+)", attrs)
-            erv_id = id_match.group(1) if id_match else ""
-            ranges.append(
-                ValidRange(
-                    chrom=chrom,
-                    start=start,
-                    end=end,
-                    probes=_parse_probes_from_gff3_attrs(attrs),
-                    erv_id=erv_id,
-                )
-            )
-    return ranges
-
-
-def parse_ltr_library_headers(path: Path) -> dict[str, list[str]]:
-    """Return a ``family -> list of source-ERV IDs`` mapping from LTRlib.fa.
-
-    LTR_retriever's FASTA headers look approximately like::
-
-        >family1#LTR/unknown  members=17  source=LTR_retrotransposon5,LTR_retrotransposon12,...
-
-    Format varies across LTR_retriever versions. The parser looks for
-    a ``source=`` or ``members=`` token; if neither is present, the
-    family has no traceable source ERVs and the caller's fallback
-    mechanism kicks in.
-    """
-    if not path.exists():
-        return {}
-    mapping: dict[str, list[str]] = {}
-    with path.open() as handle:
-        for raw in handle:
-            if not raw.startswith(">"):
-                continue
-            header = raw[1:].strip()
-            # Family ID is the first whitespace-delimited token, minus
-            # any ``#TE_class`` suffix.
-            first = header.split()[0]
-            family = first.split("#")[0]
-            # Try source=<ids> then members=<ids>.
-            source_match = re.search(r"(?:source|members)=([^\s]+)", header)
-            source_ids: list[str] = []
-            if source_match:
-                source_ids = [
-                    s.strip() for s in source_match.group(1).split(",") if s.strip()
-                ]
-            mapping[family] = source_ids
-    return mapping
-
-
-def _parse_coord_column(cell: str) -> tuple[str, int, int] | None:
-    """Parse an LTR_retriever-style coordinate cell.
-
-    Handles the two common formats LTR_retriever emits:
-
-    - ``chrom:start..end``  (older releases)
-    - ``chrom:start..end(+|-)``  (with strand suffix, newer)
-
-    Returns ``(chrom, start, end)`` or ``None`` if the cell doesn't
-    parse. Start / end returned as-is (LTR_retriever uses 1-indexed
-    inclusive).
-    """
-    match = re.match(r"^([^\s:]+):(\d+)\.\.(\d+)([+\-])?\s*$", cell)
-    if not match:
+    match = _LIBRARY_ID_RE.match(library_id)
+    if match is None:
         return None
-    return match.group(1), int(match.group(2)), int(match.group(3))
+    start, end = int(match.group("start")), int(match.group("end"))
+    return match.group("chrom"), min(start, end), max(start, end)
 
 
-def parse_nmtf_pass_list(path: Path) -> list[SoloLTR]:
-    """Return all solo / truncated LTR entries from nmtf.pass.list.
+def parse_solo_list(path: Path) -> list[SoloLTR]:
+    """Read ``solo_finder.pl`` output. A missing or empty file yields no solos.
 
-    The file is whitespace-delimited; we're defensive about column
-    layout, which varies across LTR_retriever versions. We look for
-    a column that parses as a coordinate tuple (``chrom:start..end``)
-    and a column that looks like a family ID (``family\\d+`` or a
-    bare alphanumeric family token).
+    Zero solos is a legitimate result for a genome, so absence is not an error
+    here - but ``run_ltr_retriever.py`` does fail loudly when the RepeatMasker
+    table that feeds solo_finder is missing, which is a different claim.
     """
     if not path.exists():
         return []
     solos: list[SoloLTR] = []
     with path.open() as handle:
         for raw in handle:
-            line = raw.rstrip("\n")
-            if not line or line.startswith("#"):
+            if raw.startswith("#") or not raw.strip():
                 continue
-            cols = line.split()
-            coord: tuple[str, int, int] | None = None
-            family: str | None = None
-            strand: str = "."
-            for cell in cols:
-                if coord is None:
-                    parsed = _parse_coord_column(cell)
-                    if parsed is not None:
-                        coord = parsed
-                        # Try to peel off a trailing strand suffix if present.
-                        if cell.endswith(("+", "-")):
-                            strand = cell[-1]
-                        continue
-                if family is None and re.match(r"^[A-Za-z][\w\-\.]+$", cell):
-                    # Heuristic: a family ID-looking token AFTER the coord column.
-                    # Skip a few known decoration tokens so we don't mis-identify.
-                    if cell.lower() in {"solo", "truncated", "intact", "pass", "nmtf"}:
-                        continue
-                    family = cell
-            if coord is None:
+            fields = raw.rstrip("\n").split("\t")
+            if len(fields) < 6:
                 continue
-            chrom, start, end = coord
+            try:
+                start, end = int(fields[1]), int(fields[2])
+                coverage = float(fields[5])
+            except ValueError:
+                continue
             solos.append(
                 SoloLTR(
-                    chrom=chrom,
+                    chrom=fields[0],
                     start=start,
                     end=end,
-                    strand=strand,
-                    family=family,
+                    library_id=fields[4],
+                    coverage=coverage,
                 )
             )
     return solos
 
 
-# ------------------------------------------------------------------
-# Label propagation
-# ------------------------------------------------------------------
-def _valid_by_chrom(ranges: list[ValidRange]) -> dict[str, list[ValidRange]]:
-    """Group valid ranges by chromosome for fast chromosome-scoped lookups."""
-    out: dict[str, list[ValidRange]] = defaultdict(list)
-    for r in ranges:
-        out[r.chrom].append(r)
-    for chrom_ranges in out.values():
-        chrom_ranges.sort(key=lambda r: r.start)
-    return dict(out)
+def parse_loci_csv(path: Path) -> list[ClassifiedLocus]:
+    """Read the classified LTR-flanked loci that can donate a taxon.
 
-
-def _resolve_source_ervs_to_valid_ranges(
-    source_ids: list[str],
-    valid_ranges: list[ValidRange],
-) -> list[ValidRange]:
-    """Match source-ERV IDs from LTR_retriever against valid_ranges.
-
-    LTR_retriever's source IDs refer to LTRharvest candidate ERVs (e.g.
-    ``LTR_retrotransposon5``) - these don't match RetroSeek's own
-    probe-based IDs in ``valid_ranges.gff3``. Fortunately, LTR_retriever
-    preserves the source ERV's genomic coordinates in its
-    ``pass.list.gff3``. If that's parsed separately and passed here,
-    we can intersect coordinates.
-
-    For the first implementation, this helper returns an empty list
-    when source IDs can't be directly matched to valid_ranges IDs -
-    the caller then falls through to the nearest-ERV mechanism. Future
-    enhancement: pass the parsed ``pass.list.gff3`` so we can do a
-    two-step coord mapping.
+    Orphan rows are skipped: an orphan has no LTR element, so it cannot have
+    seeded a sequence in LTR_retriever's LTR library.
     """
-    # Build an ID -> ValidRange map; if the ID nomenclature happens to
-    # align, we resolve cleanly. Otherwise return empty and let the
-    # fallback handle it.
-    id_to_range = {r.erv_id: r for r in valid_ranges if r.erv_id}
-    return [id_to_range[sid] for sid in source_ids if sid in id_to_range]
-
-
-def _nearest_valid_erv(
-    solo: SoloLTR,
-    valid_by_chrom: dict[str, list[ValidRange]],
-    max_distance: int,
-) -> ValidRange | None:
-    """Return the nearest valid ERV on the same chromosome within max_distance."""
-    candidates = valid_by_chrom.get(solo.chrom, [])
-    if not candidates:
-        return None
-    # Convert solo coords to 0-indexed closed for distance calc.
-    start = solo.start - 1
-    end = solo.end
-    best: ValidRange | None = None
-    best_dist: int | None = None
-    for r in candidates:
-        dist = r.distance_to(solo.chrom, start, end)
-        if dist is None or dist > max_distance:
+    if not path.exists():
+        raise FileNotFoundError(f"classified loci CSV not found: {path}")
+    frame = pd.read_csv(path, dtype=str).fillna("")
+    if "source" in frame.columns:
+        frame = frame[frame["source"] == "ltr-flanked"]
+    loci: list[ClassifiedLocus] = []
+    for row in frame.to_dict("records"):
+        try:
+            start, end = int(row["start"]), int(row["end"])
+        except (KeyError, ValueError):
             continue
-        if best_dist is None or dist < best_dist:
-            best_dist = dist
-            best = r
-    return best
+        loci.append(
+            ClassifiedLocus(
+                id=str(row.get("id", "")),
+                seqname=str(row.get("seqname", "")),
+                start=start,
+                end=end,
+                taxon_call=str(row.get("taxon_call", "")),
+                rank=str(row.get("rank", "")),
+                segment=str(row.get("segment", "")),
+                segment_rank=str(row.get("segment_rank", "")),
+                erv_class=str(row.get("erv_class", "")),
+                confidence=str(row.get("confidence", "")),
+            )
+        )
+    return loci
 
 
-def propagate_labels(
+# ---------------------------------------------------------------------
+# Annotation
+# ---------------------------------------------------------------------
+def _inherit(solo: SoloLTR, donor: ClassifiedLocus, label_source: str) -> None:
+    solo.taxon_call = donor.taxon_call
+    solo.rank = donor.rank
+    solo.segment = donor.segment
+    solo.segment_rank = donor.segment_rank
+    solo.erv_class = donor.erv_class
+    solo.confidence = donor.confidence
+    solo.label_source = label_source
+
+
+def annotate_solos(
     solos: list[SoloLTR],
-    valid_ranges: list[ValidRange],
-    family_to_sources: dict[str, list[str]],
+    loci: list[ClassifiedLocus],
     max_distance: int,
 ) -> None:
-    """In-place annotation of solo LTRs with probe labels.
+    """Populate each solo's taxonomy in place (library path, then nearest locus)."""
+    by_chrom: dict[str, list[ClassifiedLocus]] = defaultdict(list)
+    for locus in loci:
+        by_chrom[locus.seqname].append(locus)
 
-    Applies the hybrid strategy: consensus-family primary path, nearest-
-    ERV fallback. Each solo's ``probe_labels``, ``contributing_ervs``,
-    and ``label_source`` fields are populated.
-    """
-    valid_by_chrom = _valid_by_chrom(valid_ranges)
     for solo in solos:
-        # ---- primary path ----
-        if solo.family and solo.family in family_to_sources:
-            sources = family_to_sources[solo.family]
-            resolved = _resolve_source_ervs_to_valid_ranges(sources, valid_ranges)
-            if resolved:
-                labels: set[str] = set()
-                contributors: list[str] = []
-                for r in resolved:
-                    labels.update(r.probes)
-                    if r.erv_id:
-                        contributors.append(r.erv_id)
-                if labels:
-                    solo.probe_labels = sorted(labels)
-                    solo.contributing_ervs = contributors
-                    solo.label_source = "family"
-                    continue
-        # ---- fallback path ----
-        nearest = _nearest_valid_erv(solo, valid_by_chrom, max_distance)
-        if nearest and nearest.probes:
-            solo.probe_labels = sorted(set(nearest.probes))
-            solo.contributing_ervs = [nearest.erv_id] if nearest.erv_id else []
-            solo.label_source = "nearest_erv"
-
-
-# ------------------------------------------------------------------
-# Writers
-# ------------------------------------------------------------------
-def write_solo_ltr_gff3(solos: list[SoloLTR], output_path: Path) -> None:
-    """Write annotated solo LTRs as GFF3.
-
-    Attributes per feature: ``ID``, ``family``, ``probe_labels`` (comma-
-    separated), ``contributing_ervs`` (comma-separated), ``label_source``.
-    An empty solos list still emits the header so Snakemake sees a
-    valid file.
-    """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w") as fout:
-        fout.write("##gff-version 3\n")
-        fout.write("##source-version RetroSeek solo_ltr_integrator.py\n")
-        for i, solo in enumerate(solos, start=1):
-            attrs_parts = [
-                f"ID=soloLTR_{i}",
-                f"family={solo.family or 'unresolved'}",
-                f"probe_labels={','.join(solo.probe_labels) if solo.probe_labels else 'none'}",
-                f"contributing_ervs={','.join(solo.contributing_ervs) if solo.contributing_ervs else 'none'}",
-                f"label_source={solo.label_source}",
+        # ---- primary path: the library entry's own element ----
+        library_locus = parse_library_locus(solo.library_id)
+        if library_locus is not None:
+            chrom, start, end = library_locus
+            overlapping = [
+                (locus.overlap_with(chrom, start, end), locus)
+                for locus in by_chrom.get(chrom, [])
             ]
-            row = [
-                solo.chrom,
-                "LTR_retriever",
-                "solo_LTR",
-                str(solo.start),
-                str(solo.end),
-                ".",
-                solo.strand,
-                ".",
-                ";".join(attrs_parts),
-            ]
-            fout.write("\t".join(row) + "\n")
+            hits = sorted(
+                ((width, locus) for width, locus in overlapping if width > 0),
+                key=lambda pair: (-pair[0], pair[1].id),
+            )
+            if hits:
+                _inherit(solo, hits[0][1], "library")
+                solo.source_loci = [locus.id for _, locus in hits]
+                continue
+
+        # ---- fallback: nearest classified locus ----
+        nearest: ClassifiedLocus | None = None
+        nearest_distance: int | None = None
+        for locus in by_chrom.get(solo.chrom, []):
+            distance = locus.distance_to(solo.chrom, solo.start, solo.end)
+            if distance is None or distance > max_distance:
+                continue
+            if nearest_distance is None or distance < nearest_distance:
+                nearest, nearest_distance = locus, distance
+        if nearest is not None:
+            _inherit(solo, nearest, "nearest_locus")
+            solo.source_loci = [nearest.id]
+
+
+# ---------------------------------------------------------------------
+# Ratio
+# ---------------------------------------------------------------------
+def _group_value(taxon_call: str, segment: str, group_by: str) -> str:
+    if group_by == "none":
+        return "all"
+    return (segment if group_by == "segment" else taxon_call) or "unassigned"
 
 
 def compute_solo_intact_ratio(
     solos: list[SoloLTR],
-    valid_ranges: list[ValidRange],
+    loci: list[ClassifiedLocus],
     species: str,
+    group_by: str = "segment",
 ) -> pd.DataFrame:
-    """Return per-probe-family solo/intact counts + ratios.
+    """Return per-group solo and intact counts with their ratio.
 
-    Two label modes are emitted:
-
-    - ``exclusive`` - counts a solo/intact in exactly one family (its
-      ``probes`` list has length 1).
-    - ``shared``    - counts multi-labelled entries in every family they
-      claim (length > 1).
-
-    Rows with zero intact count get ``solo_to_intact_ratio = NaN``.
+    Groups with intact loci but no solos are emitted with ``solo_count = 0``:
+    a lineage whose proviruses have not recombined away is a finding, and
+    dropping the row would silently turn it into a missing lineage.
     """
+    if group_by not in VALID_GROUP_BY:
+        raise ValueError(
+            f"Unknown group_by {group_by!r}; expected one of {VALID_GROUP_BY}"
+        )
 
-    def _bump(
-        bucket: dict[tuple[str, str], dict[str, int]],
-        key: tuple[str, str],
-        field_name: str,
-        amount: int = 1,
-    ) -> None:
-        if key not in bucket:
-            bucket[key] = {"solo_count": 0, "intact_count": 0}
-        bucket[key][field_name] += amount
+    intact: dict[str, int] = defaultdict(int)
+    for locus in loci:
+        intact[_group_value(locus.taxon_call, locus.segment, group_by)] += 1
+    solo: dict[str, int] = defaultdict(int)
+    for entry in solos:
+        solo[_group_value(entry.taxon_call, entry.segment, group_by)] += 1
 
-    bucket: dict[tuple[str, str], dict[str, int]] = {}
-    for r in valid_ranges:
-        if not r.probes:
-            continue
-        mode = "exclusive" if len(r.probes) == 1 else "shared"
-        for p in r.probes:
-            _bump(bucket, (p, mode), "intact_count")
-    for solo in solos:
-        if not solo.probe_labels:
-            continue
-        mode = "exclusive" if len(solo.probe_labels) == 1 else "shared"
-        for p in solo.probe_labels:
-            _bump(bucket, (p, mode), "solo_count")
     rows = []
-    for (probe, mode), counts in sorted(bucket.items()):
-        solo_count = counts["solo_count"]
-        intact_count = counts["intact_count"]
-        ratio = (solo_count / intact_count) if intact_count else float("nan")
+    for group in sorted(set(intact) | set(solo)):
+        solo_count, intact_count = solo.get(group, 0), intact.get(group, 0)
         total = solo_count + intact_count
-        solo_fraction = (solo_count / total) if total else 0.0
         rows.append(
             {
                 "species": species,
-                "probe_family": probe,
-                "label_mode": mode,
+                "group": group,
+                "group_by": group_by,
                 "intact_count": intact_count,
                 "solo_count": solo_count,
                 "total_integrations": total,
-                "solo_to_intact_ratio": ratio,
-                "solo_fraction": solo_fraction,
+                "solo_to_intact_ratio": (
+                    solo_count / intact_count if intact_count else float("nan")
+                ),
+                "solo_fraction": (solo_count / total) if total else 0.0,
             }
         )
     return pd.DataFrame(rows)
 
 
-# ------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Writers
+# ---------------------------------------------------------------------
+def solo_id(index: int) -> str:
+    """Stable per-solo identifier, shared by the GFF3 track and the table.
+
+    The two outputs describe the same records, so they must agree: without a
+    common key there is no way to look up a track feature's row in the catalog.
+    Unique within a genome, like the classifier's ``L``-prefixed locus ids.
+    """
+    return f"S{index}"
+
+
+def write_solo_ltr_gff3(solos: list[SoloLTR], output_path: Path, genome: str) -> None:
+    """Write the solo-LTR track. An empty set still emits a valid header."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w") as handle:
+        handle.write("##gff-version 3\n")
+        handle.write(f"##source-version RetroSeek solo_ltr_integrator {genome}\n")
+        for index, solo in enumerate(solos):
+            attributes = ";".join(
+                (
+                    f"ID={solo_id(index)}",
+                    f"taxon_call={solo.taxon_call or 'unassigned'}",
+                    f"segment={solo.segment or 'unassigned'}",
+                    f"erv_class={solo.erv_class or 'NA'}",
+                    f"library_id={solo.library_id}",
+                    f"coverage={solo.coverage:.3f}",
+                    f"source_loci={','.join(solo.source_loci) or 'none'}",
+                    f"label_source={solo.label_source}",
+                )
+            )
+            handle.write(
+                "\t".join(
+                    (
+                        solo.chrom,
+                        "LTR_retriever",
+                        "solo_LTR",
+                        str(solo.start),
+                        str(solo.end),
+                        ".",
+                        ".",
+                        ".",
+                        attributes,
+                    )
+                )
+                + "\n"
+            )
+
+
+def solo_table(solos: list[SoloLTR], species: str) -> pd.DataFrame:
+    """Return the per-solo table in ``catalog.csv``'s column vocabulary.
+
+    A solo LTR has no internal region by definition, so the gene-content columns
+    are constants: ``structure_class=solo_ltr``, no main genes, zero
+    completeness. ``source=solo-ltr`` is the third catalog tier.
+    """
+    return pd.DataFrame(
+        [
+            {
+                "species": species,
+                "source": "solo-ltr",
+                "seqname": solo.chrom,
+                "start": solo.start,
+                "end": solo.end,
+                "strand": ".",
+                "taxon_call": solo.taxon_call,
+                "rank": solo.rank,
+                "segment": solo.segment,
+                "segment_rank": solo.segment_rank,
+                "resolved": bool(solo.taxon_call),
+                "confidence": solo.confidence,
+                "erv_class": solo.erv_class,
+                "structure_class": "solo_ltr",
+                "domain_tier": "non_domain",
+                "completeness": 0.0,
+                "n_main_genes": 0,
+                "genes_present": "",
+                "is_mosaic": False,
+                "coverage": solo.coverage,
+                "library_id": solo.library_id,
+                "source_loci": ",".join(solo.source_loci),
+                "label_source": solo.label_source,
+                "id": solo_id(index),
+            }
+            for index, solo in enumerate(solos)
+        ],
+        columns=[
+            "species",
+            "source",
+            "seqname",
+            "start",
+            "end",
+            "strand",
+            "taxon_call",
+            "rank",
+            "segment",
+            "segment_rank",
+            "resolved",
+            "confidence",
+            "erv_class",
+            "structure_class",
+            "domain_tier",
+            "completeness",
+            "n_main_genes",
+            "genes_present",
+            "is_mosaic",
+            "coverage",
+            "library_id",
+            "source_loci",
+            "label_source",
+            "id",
+        ],
+    )
+
+
+def write_solo_table(
+    solos: list[SoloLTR], csv_path: Path, parquet_path: Path, species: str
+) -> None:
+    """Write the per-solo table as both user-facing CSV and pipeline parquet."""
+    frame = solo_table(solos, species)
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    parquet_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(csv_path, index=False)
+    frame.to_parquet(parquet_path, index=False)
+
+
+# ---------------------------------------------------------------------
 # CLI
-# ------------------------------------------------------------------
+# ---------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--nmtf-pass-list",
+        "--solo-list",
         type=Path,
         required=True,
-        help="LTR_retriever .nmtf.pass.list (solo + truncated LTRs).",
+        help="solo_finder.pl output ({genome}.solo_list).",
     )
     parser.add_argument(
-        "--ltr-library",
+        "--loci-csv",
         type=Path,
         required=True,
-        help="LTR_retriever .LTRlib.fa (consensus library with source-ERV headers).",
+        help="Classified loci ({genome}.loci.csv) - taxonomy donors.",
     )
+    parser.add_argument("--genome", required=True, help="Genome stem, for messages.")
     parser.add_argument(
-        "--valid-ranges", type=Path, required=True, help="RetroSeek valid_ranges.gff3."
+        "--species", required=True, help="Display species name, keyed to the catalog."
     )
-    parser.add_argument(
-        "--genome",
-        required=True,
-        help="Genome / species identifier (used in ratio CSV species column).",
-    )
-    parser.add_argument(
-        "--output-gff3",
-        type=Path,
-        required=True,
-        help="Output path for annotated solo-LTR GFF3.",
-    )
-    parser.add_argument(
-        "--output-ratio-csv",
-        type=Path,
-        required=True,
-        help="Output path for the per-genome solo/intact ratio CSV (user-facing).",
-    )
-    parser.add_argument(
-        "--output-ratio-parquet",
-        type=Path,
-        required=True,
-        help="Output path for the per-genome solo/intact ratio Parquet (pipeline-internal).",
-    )
-    parser.add_argument(
-        "--nearest-erv-max-distance",
-        type=int,
-        default=10000,
-        help="bp window for the nearest-ERV fallback label propagation.",
-    )
+    parser.add_argument("--output-gff3", type=Path, required=True)
+    parser.add_argument("--output-solo-csv", type=Path, required=True)
+    parser.add_argument("--output-solo-parquet", type=Path, required=True)
+    parser.add_argument("--output-ratio-csv", type=Path, required=True)
+    parser.add_argument("--output-ratio-parquet", type=Path, required=True)
+    parser.add_argument("--group-by", choices=VALID_GROUP_BY, default="segment")
+    parser.add_argument("--nearest-locus-max-distance", type=int, default=10000)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    valid_ranges = parse_valid_ranges(args.valid_ranges)
-    family_to_sources = parse_ltr_library_headers(args.ltr_library)
-    solos = parse_nmtf_pass_list(args.nmtf_pass_list)
+    loci = parse_loci_csv(args.loci_csv)
+    solos = parse_solo_list(args.solo_list)
+    annotate_solos(solos, loci, max_distance=args.nearest_locus_max_distance)
 
+    by_source = dict.fromkeys(("library", "nearest_locus", "none"), 0)
+    for solo in solos:
+        by_source[solo.label_source] += 1
     logger.info(
-        "Loaded %d valid ranges, %d consensus families, %d candidate solo LTRs",
-        len(valid_ranges),
-        len(family_to_sources),
+        "%s: %d solo LTR(s) against %d LTR-flanked loci "
+        "(taxon from library: %d, nearest locus: %d, unassigned: %d)",
+        args.genome,
         len(solos),
+        len(loci),
+        by_source["library"],
+        by_source["nearest_locus"],
+        by_source["none"],
     )
+    if loci and not solos:
+        logger.warning(
+            "%s produced zero solo LTRs despite %d LTR-flanked loci. On a real "
+            "mammalian genome solo LTRs normally outnumber intact proviruses, so "
+            "check the RepeatMasker annotation in the LTR_retriever log.",
+            args.genome,
+            len(loci),
+        )
 
-    propagate_labels(
-        solos=solos,
-        valid_ranges=valid_ranges,
-        family_to_sources=family_to_sources,
-        max_distance=args.nearest_erv_max_distance,
+    write_solo_ltr_gff3(solos, args.output_gff3, genome=args.genome)
+    write_solo_table(
+        solos, args.output_solo_csv, args.output_solo_parquet, species=args.species
     )
-
-    n_family = sum(1 for s in solos if s.label_source == "family")
-    n_nearest = sum(1 for s in solos if s.label_source == "nearest_erv")
-    n_none = sum(1 for s in solos if s.label_source == "none")
-    logger.info(
-        "Label propagation - family: %d, nearest_erv: %d, unresolved: %d",
-        n_family,
-        n_nearest,
-        n_none,
+    ratio = compute_solo_intact_ratio(
+        solos, loci, species=args.species, group_by=args.group_by
     )
-
-    write_solo_ltr_gff3(solos, args.output_gff3)
-
-    ratio_df = compute_solo_intact_ratio(solos, valid_ranges, species=args.genome)
     args.output_ratio_csv.parent.mkdir(parents=True, exist_ok=True)
     args.output_ratio_parquet.parent.mkdir(parents=True, exist_ok=True)
-    ratio_df.to_csv(args.output_ratio_csv, index=False)
-    ratio_df.to_parquet(args.output_ratio_parquet, index=False)
-
+    ratio.to_csv(args.output_ratio_csv, index=False)
+    ratio.to_parquet(args.output_ratio_parquet, index=False)
     return 0
 
 

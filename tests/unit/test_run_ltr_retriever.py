@@ -17,8 +17,10 @@ from run_ltr_retriever import (
     LTRRetrieverParams,
     finalise_outputs,
     main,
+    resolve_helper_dir,
     resolve_source_scn,
     run_binary,
+    run_solo_finder,
     stage_workdir,
 )
 
@@ -100,7 +102,6 @@ def _basic_params(binary: Path = Path("/bin/echo")) -> LTRRetrieverParams:
         substitution_rate=1.3e-8,
         min_similarity=91,
         threads=1,
-        noanno=True,
         binary=binary,
     )
 
@@ -162,13 +163,17 @@ def test_finalise_outputs_renames_fa_mod_prefix(tmp_path: Path) -> None:
 
 
 def test_finalise_outputs_raises_on_missing_expected_file(tmp_path: Path) -> None:
-    """Only 2 of 3 expected outputs present -> loud failure with a useful message."""
+    """A partial output set is a loud failure naming what is absent.
+
+    ``{genome}.out`` is the RepeatMasker table solo_finder.pl reads; without it
+    the stage cannot produce solo LTRs, so its absence must not pass silently.
+    """
     genome_name = "Toyus"
-    # Materialise only two of the three.
+    (tmp_path / f"{genome_name}.fa.mod.pass.list").write_text("x")
     (tmp_path / f"{genome_name}.fa.mod.pass.list.gff3").write_text("x")
     (tmp_path / f"{genome_name}.fa.mod.LTRlib.fa").write_text("x")
 
-    with pytest.raises(RuntimeError, match=r"nmtf\.pass\.list"):
+    with pytest.raises(RuntimeError, match=r"Toyus\.out"):
         finalise_outputs(tmp_path, genome_name)
 
 
@@ -201,12 +206,13 @@ def test_main_end_to_end_with_fake_binary(tmp_path: Path) -> None:
         "echo 'fake LTR_retriever running'\n"
         "echo 'genome flag was:' $2\n"
         # LTR_retriever's working dir is the cwd; produce the .fa.mod.* trio.
-        "for ext in pass.list.gff3 nmtf.pass.list LTRlib.fa; do\n"
+        "for ext in pass.list pass.list.gff3 LTRlib.fa out; do\n"
         "  echo 'fake content' > Toyus.fa.mod.$ext\n"
         "done\n"
         "exit 0\n"
     )
     shim.chmod(shim.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    _write_fake_helpers(tmp_path / "bin")
 
     rc = main(
         [
@@ -228,7 +234,6 @@ def test_main_end_to_end_with_fake_binary(tmp_path: Path) -> None:
             "91",
             "--threads",
             "1",
-            "--noanno",
             "--log-file",
             str(log),
             "--ltr-retriever-binary",
@@ -240,6 +245,8 @@ def test_main_end_to_end_with_fake_binary(tmp_path: Path) -> None:
     for ext in EXPECTED_OUTPUT_EXTS:
         assert (workdir / f"Toyus.{ext}").is_file()
     assert "fake LTR_retriever running" in log.read_text()
+    # The solo list is the stage's actual deliverable, not just a side effect.
+    assert (workdir / "Toyus.solo_list").is_file()
 
 
 def test_main_returns_nonzero_when_binary_fails(tmp_path: Path) -> None:
@@ -279,3 +286,84 @@ def test_main_returns_nonzero_when_binary_fails(tmp_path: Path) -> None:
         ]
     )
     assert rc == 3
+
+
+# ---------------------------------------------------------------------
+# resolve_helper_dir / run_solo_finder
+#
+# Solo LTRs come from LTR_retriever's own bin/ helpers driven off the
+# whole-genome RepeatMasker table, NOT from nmtf.pass.list (which holds intact
+# non-TGCA elements). These tests pin that wiring.
+# ---------------------------------------------------------------------
+def _write_fake_helpers(bin_dir: Path) -> Path:
+    """Create stand-in find_LTR.pl / solo_finder.pl that emit realistic output."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    (bin_dir / "find_LTR.pl").write_text('print "lib1\t1\t300\t300\n";\n')
+    (bin_dir / "solo_finder.pl").write_text(
+        'print "chr1\t1000\t1300\tchr1:1000..1300\tlib1\t0.95\n";\n'
+    )
+    return bin_dir
+
+
+def test_resolve_helper_dir_finds_bin_beside_the_perl_program(tmp_path: Path) -> None:
+    """The plain layout: share/LTR_retriever/LTR_retriever with bin/ alongside."""
+    program = tmp_path / "LTR_retriever"
+    program.write_text("#!/usr/bin/env perl\n")
+    _write_fake_helpers(tmp_path / "bin")
+    assert resolve_helper_dir(program) == tmp_path / "bin"
+
+
+def test_resolve_helper_dir_follows_the_conda_bash_shim(tmp_path: Path) -> None:
+    """Conda installs bin/LTR_retriever as a shim exec'ing the real Perl program.
+
+    The shim's own directory has no bin/ subdirectory, so the resolver has to
+    read the shim and follow the share/LTR_retriever path inside it.
+    """
+    share = tmp_path / "share" / "LTR_retriever"
+    share.mkdir(parents=True)
+    (share / "LTR_retriever").write_text("#!/usr/bin/env perl\n")
+    _write_fake_helpers(share / "bin")
+
+    shim_dir = tmp_path / "bin"
+    shim_dir.mkdir()
+    shim = shim_dir / "LTR_retriever"
+    shim.write_text(f"#!/bin/bash\nNAME=$(basename $0)\nperl {share}/${{NAME}} $@\n")
+    assert resolve_helper_dir(shim) == share / "bin"
+
+
+def test_resolve_helper_dir_raises_when_helpers_are_absent(tmp_path: Path) -> None:
+    program = tmp_path / "LTR_retriever"
+    program.write_text("#!/usr/bin/env perl\n")
+    with pytest.raises(FileNotFoundError, match=r"solo_finder\.pl"):
+        resolve_helper_dir(program)
+
+
+def test_run_solo_finder_writes_the_solo_list(tmp_path: Path) -> None:
+    """The two helpers are chained and their stdout captured to files."""
+    genome, scn = _make_genome_and_scn(tmp_path)
+    staged = stage_workdir(tmp_path / "wd", genome, scn, genome_name="Toyus")
+    (staged.workdir / "Toyus.LTRlib.fa").write_text(">lib1\nACGT\n")
+    (staged.workdir / "Toyus.out").write_text("fake RepeatMasker table\n")
+    helpers = _write_fake_helpers(tmp_path / "bin")
+
+    solo_list = run_solo_finder(staged, helpers, tmp_path / "solo.log")
+
+    assert solo_list == staged.workdir / "Toyus.solo_list"
+    assert solo_list.read_text().startswith("chr1\t1000\t1300")
+    # find_LTR.pl's output is an intermediate the solo caller depends on.
+    assert (staged.workdir / "Toyus.LTR.info").is_file()
+
+
+def test_run_solo_finder_raises_without_the_repeatmasker_table(tmp_path: Path) -> None:
+    """A missing {genome}.out means annotation never ran - fail, do not emit zero.
+
+    Zero solos and "annotation was skipped" are different claims, and only the
+    first is a biological result.
+    """
+    genome, scn = _make_genome_and_scn(tmp_path)
+    staged = stage_workdir(tmp_path / "wd", genome, scn, genome_name="Toyus")
+    (staged.workdir / "Toyus.LTRlib.fa").write_text(">lib1\nACGT\n")
+    helpers = _write_fake_helpers(tmp_path / "bin")
+
+    with pytest.raises(RuntimeError, match="annotation"):
+        run_solo_finder(staged, helpers, tmp_path / "solo.log")

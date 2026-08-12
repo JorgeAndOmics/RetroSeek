@@ -15,6 +15,27 @@ Embedding all that in a Snakemake ``shell:`` block produced fragile
 multi-line bash that silently no-op'd on missing files. This wrapper
 isolates each concern into a unit-testable Python helper.
 
+Where solo LTRs actually come from
+----------------------------------
+LTR_retriever does **not** report solo LTRs in ``nmtf.pass.list``. That file
+holds *intact* LTR-RTs whose termini lack the canonical TGCA motif - the
+tool's own result banner calls it ``(Non-TGCA LTR-RTs)`` and its summary line
+reads "Total intact non-TGCA LTR-RTs found". An earlier revision of this
+workstream read "nmtf" as "non-matching-full" and wired the integrator to it,
+which would have reported intact elements as solo LTRs.
+
+The real path runs off the whole-genome RepeatMasker annotation:
+
+1. LTR_retriever annotates the genome with its own LTR library, writing
+   ``{genome}.out`` (RepeatMasker table). This only happens when annotation is
+   enabled, so this runner never passes ``-noanno``.
+2. ``bin/find_LTR.pl -lib {genome}.LTRlib.fa`` maps the LTR regions inside each
+   library sequence.
+3. ``bin/solo_finder.pl -i {genome}.out -info {genome}.LTR.info`` emits the solo
+   list: ``chrom, start, end, locus, library_id, coverage``. A hit counts as
+   solo when it covers 0.8-1.2 of the library LTR, is at least 80 bp, and sits
+   at least 300 bp clear of any internal-region annotation.
+
 CLI
 ---
 ::
@@ -26,7 +47,6 @@ CLI
         --workdir <path> \\
         --genome-name <str> \\
         --substitution-rate <float> --min-similarity <int> --threads <int> \\
-        [--noanno] \\
         --log-file <path> [--ltr-retriever-binary <path>]
 """
 
@@ -34,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -42,10 +63,14 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# `{genome}.out` is RepeatMasker's whole-genome table and the sole input to
+# solo_finder.pl; `pass.list` is the intact set that forms the solo/intact
+# ratio's denominator. Both are absent unless annotation runs.
 EXPECTED_OUTPUT_EXTS: tuple[str, ...] = (
+    "pass.list",
     "pass.list.gff3",
-    "nmtf.pass.list",
     "LTRlib.fa",
+    "out",
 )
 VALID_SOURCE_SCN_MODES = ("retroviral", "full")
 
@@ -62,12 +87,17 @@ class StagedPaths:
 
 @dataclass
 class LTRRetrieverParams:
-    """Tunable parameters forwarded to the LTR_retriever binary."""
+    """Tunable parameters forwarded to the LTR_retriever binary.
+
+    ``-noanno`` is deliberately absent: it suppresses the whole-genome
+    RepeatMasker pass, and that pass produces the only file solo_finder.pl can
+    read. Solo-LTR detection is the entire purpose of this stage, so annotation
+    is not optional here.
+    """
 
     substitution_rate: float
     min_similarity: int
     threads: int
-    noanno: bool
     binary: Path
 
 
@@ -139,7 +169,7 @@ def _build_command(
     params: LTRRetrieverParams,
 ) -> list[str]:
     """Construct the LTR_retriever argv list."""
-    cmd = [
+    return [
         str(params.binary),
         "-genome",
         staged.genome_fa_link.name,
@@ -152,9 +182,6 @@ def _build_command(
         "-threads",
         str(params.threads),
     ]
-    if params.noanno:
-        cmd.append("-noanno")
-    return cmd
 
 
 def run_binary(
@@ -225,6 +252,101 @@ def finalise_outputs(workdir: Path, genome_name: str) -> list[Path]:
 
 
 # ---------------------------------------------------------------------
+# solo finding
+# ---------------------------------------------------------------------
+def resolve_helper_dir(binary: Path) -> Path:
+    """Locate LTR_retriever's ``bin/`` directory of Perl helper scripts.
+
+    ``find_LTR.pl`` and ``solo_finder.pl`` are not installed on PATH; they live
+    beside the main Perl program under ``share/LTR_retriever/bin``. Conda ships
+    ``bin/LTR_retriever`` as a two-line bash shim that execs the real script, so
+    the shim's own directory has no ``bin/`` subdirectory. Read the shim to find
+    the interpreter target when it is not the Perl program itself.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no directory containing the helper scripts can be found.
+    """
+    candidates = [binary.parent / "bin"]
+    try:
+        text = binary.read_text(errors="replace")
+    except OSError:
+        text = ""
+    candidates.extend(
+        Path(match.rstrip("$@ ")).parent / "bin"
+        for match in re.findall(r"(\S*share/LTR_retriever\S*)", text)
+    )
+    candidates.append(binary.parent.parent / "share" / "LTR_retriever" / "bin")
+    for candidate in candidates:
+        if (candidate / "solo_finder.pl").is_file():
+            return candidate
+    raise FileNotFoundError(
+        "Could not locate LTR_retriever's bin/ helper scripts (solo_finder.pl) "
+        f"from binary {binary}. Looked in: {[str(c) for c in candidates]}"
+    )
+
+
+def run_solo_finder(
+    staged: StagedPaths,
+    helper_dir: Path,
+    log_file: Path,
+) -> Path:
+    """Derive the solo-LTR list from LTR_retriever's whole-genome annotation.
+
+    Chains the tool's own two helpers rather than reimplementing their criteria:
+    ``find_LTR.pl`` reports where the LTR regions sit inside each library
+    sequence, and ``solo_finder.pl`` walks the RepeatMasker table keeping hits
+    that look like a lone LTR rather than one flank of an intact element.
+
+    Returns the path to ``{genome}.solo_list``. An empty file is a legitimate
+    result for a genome with no solos, so it is not treated as failure - but a
+    missing ``{genome}.out`` is, since that means annotation never ran.
+    """
+    genome = staged.genome_name
+    ltr_lib = staged.workdir / f"{genome}.LTRlib.fa"
+    rm_out = staged.workdir / f"{genome}.out"
+    ltr_info = staged.workdir / f"{genome}.LTR.info"
+    solo_list = staged.workdir / f"{genome}.solo_list"
+
+    if not rm_out.is_file():
+        raise RuntimeError(
+            f"RepeatMasker output {rm_out} is missing, so solo LTRs cannot be "
+            "called. LTR_retriever must run with whole-genome annotation "
+            "enabled (this runner never passes -noanno)."
+        )
+
+    steps = (
+        (["perl", str(helper_dir / "find_LTR.pl"), "-lib", str(ltr_lib)], ltr_info),
+        (
+            [
+                "perl",
+                str(helper_dir / "solo_finder.pl"),
+                "-i",
+                str(rm_out),
+                "-info",
+                str(ltr_info),
+            ],
+            solo_list,
+        ),
+    )
+    with log_file.open("a") as log:
+        for cmd, destination in steps:
+            log.write(f"\n# solo step: {' '.join(cmd)} > {destination.name}\n")
+            log.flush()
+            proc = subprocess.run(
+                cmd, cwd=staged.workdir, capture_output=True, check=False, text=True
+            )
+            for line in proc.stderr.splitlines():
+                log.write(f"[stderr] {line}\n")
+            if proc.returncode != 0:
+                log.write(f"# exit code: {proc.returncode}\n")
+                raise RuntimeError(f"{cmd[1]} exited {proc.returncode}; see {log_file}")
+            destination.write_text(proc.stdout)
+    return solo_list
+
+
+# ---------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -242,7 +364,6 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--substitution-rate", type=float, required=True)
     parser.add_argument("--min-similarity", type=int, required=True)
     parser.add_argument("--threads", type=int, required=True)
-    parser.add_argument("--noanno", action="store_true")
     parser.add_argument("--log-file", type=Path, required=True)
     parser.add_argument("--ltr-retriever-binary", type=Path, default=None)
     return parser.parse_args(argv)
@@ -275,7 +396,6 @@ def main(argv: list[str] | None = None) -> int:
         substitution_rate=args.substitution_rate,
         min_similarity=args.min_similarity,
         threads=args.threads,
-        noanno=args.noanno,
         binary=binary,
     )
 
@@ -293,6 +413,9 @@ def main(argv: list[str] | None = None) -> int:
         return rc
 
     finalise_outputs(staged.workdir, args.genome_name)
+    solo_list = run_solo_finder(staged, resolve_helper_dir(binary), args.log_file)
+    n_solo = sum(1 for line in solo_list.read_text().splitlines() if line.strip())
+    logger.info("solo_finder reported %d solo LTR(s) -> %s", n_solo, solo_list)
     return 0
 
 

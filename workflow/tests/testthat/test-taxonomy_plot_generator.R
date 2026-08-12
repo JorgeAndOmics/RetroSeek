@@ -127,6 +127,100 @@ test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr
   expect_equal(nrow(reconcile_catalog(combined[combined$source == "ltr-flanked", ])), 1L)
 })
 
+
+test_that("reconcile_catalog applies ltr-flanked > solo-ltr > orphan precedence", {
+  # A solo LTR overlapping a real provirus is not solo - it is that element's
+  # flank - so the LTR-confirmed call wins. A solo still outranks an orphan:
+  # a solo is a homology match to a curated LTR library, an orphan is a
+  # proximity-inferred cluster of gene hits.
+  combined <- tribble(
+    ~species, ~source,       ~seqname, ~start, ~end,   ~id,
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
+    "g1",     "solo-ltr",    "chr1",   "1900", "2100", "S1",  # overlaps A1 -> drop
+    "g1",     "solo-ltr",    "chr1",   "6000", "6300", "S2",  # clear -> keep
+    "g1",     "orphan",      "chr1",   "6100", "6200", "O1",  # overlaps S2 -> drop
+    "g1",     "orphan",      "chr1",   "9000", "9300", "O2"   # clear -> keep
+  )
+  out <- reconcile_catalog(combined)
+  expect_setequal(out$id, c("A1", "S2", "O2"))
+})
+
+
+test_that("reconcile_catalog does not let a dropped row displace a lower tier", {
+  # S1 loses to A1, so it must not then knock out O1: a row removed from the
+  # catalog cannot exert precedence over anything.
+  combined <- tribble(
+    ~species, ~source,       ~seqname, ~start, ~end,   ~id,
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
+    "g1",     "solo-ltr",    "chr1",   "1500", "3000", "S1",  # overlaps A1 -> drop
+    "g1",     "orphan",      "chr1",   "2500", "2900", "O1"   # only overlaps S1 -> keep
+  )
+  out <- reconcile_catalog(combined)
+  expect_setequal(out$id, c("A1", "O1"))
+})
+
+
+test_that("reconcile_catalog keeps rows whose source is outside the precedence list", {
+  combined <- tribble(
+    ~species, ~source,       ~seqname, ~start, ~end,   ~id,
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
+    "g1",     "future-tier", "chr1",   "1500", "1800", "F1"
+  )
+  expect_setequal(reconcile_catalog(combined)$id, c("A1", "F1"))
+})
+
+
+test_that("load_solo_tables binds solo tables and skips missing or empty files", {
+  dir <- withr::local_tempdir()
+  good <- file.path(dir, "g1.solo_ltr.csv")
+  readr::write_csv(tibble(
+    species = "g1", source = "solo-ltr", seqname = "chr1",
+    start = 100L, end = 400L, taxon_call = "Gammaretrovirus",
+    segment = "Gammaretrovirus", structure_class = "solo_ltr", id = "S0"
+  ), good)
+  empty <- file.path(dir, "g2.solo_ltr.csv")
+  readr::write_csv(tibble(
+    species = character(), source = character(), seqname = character(),
+    start = integer(), end = integer(), taxon_call = character(),
+    segment = character(), structure_class = character(), id = character()
+  ), empty)
+
+  out <- load_solo_tables(c(good, empty, file.path(dir, "absent.csv")))
+  expect_equal(nrow(out), 1L)
+  expect_equal(out$source, "solo-ltr")
+  expect_equal(nrow(load_solo_tables(character())), 0L)
+})
+
+
+test_that("load_solo_tables reads every column as character so bind_rows works", {
+  # The loci/orphan parquets come back ALL character, so type inference on the
+  # solo CSV would break the catalog assembly: readr guesses `resolved` as
+  # logical and `completeness`/`start` as double, and bind_rows refuses to
+  # combine those with their character counterparts. This is a runtime-only
+  # failure - nothing else in the pipeline would catch it.
+  dir <- withr::local_tempdir()
+  path <- file.path(dir, "g1.solo_ltr.csv")
+  readr::write_csv(tibble(
+    species = "g1", source = "solo-ltr", seqname = "chr1",
+    start = 100L, end = 400L, resolved = TRUE, completeness = 0.0,
+    n_main_genes = 0L, is_mosaic = FALSE, taxon_call = "Gammaretrovirus",
+    structure_class = "solo_ltr", id = "S0"
+  ), path)
+
+  solos <- load_solo_tables(path)
+  expect_true(all(vapply(solos, is.character, logical(1))))
+
+  # The real assembly: an all-character loci frame bound to the solo frame.
+  loci_like <- tibble(
+    species = "g1", source = "ltr-flanked", seqname = "chr1",
+    start = "1000", end = "2000", resolved = "True", completeness = "0.667",
+    n_main_genes = "2", is_mosaic = "False", taxon_call = "Betaretrovirus",
+    structure_class = "partial", id = "L0"
+  )
+  expect_no_error(combined <- bind_rows(loci_like, solos))
+  expect_equal(nrow(reconcile_catalog(combined)), 2L)  # disjoint, both survive
+})
+
 test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {
   loci <- tribble(
     ~species, ~is_mosaic, ~mosaic_composition,

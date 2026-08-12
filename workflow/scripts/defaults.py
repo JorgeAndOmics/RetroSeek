@@ -164,6 +164,12 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["SOLO_INTACT_PARQUET_DIR"],
     PATH_DICT["SOLO_INTACT_CSV_DIR"],
 ) = table_dirs("solo_intact_ratio")
+# Per-solo table in catalog.csv's column vocabulary - the `solo-ltr` tier that
+# taxonomy_plot_generator folds into the unified catalog.
+(
+    PATH_DICT["SOLO_LTR_PARQUET_DIR"],
+    PATH_DICT["SOLO_LTR_CSV_DIR"],
+) = table_dirs("solo_ltr")
 (
     PATH_DICT["PROBE_DICT_PARQUET_DIR"],
     PATH_DICT["PROBE_DICT_CSV_DIR"],

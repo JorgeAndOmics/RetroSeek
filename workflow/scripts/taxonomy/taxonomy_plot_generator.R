@@ -109,28 +109,73 @@ load_orphans <- function(input_dir) {
 }
 
 
-# Reconcile the unified catalog to a fully non-overlapping record set with
-# LTR-FLANKED PRECEDENCE: within each (species, seqname), drop any orphan locus
-# whose span overlaps an LTR-flanked locus. LTR-flanked loci are LTR-confirmed;
-# orphan loci are proximity-inferred, and a proximity cluster can bridge OVER an
-# LTR-flanked provirus (its member hits flank the element). Where they collide the
-# LTR-confirmed call wins. Orphan-orphan and LTR-flanked/LTR-flanked are already
-# non-overlapping (clustering + one-per-element), so this only resolves the
-# cross-tier edge. Dropped orphans remain in the per-genome .orphans table.
-reconcile_catalog <- function(combined) {
+# Tier precedence for the unified catalog, strongest evidence first:
+#   ltr-flanked  LTR-confirmed provirus (both flanks found structurally)
+#   solo-ltr     homology match to the curated retroviral LTR library
+#   orphan       proximity-inferred cluster of gene hits, no LTR element
+.CATALOG_PRECEDENCE <- c("ltr-flanked", "solo-ltr", "orphan")
+
+
+# Load the per-genome solo-LTR tables written by solo_ltr_integrator.py. Each
+# already speaks the catalog vocabulary (source = "solo-ltr"). Missing files are
+# skipped rather than fatal so the catalog can still be built for a run where
+# the solo-LTR stage has not been executed.
+#
+# EVERY column is read as character, deliberately. The loci/orphan parquets come
+# back all-character (arrow preserves what the classifier wrote), so type
+# inference here would make `bind_rows` fail on the catalog assembly: readr would
+# guess `resolved` as logical and `completeness` as double against the frames'
+# character equivalents. reconcile_catalog casts coordinates when it needs them.
+load_solo_tables <- function(paths) {
+  if (length(paths) == 0L) return(tibble())
+  frames <- lapply(paths, function(path) {
+    if (!file.exists(path)) return(NULL)
+    frame <- suppressWarnings(readr::read_csv(
+      path,
+      col_types = readr::cols(.default = readr::col_character()),
+      progress = FALSE
+    ))
+    if (nrow(frame) == 0L) return(NULL)
+    frame
+  })
+  frames <- Filter(Negate(is.null), frames)
+  if (length(frames) == 0L) return(tibble())
+  bind_rows(frames)
+}
+
+
+# Reconcile the unified catalog to a fully non-overlapping record set by tier
+# PRECEDENCE: within each (species, seqname), a locus is dropped when it overlaps
+# a surviving locus from any stronger tier.
+#
+# ltr-flanked over solo-ltr: a "solo" LTR overlapping a real provirus is not
+# solo at all, it is that element's flank. solo-ltr over orphan: a solo is a
+# homology match against a curated library, while an orphan is inferred from the
+# proximity of gene hits, and an orphan cluster can bridge over other features.
+#
+# Rows already dropped cannot displace anything themselves - precedence is
+# evaluated against survivors only, so a solo beaten by a provirus does not go
+# on to remove an orphan. Within-tier overlaps are resolved upstream
+# (one locus per LTR element, orphan clustering, solo merging). Rows whose
+# `source` is not a known tier are always kept. Dropped orphans remain in the
+# per-genome .orphans table.
+reconcile_catalog <- function(combined, precedence = .CATALOG_PRECEDENCE) {
   if (nrow(combined) == 0L) return(combined)
   src <- as.character(combined$source)
-  anch_i <- which(src == "ltr-flanked")
-  orph_i <- which(src != "ltr-flanked")
-  if (length(anch_i) == 0L || length(orph_i) == 0L) return(combined)
   gr <- GenomicRanges::GRanges(
     seqnames = paste(combined$species, combined$seqname, sep = "|"),
     ranges   = IRanges::IRanges(suppressWarnings(as.integer(combined$start)),
                                 suppressWarnings(as.integer(combined$end)))
   )
-  ov <- GenomicRanges::findOverlaps(gr[orph_i], gr[anch_i], ignore.strand = TRUE)
-  drop <- orph_i[unique(S4Vectors::queryHits(ov))]
-  combined[setdiff(seq_len(nrow(combined)), drop), , drop = FALSE]
+  keep <- rep(TRUE, nrow(combined))
+  for (rank in seq_along(precedence)[-1]) {
+    lower <- which(src == precedence[rank] & keep)
+    higher <- which(src %in% precedence[seq_len(rank - 1L)] & keep)
+    if (length(lower) == 0L || length(higher) == 0L) next
+    ov <- GenomicRanges::findOverlaps(gr[lower], gr[higher], ignore.strand = TRUE)
+    keep[lower[unique(S4Vectors::queryHits(ov))]] <- FALSE
+  }
+  combined[keep, , drop = FALSE]
 }
 
 
@@ -746,8 +791,13 @@ main <- function() {
                                    "tree panels as placeholders."))
   parser$add_argument("--catalog_csv", required = TRUE,
                       help = paste("Output path for the unified authoritative ERV",
-                                   "catalog CSV (ltr-flanked proviruses + clustered",
-                                   "orphan loci, one non-overlapping record each)."))
+                                   "catalog CSV (ltr-flanked proviruses + solo LTRs",
+                                   "+ clustered orphan loci, one non-overlapping",
+                                   "record each)."))
+  parser$add_argument("--solo_ltr_tables", required = FALSE, nargs = "*", default = character(),
+                      help = paste("Per-genome solo-LTR tables from",
+                                   "solo_ltr_integrator.py. Omit to build the",
+                                   "catalog without the solo-ltr tier."))
   args <- parser$parse_args()
 
   cfg <- yaml::read_yaml(args$config)
@@ -867,7 +917,14 @@ main <- function() {
     "completeness", "n_main_genes", "genes_present", "is_mosaic",
     "mosaic_composition", "n_blastx_hits", "method", "id"
   )
-  catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(catalog_cols))
+  # Solo LTRs join the catalog as a third tier but deliberately NOT `combined`:
+  # every plot above is built on gene-content columns a solo LTR does not have
+  # (it has lost its internal region by definition), so folding solos into the
+  # plotting frame would silently change 22 figures. The catalog is the locus
+  # inventory; the plots stay a two-tier view until a dedicated pass.
+  catalog_input <- dplyr::bind_rows(combined, load_solo_tables(args$solo_ltr_tables))
+  catalog <- reconcile_catalog(catalog_input) %>%
+    dplyr::select(dplyr::any_of(catalog_cols))
   if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
     catalog <- catalog %>%
       dplyr::arrange(.data$species, .data$seqname,

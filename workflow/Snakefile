@@ -553,14 +553,51 @@ rule ranges_analysis:
 # mechanism and the LTR_retriever stages.
 # =============================================================================
 # 5. SOLO-LTR WORKSTREAM - LTR_retriever
-#    prefilter LTRharvest SCN to retroviral elements, run LTR_retriever, and
-#    integrate solo vs intact LTRs (solo/intact ratio). See docs/solo_ltr.md.
+#    rebuild the SCN from LTRharvest's GFF3, prefilter it to retroviral
+#    elements, run LTR_retriever, and integrate solo vs intact LTRs
+#    (solo/intact ratio). See docs/solo_ltr.md.
 # =============================================================================
+# Reconstruct the LTRharvest SCN from the GFF3 LTRharvest already wrote, rather
+# than consuming ltr_harvester's own `{genome}.scn`. That file is a stdout
+# redirect and is MISSING for Antrozous (whose suffix-array files are all zero
+# bytes after a space-reclaim event), so requesting it would pull
+# ltr_harvester_setup back into the DAG - and because that rule declares
+# `input: rules.ltr_index_generator.input`, an expand() over EVERY genome, one
+# missing SCN cascades into re-running LTRharvest and LTRdigest for all species.
+# The GFF3 is on disk for all five genomes and carries every SCN field
+# (`ltr_similarity=`, `seq_number=`, the element span and its two LTR children),
+# so the rebuild is byte-identical to a real SCN and costs under a second.
+# See scripts/solo_ltr/scn_from_ltrharvest_gff3.py and its byte-equality test.
+rule ltr_scn_from_gff3_setup:
+    input:
+        ltrharvest_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3')
+    output:
+        scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_from_gff3.scn')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_scn_from_gff3', '{genome}.log')
+    threads: 1
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/solo_ltr/scn_from_ltrharvest_gff3.py \
+            --ltrharvest-gff3 {input.ltrharvest_gff3:q} \
+            --output-scn {output.scn:q} \
+            2> {log:q}
+        '''
+
+
+rule ltr_scn_from_gff3:
+    input:
+        scn = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_from_gff3.scn'),
+            genome=species_with_hits(wildcards)
+        )
+
+
 rule ltr_retriever_prefilter_setup:
     input:
-        scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
-        des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
-        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3')
+        scn             = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_from_gff3.scn'),
+        ltrharvest_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
+        valid_ranges    = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3')
     output:
         retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
         full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn')
@@ -571,7 +608,7 @@ rule ltr_retriever_prefilter_setup:
         '''
         PYTHONPATH=scripts python scripts/solo_ltr/ltr_retriever_prefilter.py \
             --scn {input.scn:q} \
-            --des {input.des:q} \
+            --ltrharvest-gff3 {input.ltrharvest_gff3:q} \
             --valid-ranges {input.valid_ranges:q} \
             --output-retroviral {output.retroviral_scn:q} \
             --output-full {output.full_scn:q} \
@@ -591,27 +628,32 @@ rule ltr_retriever_prefilter:
         )
 
 
-# Invoke LTR_retriever itself. It writes multiple output files into its working
-# directory; we declare the three we consume downstream (.pass.list.gff3,
-# .nmtf.pass.list, .LTRlib.fa). Other LTR_retriever outputs appear alongside
-# them and are considered working files.
+# Invoke LTR_retriever itself, then derive the solo-LTR list from its
+# whole-genome annotation via the tool's own bin/find_LTR.pl + bin/solo_finder.pl.
+#
+# Solo LTRs are NOT in `nmtf.pass.list` - that file holds intact LTR-RTs whose
+# termini lack the canonical TGCA motif ("Non-TGCA LTR-RTs" in LTR_retriever's
+# own banner). They come from the RepeatMasker table `{genome}.out`, which is
+# only produced when whole-genome annotation runs, so `-noanno` must never be
+# passed here. See scripts/solo_ltr/run_ltr_retriever.py and docs/solo_ltr.md.
 rule ltr_retriever_setup:
     input:
         genome_fa      = os.path.join(defaults.PATH_DICT['SPECIES_DB'],     '{genome}.fa'),
         retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_retroviral.scn'),
         full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_full.scn')
     output:
+        pass_list      = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list'),
         pass_list_gff3 = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
-        nmtf_pass_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
-        ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa')
+        ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
+        repeatmasker   = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.out'),
+        solo_list      = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.solo_list')
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever', '{genome}.log')
     params:
         out_dir           = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}'),
         source_scn_mode   = config['ltr_retriever'].get('source_scn', 'retroviral'),
         substitution_rate = config['ltr_retriever'].get('substitution_rate', 1.3e-8),
-        min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91),
-        noanno_flag       = '--noanno' if config['ltr_retriever'].get('noanno', True) else ''
+        min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91)
     threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
     shell:
         '''
@@ -625,7 +667,6 @@ rule ltr_retriever_setup:
             --substitution-rate {params.substitution_rate} \
             --min-similarity {params.min_similarity} \
             --threads {threads} \
-            {params.noanno_flag} \
             --log-file {log:q}
         '''
 
@@ -636,8 +677,8 @@ rule ltr_retriever:
             os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
             genome=species_with_hits(wildcards)
         ),
-        nmtf      = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
+        solo_list = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.solo_list'),
             genome=species_with_hits(wildcards)
         ),
         lib       = lambda wildcards: expand(
@@ -646,31 +687,39 @@ rule ltr_retriever:
         )
 
 
-# Integrate LTR_retriever output with RetroSeek's valid_ranges (Coupling B).
-# Emits the final annotated solo-LTR GFF3 + per-genome solo/intact ratio CSV.
+# Annotate the solo LTRs with RetroSeek's per-locus taxonomy (Coupling B).
+# The library ID of each solo encodes the genomic span of the intact element
+# that seeded it, so taxon inheritance is an interval join against the
+# classified loci rather than a lookup on an opaque family ID.
 rule solo_ltr_integrator_setup:
     input:
-        nmtf         = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
-        ltr_library  = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
-        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],   '{genome}.gff3')
+        solo_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.solo_list'),
+        loci_csv  = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv')
     output:
         solo_ltr_gff3 = os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],            '{genome}.gff3'),
+        solo_csv      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],        '{genome}.solo_ltr.csv'),
+        solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'],    '{genome}.solo_ltr.parquet'),
         ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'],     '{genome}.csv'),
         ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], '{genome}.parquet')
     params:
-        nearest_distance = config['ltr_retriever'].get('nearest_erv_max_distance', 10000)
+        nearest_distance = config['ltr_retriever'].get('nearest_erv_max_distance', 10000),
+        group_by         = config['ltr_retriever'].get('group_by', 'segment'),
+        species          = lambda wildcards: config['species'].get(wildcards.genome, wildcards.genome)
     threads: 1
     shell:
         '''
         PYTHONPATH=scripts python scripts/solo_ltr/solo_ltr_integrator.py \
-            --nmtf-pass-list {input.nmtf:q} \
-            --ltr-library {input.ltr_library:q} \
-            --valid-ranges {input.valid_ranges:q} \
+            --solo-list {input.solo_list:q} \
+            --loci-csv {input.loci_csv:q} \
             --genome {wildcards.genome:q} \
+            --species {params.species:q} \
             --output-gff3 {output.solo_ltr_gff3:q} \
+            --output-solo-csv {output.solo_csv:q} \
+            --output-solo-parquet {output.solo_parquet:q} \
             --output-ratio-csv {output.ratio_csv:q} \
             --output-ratio-parquet {output.ratio_parquet:q} \
-            --nearest-erv-max-distance {params.nearest_distance}
+            --group-by {params.group_by} \
+            --nearest-locus-max-distance {params.nearest_distance}
         '''
 
 
@@ -693,7 +742,7 @@ rule solo_intact_ratio_aggregate:
             combined = pd.concat(frames, ignore_index=True)
         else:
             combined = pd.DataFrame(
-                columns=['species', 'probe_family', 'label_mode',
+                columns=['species', 'group', 'group_by',
                          'intact_count', 'solo_count', 'total_integrations',
                          'solo_to_intact_ratio', 'solo_fraction']
             )
@@ -1251,6 +1300,15 @@ rule taxonomy_plot_generator_setup:
                                         genome=species_with_hits(wildcards)),
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                                              genome=species_with_hits(wildcards)),
+        # Solo LTRs are the catalog's third tier, but demanding them
+        # unconditionally would make every --classify run wait on LTR_retriever's
+        # whole-genome RepeatMasker pass (hours per genome). The coupling is
+        # therefore opt-in via `classification.include_solo_ltr`, mirroring how
+        # ADR-012 made hotspot's catalog dependency explicit rather than implicit.
+        solo_ltr = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
+            genome=species_with_hits(wildcards)
+        ) if config['classification'].get('include_solo_ltr', False) else [],
         trees = rules.taxonomy_tree_layout_setup.output.coords
     output:
         plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
@@ -1293,7 +1351,8 @@ rule taxonomy_plot_generator_setup:
         --config {params.config_yaml:q} \
         --tree_dir {params.tree_dir:q} \
         --report_csv {output.report:q} \
-        --catalog_csv {output.catalog:q}
+        --catalog_csv {output.catalog:q} \
+        --solo_ltr_tables {input.solo_ltr:q}
         '''
 
 
