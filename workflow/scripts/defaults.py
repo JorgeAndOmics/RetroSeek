@@ -186,6 +186,9 @@ PATH_DICT["TAXONOMY_TREE_COORDS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "
 # Per-segment deliverables (ADR-011) - the catalog split by the taxon each locus
 # rolls up to at classification.segment_rank.
 PATH_DICT["TAXONOMY_SEGMENTS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "segments"
+# Co-phylogeny tables (ADR-014): the ERV-composition tree, the KRD distance
+# matrix behind it, and the congruence verdict against the host phylogeny.
+PATH_DICT["COPHYLOGENY_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "cophylogeny"
 # Loss-analysis tables - the unified per-stage loss funnel + per-genome novel
 # candidates (valid loci with zero blastx homology). Built by loss_analysis.R
 # from the ranges-analysis counts and the blastx-stage classification counts.
@@ -230,6 +233,13 @@ PATH_DICT["CLASSIFICATION_PLOT_DIR"] = (
 PATH_DICT["TAXONOMY_PLOT_DIR"] = (
     PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "taxonomy"
 ).resolve()
+# Phylogenetic-placement figures (ADR-014): per-genome heat-trees plus the
+# cross-genome co-phylogeny comparison. Kept beside the taxonomy panels because
+# they answer the same question - which lineage is where - from the placement
+# evidence rather than from the assembled catalog.
+PATH_DICT["PLACEMENT_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "placement"
+).resolve()
 # Structural views of the genus-founded ERV assembly (completeness, canonical
 # order, structure_class). Built by erv_like_plot_generator.R from the loci table;
 # the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.
@@ -251,6 +261,11 @@ PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve(
 # Taxonomic-classification tier - per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.
 PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve()
+# Published phylogenetic-placement evidence: one .jplace + labelled .newick per
+# (genome, tier, placement gene). EPA-ng writes these into TMP_DIR, which is
+# cleared between runs; they are the evidence behind every taxon_call and the
+# interchange format iTOL/gappa read, so they are promoted here (ADR-014).
+PATH_DICT["PLACEMENT_DIR"] = (PATH_DICT["TRACK_TAXONOMY_DIR"] / "placements").resolve()
 # Orphans tier - non-LTR-associated hits recovered + classified by their own
 # sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
 PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()

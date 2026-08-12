@@ -3,6 +3,7 @@ genome_tools: include('genome_tools_schema')
 hotspot: include('hotspot_schema', required=False)
 parameters: include('parameters_schema')
 ltr_retriever: include('ltr_retriever_schema', required=False)
+placement: include('placement_schema', required=False)
 classification: include('classification_schema', required=False)
 logging: include('logging_schema')
 plots: include('plots_schema')
@@ -73,6 +74,9 @@ ltr_retriever_schema:
   noanno:                   bool()
   source_scn:               str(matches='^(retroviral|full)$')
   nearest_erv_max_distance: int(min=0)
+
+placement_schema:
+  mass_norm: str(matches='^(absolute|relative)$', required=False)
 
 classification_schema:
   enable:          bool()

@@ -1003,6 +1003,7 @@ rule pair_detector:
 # taxon-founded ERV assembly (consensus taxon_call + rank + mosaic + structure). See
 # docs/configuration.md (`classification`), docs/taxonomy_classification/, and the ADRs.
 _CLASSIFICATION = config.get('classification', {})
+_PLACEMENT = config.get('placement', {}) or {}
 _PLACEMENT_GENES = [g.upper() for g in _CLASSIFICATION.get('placement_genes', ['POL'])]
 _MAIN_PROBES = ",".join(config['parameters'].get('main_probes', []))
 _TAX_SEED = config['parameters'].get('seed', 0)
@@ -1094,7 +1095,15 @@ rule taxonomy_classify_setup:
         loci_csv     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
         counts_csv   = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.classification_counts.csv'),
         gff3         = os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.gff3'),
-        bed          = os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.bed')
+        bed          = os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.bed'),
+        # Placement evidence (ADR-014): EPA-ng writes these into TMP_DIR, which is
+        # cleared between runs. They are the evidence behind every taxon_call, so
+        # they are declared outputs here. A genome with no placeable queries still
+        # gets a valid empty jplace, so the DAG holds either way.
+        placements   = expand(
+            os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{{genome}}.ltr-flanked.{gene}.{ext}'),
+            gene=_PLACEMENT_GENES, ext=['jplace', 'labelled.newick']
+        )
     params:
         ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
         main_probes     = _MAIN_PROBES,
@@ -1105,7 +1114,8 @@ rule taxonomy_classify_setup:
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
-        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy')
+        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy'),
+        placement_dir   = defaults.PATH_DICT['PLACEMENT_DIR']
     threads: config.get('rule_threads', 1)
     shell:
         '''
@@ -1115,6 +1125,7 @@ rule taxonomy_classify_setup:
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
+            --out-placement-dir {params.placement_dir:q} \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1134,6 +1145,14 @@ rule taxonomy_classify:
         tracks = lambda wildcards: (
             expand(os.path.join(defaults.PATH_DICT['TRACK_TAXONOMY_DIR'], '{genome}.gff3'),
                    genome=species_with_hits(wildcards))
+            if _CLASSIFICATION.get('enable', True) else []),
+        # Demand the placement evidence too, so it is genuinely produced rather
+        # than merely declarable. Without this the setup rule is never scheduled
+        # when its table outputs are already current, and the jplace stays in the
+        # scratch dir where it gets cleared (ADR-014).
+        placements = lambda wildcards: (
+            expand(os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{genome}.ltr-flanked.{gene}.jplace'),
+                   genome=species_with_hits(wildcards), gene=_PLACEMENT_GENES)
             if _CLASSIFICATION.get('enable', True) else [])
 
 
@@ -1157,7 +1176,14 @@ rule taxonomy_orphans_setup:
         loci_csv     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.orphans.csv'),
         counts_csv   = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.orphans_counts.csv'),
         gff3         = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.gff3'),
-        bed          = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.bed')
+        bed          = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.bed'),
+        # Placement evidence for the orphan tier (ADR-014); see the LTR-flanked
+        # rule above. Whether the weaker tier places the same way as the
+        # LTR-confirmed one is itself a useful check.
+        placements   = expand(
+            os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{{genome}}.orphan.{gene}.{ext}'),
+            gene=_PLACEMENT_GENES, ext=['jplace', 'labelled.newick']
+        )
     params:
         ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
         main_probes     = _MAIN_PROBES,
@@ -1168,7 +1194,8 @@ rule taxonomy_orphans_setup:
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
-        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans')
+        workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans'),
+        placement_dir   = defaults.PATH_DICT['PLACEMENT_DIR']
     threads: config.get('rule_threads', 1)
     shell:
         '''
@@ -1178,6 +1205,7 @@ rule taxonomy_orphans_setup:
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
+            --out-placement-dir {params.placement_dir:q} \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1195,6 +1223,10 @@ rule taxonomy_orphans:
         tracks = lambda wildcards: (
             expand(os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.classified.gff3'),
                    genome=species_with_hits(wildcards))
+            if _CLASSIFICATION.get('enable', True) else []),
+        placements = lambda wildcards: (
+            expand(os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{genome}.orphan.{gene}.jplace'),
+                   genome=species_with_hits(wildcards), gene=_PLACEMENT_GENES)
             if _CLASSIFICATION.get('enable', True) else [])
 
 
@@ -1336,6 +1368,109 @@ rule taxonomy_segments_setup:
 rule taxonomy_segments:
     input:
         summary = rules.taxonomy_segments_setup.output.summary
+
+
+# =============================================================================
+# 8d. PHYLOGENETIC PLACEMENT FIGURES (ADR-014)
+#     EPA-ng already places every locus onto the retroviral reference tree, and
+#     taxonomy_classify/taxonomy_orphans now publish that evidence. These rules
+#     turn it into figures the catalog cannot express: where a genome's ERV load
+#     sits on the phylogeny, how certain each placement is, and whether ERV
+#     complements track host ancestry.
+# =============================================================================
+# Tiers are the two catalog sources; the wildcard is constrained so `{tier}`
+# cannot swallow part of a genome name.
+wildcard_constraints:
+    tier = "ltr-flanked|orphan"
+
+
+rule placement_figures_setup:
+    input:
+        jplace = os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{genome}.{tier}.{gene}.jplace')
+    output:
+        # gappa core-dumps on a placement-free jplace ("Invalid Color
+        # Normalization"), so the script gates on the placement count and writes
+        # an empty-state SVG instead. This output therefore always materialises.
+        heat_tree = os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_figures', '{genome}.{tier}.{gene}.log')
+    params:
+        out_dir   = defaults.PATH_DICT['PLACEMENT_PLOT_DIR'],
+        mass_norm = _PLACEMENT.get('mass_norm', 'absolute')
+    threads: 1
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/taxonomy/placement_figures.py \
+            --jplace {input.jplace:q} \
+            --out-dir {params.out_dir:q} \
+            --stem {wildcards.genome:q}.{wildcards.tier:q}.{wildcards.gene:q} \
+            --mass-norm {params.mass_norm} \
+            2> {log:q}
+        '''
+
+
+rule placement_figures:
+    input:
+        heat_trees = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg'),
+            genome=species_with_hits(wildcards), tier=['ltr-flanked', 'orphan'],
+            gene=_PLACEMENT_GENES
+        )
+
+
+# Cross-genome comparison, one invocation per tier. Whether the weaker orphan
+# tier tells the same story as the LTR-confirmed one is itself a useful check,
+# so they are never pooled.
+rule placement_cophylogeny_setup:
+    input:
+        jplace = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{genome}.{{tier}}.{{gene}}.jplace'),
+            genome=species_with_hits(wildcards)
+        )
+    output:
+        summary = os.path.join(defaults.PATH_DICT['COPHYLOGENY_DIR'], 'cophylogeny_summary.{tier}.{gene}.csv')
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_cophylogeny', '{tier}.{gene}.log')
+    params:
+        out_dir    = defaults.PATH_DICT['COPHYLOGENY_DIR'],
+        host_tree  = (config.get('input', {}) or {}).get('species_tree', '') or '',
+        staged_dir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'cophylogeny', '{tier}_{gene}')
+    threads: 1
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/taxonomy/placement_cophylogeny.py \
+            --jplace {input.jplace:q} \
+            --out-dir {params.out_dir:q} \
+            --tier {wildcards.tier:q} \
+            --staged-dir {params.staged_dir:q} \
+            $( [ -n "{params.host_tree}" ] && echo --host-tree "{params.host_tree}" ) \
+            2> {log:q}
+        '''
+
+
+rule placement_cophylogeny:
+    input:
+        summaries = expand(
+            os.path.join(defaults.PATH_DICT['COPHYLOGENY_DIR'], 'cophylogeny_summary.{tier}.{gene}.csv'),
+            tier=['ltr-flanked', 'orphan'], gene=_PLACEMENT_GENES
+        )
+
+
+# Top-level target for --placement-trees. The expands are repeated rather than
+# referencing rules.placement_figures.input: that attribute is a lambda (it
+# resolves species_with_hits at runtime), and Snakemake cannot dereference
+# another rule's input function from a rule body.
+rule placement_trees:
+    input:
+        figures = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg'),
+            genome=species_with_hits(wildcards), tier=['ltr-flanked', 'orphan'],
+            gene=_PLACEMENT_GENES
+        ),
+        cophylogeny = expand(
+            os.path.join(defaults.PATH_DICT['COPHYLOGENY_DIR'], 'cophylogeny_summary.{tier}.{gene}.csv'),
+            tier=['ltr-flanked', 'orphan'], gene=_PLACEMENT_GENES
+        )
 
 
 # =============================================================================

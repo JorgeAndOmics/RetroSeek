@@ -101,7 +101,7 @@ ignore_missing_imports = true
 # code: every function here still carries full annotations, and only these two
 # library-interface checks are relaxed.
 [[tool.mypy.overrides]]
-module = ["tree_layout"]
+module = ["tree_layout", "placement_cophylogeny"]
 disallow_untyped_calls = false
 disable_error_code = ["attr-defined"]
 

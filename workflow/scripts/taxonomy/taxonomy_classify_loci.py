@@ -280,6 +280,8 @@ def classify(
     structure_full_min: float = 1.0,
     source: str = "ltr-flanked",
     segment_rank: str = "genus",
+    placement_out: Path | None = None,
+    genome_name: str = "",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
@@ -339,6 +341,17 @@ def classify(
                 queries, ref_dir, gene, workdir / f"place_{gene}"
             )
             placement.update(res)
+
+    # Publish the placement evidence before the scratch workdir is cleared. This
+    # runs for every placement gene, including those where `place()` never ran
+    # (no queries, all-gap alignment, missing tree package) - export writes a
+    # valid empty jplace in that case so a rule declaring it still resolves.
+    if placement_out is not None:
+        for gene in sorted(placement_genes):
+            stem = f"{genome_name or genome.stem}.{source}.{gene}"
+            taxonomy_placement.export_placement(
+                workdir / f"place_{gene}", ref_dir, gene, placement_out, stem
+            )
 
     return _assemble(
         loci,
@@ -854,6 +867,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="blastx-stage loss counts CSV (metric,value) for the loss funnel",
     )
+    p.add_argument(
+        "--out-placement-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory to publish the placement evidence into: one "
+            "{genome}.{tier}.{gene}.jplace + .labelled.newick per placement gene. "
+            "Omit to leave the artifacts in the scratch workdir."
+        ),
+    )
     return p
 
 
@@ -889,6 +912,8 @@ def main() -> int:
         structure_full_min=a.structure_full_min,
         source=a.source,
         segment_rank=a.segment_rank,
+        placement_out=a.out_placement_dir,
+        genome_name=a.gff3.stem,
     )
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was

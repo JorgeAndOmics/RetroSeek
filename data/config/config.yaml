@@ -77,6 +77,13 @@ ltr_retriever:
   source_scn: retroviral
   nearest_erv_max_distance: 10000
 
+placement:
+  # Colour scale for the per-genome heat-trees. 'absolute' keeps raw placement
+  # mass, so a genome with more ERVs reads hotter; 'relative' normalises within
+  # each sample, which is what you want when comparing genomes of very different
+  # ERV load.
+  mass_norm: absolute
+
 classification:
   enable: true
   placement_genes:

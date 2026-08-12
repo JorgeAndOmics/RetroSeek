@@ -198,6 +198,16 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     )
 
     parser.add_argument(
+        "--placement-trees",
+        action="store_true",
+        help="Phylogenetic-placement figures from the published .jplace evidence: "
+        "per-genome heat-trees showing where each genome's ERV load sits on the "
+        "retroviral phylogeny, EDPL placement-uncertainty tables, and the "
+        "cross-genome co-phylogeny comparison against the host tree. Requires "
+        "--classify output.",
+    )
+
+    parser.add_argument(
         "--build-reference",
         action="store_true",
         help="Build the taxonomic-classification reference (Entrez fetch of the "
@@ -358,6 +368,14 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.solo_ltr_detection:
             run_snakemake_rule(
                 "solo_ltr_detector",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.placement_trees:
+            run_snakemake_rule(
+                "placement_trees",
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,
