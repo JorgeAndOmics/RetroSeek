@@ -59,6 +59,7 @@ All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand
 ## Outputs
 
 - `results/tracks/` - GFF3 per stage (`original`, `candidate`, `orphans`, `valid`, `flanking_ltr`, `ltrdigest`, `ltrharvest`, `solo_ltr`, `ltr_retriever/`, `taxonomy`). `orphans/{genome}.gff3` is the orphan (non-LTR) hit set, carrying a synthetic `Parent=` from proximity clustering; `orphans/{genome}.classified.{gff3,bed}` is the recovered, taxonomically-called subset. Only `valid` carries a `_reduced` variant (merged overlapping ranges); `original`/`candidate` are unreduced. The composite ERV "assembly" is no longer a separate `erv_like` track - it is now the taxon-founded `taxonomy/{genome}.gff3` (one feature per LTR-element locus, labelled by `taxon_call`). `solo_ltr/{genome}.gff3` carries probe_labels propagated from valid ERVs (see `docs/solo_ltr.md`).
+- `results/tracks/taxonomy/placements/` - `{genome}.{tier}.{gene}.jplace` + `.labelled.newick`: which branch of the retroviral phylogeny each locus attached to, with likelihood weights. The evidence behind every `taxon_call`, and the format iTOL/gappa consume.
 - `results/tables/<name>/` - user-facing **CSV** copy of every table group, each in its own subdirectory (no loose files): `ranges_analysis` (`{genome}.{final_loci,homology_loci,ltr_structure,reduction_multiplicity,counts,provirus_overlap,ltr_interaction,probe_domain_overlap,reduction_coverage}.csv`), `overlap_matrix`, `segmented_species`, `probe_pairs`, `solo_intact_ratio`, `hotspots`, `probe_dict`, `full_genome_blast`, `taxonomy_classification`.
 - `data/tables/<name>/` - the pipeline-internal **Parquet** copy of each of those table groups, mirroring the `results/tables/` layout. `data/tables/_input/` holds the user-provided probe CSV.
 - `results/manifest/` - per-genome run manifest YAMLs: provenance only (generator build, timestamp, input md5s, resolved parameters, seed).
@@ -77,6 +78,7 @@ All user-tunable parameters live in [`data/config/config.yaml`](../data/config/c
 Decisions captured under [`docs/adr/`](adr/):
 - ADR-001: single conda/mamba env vs per-rule `--use-conda`.
 - ADR-002: configurable metadata aggregation strategies across merged ranges.
+- ADR-014: publish the EPA-ng placement evidence out of scratch; heat-trees and EDPL per genome; co-phylogeny of host genomes from ERV placement, compared to the host tree by bipartition.
 - ADR-003: retroviral-only pre-filter for LTR_retriever (Coupling A).
 - ADR-004: `SPECIES_POST` -> Snakemake checkpoint + runtime `species_with_hits(wildcards)` resolver.
 - ADR-005: wrap LTR_retriever invocation in a Python runner script (`workflow/scripts/run_ltr_retriever.py`) for testability + log capture + fail-loud behaviour.

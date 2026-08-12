@@ -40,6 +40,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
 | `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `valid_ranges.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
+| `--placement-trees`        | `placement_trees`             | published `.jplace` + host tree          | per-genome heat-trees (SVG/Newick/Nexus), EDPL + LWR tables, `cophylogeny_summary.{tier}.{gene}.csv`, `erv_composition.{tier}.newick`, `krd_matrix.csv` |
 | `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
 | `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `valid_ranges.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + taxonomy plot panel |
 | `--segment`                 | `taxonomy_segments` | `catalog.csv` (from `--classify`) | Catalog split by taxonomic segment: `taxonomy_classification/segments/by_<rank>/<segment>.csv` + a curated plot subset per segment + `segment_summary.csv` |

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Phylogenetic placement evidence is now published** (ADR-014). EPA-ng places
+  every locus onto the retroviral reference tree on each run; the resulting
+  `.jplace` was written into `data/tmp/`, documented as cleared between runs.
+  It is the evidence behind every `taxon_call` and the format iTOL and gappa
+  read, so it now lands in `results/tracks/taxonomy/placements/`.
+- Per-genome **heat-trees** (SVG / Newick / Nexus) showing where a genome's ERV
+  load concentrates on the phylogeny, plus **EDPL** placement-uncertainty tables
+  - an axis independent of the existing `confidence` column - and LWR
+  histograms. New `--placement-trees` stage.
+- **Co-phylogeny**: a tree of host genomes built from their ERV placement
+  distributions, compared against the host phylogeny by bipartition, with the
+  KRD distance matrix behind it. On the model 5 the LTR-flanked tier is
+  discordant (RF = 4, 0 of 2 splits shared).
+- Tree-ordered composition panels: `species_composition_tree` and
+  `taxon_tier_tree`.
+- `tree_layout.py` warns when a supplied species tree has uninformative branch
+  lengths, so a cladogram is not mistaken for a timetree.
+
 ### Fixed
 
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and

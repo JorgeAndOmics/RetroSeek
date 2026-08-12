@@ -7,8 +7,11 @@ artifact that must not churn between runs.
 
 from __future__ import annotations
 
+from io import StringIO
+
 import pytest
 import tree_layout as tl
+from Bio import Phylo
 
 
 @pytest.fixture
@@ -141,3 +144,31 @@ class TestSpeciesNameCanonicalization:
         display = ["Mus musculus", "Homo sapiens"]
         tree = tl.from_newick(nwk, display)
         assert sorted(t.name for t in tree.get_terminals()) == sorted(display)
+
+
+# ---------------------------------------------------------------------
+# uninformative_branch_lengths (ADR-014)
+#
+# A cladogram is routinely supplied where a timetree is meant - the shipped
+# hosts.nwk is all 1s and 2s. Topology is still usable, but a reader seeing
+# branch lengths assumes they carry divergence information, so the condition is
+# detected and warned about rather than passed through silently.
+# ---------------------------------------------------------------------
+def _tree(newick: str):
+    return Phylo.read(StringIO(newick), "newick")
+
+
+def test_whole_number_branch_lengths_are_uninformative() -> None:
+    """The shipped hosts.nwk shape: real topology, placeholder lengths."""
+    assert tl.uninformative_branch_lengths(_tree("(((A:1,M:1):1,D:2):1,(H:1,Mu:1):2);"))
+
+
+def test_absent_branch_lengths_are_uninformative() -> None:
+    assert tl.uninformative_branch_lengths(_tree("((A,B),(C,D));"))
+
+
+def test_real_divergence_estimates_are_informative() -> None:
+    """A genuine timetree carries fractional lengths and must not be flagged."""
+    assert not tl.uninformative_branch_lengths(
+        _tree("((A:12.4,B:12.4):43.1,(C:55.2,D:55.2):0.3);")
+    )

@@ -141,6 +141,28 @@ def _normalize(label: str) -> str:
     return label.replace("_", " ").strip().lower()
 
 
+def uninformative_branch_lengths(tree: Tree) -> bool:
+    """True when a tree's branch lengths carry no divergence information.
+
+    A cladogram is often supplied where a timetree is meant - the shipped
+    ``hosts.nwk`` is ``(((A:1,M:1):1,D:2):1,(H:1,Mu:1):2)``. Its topology is
+    real, its lengths are placeholders. Downstream co-phylogeny compares
+    topologies only, but a reader seeing branch lengths on a figure will assume
+    they mean something, so the condition is detected and logged.
+
+    Treated as uninformative when every length is missing, or all lengths are
+    whole numbers (real divergence estimates essentially never are).
+    """
+    lengths = [
+        c.branch_length
+        for c in tree.find_clades()
+        if c.branch_length is not None and c is not tree.root
+    ]
+    if not lengths:
+        return True
+    return all(float(x).is_integer() for x in lengths)
+
+
 def from_newick(newick: Path, tips: list[str]) -> Tree:
     """Read a user Newick and prune it to ``tips`` (matched name-insensitively).
 
@@ -174,6 +196,13 @@ def from_newick(newick: Path, tips: list[str]) -> Tree:
             tree.prune(leaf)
     for leaf in tree.get_terminals():
         leaf.name = matched.get(leaf.name, leaf.name)
+    if uninformative_branch_lengths(tree):
+        logger.warning(
+            "species tree %s has uninformative branch lengths (all absent or "
+            "whole numbers); it is a cladogram, not a timetree. Topology is "
+            "usable, but any comparison against divergence times is not.",
+            newick,
+        )
     result: Tree = tree
     return result
 

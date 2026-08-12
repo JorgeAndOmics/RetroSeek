@@ -127,6 +127,15 @@ Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr
 
 Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
 
+## `placement`
+
+Phylogenetic-placement figures built from the evidence EPA-ng already produces.
+See [ADR-014](adr/ADR-014-publishing-placement-evidence-and-cophylogeny.md).
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `mass_norm` | str (`absolute` \| `relative`) | `absolute` | Colour scale for the per-genome heat-trees. `absolute` keeps raw placement mass, so a genome with more ERVs reads hotter; `relative` normalises within each sample, which is what you want when comparing genomes of very different ERV load. |
+
 ## `classification`
 
 Per-locus ERV taxonomic classification - turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* - the taxa a locus can resolve to - is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG by phylogenetic placement (MAFFT -> EPA-ng -> gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set), and `execution.entrez_email` (reference build).
