@@ -204,3 +204,69 @@ test_that("taxon tree panel builds and is level-agnostic about tip rank", {
   p <- taxon_confidence_tree_plot(d, tmp)
   expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
 })
+
+
+# ---------------------------------------------------------------------------
+# Tree-ordered composition panels (ADR-014). tree_composition_plot is the
+# counts/composition sibling of tree_confidence_plot: same tree machinery, but
+# the bars show what a tip is made of rather than how confident it is.
+# ---------------------------------------------------------------------------
+.composition_loci <- function() {
+  tribble(
+    ~species,           ~taxon_call,       ~segment,          ~source,       ~confidence,
+    "Antrozous pallidus", "Gammaretrovirus", "Gammaretrovirus", "ltr-flanked", "0.9",
+    "Antrozous pallidus", "Betaretrovirus",  "Betaretrovirus",  "orphan",      "0.8",
+    "Antrozous pallidus", "Betaretrovirus",  "Betaretrovirus",  "orphan",      "0.7",
+    "Mus musculus",       "Gammaretrovirus", "Gammaretrovirus", "ltr-flanked", "0.95",
+    "Mus musculus",       "Gammaretrovirus", "Gammaretrovirus", "orphan",      "0.6"
+  )
+}
+
+test_that("tree_composition_plot renders bars ordered by a supplied tree", {
+  dir <- withr::local_tempdir()
+  .write_tree_fixture(dir, "species", c("Antrozous pallidus", "Mus musculus"))
+
+  p <- tree_composition_plot(.composition_loci(), dir, "species", "species",
+                             "segment", "t", "s")
+  expect_s3_class(p, "patchwork")
+})
+
+test_that("tree_composition_plot degrades to a placeholder without a tree", {
+  dir <- withr::local_tempdir()   # no tree files written
+  p <- tree_composition_plot(.composition_loci(), dir, "species", "species",
+                             "segment", "t", "s")
+  expect_s3_class(p, "ggplot")
+  expect_match(p$labels$title, "no species tree")
+})
+
+test_that("tree_composition_plot is empty-safe and tolerates a missing column", {
+  dir <- withr::local_tempdir()
+  .write_tree_fixture(dir, "species", c("Antrozous pallidus"))
+  expect_s3_class(
+    tree_composition_plot(.composition_loci()[0, ], dir, "species", "species",
+                          "segment", "t", "s"), "ggplot")
+  # asking to fill by a column the frame does not carry must not error
+  expect_s3_class(
+    tree_composition_plot(.composition_loci(), dir, "species", "species",
+                          "not_a_column", "t", "s"), "ggplot")
+})
+
+test_that("tree_composition_plot drops rows whose key is absent from the tree", {
+  # The tip-label trap from ADR-011: loci keyed by a name the tree does not
+  # carry must be excluded rather than silently plotted at a wrong y position.
+  dir <- withr::local_tempdir()
+  .write_tree_fixture(dir, "species", c("Antrozous pallidus"))  # Mus absent
+  p <- tree_composition_plot(.composition_loci(), dir, "species", "species",
+                             "segment", "t", "s")
+  expect_s3_class(p, "patchwork")
+})
+
+test_that("the two ADR-014 panels build from the catalog frame", {
+  dir <- withr::local_tempdir()
+  .write_tree_fixture(dir, "species", c("Antrozous pallidus", "Mus musculus"))
+  .write_tree_fixture(dir, "taxon", c("Gammaretrovirus", "Betaretrovirus"))
+  loci <- .composition_loci()
+
+  expect_s3_class(species_composition_tree_plot(loci, dir), "patchwork")
+  expect_s3_class(taxon_tier_tree_plot(loci, dir), "patchwork")
+})

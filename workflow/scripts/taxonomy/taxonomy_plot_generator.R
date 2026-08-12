@@ -545,6 +545,89 @@ taxon_confidence_tree_plot <- function(combined, tree_dir) {
   )
 }
 
+# Counts/composition sibling of tree_confidence_plot (ADR-014). Same tree
+# machinery, but the bars show what each tip is MADE OF rather than how
+# confident it is: `fill_col` is any categorical catalog column. Keeping the two
+# separate rather than adding a mode flag keeps each one readable.
+tree_composition_plot <- function(combined, tree_dir, tree_name, key, fill_col,
+                                  title, subtitle) {
+  tips <- read_tree_part(tree_dir, tree_name, "tips")
+  segs <- read_tree_part(tree_dir, tree_name, "segments")
+  if (is.null(tips)) {
+    return(empty_plot(sprintf("no %s tree available", tree_name)))
+  }
+  if (nrow(combined) == 0L || !key %in% names(combined) ||
+      !fill_col %in% names(combined)) {
+    return(empty_plot(sprintf("no %s values", fill_col)))
+  }
+  # The ADR-011 tip-label trap: a locus keyed by a name the tree does not carry
+  # must be dropped, not silently drawn at whatever y position match() returns.
+  d <- combined[as.character(combined[[key]]) %in% tips$tip, , drop = FALSE]
+  if (nrow(d) == 0L) return(empty_plot("no loci matching the tree tips"))
+
+  d$.y <- tips$y[match(as.character(d[[key]]), tips$tip)]
+  counts <- d %>%
+    count(.data$.y, .fill = as.character(.data[[fill_col]]), name = "n")
+  ylim <- c(0.4, nrow(tips) + 0.6)
+
+  bars <- ggplot(counts, aes(x = .data$n, y = .data$.y, fill = .data$.fill)) +
+    geom_col(position = position_stack(reverse = TRUE), colour = NA,
+             orientation = "y") +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    scale_fill_manual(values = igv_unlimited_palette(
+      length(unique(counts$.fill))), name = fill_col) +
+    labs(x = "loci", y = NULL) +
+    theme_bw() +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+          panel.grid.major.y = element_blank())
+
+  tree <- ggplot() +
+    { if (!is.null(segs)) {
+        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                      xend = .data$xend, yend = .data$yend),
+                     colour = "grey45", linewidth = 0.4, lineend = "round")
+      } } +
+    geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
+              hjust = -0.05, size = 3, colour = "grey20") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.9))) +
+    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
+    theme_void()
+
+  patchwork::wrap_plots(tree, bars, widths = c(1.2, 3)) +
+    patchwork::plot_annotation(
+      title = title, subtitle = subtitle,
+      theme = theme(
+        plot.title      = element_text(face = "bold", hjust = 0.5, size = 16),
+        plot.subtitle   = element_text(hjust = 0.5, size = 11),
+        plot.background = element_rect(fill = "white", colour = NA)
+      )
+    )
+}
+
+
+# Which viral lineages each host carries, ordered by host relatedness. Reads
+# directly as "did related hosts keep related viruses?" - the catalog-side
+# counterpart to the placement co-phylogeny (ADR-014).
+species_composition_tree_plot <- function(combined, tree_dir) {
+  tree_composition_plot(
+    combined, tree_dir, "species", "species", "segment",
+    "Viral lineage composition by host species",
+    "Host phylogeny (input.species_tree) - loci per lineage"
+  )
+}
+
+# Per-lineage evidence tiers. A lineage that is almost entirely orphan is one
+# whose structural evidence has eroded away - a decay signal that the pooled
+# counts hide.
+taxon_tier_tree_plot <- function(combined, tree_dir) {
+  tree_composition_plot(
+    combined, tree_dir, "taxon", "taxon_call", "source",
+    "Evidence tier by viral lineage",
+    "Reference taxonomy cladogram - LTR-flanked (LTR-confirmed) vs orphan"
+  )
+}
+
+
 # Host species on the y axis, ordered by the user-supplied species phylogeny.
 species_confidence_tree_plot <- function(combined, tree_dir) {
   tree_confidence_plot(
@@ -849,6 +932,12 @@ main <- function() {
             taxon_confidence_tree_plot(combined, tree_dir), n_taxa)
   emit_tree("species_confidence_tree.png",
             species_confidence_tree_plot(combined, tree_dir), n_species)
+  # Composition counterparts (ADR-014): what each tip is made of, rather than
+  # how confident it is.
+  emit_tree("species_composition_tree.png",
+            species_composition_tree_plot(combined, tree_dir), n_species)
+  emit_tree("taxon_tier_tree.png",
+            taxon_tier_tree_plot(combined, tree_dir), n_taxa)
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
@@ -876,7 +965,7 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done - wrote 22 PNGs to %s + report %s + catalog %s",
+  log_section(sprintf("Done - wrote 24 PNGs to %s + report %s + catalog %s",
                       args$output, args$report_csv, args$catalog_csv))
 }
 
