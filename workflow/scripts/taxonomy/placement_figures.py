@@ -3,7 +3,7 @@
 Consumes the published `.jplace` files (see `taxonomy_placement.export_placement`)
 and turns each into figures that answer questions the catalog cannot:
 
-``heat-tree``
+``heat-tree`` (written by gappa as ``{stem}.tree.svg``)
     The reference retroviral phylogeny with each branch coloured by the
     placement mass that landed on it. Reads as **where on the retroviral tree
     this genome's ERV load concentrates** - which lineages invaded it heavily,
@@ -188,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             "%s has no placements; writing empty-state figures instead", args.stem
         )
         write_empty_state_svg(
-            args.out_dir / f"{args.stem}.heat-tree.svg",
+            args.out_dir / f"{args.stem}.tree.svg",
             args.stem,
             reason="no queries were placed on the reference tree",
         )

@@ -122,7 +122,7 @@ def test_lwr_histogram_cmd_targets_the_right_subcommand(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------
 def test_write_empty_state_svg_produces_a_valid_standalone_svg(tmp_path: Path) -> None:
     """Snakemake declares this file, so it must exist even with nothing to draw."""
-    out = tmp_path / "s.heat-tree.svg"
+    out = tmp_path / "s.tree.svg"
     write_empty_state_svg(out, "Toyus.orphan.POL", reason="no placements")
     text = out.read_text()
     assert text.lstrip().startswith("<svg") or "<svg" in text.split("\n")[0:3][0]

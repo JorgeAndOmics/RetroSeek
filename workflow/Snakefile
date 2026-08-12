@@ -1393,7 +1393,7 @@ rule placement_figures_setup:
         # gappa core-dumps on a placement-free jplace ("Invalid Color
         # Normalization"), so the script gates on the placement count and writes
         # an empty-state SVG instead. This output therefore always materialises.
-        heat_tree = os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg')
+        heat_tree = os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.tree.svg')
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_figures', '{genome}.{tier}.{gene}.log')
     params:
@@ -1414,7 +1414,7 @@ rule placement_figures_setup:
 rule placement_figures:
     input:
         heat_trees = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg'),
+            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.tree.svg'),
             genome=species_with_hits(wildcards), tier=['ltr-flanked', 'orphan'],
             gene=_PLACEMENT_GENES
         )
@@ -1444,6 +1444,7 @@ rule placement_cophylogeny_setup:
             --jplace {input.jplace:q} \
             --out-dir {params.out_dir:q} \
             --tier {wildcards.tier:q} \
+            --gene {wildcards.gene:q} \
             --staged-dir {params.staged_dir:q} \
             $( [ -n "{params.host_tree}" ] && echo --host-tree "{params.host_tree}" ) \
             2> {log:q}
@@ -1465,7 +1466,7 @@ rule placement_cophylogeny:
 rule placement_trees:
     input:
         figures = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.heat-tree.svg'),
+            os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.tree.svg'),
             genome=species_with_hits(wildcards), tier=['ltr-flanked', 'orphan'],
             gene=_PLACEMENT_GENES
         ),

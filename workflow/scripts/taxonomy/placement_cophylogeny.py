@@ -241,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--tier", required=True, help="ltr-flanked | orphan")
     parser.add_argument(
+        "--gene", default="POL", help="placement gene; names the summary"
+    )
+    parser.add_argument(
         "--host-tree", type=Path, default=None, help="Newick host phylogeny"
     )
     parser.add_argument("--staged-dir", type=Path, default=None)
@@ -256,7 +259,9 @@ def main(argv: list[str] | None = None) -> int:
             "only %d sample(s); a composition tree needs at least 3", len(args.jplace)
         )
         write_summary(
-            args.out_dir / f"cophylogeny_summary.{args.tier}.csv", args.tier, None
+            args.out_dir / f"cophylogeny_summary.{args.tier}.{args.gene}.csv",
+            args.tier,
+            None,
         )
         return 0
 
@@ -288,7 +293,9 @@ def main(argv: list[str] | None = None) -> int:
                 result["host_splits"],
             )
     write_summary(
-        args.out_dir / f"cophylogeny_summary.{args.tier}.csv", args.tier, result
+        args.out_dir / f"cophylogeny_summary.{args.tier}.{args.gene}.csv",
+        args.tier,
+        result,
     )
     return 0
 

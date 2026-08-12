@@ -125,25 +125,35 @@ same per-gene calls.
 
 ## Measured result
 
-On the model 5, LTR-flanked tier, the ERV-composition tree is **discordant with
-the host phylogeny**: RF = 4, 0 of 2 splits shared.
+Both tiers are **discordant with the host phylogeny** (RF = 4, 0 of 2 splits
+shared), and running them separately is what makes the result interpretable:
 
 ```
-ERV composition:  (Homo, (Molossus, (Mus, (Antrozous, Desmodus))))
-host phylogeny:   (((Antrozous, Molossus), Desmodus), (Homo, Mus))
+ltr-flanked:  (Homo, (Molossus, (Mus, (Antrozous, Desmodus))))
+orphan:       (Homo, ((Antrozous, Mus), (Desmodus, Molossus)))
+host:         (((Antrozous, Molossus), Desmodus), (Homo, Mus))
 ```
 
-*Mus musculus* nests inside the bat clade by ERV content and *Homo* falls
-outside entirely - the opposite of what vertical inheritance predicts.
+**What replicates:** *Homo sapiens* is the outgroup in both ERV trees, on a long
+branch (0.65 / 0.80). The host phylogeny pairs it with *Mus*. So the human
+POL-placement profile is distinct from both the mouse and the bats, and that
+survives changing the evidence tier.
 
-The KRD matrix argues this is compositional rather than a sample-size artifact:
-the closest pair by query count (*Homo* 2,039 / *Molossus* 786) is the **most
-distant** by KRD (1.231), while the wildly mismatched *Mus* 5,690 / *Antrozous*
-672 is among the closest (0.626).
+**What does not:** the internal structure among the other four genomes differs
+completely between tiers. Whatever groups *Antrozous* with *Desmodus* under
+LTR-flanked evidence groups it with *Mus* under orphan evidence.
 
-This is reported as a finding to investigate, not a conclusion. Placement is on
-POL only, and the reference tree is 64 tips; both bound how much lineage
-structure the comparison can resolve.
+The KRD matrix argues the signal is compositional rather than a sample-size
+artifact: on the LTR-flanked tier the closest pair by query count (*Homo* 2,039
+/ *Molossus* 786) is the **most distant** by KRD (1.231), while the wildly
+mismatched *Mus* 5,690 / *Antrozous* 672 is among the closest (0.626).
+
+**Reported as a finding to investigate, not a conclusion.** Only the
+Homo-outgroup result is stable across tiers; the rest should not be cited.
+Placement is on POL alone against a 64-tip reference, which bounds how much
+lineage structure any of this can resolve - and is the strongest argument for
+widening `placement_genes`, since three genes would give the comparison
+independent replicates rather than one draw.
 
 ## Alternatives considered
 
