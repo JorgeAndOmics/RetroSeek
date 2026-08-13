@@ -1,4 +1,7 @@
-# testthat tests for hotspot_analysis/io.R + utils/chrom_names.R
+# testthat tests for hotspot_analysis/io.R
+#
+# The chromosome-name normaliser it depends on is covered by
+# test-chrom_names.R; it is only sourced here because io.R calls it.
 #
 # Run via: make test-r
 
@@ -11,35 +14,6 @@ suppressMessages({
 
 source("../../scripts/utils/chrom_names.R")
 source("../../scripts/hotspot/io.R")
-
-
-# ------------------------ normalise_chrom_names -------------------------
-
-test_that("normalise_chrom_names extracts NCBI accession tokens from full headers", {
-  headers <- c(
-    "CM034567.1 Genus species chromosome 1, GRCh38",
-    "NC_000001.11 Homo sapiens chromosome 1",
-    "JH791234.1 unplaced scaffold"
-  )
-  expect_equal(
-    suppressMessages(normalise_chrom_names(headers)),
-    c("CM034567.1", "NC_000001.11", "JH791234.1")
-  )
-})
-
-test_that("normalise_chrom_names returns NA for non-matching headers and emits a message", {
-  headers <- c("CM034567.1 ok", "chr1 custom-format-no-match")
-  expect_message(
-    out <- normalise_chrom_names(headers),
-    regexp = "did not match pattern"
-  )
-  expect_equal(out, c("CM034567.1", NA_character_))
-})
-
-test_that("normalise_chrom_names is silent when all headers match", {
-  headers <- c("CM034567.1 a", "CM034568.1 b")
-  expect_silent(normalise_chrom_names(headers))
-})
 
 
 # --------------------------- read_hotspot_options ---------------------------
