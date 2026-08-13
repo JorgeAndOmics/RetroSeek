@@ -8,6 +8,7 @@ artifact that must not churn between runs.
 from __future__ import annotations
 
 from io import StringIO
+from pathlib import Path
 
 import pytest
 import tree_layout as tl
@@ -172,3 +173,92 @@ def test_real_divergence_estimates_are_informative() -> None:
     assert not tl.uninformative_branch_lengths(
         _tree("((A:12.4,B:12.4):43.1,(C:55.2,D:55.2):0.3);")
     )
+
+
+# ---------------------------------------------------------------------
+# Alias-aware tip matching
+#
+# Real host trees are exported from assembly pipelines and carry the genome
+# DIRECTORY name, which in a real study bears no textual relation to the
+# display name: `GCF_014176215.1_mMyoMyo1` is "Myotis myotis". Folding
+# underscores and case cannot bridge that, but the config `species:` block
+# already states the correspondence, so matching consults it.
+# ---------------------------------------------------------------------
+SPECIES_MAP = {
+    "GCF_014176215.1_mMyoMyo1": "Myotis myotis",
+    "Antrozous_pallidus": "Antrozous pallidus",
+    "GCA_004026805.1_ASM402680v1": "Desmodus rotundus",
+}
+
+
+def test_alias_index_maps_stems_and_display_names_to_the_display_name() -> None:
+    """Both spellings resolve to the display name the catalog uses."""
+    idx = tl.build_alias_index(SPECIES_MAP)
+    assert idx[tl._normalize("GCF_014176215.1_mMyoMyo1")] == "Myotis myotis"
+    assert idx[tl._normalize("Myotis myotis")] == "Myotis myotis"
+    assert idx[tl._normalize("myotis_myotis")] == "Myotis myotis"
+
+
+def test_alias_index_can_canonicalise_to_the_stem_instead() -> None:
+    """The co-phylogeny compares against trees whose tips ARE genome stems,
+    so it needs the mapping pointing the other way."""
+    idx = tl.build_alias_index(SPECIES_MAP, canonical="stem")
+    assert idx[tl._normalize("Myotis myotis")] == "GCF_014176215.1_mMyoMyo1"
+    assert idx[tl._normalize("GCF_014176215.1_mMyoMyo1")] == "GCF_014176215.1_mMyoMyo1"
+
+
+def test_from_newick_matches_a_tree_labelled_with_genome_directories(
+    tmp_path: Path,
+) -> None:
+    """The real-workflow case: an assembly-derived tree, arbitrary stem labels.
+
+    Without the alias map every tip fails to match and the panel silently
+    renders "no loci matching the tree tips" - a blank figure, not an error.
+    """
+    nwk = tmp_path / "assembly.tre"
+    nwk.write_text(
+        "((GCF_014176215.1_mMyoMyo1:12.4,Antrozous_pallidus:12.4):8.1,"
+        "GCA_004026805.1_ASM402680v1:20.5);"
+    )
+    tree = tl.from_newick(
+        nwk,
+        ["Myotis myotis", "Antrozous pallidus", "Desmodus rotundus"],
+        aliases=tl.build_alias_index(SPECIES_MAP),
+    )
+    # tips are renamed to the display names the catalog keys on
+    assert sorted(x.name for x in tree.get_terminals()) == [
+        "Antrozous pallidus",
+        "Desmodus rotundus",
+        "Myotis myotis",
+    ]
+
+
+def test_from_newick_still_matches_display_names_without_aliases(
+    tmp_path: Path,
+) -> None:
+    """The existing behaviour must not regress when no map is supplied."""
+    nwk = tmp_path / "plain.nwk"
+    nwk.write_text("(Antrozous_pallidus:1,Mus_musculus:1);")
+    tree = tl.from_newick(nwk, ["Antrozous pallidus", "Mus musculus"])
+    assert sorted(x.name for x in tree.get_terminals()) == [
+        "Antrozous pallidus",
+        "Mus musculus",
+    ]
+
+
+def test_from_newick_prunes_tips_the_study_does_not_include(tmp_path: Path) -> None:
+    """A 100-species reference timetree pruned down to the study's genomes."""
+    nwk = tmp_path / "big.tre"
+    nwk.write_text(
+        "((GCF_014176215.1_mMyoMyo1:1,Bos_taurus:1):1,(Gallus_gallus:1,"
+        "Antrozous_pallidus:1):1);"
+    )
+    tree = tl.from_newick(
+        nwk,
+        ["Myotis myotis", "Antrozous pallidus"],
+        aliases=tl.build_alias_index(SPECIES_MAP),
+    )
+    assert sorted(x.name for x in tree.get_terminals()) == [
+        "Antrozous pallidus",
+        "Myotis myotis",
+    ]

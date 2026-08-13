@@ -58,6 +58,8 @@ import sys
 from io import StringIO
 from pathlib import Path
 
+import tree_layout
+import yaml
 from Bio import Phylo
 
 logger = logging.getLogger(__name__)
@@ -179,13 +181,18 @@ def congruence(host_newick: str, erv_newick: str) -> dict[str, object]:
     host_splits = bipartitions(host_newick)
     erv_splits = bipartitions(erv_newick)
     shared = host_splits & erv_splits
+    # Fewer than 4 taxa leaves no internal branch to compare - there is only one
+    # unrooted topology for 3 tips - so "congruent" would be trivially true and
+    # actively misleading. Say so instead.
+    comparable = bool(host_splits or erv_splits)
     return {
         "n_tips": len(host_tips),
+        "comparable": comparable,
         "host_splits": len(host_splits),
         "erv_splits": len(erv_splits),
         "shared_splits": len(shared),
         "rf_distance": len(host_splits ^ erv_splits),
-        "congruent": host_splits == erv_splits,
+        "congruent": comparable and host_splits == erv_splits,
         "host_only_splits": sorted(
             "|".join(sorted(s)) for s in host_splits - erv_splits
         ),
@@ -193,6 +200,34 @@ def congruence(host_newick: str, erv_newick: str) -> dict[str, object]:
             "|".join(sorted(s)) for s in erv_splits - host_splits
         ),
     }
+
+
+def congruence_with_aliases(
+    host_newick: str, erv_newick: str, species_map: dict[str, str]
+) -> dict[str, object]:
+    """:func:`congruence`, with both trees' tips canonicalised first.
+
+    The ERV tree's tips are genome stems, taken from the published jplace
+    filenames. A user's host tree is commonly labelled with display names, or
+    with assembly directory names that resemble neither. Left alone the tip sets
+    differ, congruence refuses to run, and the comparison is silently reported
+    as "not compared". Both sides are therefore folded onto the stem, which is
+    the form the ERV tree already uses.
+    """
+    index = tree_layout.build_alias_index(species_map, canonical="stem")
+
+    def canonicalise(newick: str) -> str:
+        tree = Phylo.read(StringIO(newick), "newick")
+        for leaf in tree.get_terminals():
+            if leaf.name:
+                leaf.name = index.get(tree_layout._normalize(leaf.name), leaf.name)
+        out = StringIO()
+        Phylo.write(tree, out, "newick")
+        return out.getvalue()
+
+    if not species_map:
+        return congruence(host_newick, erv_newick)
+    return congruence(canonicalise(host_newick), canonicalise(erv_newick))
 
 
 def run(cmd: list[str]) -> None:
@@ -218,6 +253,7 @@ def write_summary(path: Path, tier: str, result: dict[str, object] | None) -> No
             return
         for key in (
             "n_tips",
+            "comparable",
             "host_splits",
             "erv_splits",
             "shared_splits",
@@ -247,6 +283,15 @@ def main(argv: list[str] | None = None) -> int:
         "--host-tree", type=Path, default=None, help="Newick host phylogeny"
     )
     parser.add_argument("--staged-dir", type=Path, default=None)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            "pipeline config YAML; its `species:` map lets a host tree labelled "
+            "with display names match the ERV tree's genome stems"
+        ),
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -274,16 +319,26 @@ def main(argv: list[str] | None = None) -> int:
     if cluster.exists():
         shutil.move(str(cluster), erv_tree)
 
+    species_map: dict[str, str] = {}
+    if args.config and args.config.is_file():
+        cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
+        species_map = cfg.get("species") or {}
+
     result = None
     if args.host_tree and args.host_tree.is_file() and erv_tree.is_file():
         try:
-            result = congruence(args.host_tree.read_text(), erv_tree.read_text())
+            result = congruence_with_aliases(
+                args.host_tree.read_text(), erv_tree.read_text(), species_map
+            )
         except ValueError as exc:
             # Tip sets differ (a genome without placements, say). Record it
             # rather than aborting the run.
             logger.warning("congruence not computed: %s", exc)
         else:
-            verdict = "congruent" if result["congruent"] else "DISCORDANT"
+            if not result["comparable"]:
+                verdict = "NOT COMPARABLE (fewer than 4 taxa)"
+            else:
+                verdict = "congruent" if result["congruent"] else "DISCORDANT"
             logger.info(
                 "%s tier: %s with the host phylogeny (RF=%s, %s/%s splits shared)",
                 args.tier,

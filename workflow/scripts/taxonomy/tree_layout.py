@@ -141,6 +141,30 @@ def _normalize(label: str) -> str:
     return label.replace("_", " ").strip().lower()
 
 
+def build_alias_index(
+    species_map: dict[str, str], canonical: str = "display"
+) -> dict[str, str]:
+    """Every known spelling of a genome -> its canonical form, normalized.
+
+    A host tree exported from an assembly pipeline carries the genome
+    DIRECTORY name, and in a real study that bears no textual relation to the
+    display name - ``GCF_014176215.1_mMyoMyo1`` is *Myotis myotis*. Folding
+    separators and case cannot bridge that, but the config ``species:`` block
+    already states the correspondence, so it is used as the lookup.
+
+    ``canonical`` picks which side wins: ``display`` for the plot panels, whose
+    frames key on the catalog's ``species`` column, and ``stem`` for the
+    co-phylogeny, whose ERV tree tips are genome stems.
+    """
+    index: dict[str, str] = {}
+    for stem, display in (species_map or {}).items():
+        target = str(display if canonical == "display" else stem)
+        for spelling in (stem, display):
+            if spelling:
+                index[_normalize(str(spelling))] = target
+    return index
+
+
 def uninformative_branch_lengths(tree: Tree) -> bool:
     """True when a tree's branch lengths carry no divergence information.
 
@@ -163,8 +187,16 @@ def uninformative_branch_lengths(tree: Tree) -> bool:
     return all(float(x).is_integer() for x in lengths)
 
 
-def from_newick(newick: Path, tips: list[str]) -> Tree:
-    """Read a user Newick and prune it to ``tips`` (matched name-insensitively).
+def from_newick(
+    newick: Path, tips: list[str], aliases: dict[str, str] | None = None
+) -> Tree:
+    """Read a user Newick and prune it to ``tips``.
+
+    Tips are matched separator- and case-insensitively, and additionally
+    through ``aliases`` (see :func:`build_alias_index`) so a tree labelled with
+    genome directory names resolves to the display names the catalog uses. Any
+    format Bio.Phylo reads as Newick works regardless of file extension, so
+    ``.tre`` and ``.nwk`` are both fine.
 
     Reports unmatched names in BOTH directions: a species missing from the tree
     silently vanishes from the figure otherwise, and that is exactly the kind of
@@ -172,6 +204,11 @@ def from_newick(newick: Path, tips: list[str]) -> Tree:
     """
     tree = Phylo.read(str(newick), "newick")
     want = {_normalize(t): t for t in tips}
+    # Aliases fill gaps rather than override: an exact display-name match on the
+    # tip always wins over an indirect one.
+    for key, canonical in (aliases or {}).items():
+        if canonical in tips:
+            want.setdefault(key, canonical)
     matched: dict[str, str] = {}  # tip label -> display name
     for leaf in tree.get_terminals():
         key = _normalize(leaf.name or "")
@@ -354,12 +391,17 @@ def main() -> int:
     # names before plotting, so the tips must carry those same names or nothing
     # would match (`Homo_sapiens` tip vs `Homo sapiens` bar).
     species = _observed(args.parquet_dir, "species")
+    mapping: dict[str, str] = {}
     if args.config and args.config.exists():
         cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
         mapping = cfg.get("species") or {}
         species = sorted({str(mapping.get(s, s)) for s in species})
     if args.species_tree and str(args.species_tree) and args.species_tree.exists():
-        stree = from_newick(args.species_tree, species)
+        # The stems are kept as aliases, not discarded: a real host tree is
+        # usually labelled with them rather than with display names.
+        stree = from_newick(
+            args.species_tree, species, aliases=build_alias_index(mapping)
+        )
         # A user tree may carry real branch lengths; keep them (align_tips=False)
         # unless it is a bare cladogram, where squared-off tips read better.
         has_len = any(c.branch_length not in (None, 0) for c in stree.find_clades())

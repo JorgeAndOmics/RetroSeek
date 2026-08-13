@@ -26,6 +26,7 @@ import pytest
 from placement_cophylogeny import (
     bipartitions,
     congruence,
+    congruence_with_aliases,
     sample_name_for,
     squash_cmd,
     stage_jplace,
@@ -130,3 +131,80 @@ def test_congruence_requires_a_shared_tip_set() -> None:
     """Comparing trees over different taxa silently produces nonsense splits."""
     with pytest.raises(ValueError, match="tip"):
         congruence(HOST, "(A:1,B:1);")
+
+
+# ---------------------------------------------------------------------
+# Alias-aware congruence
+#
+# The ERV-composition tree's tips are genome STEMS, taken from the published
+# jplace filenames. A user's host tree is frequently labelled with display
+# names, or with assembly directory names that match neither. Without
+# canonicalisation the tip sets differ and the comparison is skipped entirely -
+# reported as "not compared", which is honest but useless.
+# ---------------------------------------------------------------------
+SPECIES_MAP = {
+    "GCF_014176215.1_mMyoMyo1": "Myotis myotis",
+    "Antrozous_pallidus": "Antrozous pallidus",
+    "GCA_004026805.1_ASM402680v1": "Desmodus rotundus",
+}
+
+ERV_STEMS = (
+    "((GCF_014176215.1_mMyoMyo1:0.2,Antrozous_pallidus:0.2):0.1,"
+    "GCA_004026805.1_ASM402680v1:0.3);"
+)
+# Display names in Newick must be quoted or underscored - unquoted whitespace is
+# a token separator, so "Myotis myotis:12" parses as two names. Real exports use
+# the underscore convention; both spellings are exercised below.
+HOST_DISPLAY = (
+    "(('Myotis myotis':12,'Antrozous pallidus':12):8,'Desmodus rotundus':20);"
+)
+HOST_UNDERSCORE = "((Myotis_myotis:12,Antrozous_pallidus:12):8,Desmodus_rotundus:20);"
+
+
+def test_congruence_matches_display_names_against_genome_stems() -> None:
+    """The real-workflow case: host tree in display names, ERV tree in stems."""
+    result = congruence_with_aliases(HOST_DISPLAY, ERV_STEMS, SPECIES_MAP)
+    assert result["n_tips"] == 3  # all three names resolved across spellings
+
+
+def test_congruence_with_aliases_still_detects_a_real_disagreement() -> None:
+    """Canonicalising names must not paper over a genuine topology difference.
+
+    Uses four taxa: three tips admit only one unrooted topology, so any
+    3-tip comparison is vacuously congruent.
+    """
+    smap = {**SPECIES_MAP, "Mus_musculus": "Mus musculus"}
+    host = (
+        "(('Myotis myotis':12,'Antrozous pallidus':12):8,"
+        "('Desmodus rotundus':15,'Mus musculus':15):5);"
+    )
+    swapped = (
+        "((GCF_014176215.1_mMyoMyo1:0.2,GCA_004026805.1_ASM402680v1:0.2):0.1,"
+        "(Antrozous_pallidus:0.3,Mus_musculus:0.3):0.1);"
+    )
+    result = congruence_with_aliases(host, swapped, smap)
+    assert result["comparable"] is True
+    assert result["congruent"] is False
+    assert result["rf_distance"] > 0
+
+
+def test_three_taxa_are_reported_as_not_comparable() -> None:
+    """Three tips have no internal branch, so agreement is vacuous.
+
+    Reporting congruent=True there would look like a positive result when the
+    comparison never actually happened.
+    """
+    result = congruence_with_aliases(HOST_UNDERSCORE, ERV_STEMS, SPECIES_MAP)
+    assert result["comparable"] is False
+    assert result["congruent"] is False
+
+
+def test_congruence_matches_underscored_display_names_against_stems() -> None:
+    """The common export convention: underscores standing in for spaces."""
+    result = congruence_with_aliases(HOST_UNDERSCORE, ERV_STEMS, SPECIES_MAP)
+    assert result["n_tips"] == 3  # underscored display names resolved too
+
+
+def test_congruence_with_aliases_falls_back_when_no_map_is_given() -> None:
+    """With no species map it delegates to the plain comparison unchanged."""
+    assert congruence_with_aliases(HOST, ERV, {}) == congruence(HOST, ERV)

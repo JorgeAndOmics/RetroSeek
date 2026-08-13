@@ -1436,7 +1436,8 @@ rule placement_cophylogeny_setup:
     params:
         out_dir    = defaults.PATH_DICT['COPHYLOGENY_DIR'],
         host_tree  = (config.get('input', {}) or {}).get('species_tree', '') or '',
-        staged_dir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'cophylogeny', '{tier}_{gene}')
+        staged_dir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'cophylogeny', '{tier}_{gene}'),
+        config_yaml = defaults.CONFIG_FILE
     threads: 1
     shell:
         '''
@@ -1446,6 +1447,7 @@ rule placement_cophylogeny_setup:
             --tier {wildcards.tier:q} \
             --gene {wildcards.gene:q} \
             --staged-dir {params.staged_dir:q} \
+            --config {params.config_yaml:q} \
             $( [ -n "{params.host_tree}" ] && echo --host-tree "{params.host_tree}" ) \
             2> {log:q}
         '''
