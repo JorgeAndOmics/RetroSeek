@@ -1398,6 +1398,8 @@ rule placement_figures_setup:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_figures', '{genome}.{tier}.{gene}.log')
     params:
         out_dir   = defaults.PATH_DICT['PLACEMENT_PLOT_DIR'],
+        table_dir = defaults.PATH_DICT['PLACEMENT_TABLE_DIR'],
+        tree_dir  = defaults.PATH_DICT['PLACEMENT_DIR'],
         mass_norm = _PLACEMENT.get('mass_norm', 'absolute')
     threads: 1
     shell:
@@ -1405,6 +1407,8 @@ rule placement_figures_setup:
         PYTHONPATH=scripts python scripts/taxonomy/placement_figures.py \
             --jplace {input.jplace:q} \
             --out-dir {params.out_dir:q} \
+            --table-dir {params.table_dir:q} \
+            --tree-dir {params.tree_dir:q} \
             --stem {wildcards.genome:q}.{wildcards.tier:q}.{wildcards.gene:q} \
             --mass-norm {params.mass_norm} \
             2> {log:q}

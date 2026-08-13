@@ -240,6 +240,13 @@ PATH_DICT["TAXONOMY_PLOT_DIR"] = (
 PATH_DICT["PLACEMENT_PLOT_DIR"] = (
     PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "placement"
 ).resolve()
+# gappa writes every artifact of a command into one --out-dir, mixing figures,
+# tables and trees. They are split back out by type here so the directory
+# contract holds: figures under plots/, CSVs under tables/, and the Newick and
+# Nexus trees beside the .jplace they were derived from.
+PATH_DICT["PLACEMENT_TABLE_DIR"] = (
+    PATH_DICT["TABLE_OUTPUT_DIR"] / "placement"
+).resolve()
 # Structural views of the genus-founded ERV assembly (completeness, canonical
 # order, structure_class). Built by erv_like_plot_generator.R from the loci table;
 # the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.

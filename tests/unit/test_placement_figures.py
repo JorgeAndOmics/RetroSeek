@@ -24,6 +24,7 @@ from placement_figures import (
     edpl_cmd,
     heat_tree_cmd,
     lwr_histogram_cmd,
+    route_heat_tree_outputs,
     write_empty_state_svg,
 )
 
@@ -142,3 +143,49 @@ def test_empty_state_svg_creates_parent_directories(tmp_path: Path) -> None:
     out = tmp_path / "deep" / "nested" / "s.svg"
     write_empty_state_svg(out, "x", reason="none")
     assert out.is_file()
+
+
+# ---------------------------------------------------------------------
+# Output routing
+#
+# gappa writes every artifact of one command into a single --out-dir, so a
+# heat-tree run drops an SVG, a Newick and a Nexus together. Left alone that
+# puts 50 of 60 files in the plots directory, breaking the repo's contract that
+# plots/ holds figures, tables/ holds CSVs and tracks/ holds coordinate and tree
+# files. They are routed by type instead.
+# ---------------------------------------------------------------------
+def test_tables_are_written_to_the_table_directory(tmp_path: Path) -> None:
+    """EDPL and LWR are CSVs; they do not belong under plots/."""
+    cmd = edpl_cmd(tmp_path / "x.jplace", tmp_path / "tables", "s")
+    assert str(tmp_path / "tables") in cmd
+    cmd = lwr_histogram_cmd(tmp_path / "x.jplace", tmp_path / "tables", "s")
+    assert str(tmp_path / "tables") in cmd
+
+
+def test_route_heat_tree_outputs_moves_trees_but_keeps_the_svg(
+    tmp_path: Path,
+) -> None:
+    """Only the SVG is a figure; the Newick and Nexus are tree artifacts."""
+    plots = tmp_path / "plots"
+    trees = tmp_path / "trees"
+    plots.mkdir()
+    for ext in ("tree.svg", "tree.newick", "tree.nexus"):
+        (plots / f"Toyus.ltr-flanked.POL.{ext}").write_text("x")
+
+    route_heat_tree_outputs(plots, trees, "Toyus.ltr-flanked.POL")
+
+    assert (plots / "Toyus.ltr-flanked.POL.tree.svg").is_file()
+    assert not (plots / "Toyus.ltr-flanked.POL.tree.newick").exists()
+    assert (trees / "Toyus.ltr-flanked.POL.tree.newick").is_file()
+    assert (trees / "Toyus.ltr-flanked.POL.tree.nexus").is_file()
+
+
+def test_route_heat_tree_outputs_is_safe_when_nothing_was_written(
+    tmp_path: Path,
+) -> None:
+    """The empty-placement path writes only a placeholder SVG."""
+    plots = tmp_path / "plots"
+    plots.mkdir()
+    (plots / "Toyus.orphan.POL.tree.svg").write_text("<svg/>")
+    route_heat_tree_outputs(plots, tmp_path / "trees", "Toyus.orphan.POL")
+    assert (plots / "Toyus.orphan.POL.tree.svg").is_file()

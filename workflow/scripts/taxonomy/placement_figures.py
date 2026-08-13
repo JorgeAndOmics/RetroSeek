@@ -50,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -151,6 +152,21 @@ def write_empty_state_svg(path: Path, stem: str, reason: str) -> None:
     )
 
 
+def route_heat_tree_outputs(plot_dir: Path, tree_dir: Path, stem: str) -> None:
+    """Move the heat-tree's Newick and Nexus out of the figure directory.
+
+    gappa writes an SVG, a Newick and a Nexus from one command into a single
+    --out-dir. Only the SVG is a figure; the other two are tree artifacts and
+    belong beside the .jplace they came from. Missing files are ignored - the
+    empty-placement path writes a placeholder SVG and nothing else.
+    """
+    tree_dir.mkdir(parents=True, exist_ok=True)
+    for ext in ("tree.newick", "tree.nexus"):
+        src = plot_dir / f"{stem}.{ext}"
+        if src.is_file():
+            shutil.move(str(src), str(tree_dir / src.name))
+
+
 def run(cmd: list[str]) -> None:
     """Invoke gappa, surfacing its stderr on failure.
 
@@ -168,7 +184,21 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jplace", type=Path, required=True)
-    parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument(
+        "--out-dir", type=Path, required=True, help="figures (SVG) land here"
+    )
+    parser.add_argument(
+        "--table-dir",
+        type=Path,
+        default=None,
+        help="EDPL and LWR CSVs; defaults to --out-dir when unset",
+    )
+    parser.add_argument(
+        "--tree-dir",
+        type=Path,
+        default=None,
+        help="heat-tree Newick/Nexus; defaults to --out-dir when unset",
+    )
     parser.add_argument(
         "--stem", required=True, help="{genome}.{tier}.{gene}; names every output"
     )
@@ -178,7 +208,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    args.out_dir.mkdir(parents=True, exist_ok=True)
+    table_dir = args.table_dir or args.out_dir
+    tree_dir = args.tree_dir or args.out_dir
+    for d in (args.out_dir, table_dir, tree_dir):
+        d.mkdir(parents=True, exist_ok=True)
 
     n = count_placements(args.jplace)
     if n == 0:
@@ -196,10 +229,11 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info("%s: %d placed queries", args.stem, n)
     run(heat_tree_cmd(args.jplace, args.out_dir, args.stem, args.mass_norm))
+    route_heat_tree_outputs(args.out_dir, tree_dir, args.stem)
     if not args.skip_edpl:
-        run(edpl_cmd(args.jplace, args.out_dir, args.stem))
+        run(edpl_cmd(args.jplace, table_dir, args.stem))
     if not args.skip_lwr:
-        run(lwr_histogram_cmd(args.jplace, args.out_dir, args.stem))
+        run(lwr_histogram_cmd(args.jplace, table_dir, args.stem))
     return 0
 
 
