@@ -97,6 +97,19 @@ Inputs are staged under genome-derived names first. gappa labels samples by file
 basename and EPA-ng writes every run to `epa_result.jplace`, so passed directly
 all five tips come back named `epa_result` - a silently useless tree.
 
+**Outputs are prefixed by tier and gene.** gappa names output files after the
+subcommand, not the data: every `analyze squash` writes `cluster.newick` and
+every `analyze krd` writes `krd_matrix.csv`. Both tiers share one `--out-dir`,
+so run concurrently they overwrite each other and one tier's result is reported
+as both. Observed 2026-08-13: the two tiers emitted a byte-identical composition
+tree; run 27 minutes apart the day before they were correctly different.
+Snakemake could not catch it, because the declared output
+(`cophylogeny_summary.{tier}.{gene}.csv`) *is* tier-scoped and only these
+undeclared intermediates collided. `--file-prefix {tier}.{gene}.` fixes it, and
+the published names gain the gene: `erv_composition.{tier}.{gene}.newick`,
+`{tier}.{gene}.krd_matrix.csv`. The gene is included because widening
+`placement_genes` would collide in exactly the same way.
+
 Tiers are analysed separately: whether the weaker orphan tier tells the same
 story as the LTR-confirmed one is itself a check.
 

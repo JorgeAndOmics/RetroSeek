@@ -27,6 +27,8 @@ from placement_cophylogeny import (
     bipartitions,
     congruence,
     congruence_with_aliases,
+    krd_cmd,
+    output_prefix,
     sample_name_for,
     squash_cmd,
     stage_jplace,
@@ -85,10 +87,56 @@ def test_stage_jplace_refuses_duplicate_sample_names(tmp_path: Path) -> None:
 # command construction
 # ---------------------------------------------------------------------
 def test_squash_cmd_points_at_the_staged_directory(tmp_path: Path) -> None:
-    cmd = squash_cmd(tmp_path / "staged", tmp_path / "out")
+    cmd = squash_cmd(tmp_path / "staged", tmp_path / "out", "ltr-flanked.POL.")
     assert cmd[:3] == ["gappa", "analyze", "squash"]
     assert "--write-newick-tree" in cmd
     assert str(tmp_path / "staged") in cmd
+
+
+# ---------------------------------------------------------------------
+# Output naming
+#
+# gappa names its output files after the subcommand, not after the data:
+# `analyze squash` always writes `cluster.newick` and `analyze krd` always
+# writes `krd_matrix.csv`. Both tiers share one --out-dir, so with default
+# names the two jobs write the same paths.
+#
+# Measured 2026-08-13: run concurrently, the tiers emitted a byte-identical
+# composition tree (same md5) and both summaries reported the orphan splits.
+# Run 27 minutes apart on 2026-08-12 they were correctly different. Snakemake
+# could not catch it because the declared output, cophylogeny_summary.{tier}.
+# {gene}.csv, *is* tier-scoped - only the undeclared intermediates collided.
+# ---------------------------------------------------------------------
+def test_output_prefix_distinguishes_tier_and_gene() -> None:
+    """The prefix carries both, because both will vary independently.
+
+    Only POL is placed today, but widening `placement_genes` is an open ADR-014
+    follow-up, and a second gene would collide exactly as the tiers did.
+    """
+    assert output_prefix("ltr-flanked", "POL") == "ltr-flanked.POL."
+    assert output_prefix("orphan", "POL") != output_prefix("ltr-flanked", "POL")
+    assert output_prefix("orphan", "GAG") != output_prefix("orphan", "POL")
+
+
+def test_squash_cmd_scopes_gappa_output_names_by_tier(tmp_path: Path) -> None:
+    """The regression guard: two tiers must not name the same output file."""
+    staged, out = tmp_path / "staged", tmp_path / "out"
+    flanked = squash_cmd(staged, out, output_prefix("ltr-flanked", "POL"))
+    orphan = squash_cmd(staged, out, output_prefix("orphan", "POL"))
+
+    assert "--file-prefix" in flanked
+    assert flanked[flanked.index("--file-prefix") + 1] == "ltr-flanked.POL."
+    assert flanked != orphan
+
+
+def test_krd_cmd_is_scoped_too(tmp_path: Path) -> None:
+    """krd_matrix.csv collided the same way, leaving one tier's matrix only."""
+    staged, out = tmp_path / "staged", tmp_path / "out"
+    flanked = krd_cmd(staged, out, output_prefix("ltr-flanked", "POL"))
+    orphan = krd_cmd(staged, out, output_prefix("orphan", "POL"))
+
+    assert flanked[flanked.index("--file-prefix") + 1] == "ltr-flanked.POL."
+    assert flanked != orphan
 
 
 # ---------------------------------------------------------------------

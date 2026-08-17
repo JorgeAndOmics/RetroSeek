@@ -20,8 +20,16 @@ reference tree:
 ``analyze krd``      the pairwise Kantorovich-Rubinstein distances behind it
 ``analyze edgepca``  ordination, showing which branches drive the separation
 
-Two mechanics are easy to get wrong
------------------------------------
+Three mechanics are easy to get wrong
+-------------------------------------
+**Output naming.** gappa names output files after the subcommand rather than
+after the data, so every ``analyze squash`` writes ``cluster.newick`` and every
+``analyze krd`` writes ``krd_matrix.csv``. Both tiers share one ``--out-dir``,
+so run concurrently they overwrite each other and one tier's result is silently
+reported as both. ``--file-prefix`` (see `output_prefix`) is what keeps them
+apart. Snakemake cannot catch this: the declared output is tier-scoped and only
+these undeclared intermediates collide.
+
 **Sample naming.** gappa labels each sample by its file basename, and EPA-ng
 writes every run to ``epa_result.jplace``. Handed those directly, all five tips
 come back named ``epa_result``. Inputs are staged under genome-derived names
@@ -107,7 +115,22 @@ def stage_jplace(jplace_files: list[Path], staged_dir: Path) -> Path:
     return staged_dir
 
 
-def _analyze_cmd(sub: str, staged_dir: Path, out_dir: Path) -> list[str]:
+def output_prefix(tier: str, gene: str) -> str:
+    """Prefix that keeps one invocation's gappa outputs away from another's.
+
+    gappa names output files after the subcommand, not after the data: `analyze
+    squash` always writes `cluster.newick`, `analyze krd` always writes
+    `krd_matrix.csv`. Both tiers are analysed into the same --out-dir, so with
+    default names the two jobs write the same paths and whichever finishes last
+    wins. Measured 2026-08-13: run concurrently they produced a byte-identical
+    composition tree; run 27 minutes apart the day before they were correctly
+    different. The gene is included because widening `placement_genes` beyond
+    POL would collide the same way.
+    """
+    return f"{tier}.{gene}."
+
+
+def _analyze_cmd(sub: str, staged_dir: Path, out_dir: Path, prefix: str) -> list[str]:
     return [
         GAPPA,
         "analyze",
@@ -116,18 +139,20 @@ def _analyze_cmd(sub: str, staged_dir: Path, out_dir: Path) -> list[str]:
         str(staged_dir),
         "--out-dir",
         str(out_dir),
+        "--file-prefix",
+        prefix,
         "--allow-file-overwriting",
     ]
 
 
-def squash_cmd(staged_dir: Path, out_dir: Path) -> list[str]:
+def squash_cmd(staged_dir: Path, out_dir: Path, prefix: str) -> list[str]:
     """Squash clustering: the tree of samples, written as Newick."""
-    return [*_analyze_cmd("squash", staged_dir, out_dir), "--write-newick-tree"]
+    return [*_analyze_cmd("squash", staged_dir, out_dir, prefix), "--write-newick-tree"]
 
 
-def krd_cmd(staged_dir: Path, out_dir: Path) -> list[str]:
+def krd_cmd(staged_dir: Path, out_dir: Path, prefix: str) -> list[str]:
     """Pairwise Kantorovich-Rubinstein distances between samples."""
-    return _analyze_cmd("krd", staged_dir, out_dir)
+    return _analyze_cmd("krd", staged_dir, out_dir, prefix)
 
 
 # ---------------------------------------------------------------------
@@ -311,13 +336,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     staged = stage_jplace(args.jplace, args.staged_dir or args.out_dir / "_staged")
-    run(squash_cmd(staged, args.out_dir))
-    run(krd_cmd(staged, args.out_dir))
+    prefix = output_prefix(args.tier, args.gene)
+    run(squash_cmd(staged, args.out_dir, prefix))
+    run(krd_cmd(staged, args.out_dir, prefix))
 
-    cluster = args.out_dir / "cluster.newick"
-    erv_tree = args.out_dir / f"erv_composition.{args.tier}.newick"
+    # The squash tree is renamed to a self-describing name; the prefix already
+    # kept it away from the other tier's, so this is only for legibility.
+    cluster = args.out_dir / f"{prefix}cluster.newick"
+    erv_tree = args.out_dir / f"erv_composition.{args.tier}.{args.gene}.newick"
     if cluster.exists():
         shutil.move(str(cluster), erv_tree)
+    else:
+        logger.warning("gappa wrote no %s; composition tree not produced", cluster.name)
 
     species_map: dict[str, str] = {}
     if args.config and args.config.is_file():
