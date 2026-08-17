@@ -51,8 +51,44 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_flank_margin` | int >= 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** - typos fail validation. |
 | `hit_domain_mode` | `membership` \| `positional` | `membership` | How the per-hit `domain_hit_class` on LTR-flanked hits is decided. `membership`: a hit is `substring_match` when its own gene has a config-matched (`domains`) Pfam domain **anywhere in its enclosing LTR element** (co-occurrence; cheap) - values `substring_match` / `no_substring_match`. `positional`: `substring_match` only when the hit **physically overlaps** a config-matched domain of its gene (co-localization; stronger), adding a `non_domain` level for hits overlapping no domain. Orthogonal to the per-provirus `domain_tier`, which is always element-wise. **Strict enum.** |
-| `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Semantically a set - duplicates ignored. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. |
+| `main_probes` | **ordered** list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). **The order is meaningful and does four jobs at once** - see "How `main_probes` is used" below. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. Duplicates are ignored, but unlike a set the sequence is read, so reordering this list changes published columns. |
 | `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
+
+#### How `main_probes` is used
+
+One ordered list drives four separate things. They are listed here because they
+do not all want the same order, and the list is a single knob: whichever order
+you set governs all four.
+
+1. **Main vs accessory membership** (order irrelevant). The set alone decides
+   `probe_type` / `probe_category`.
+2. **The mosaic gene set** (order irrelevant). `is_mosaic` is evaluated over
+   confident calls on these genes only, so accessory probes such as `P15E` or
+   `PR160` can never manufacture a false recombination signal.
+3. **Gene reliability ranking** (order used, first = most reliable). When a
+   locus's genes disagree, the locus call is taken from the highest-ranked gene
+   - after preferring `placement` over `lca`, and before confidence breaks
+   remaining ties. `POL` first is the usual choice: it is the most conserved
+   marker and the only one with a reliable placement tree.
+4. **Expected canonical gene order** (order used). `canonical_order` (and
+   `is_canonical` on the ERV-like table) is `true` when a locus's genes, sorted
+   by genomic start, read as this list or its exact reverse. The reverse is
+   accepted because a minus-strand provirus reads backwards.
+
+**The tension is between (3) and (4).** Reliability wants `POL` first; the
+retroviral genome is `5'-gag-pro-pol-env-3'`. Setting `[POL, GAG, ENV]` gives
+the best taxon calls, and makes `canonical_order` report `false` for a
+structurally textbook `gag -> pol -> env` provirus, because that order is
+neither the list nor its reverse. Setting `[GAG, PRO, POL, ENV]` makes
+`canonical_order` biologically literal and demotes `POL` in tie-breaking.
+
+Loci carrying two or fewer main genes are unaffected either way: any two-element
+order matches either the list or its reverse.
+
+Pick the order for the column you intend to read, and note the choice alongside
+the results. `completeness` (and therefore `structure_full_min` and
+`structure_class`) uses only the list's **length** as denominator, so it is
+insensitive to order.
 
 ### Pair detection
 
@@ -138,7 +174,7 @@ See [ADR-014](adr/ADR-014-publishing-placement-evidence-and-cophylogeny.md).
 
 ## `classification`
 
-Per-locus ERV taxonomic classification - turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* - the taxa a locus can resolve to - is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG by phylogenetic placement (MAFFT -> EPA-ng -> gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set), and `execution.entrez_email` (reference build).
+Per-locus ERV taxonomic classification - turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* - the taxa a locus can resolve to - is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG by phylogenetic placement (MAFFT -> EPA-ng -> gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set + expected canonical gene order - see [How `main_probes` is used](#how-main_probes-is-used)), and `execution.entrez_email` (reference build).
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|

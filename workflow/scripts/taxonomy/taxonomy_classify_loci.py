@@ -541,6 +541,14 @@ def _assemble(
                 ((g, lc["genes"][g][0]) for g in present_main), key=lambda x: x[1]
             )
         ]
+        # `main_probes` IS the declared expected order, by design: the user sets
+        # one list and it serves both gene reliability (above) and this. The
+        # reverse is accepted because a minus-strand provirus reads backwards.
+        # Consequence to keep in mind when reading the column: a POL-first list
+        # (best for reliability) reports canonical=False for a textbook
+        # gag -> pol -> env provirus, since that is neither the list nor its
+        # reverse. Loci with <=2 main genes match either way. Documented under
+        # "How main_probes is used" in docs/configuration.md.
         canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
         # Discrete structural class over gene content (ADR-009): a single main
         # gene is a 'gene' fragment; a multi-gene locus is 'full' once its

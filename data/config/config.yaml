@@ -46,6 +46,14 @@ parameters:
   hit_domain_mode: 'membership'
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
+  # ORDERED, and the order is read in two places that want different things:
+  #   gene reliability - first = most reliable, wins the locus taxon call (POL)
+  #   canonical gene order - canonical_order/is_canonical compare a locus's
+  #                          genomic gene order against this list or its reverse
+  # The retroviral genome is 5'-gag-pro-pol-env-3', so a POL-first list gives the
+  # best taxon calls and reports canonical_order=false for a textbook provirus.
+  # Order for whichever column you intend to read; see docs/configuration.md
+  # ("How main_probes is used"). Loci with <=2 main genes are unaffected.
   main_probes:
     - 'POL'
     - 'GAG'
