@@ -45,6 +45,7 @@ The resulting per-locus table **is the genus-founded ERV assembly**: each LTR-el
 **Negative / costs**
 
 - Adds external tools (`mafft`, `iqtree`, `raxml-ng`, `epa-ng`, `gappa`) to the env. Per-locus marker regions are cut with Biostrings (Bioconductor, `extract_region_fasta.R`), not bedtools - range/sequence work stays in Bioconductor.
+- **`hmmbuild` is in the tree-package build but not on the placement path.** EPA-ng requires each query to occupy exactly the reference MSA's columns. Two tools can enforce that: `hmmalign` against a profile, or `mafft --add --keeplength` against the alignment itself. MAFFT was chosen, so `<gene>.hmm` is built and published but never read - `hmmalign`/`hmmsearch` appear nowhere in the executable code. It is kept rather than dropped because it costs under a second on a ~64-sequence alignment, it is independently useful (hmmsearch your own sequences against the reference), and removing a declared output would trip Snakemake's rerun trigger and force a full reference rebuild: Entrez fetch, MAFFT L-INS-i, IQ-TREE with 1000 bootstraps, RAxML-NG. Not to be confused with `Pfam-A.hmm`, which is unrelated and genuinely load-bearing: LTRdigest uses it (`gt ltrdigest -hmms`) to produce the domain evidence behind `domain_tier` and the valid tier.
 - A one-time network reference build (`make reference` / `RetroSeek --build-reference`) is required before `--classify`.
 - GAG placement is low-confidence (kept opt-in); ENV stays an LCA-only marker.
 

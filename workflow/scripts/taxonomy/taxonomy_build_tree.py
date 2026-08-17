@@ -7,8 +7,19 @@ gene's subset of the taxon-comprehensive reference:
 
     gene refs (faa)  --MAFFT-->  <gene>.afa      reference MSA
                      --IQ-TREE-> <gene>.treefile + <gene>.model   tree + substitution model
-                     --hmmbuild->  <gene>.hmm    profile (for aligning queries at run time)
+                     --hmmbuild->  <gene>.hmm    profile (published, NOT used by placement)
     + <gene>.taxon.tsv   tip(accession) -> lineage   (for gappa examine assign)
+
+``<gene>.hmm`` is not on the placement path. Queries are aligned with
+``mafft --add --keeplength`` against ``<gene>.afa`` (see
+`taxonomy_placement._align_queries`), and EPA-ng takes ``--tree``/``--ref-msa``/
+``--query``/``--model`` - it accepts no profile. Both routes enforce the same
+invariant EPA-ng requires, that a query occupies exactly the reference's
+columns; ``hmmalign`` against this profile was the design's other option and
+MAFFT was chosen instead. The profile is still built and published because it
+costs under a second on a ~64-sequence alignment and lets you hmmsearch your own
+sequences against the reference without rebuilding anything. Do not infer from
+its presence that HMMER participates in placement.
 
 Also reports alignment quality (n seqs, columns, % gaps, mean pairwise identity) so
 poorly-aligning markers (e.g. ENV) are flagged as low-confidence trees.
