@@ -29,6 +29,7 @@ from placement_cophylogeny import (
     congruence_with_aliases,
     krd_cmd,
     output_prefix,
+    route_squash_outputs,
     sample_name_for,
     squash_cmd,
     stage_jplace,
@@ -256,3 +257,68 @@ def test_congruence_matches_underscored_display_names_against_stems() -> None:
 def test_congruence_with_aliases_falls_back_when_no_map_is_given() -> None:
     """With no species map it delegates to the plain comparison unchanged."""
     assert congruence_with_aliases(HOST, ERV, {}) == congruence(HOST, ERV)
+
+
+# ---------------------------------------------------------------------
+# Output routing
+#
+# gappa writes every artifact of one command into a single --out-dir: the
+# cluster tree, one reference-tree-per-cluster-node, and the KRD matrix. Only
+# the last is a table. Leaving the Newicks there put trees under results/tables/,
+# where the directory contract says CSV.
+# ---------------------------------------------------------------------
+def _squash_artifacts(out_dir: Path, prefix: str) -> None:
+    """Write what `gappa analyze squash` leaves behind."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{prefix}cluster.newick").write_text("(A:1,B:1);")
+    for i in range(3):
+        (out_dir / f"{prefix}tree_{i}.newick").write_text(f"(X:{i},Y:{i});")
+    (out_dir / f"{prefix}krd_matrix.csv").write_text("Sample\tA\nA\t0\n")
+
+
+def test_route_squash_outputs_publishes_the_composition_tree(tmp_path: Path) -> None:
+    out, trees, mass = tmp_path / "t", tmp_path / "trees", tmp_path / "mass"
+    _squash_artifacts(out, "ltr-flanked.POL.")
+
+    route_squash_outputs(out, trees, mass, "ltr-flanked.POL.", "ltr-flanked", "POL")
+
+    published = trees / "erv_composition.ltr-flanked.POL.newick"
+    assert published.is_file()
+    assert published.read_text() == "(A:1,B:1);"
+
+
+def test_route_squash_outputs_moves_the_per_node_mass_trees_down(
+    tmp_path: Path,
+) -> None:
+    """Bulky, tips are bare accessions - kept, but not beside the headline tree."""
+    out, trees, mass = tmp_path / "t", tmp_path / "trees", tmp_path / "mass"
+    _squash_artifacts(out, "orphan.POL.")
+
+    route_squash_outputs(out, trees, mass, "orphan.POL.", "orphan", "POL")
+
+    assert sorted(p.name for p in mass.glob("*.newick")) == [
+        "orphan.POL.tree_0.newick",
+        "orphan.POL.tree_1.newick",
+        "orphan.POL.tree_2.newick",
+    ]
+    assert not list(out.glob("*.newick"))
+
+
+def test_route_squash_outputs_leaves_the_krd_table_alone(tmp_path: Path) -> None:
+    """The KRD matrix IS a table; only the trees move."""
+    out, trees, mass = tmp_path / "t", tmp_path / "trees", tmp_path / "mass"
+    _squash_artifacts(out, "ltr-flanked.POL.")
+
+    route_squash_outputs(out, trees, mass, "ltr-flanked.POL.", "ltr-flanked", "POL")
+
+    assert (out / "ltr-flanked.POL.krd_matrix.csv").is_file()
+
+
+def test_route_squash_outputs_tolerates_a_missing_cluster_tree(tmp_path: Path) -> None:
+    """gappa writes nothing when a tier has too few samples; must not raise."""
+    out, trees, mass = tmp_path / "t", tmp_path / "trees", tmp_path / "mass"
+    out.mkdir()
+
+    route_squash_outputs(out, trees, mass, "orphan.POL.", "orphan", "POL")
+
+    assert not (trees / "erv_composition.orphan.POL.newick").exists()

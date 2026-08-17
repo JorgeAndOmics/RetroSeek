@@ -155,6 +155,45 @@ def krd_cmd(staged_dir: Path, out_dir: Path, prefix: str) -> list[str]:
     return _analyze_cmd("krd", staged_dir, out_dir, prefix)
 
 
+def route_squash_outputs(
+    out_dir: Path,
+    tree_dir: Path,
+    cluster_mass_dir: Path,
+    prefix: str,
+    tier: str,
+    gene: str,
+) -> None:
+    """Split gappa's squash artifacts by type, per the directory contract.
+
+    `analyze squash` writes everything into one --out-dir: the cluster tree, one
+    copy of the REFERENCE tree per node of that cluster hierarchy with placement
+    mass annotated, and (from the krd call) the distance matrix. Only the matrix
+    is a table, so leaving the rest in place put Newick trees under
+    results/tables/, where the contract says CSV.
+
+    The cluster tree is the headline result and is published under a
+    self-describing name. The per-node mass trees are kept - they show what mass
+    distribution characterises each cluster - but a level down: there are one per
+    node, they are bulky, and their tips are bare reference accessions rather
+    than genome names.
+
+    Missing inputs are ignored: gappa writes nothing when a tier has too few
+    samples to cluster, and that path already logs its own warning.
+    """
+    cluster = out_dir / f"{prefix}cluster.newick"
+    if cluster.is_file():
+        tree_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(
+            str(cluster), str(tree_dir / f"erv_composition.{tier}.{gene}.newick")
+        )
+
+    mass_trees = sorted(out_dir.glob(f"{prefix}tree_*.newick"))
+    if mass_trees:
+        cluster_mass_dir.mkdir(parents=True, exist_ok=True)
+        for src in mass_trees:
+            shutil.move(str(src), str(cluster_mass_dir / src.name))
+
+
 # ---------------------------------------------------------------------
 # topology comparison
 # ---------------------------------------------------------------------
@@ -309,6 +348,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--staged-dir", type=Path, default=None)
     parser.add_argument(
+        "--tree-dir",
+        type=Path,
+        default=None,
+        help="where the ERV-composition Newick goes (defaults to --out-dir)",
+    )
+    parser.add_argument(
+        "--cluster-mass-dir",
+        type=Path,
+        default=None,
+        help="where gappa's per-cluster-node mass trees go (default <tree-dir>/cluster_mass)",
+    )
+    parser.add_argument(
         "--config",
         type=Path,
         default=None,
@@ -340,14 +391,16 @@ def main(argv: list[str] | None = None) -> int:
     run(squash_cmd(staged, args.out_dir, prefix))
     run(krd_cmd(staged, args.out_dir, prefix))
 
-    # The squash tree is renamed to a self-describing name; the prefix already
-    # kept it away from the other tier's, so this is only for legibility.
-    cluster = args.out_dir / f"{prefix}cluster.newick"
-    erv_tree = args.out_dir / f"erv_composition.{args.tier}.{args.gene}.newick"
-    if cluster.exists():
-        shutil.move(str(cluster), erv_tree)
-    else:
-        logger.warning("gappa wrote no %s; composition tree not produced", cluster.name)
+    # Trees out of the table directory, mass trees a level down (see
+    # route_squash_outputs). The KRD matrix stays: it is a table.
+    tree_dir = args.tree_dir or args.out_dir
+    cluster_mass_dir = args.cluster_mass_dir or (tree_dir / "cluster_mass")
+    route_squash_outputs(
+        args.out_dir, tree_dir, cluster_mass_dir, prefix, args.tier, args.gene
+    )
+    erv_tree = tree_dir / f"erv_composition.{args.tier}.{args.gene}.newick"
+    if not erv_tree.is_file():
+        logger.warning("gappa produced no composition tree for the %s tier", args.tier)
 
     species_map: dict[str, str] = {}
     if args.config and args.config.is_file():

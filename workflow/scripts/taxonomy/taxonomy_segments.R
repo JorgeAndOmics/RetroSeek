@@ -10,11 +10,11 @@
 # `unassigned_at_<rank>` and get their own segment, rather than being dropped or
 # given invented precision.
 #
-# Outputs, under <out_dir>/by_<rank>/:
-#   <segment>.csv                     one table per segment
-#   segment_summary.csv               loci / species / HC counts per segment
-#   plots/<segment>/*.png             a small curated panel per segment
-#   segment_overview.png              all segments side by side
+# Outputs are split by TYPE, both under a rank-agnostic by_<rank>/ level:
+#   <out_dir>/by_<rank>/<segment>.csv    one table per segment
+#   segment_summary.csv                  loci / species / HC counts per segment
+#   <plots>/by_<rank>/<segment>/*.png    a small curated panel per segment
+#   <plots>/by_<rank>/segment_overview.png   all segments side by side
 #
 # Only a CURATED subset of the taxonomy panel is rendered per segment: the full
 # 20-plot panel times N segments would be hundreds of PNGs for little gain.
@@ -145,7 +145,11 @@ segments_main <- function() {
   parser$add_argument("--catalog", required = TRUE,
                       help = "authoritative catalog.csv from taxonomy_plot_generator")
   parser$add_argument("--output", required = TRUE,
-                      help = "directory for the by_<rank>/ tables + plots")
+                      help = "directory for the by_<rank>/ tables")
+  parser$add_argument("--plots", required = FALSE, default = NULL,
+                      help = paste("directory for the by_<rank>/ figures.",
+                                   "Defaults to --output for standalone use;",
+                                   "the pipeline points it at results/plots/."))
   parser$add_argument("--config", required = TRUE, help = "YAML config")
   parser$add_argument("--summary_csv", required = TRUE,
                       help = "per-segment summary CSV")
@@ -169,8 +173,13 @@ segments_main <- function() {
   }
   log_section(sprintf("Segmenting %d catalog loci by %s", nrow(catalog), seg_rank))
 
+  # Tables and figures split by TYPE, not by stage: results/tables/ is CSV and
+  # results/plots/ is figures, so the per-segment PNGs do not live beside the
+  # per-segment CSVs. Both keep the rank-agnostic by_<rank>/ level.
   root <- file.path(args$output, paste0("by_", seg_rank))
   dir.create(root, showWarnings = FALSE, recursive = TRUE)
+  plot_root <- file.path(args$plots %||% args$output, paste0("by_", seg_rank))
+  dir.create(plot_root, showWarnings = FALSE, recursive = TRUE)
 
   summary_tbl <- segment_summary(catalog)
   dir.create(dirname(args$summary_csv), showWarnings = FALSE, recursive = TRUE)
@@ -182,7 +191,7 @@ segments_main <- function() {
     base_w = plot_width, base_h = plot_height,
     per_stratum = per_stratum, cap = max_dim
   )
-  save_plot("segment_overview.png", overview, root,
+  save_plot("segment_overview.png", overview, plot_root,
             dims = attr(overview, "intended_dims"),
             base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
 
@@ -192,7 +201,7 @@ segments_main <- function() {
     stem <- safe_name(seg)
     readr::write_csv(sub, file.path(root, paste0(stem, ".csv")))
 
-    pdir <- file.path(root, "plots", stem)
+    pdir <- file.path(plot_root, stem)
     dir.create(pdir, showWarnings = FALSE, recursive = TRUE)
     emit_seg <- function(name, plot) {
       plot <- scale_categorical_axis(plot, n_species, axis = "x",
@@ -207,8 +216,8 @@ segments_main <- function() {
     emit_seg("confidence_gradient.png",      confidence_gradient_plot(sub))
     emit_seg("structure_class_composition.png", structure_class_composition_plot(sub))
   }
-  log_section(sprintf("Done - wrote %d segment tables + plots to %s",
-                      nrow(summary_tbl), root))
+  log_section(sprintf("Done - wrote %d segment tables to %s and figures to %s",
+                      nrow(summary_tbl), root, plot_root))
 }
 
 

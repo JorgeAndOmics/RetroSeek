@@ -1356,12 +1356,14 @@ rule taxonomy_segments_setup:
         summary = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv')
     params:
         out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
+        plot_dir    = defaults.PATH_DICT['SEGMENTS_PLOT_DIR'],
         config_yaml = defaults.CONFIG_FILE
     shell:
         '''
         Rscript scripts/taxonomy/taxonomy_segments.R \
         --catalog {input.catalog:q} \
         --output {params.out_dir:q} \
+        --plots {params.plot_dir:q} \
         --config {params.config_yaml:q} \
         --summary_csv {output.summary:q}
         '''
@@ -1399,7 +1401,7 @@ rule placement_figures_setup:
     params:
         out_dir   = defaults.PATH_DICT['PLACEMENT_PLOT_DIR'],
         table_dir = defaults.PATH_DICT['PLACEMENT_TABLE_DIR'],
-        tree_dir  = defaults.PATH_DICT['PLACEMENT_DIR'],
+        tree_dir  = defaults.PATH_DICT['PLACEMENT_HEAT_TREE_DIR'],
         mass_norm = _PLACEMENT.get('mass_norm', 'absolute')
     threads: 1
     shell:
@@ -1439,6 +1441,8 @@ rule placement_cophylogeny_setup:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_cophylogeny', '{tier}.{gene}.log')
     params:
         out_dir    = defaults.PATH_DICT['COPHYLOGENY_DIR'],
+        tree_dir   = defaults.PATH_DICT['COPHYLOGENY_TREE_DIR'],
+        mass_dir   = defaults.PATH_DICT['COPHYLOGENY_CLUSTER_MASS_DIR'],
         host_tree  = (config.get('input', {}) or {}).get('species_tree', '') or '',
         staged_dir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'cophylogeny', '{tier}_{gene}'),
         config_yaml = defaults.CONFIG_FILE
@@ -1448,6 +1452,8 @@ rule placement_cophylogeny_setup:
         PYTHONPATH=scripts python scripts/taxonomy/placement_cophylogeny.py \
             --jplace {input.jplace:q} \
             --out-dir {params.out_dir:q} \
+            --tree-dir {params.tree_dir:q} \
+            --cluster-mass-dir {params.mass_dir:q} \
             --tier {wildcards.tier:q} \
             --gene {wildcards.gene:q} \
             --staged-dir {params.staged_dir:q} \

@@ -40,8 +40,9 @@ its entire comparative suite was reachable at zero marginal cost.
 ### Publish the evidence
 
 `taxonomy_placement.export_placement` copies the artifacts to
-`results/tracks/taxonomy/placements/{genome}.{tier}.{gene}.jplace` (+
-`.labelled.newick`), declared as rule outputs.
+`results/trees/placements/{genome}.{tier}.{gene}.jplace` (+ `.labelled.newick`),
+declared as rule outputs. (They first landed under `results/tracks/`; see
+"Outputs are filed by type" below for why they moved.)
 
 Placement legitimately does not run in three cases - the gene has no tree
 package, every query aligned to all-gaps, or no locus carried that gene - so a
@@ -123,6 +124,27 @@ lineage that is almost all orphan is one whose structural evidence has eroded).
 
 No gene-discordance tree: `mosaic_gene_discordance_plot` already unpacks the
 same per-gene calls.
+
+### Outputs are filed by type, not by stage
+
+gappa writes every artifact of one command into a single `--out-dir`, mixing
+figures, tables and trees. Left alone that puts Newick under `results/tables/`
+(the contract says CSV) and `.jplace` under `results/tracks/` (the contract says
+GFF3 per genome, and nothing can load a jplace as a track).
+
+A fourth output root, **`results/trees/`**, is added on the same logic that
+already justifies `tracks/`: `tracks/` holds what a *genome* browser opens,
+`trees/` holds what a *tree* viewer (iTOL, FigTree) opens. So:
+
+| artifact | root |
+|---|---|
+| heat-tree SVG, per-segment panels | `results/plots/` |
+| EDPL / LWR / KRD / congruence summary | `results/tables/` |
+| jplace, labelled Newick, heat-tree Newick+Nexus, composition tree | `results/trees/` |
+
+gappa's per-cluster-node mass trees (one copy of the reference tree per node of
+the squash hierarchy, tips as bare accessions) are kept but placed a level down
+in `cophylogeny/cluster_mass/`, so they do not sit beside the headline result.
 
 ## Consequences
 
