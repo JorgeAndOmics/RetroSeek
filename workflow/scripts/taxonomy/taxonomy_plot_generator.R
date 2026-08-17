@@ -194,6 +194,26 @@ build_report <- function(combined) {
 # ----------------------------------------------------------------------------
 
 # Confident (axis-resolved) calls, stacked per species and coloured by taxon.
+# Numeric companions for the evidence/confidence builders. The loci tables and
+# the catalog store EVERY column as a string, so any builder needing a number
+# derives it from here rather than coercing on the spot. Guarded so an all-empty
+# input stays well-formed.
+#
+# Shared rather than inlined in main(): taxonomy_segments.R reuses these builders
+# without running main(), and when it did not derive these columns
+# `confidence_gradient_plot` hit its `confidence_num` guard and returned the
+# empty placeholder for every segment (see test-taxonomy_segments.R).
+add_numeric_companions <- function(df) {
+  if (nrow(df) == 0L) return(df)
+  df %>%
+    mutate(
+      confidence_num   = suppressWarnings(as.numeric(.data$confidence)),
+      n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),
+      completeness_num = suppressWarnings(as.numeric(.data$completeness))
+    )
+}
+
+
 taxon_composition_plot <- function(loci) {
   d <- loci %>% filter(.data$resolved == "True")
   if (nrow(d) == 0L) return(empty_plot("no confident taxon calls"))
@@ -854,16 +874,7 @@ main <- function() {
     orphans$species <- relabel_species(orphans$species, cfg$species)
   }
   combined <- bind_rows(loci, orphans)
-  # numeric companions for the evidence/confidence plots (the loci tables store
-  # every column as a string). Guarded so an all-empty input stays well-formed.
-  if (nrow(combined) > 0L) {
-    combined <- combined %>%
-      mutate(
-        confidence_num   = suppressWarnings(as.numeric(.data$confidence)),
-        n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),
-        completeness_num = suppressWarnings(as.numeric(.data$completeness))
-      )
-  }
+  combined <- add_numeric_companions(combined)
   n_species <- length(unique(combined$species))
   log_section(sprintf("Loaded %d ltr-flanked loci + %d recovered orphans across %d species",
                       nrow(loci), nrow(orphans), n_species))

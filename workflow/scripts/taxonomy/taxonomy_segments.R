@@ -84,6 +84,32 @@ segment_summary <- function(catalog) {
 
 
 # ----------------------------------------------------------------------------
+# Load the catalog the way the reused builders expect it.
+#
+# Two properties, both easy to lose and both failing SILENTLY:
+#
+#   Everything character. The catalog writes booleans as the strings
+#   "True"/"False". readr's default inference turns `resolved` into a logical,
+#   and the builders filter on `resolved == "True"` - TRUE coerces to "TRUE",
+#   which is not "True", so the filter matches nothing and every segment gets
+#   the same "no confident taxon calls" placeholder.
+#
+#   Numeric companions. `confidence_gradient_plot` guards on `confidence_num`
+#   and returns its placeholder when absent. That column is derived, not stored;
+#   taxonomy_plot_generator.R's main() makes it, and this path never runs main().
+#
+# Neither raises, so the symptom was N byte-identical PNGs rather than an error.
+# ----------------------------------------------------------------------------
+load_catalog <- function(path) {
+  catalog <- readr::read_csv(
+    path,
+    col_types = readr::cols(.default = readr::col_character())
+  )
+  add_numeric_companions(catalog)
+}
+
+
+# ----------------------------------------------------------------------------
 # Overview: loci per segment, split by tier. The one plot that shows every
 # segment at once, so it stays at the top level rather than inside a segment dir.
 # ----------------------------------------------------------------------------
@@ -134,7 +160,7 @@ segments_main <- function() {
   max_dim     <- cfg$plots$max_dim     %||% 60
   seg_rank    <- cfg$classification$segment_rank %||% "genus"
 
-  catalog <- readr::read_csv(args$catalog, show_col_types = FALSE)
+  catalog <- load_catalog(args$catalog)
   if (!"segment" %in% names(catalog)) {
     # Catalog predates ADR-011 (or segment_rank is unset): emit empty
     # deliverables so the DAG completes and the cause is visible in the log.
