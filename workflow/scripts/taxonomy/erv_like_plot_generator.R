@@ -83,7 +83,21 @@ load_taxon_loci <- function(input_dir) {
   })
   frames <- Filter(Negate(is.null), frames)
   if (length(frames) == 0L) return(tibble())
-  df <- bind_rows(frames)
+  add_structure_companions(bind_rows(frames))
+}
+
+
+# Typed companions the structure builders expect. The loci tables and the
+# catalog store every column as a string, so the numeric and logical forms are
+# derived rather than parsed, and `span_bp` does not exist on disk at all.
+#
+# Shared rather than inlined in the loader for the same reason as
+# `add_numeric_companions`: taxonomy_segments.R reuses these builders without
+# going through this loader, and a missing derived column makes a builder fail
+# or fall back to its empty placeholder rather than raising anything useful.
+# Empty-safe.
+add_structure_companions <- function(df) {
+  if (nrow(df) == 0L) return(df)
   df %>%
     mutate(
       completeness    = suppressWarnings(as.numeric(.data$completeness)),
@@ -101,6 +115,29 @@ load_taxon_loci <- function(input_dir) {
 # ----------------------------------------------------------------------------
 
 # Fraction of main genes present per locus (0..1), as a per-species histogram.
+# ----------------------------------------------------------------------------
+# Structure panel registry - same contract as panel_registry() in
+# taxonomy_plot_generator.R, kept here so this file owns its own builders. Both
+# main() below and taxonomy_segments.R iterate it, so the two panels cannot
+# drift apart. See that file for the field meanings.
+#
+# All seven read only columns catalog.csv already carries, so the per-segment
+# panel can drive them from the catalog slice directly. All are meaningful for
+# a single segment: gene content and completeness vary within a genus (measured
+# 2026-08-18: genes_present 31 distinct values per segment, n_main_genes 3.1).
+structure_panel_registry <- function() {
+  list(
+    list(file = "completeness.png", build = function(d, ctx) completeness_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "canonical_order.png", build = function(d, ctx) canonical_order_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "gene_combinations.png", build = function(d, ctx) gene_combinations_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "length_distribution.png", build = function(d, ctx) length_distribution_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "n_main_genes.png", build = function(d, ctx) n_main_genes_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "composition_heatmap.png", build = function(d, ctx) composition_heatmap_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "structure_class.png", build = function(d, ctx) structure_class_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE)
+  )
+}
+
+
 completeness_plot <- function(loci) {
   if (nrow(loci) == 0L) return(empty_plot("no loci"))
   d <- loci %>% filter(!is.na(.data$completeness))
@@ -272,15 +309,14 @@ main <- function() {
   }
 
   # Bare filenames - the structure/ dir already names the panel (no erv_like_ prefix).
-  emit("completeness.png",        completeness_plot(loci))
-  emit("canonical_order.png",     canonical_order_plot(loci), n_species)
-  emit("gene_combinations.png",   gene_combinations_plot(loci))
-  emit("length_distribution.png", length_distribution_plot(loci))
-  emit("n_main_genes.png",        n_main_genes_plot(loci))
-  emit("composition_heatmap.png", composition_heatmap_plot(loci), n_species)
-  emit("structure_class.png",     structure_class_plot(loci), n_species)
+  # Driven from the registry so this panel and the per-segment one cannot drift.
+  reg <- structure_panel_registry()
+  ctx <- list(tree_dir = "", confidence_min = 0.5)
+  for (e in reg) {
+    emit(e$file, e$build(loci, ctx), if (identical(e$n_x, "species")) n_species else NULL)
+  }
 
-  log_section(sprintf("Done - wrote 7 PNGs to %s", args$output))
+  log_section(sprintf("Done - wrote %d PNGs to %s", length(reg), args$output))
 }
 
 

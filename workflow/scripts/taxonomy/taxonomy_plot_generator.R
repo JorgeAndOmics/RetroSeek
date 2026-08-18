@@ -194,6 +194,82 @@ build_report <- function(combined) {
 # ----------------------------------------------------------------------------
 
 # Confident (axis-resolved) calls, stacked per species and coloured by taxon.
+# ----------------------------------------------------------------------------
+# Panel registry - ONE declaration, TWO consumers
+# ----------------------------------------------------------------------------
+# main() below and taxonomy_segments.R both iterate this, so a plot added here
+# is offered to both by construction. Previously each kept its own hand-written
+# emit list, and they drifted: the per-segment subset stayed at 3 plots while
+# this panel grew to 24.
+#
+# Fields:
+#   file    output PNG name
+#   build   function(d, ctx) -> ggplot. ctx carries `tree_dir` and
+#           `confidence_min` for the handful of builders that take them, so
+#           every entry has the same shape.
+#   data    "loci"     = LTR-flanked only (the taxon-founded assembly)
+#           "combined" = both tiers
+#           Losing this distinction would quietly mix orphans into the
+#           composition and mosaic panels, which deliberately exclude them.
+#   n_x     "species" scales canvas + tick labels to the species count;
+#           NULL keeps the fixed config canvas (histograms, heatmaps, alluvials)
+#   axis    "y" routes through auto_dims instead - the tree panels, whose height
+#           grows with tip count and whose y axis is supplied by the tree
+#   segment  FALSE where the plot is DEGENERATE for a single segment:
+#           erv_class is constant within a genus (measured: exactly 1.00
+#           distinct values), and the taxonomy cladogram collapses to one tip.
+panel_registry <- function() {
+  list(
+    list(file = "taxon_composition.png", build = function(d, ctx) taxon_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "rank_resolution.png", build = function(d, ctx) rank_resolution_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "method_mix.png", build = function(d, ctx) method_mix_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    # erv_class is a function of genus, so within one segment it is constant.
+    list(file = "erv_class_composition.png", build = function(d, ctx) erv_class_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = FALSE),
+    list(file = "mosaic_alluvial.png", build = function(d, ctx) mosaic_alluvial_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "mosaic_burden.png", build = function(d, ctx) mosaic_burden_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "mosaic_taxon_pairs.png", build = function(d, ctx) mosaic_taxon_pairs_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "mosaic_gene_discordance.png", build = function(d, ctx) mosaic_gene_discordance_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "mosaic_composition_by_species.png", build = function(d, ctx) mosaic_composition_by_species_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "confidence.png", build = function(d, ctx) confidence_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "confidence_count.png", build = function(d, ctx) confidence_count_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "confidence_gradient.png", build = function(d, ctx) confidence_gradient_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "evidence_depth.png", build = function(d, ctx) evidence_depth_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "confidence_density.png", build = function(d, ctx) confidence_density_plot(d, ctx$confidence_min), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "confidence_vs_evidence.png", build = function(d, ctx) confidence_vs_evidence_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "structure_by_tier.png", build = function(d, ctx) structure_by_tier_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
+    list(file = "source_yield.png", build = function(d, ctx) source_yield_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "taxon_by_source.png", build = function(d, ctx) taxon_by_source_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "domain_tier_composition.png", build = function(d, ctx) domain_tier_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "structure_class_composition.png", build = function(d, ctx) structure_class_composition_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    # Tree panels: height grows with tip count, and the TREE supplies the tip
+    # labels, so these route through auto_dims rather than the categorical axis.
+    # The two taxonomy-cladogram trees are one tip for a single segment.
+    list(file = "taxon_confidence_tree.png", build = function(d, ctx) taxon_confidence_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "taxa", axis = "y", segment = FALSE),
+    list(file = "taxon_tier_tree.png", build = function(d, ctx) taxon_tier_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "taxa", axis = "y", segment = FALSE),
+    list(file = "species_confidence_tree.png", build = function(d, ctx) species_confidence_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE),
+    list(file = "species_composition_tree.png", build = function(d, ctx) species_composition_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE)
+  )
+}
+
+
+# Entries a per-segment panel should render, per `plots.segment_panel`:
+#   full     every entry that is meaningful for one segment (the default)
+#   curated  the small legacy subset - who carries it, how sure, what shape
+#   none     tables only
+# Unknown values fall back to `full` rather than silently rendering nothing.
+.CURATED_SEGMENT_PLOTS <- c("taxon_composition.png", "confidence_gradient.png",
+                            "structure_class_composition.png")
+
+segment_panel <- function(registry, mode = "full") {
+  if (identical(mode, "none")) return(list())
+  meaningful <- Filter(function(e) isTRUE(e$segment), registry)
+  if (identical(mode, "curated")) {
+    return(Filter(function(e) e$file %in% .CURATED_SEGMENT_PLOTS, meaningful))
+  }
+  meaningful
+}
+
+
 # Numeric companions for the evidence/confidence builders. The loci tables and
 # the catalog store EVERY column as a string, so any builder needing a number
 # derives it from here rather than coercing on the spot. Guarded so an all-empty
@@ -895,60 +971,28 @@ main <- function() {
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
   }
 
-  # Taxonomy composition plots stay on the LTR-flanked loci (the taxon-founded
-  # assembly); the confidence plot spans both tiers.
-  emit("taxon_composition.png",     taxon_composition_plot(loci), n_species)
-  emit("rank_resolution.png",       rank_resolution_plot(loci), n_species)
-  emit("method_mix.png",            method_mix_plot(loci), n_species)
-  emit("erv_class_composition.png", erv_class_composition_plot(loci), n_species)
-  emit("mosaic_alluvial.png",       mosaic_alluvial_plot(loci))
-  # Mosaic sub-panel (recombination): burden, partner heatmap, per-gene
-  # discordance, per-species composition.
-  emit("mosaic_burden.png",              mosaic_burden_plot(loci), n_species)
-  emit("mosaic_taxon_pairs.png",         mosaic_taxon_pairs_plot(loci))
-  emit("mosaic_gene_discordance.png",    mosaic_gene_discordance_plot(loci))
-  emit("mosaic_composition_by_species.png", mosaic_composition_by_species_plot(loci), n_species)
-  emit("confidence.png",            confidence_plot(combined), n_species)
-  emit("confidence_count.png",      confidence_count_plot(combined), n_species)
-  emit("confidence_gradient.png",   confidence_gradient_plot(combined), n_species)
-
-  # Evidence / confidence / orphans panel (spans both tiers).
-  emit("evidence_depth.png",        evidence_depth_plot(combined))
-  emit("confidence_density.png",    confidence_density_plot(combined, confidence_min))
-  emit("confidence_vs_evidence.png", confidence_vs_evidence_plot(combined))
-  emit("structure_by_tier.png",     structure_by_tier_plot(combined))
-  emit("source_yield.png",          source_yield_plot(combined), n_species)
-  emit("taxon_by_source.png",       taxon_by_source_plot(combined), n_species)
-
-  # Domain-tier + structural-class panels (ADR-009): the recall the LTR-flanked
-  # relabelling preserves, and the first full/partial/gene catalogue.
-  emit("domain_tier_composition.png",     domain_tier_composition_plot(loci), n_species)
-  emit("structure_class_composition.png", structure_class_composition_plot(combined), n_species)
-
-  # Tree-attached panels (ADR-011): the same confidence stacks, ordered by
-  # phylogeny instead of alphabetically. Height grows with tip count.
+  # Every panel entry is declared once in panel_registry(); this loop is the
+  # only place the full panel is emitted. `data` picks the tier scope, `axis`
+  # picks the sizing rule - the tree panels grow on y via auto_dims, because the
+  # TREE supplies the tip labels and scale_categorical_axis() would re-enable
+  # axis.text.y and print row indices next to it.
   tree_dir <- args$tree_dir %||% ""
   n_taxa <- length(unique(combined$taxon_call))
-  # Canvas only, no axis theme: the TREE supplies the tip labels, so the bar
-  # panel's y axis stays deliberately blank. scale_categorical_axis() would
-  # re-enable axis.text.y and print the row indices next to the tree.
-  emit_tree <- function(name, plot, n_tips) {
-    dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,
-                      base_h = plot_height, per_stratum = per_stratum,
-                      cap = max_dim)
-    save_plot(name, plot, args$output, dims = dims,
-              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  ctx <- list(tree_dir = tree_dir, confidence_min = confidence_min)
+  for (e in panel_registry()) {
+    d <- if (identical(e$data, "loci")) loci else combined
+    p <- e$build(d, ctx)
+    if (identical(e$axis, "y")) {
+      n_tips <- if (identical(e$n_x, "taxa")) n_taxa else n_species
+      dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,
+                        base_h = plot_height, per_stratum = per_stratum,
+                        cap = max_dim)
+      save_plot(e$file, p, args$output, dims = dims,
+                base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+    } else {
+      emit(e$file, p, if (identical(e$n_x, "species")) n_species else NULL)
+    }
   }
-  emit_tree("taxon_confidence_tree.png",
-            taxon_confidence_tree_plot(combined, tree_dir), n_taxa)
-  emit_tree("species_confidence_tree.png",
-            species_confidence_tree_plot(combined, tree_dir), n_species)
-  # Composition counterparts (ADR-014): what each tip is made of, rather than
-  # how confident it is.
-  emit_tree("species_composition_tree.png",
-            species_composition_tree_plot(combined, tree_dir), n_species)
-  emit_tree("taxon_tier_tree.png",
-            taxon_tier_tree_plot(combined, tree_dir), n_taxa)
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).

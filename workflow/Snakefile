@@ -1357,6 +1357,7 @@ rule taxonomy_segments_setup:
     params:
         out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
         plot_dir    = defaults.PATH_DICT['SEGMENTS_PLOT_DIR'],
+        tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
         config_yaml = defaults.CONFIG_FILE
     shell:
         '''
@@ -1364,6 +1365,7 @@ rule taxonomy_segments_setup:
         --catalog {input.catalog:q} \
         --output {params.out_dir:q} \
         --plots {params.plot_dir:q} \
+        --tree_dir {params.tree_dir:q} \
         --config {params.config_yaml:q} \
         --summary_csv {output.summary:q}
         '''

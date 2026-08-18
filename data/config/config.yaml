@@ -94,8 +94,16 @@ placement:
 
 classification:
   enable: true
+  # Genes classified by phylogenetic placement onto a per-gene reference tree;
+  # every other gene falls back to weighted-LCA. The builder reports mean
+  # pairwise identity against a >=25% bar: POL 25.9% OK, GAG 19.7% LOW,
+  # ENV 19.1% LOW (all-pairs medians: 23.2 / 16.7 / 16.2). GAG and ENV are
+  # genuinely more divergent, so their trees are the weaker evidence - keep
+  # them here only if their bootstrap support justifies it.
   placement_genes:
     - 'POL'
+    - 'GAG'
+    - 'ENV'
   search: blastx
   evalue: 0.001
   top_percent: 0.10
@@ -134,6 +142,13 @@ logging:
     thread: { color: 'green' }
 
 plots:
+  # How many figures the --segment stage renders per taxonomic segment:
+  #   full     every panel plot that means something for a single segment (28).
+  #   curated  the small legacy subset (3): who carries it, how sure, what shape.
+  #   none     per-segment tables only, no figures.
+  # Cost scales as segments x plots, and each plot's x axis is per-species, so
+  # drop to 'curated' if a high-genome-count run gets too slow or too bulky.
+  segment_panel: full
   dpi: 300
   width: 15
   height: 12
