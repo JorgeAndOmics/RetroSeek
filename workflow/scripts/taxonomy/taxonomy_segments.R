@@ -10,11 +10,11 @@
 # `unassigned_at_<rank>` and get their own segment, rather than being dropped or
 # given invented precision.
 #
-# Outputs, under <out_dir>/by_<rank>/:
-#   <segment>.csv                     one table per segment
-#   segment_summary.csv               loci / species / HC counts per segment
-#   plots/<segment>/*.png             a small curated panel per segment
-#   segment_overview.png              all segments side by side
+# Outputs are split by TYPE, both under a rank-agnostic by_<rank>/ level:
+#   <out_dir>/by_<rank>/<segment>.csv    one table per segment
+#   segment_summary.csv                  loci / species / HC counts per segment
+#   <plots>/by_<rank>/<segment>/*.png    a small curated panel per segment
+#   <plots>/by_<rank>/segment_overview.png   all segments side by side
 #
 # Only a CURATED subset of the taxonomy panel is rendered per segment: the full
 # 20-plot panel times N segments would be hundreds of PNGs for little gain.
@@ -84,6 +84,35 @@ segment_summary <- function(catalog) {
 
 
 # ----------------------------------------------------------------------------
+# Load the catalog the way the reused builders expect it.
+#
+# Two properties, both easy to lose and both failing SILENTLY:
+#
+#   Everything character. The catalog writes booleans as the strings
+#   "True"/"False". readr's default inference turns `resolved` into a logical,
+#   and the builders filter on `resolved == "True"` - TRUE coerces to "TRUE",
+#   which is not "True", so the filter matches nothing and every segment gets
+#   the same "no confident taxon calls" placeholder.
+#
+#   Numeric companions. `confidence_gradient_plot` guards on `confidence_num`
+#   and returns its placeholder when absent. That column is derived, not stored;
+#   taxonomy_plot_generator.R's main() makes it, and this path never runs main().
+#
+# Neither raises, so the symptom was N byte-identical PNGs rather than an error.
+# ----------------------------------------------------------------------------
+load_catalog <- function(path) {
+  catalog <- readr::read_csv(
+    path,
+    col_types = readr::cols(.default = readr::col_character())
+  )
+  # BOTH companion sets: the taxonomy builders need confidence_num/n_hits, the
+  # structure builders need span_bp and typed completeness/n_main_genes. Each
+  # generator derives its own inside a loader this path does not use.
+  add_structure_companions(add_numeric_companions(catalog))
+}
+
+
+# ----------------------------------------------------------------------------
 # Overview: loci per segment, split by tier. The one plot that shows every
 # segment at once, so it stays at the top level rather than inside a segment dir.
 # ----------------------------------------------------------------------------
@@ -119,7 +148,14 @@ segments_main <- function() {
   parser$add_argument("--catalog", required = TRUE,
                       help = "authoritative catalog.csv from taxonomy_plot_generator")
   parser$add_argument("--output", required = TRUE,
-                      help = "directory for the by_<rank>/ tables + plots")
+                      help = "directory for the by_<rank>/ tables")
+  parser$add_argument("--plots", required = FALSE, default = NULL,
+                      help = paste("directory for the by_<rank>/ figures.",
+                                   "Defaults to --output for standalone use;",
+                                   "the pipeline points it at results/plots/."))
+  parser$add_argument("--tree_dir", required = FALSE, default = "",
+                      help = paste("directory of tree-coordinate CSVs, so the",
+                                   "species-tree panels can render per segment"))
   parser$add_argument("--config", required = TRUE, help = "YAML config")
   parser$add_argument("--summary_csv", required = TRUE,
                       help = "per-segment summary CSV")
@@ -133,8 +169,12 @@ segments_main <- function() {
   per_stratum <- cfg$plots$per_stratum %||% 0.18
   max_dim     <- cfg$plots$max_dim     %||% 60
   seg_rank    <- cfg$classification$segment_rank %||% "genus"
+  # full = every panel entry meaningful for one segment; curated = the small
+  # legacy subset; none = tables only. See docs/configuration.md.
+  panel_mode  <- cfg$plots$segment_panel %||% "full"
+  conf_min    <- cfg$classification$confidence_min %||% 0.5
 
-  catalog <- readr::read_csv(args$catalog, show_col_types = FALSE)
+  catalog <- load_catalog(args$catalog)
   if (!"segment" %in% names(catalog)) {
     # Catalog predates ADR-011 (or segment_rank is unset): emit empty
     # deliverables so the DAG completes and the cause is visible in the log.
@@ -143,8 +183,13 @@ segments_main <- function() {
   }
   log_section(sprintf("Segmenting %d catalog loci by %s", nrow(catalog), seg_rank))
 
+  # Tables and figures split by TYPE, not by stage: results/tables/ is CSV and
+  # results/plots/ is figures, so the per-segment PNGs do not live beside the
+  # per-segment CSVs. Both keep the rank-agnostic by_<rank>/ level.
   root <- file.path(args$output, paste0("by_", seg_rank))
   dir.create(root, showWarnings = FALSE, recursive = TRUE)
+  plot_root <- file.path(args$plots %||% args$output, paste0("by_", seg_rank))
+  dir.create(plot_root, showWarnings = FALSE, recursive = TRUE)
 
   summary_tbl <- segment_summary(catalog)
   dir.create(dirname(args$summary_csv), showWarnings = FALSE, recursive = TRUE)
@@ -156,33 +201,50 @@ segments_main <- function() {
     base_w = plot_width, base_h = plot_height,
     per_stratum = per_stratum, cap = max_dim
   )
-  save_plot("segment_overview.png", overview, root,
+  save_plot("segment_overview.png", overview, plot_root,
             dims = attr(overview, "intended_dims"),
             base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
 
-  # Per-segment tables + the curated plot subset.
+  # Per-segment tables + the plot panel. The registry is resolved once: it is
+  # the same declaration the full panel uses, filtered to entries that mean
+  # something for a single segment (erv_class is constant within a genus, and
+  # the taxonomy cladogram collapses to one tip).
+  panel <- segment_panel(c(panel_registry(), structure_panel_registry()), panel_mode)
+  ctx <- list(tree_dir = args$tree_dir %||% "", confidence_min = conf_min)
+  log_section(sprintf("Panel mode '%s': %d plots per segment", panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {
     sub <- catalog %>% filter(as.character(.data$segment) == seg)
     stem <- safe_name(seg)
     readr::write_csv(sub, file.path(root, paste0(stem, ".csv")))
 
-    pdir <- file.path(root, "plots", stem)
+    if (length(panel) == 0L) next
+    pdir <- file.path(plot_root, stem)
     dir.create(pdir, showWarnings = FALSE, recursive = TRUE)
-    emit_seg <- function(name, plot) {
-      plot <- scale_categorical_axis(plot, n_species, axis = "x",
-                                     base_w = plot_width, base_h = plot_height,
-                                     per_stratum = per_stratum, cap = max_dim)
-      save_plot(name, plot, pdir, dims = attr(plot, "intended_dims"),
+    # Same sizing rules as the full panel, because the same registry declares
+    # them. `data` keeps the tier scope: composition and mosaic panels are
+    # LTR-flanked only, so orphans are not silently mixed in.
+    sub_loci <- sub %>% filter(as.character(.data$source) == "ltr-flanked")
+    n_sub_species <- max(1L, length(unique(sub$species)))
+    for (e in panel) {
+      d <- if (identical(e$data, "loci")) sub_loci else sub
+      pl <- e$build(d, ctx)
+      dims <- if (identical(e$axis, "y")) {
+        auto_dims(n_sub_species, axis = "y", base_w = plot_width,
+                  base_h = plot_height, per_stratum = per_stratum, cap = max_dim)
+      } else {
+        if (identical(e$n_x, "species")) {
+          pl <- scale_categorical_axis(pl, n_sub_species, axis = "x",
+                                       base_w = plot_width, base_h = plot_height,
+                                       per_stratum = per_stratum, cap = max_dim)
+        }
+        attr(pl, "intended_dims")
+      }
+      save_plot(e$file, pl, pdir, dims = dims,
                 base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
     }
-    # Curated subset: who carries it (composition), how sure we are
-    # (confidence), and what shape they are in (structure).
-    emit_seg("taxon_composition.png",        taxon_composition_plot(sub))
-    emit_seg("confidence_gradient.png",      confidence_gradient_plot(sub))
-    emit_seg("structure_class_composition.png", structure_class_composition_plot(sub))
   }
-  log_section(sprintf("Done - wrote %d segment tables + plots to %s",
-                      nrow(summary_tbl), root))
+  log_section(sprintf("Done - wrote %d segment tables to %s and figures to %s",
+                      nrow(summary_tbl), root, plot_root))
 }
 
 
@@ -198,5 +260,7 @@ if (sys.nframe() == 0L) {
   # Reuse the taxonomy panel's builders rather than duplicating them. This also
   # pulls in its `main`, hence the distinct name above.
   source(file.path(.script_dir, "taxonomy_plot_generator.R"))
+  # Also needed for structure_panel_registry(); CLI-guarded the same way.
+  source(file.path(.script_dir, "erv_like_plot_generator.R"))
   segments_main()
 }

@@ -186,6 +186,9 @@ PATH_DICT["TAXONOMY_TREE_COORDS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "
 # Per-segment deliverables (ADR-011) - the catalog split by the taxon each locus
 # rolls up to at classification.segment_rank.
 PATH_DICT["TAXONOMY_SEGMENTS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "segments"
+# Co-phylogeny tables (ADR-014): the ERV-composition tree, the KRD distance
+# matrix behind it, and the congruence verdict against the host phylogeny.
+PATH_DICT["COPHYLOGENY_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "cophylogeny"
 # Loss-analysis tables - the unified per-stage loss funnel + per-genome novel
 # candidates (valid loci with zero blastx homology). Built by loss_analysis.R
 # from the ranges-analysis counts and the blastx-stage classification counts.
@@ -212,6 +215,8 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 #       taxonomy/             taxonomy_plot_generator: calls, confidence, mosaic, tiers
 #       structure/            structural views of the assembly (completeness, structure_class)
 #       loss/                 loss_analysis: per-stage attrition funnel
+#       placement/            EPA-ng heat-trees, one per (genome, tier, gene)
+#       segments/by_<rank>/   the curated per-segment panel (taxonomy_segments)
 #     circle/                 per-genome Circos overviews
 #     hotspot/                integration-hotspot enrichment (Manhattan / QQ / karyotype)
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
@@ -230,6 +235,20 @@ PATH_DICT["CLASSIFICATION_PLOT_DIR"] = (
 PATH_DICT["TAXONOMY_PLOT_DIR"] = (
     PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "taxonomy"
 ).resolve()
+# Phylogenetic-placement figures (ADR-014): per-genome heat-trees plus the
+# cross-genome co-phylogeny comparison. Kept beside the taxonomy panels because
+# they answer the same question - which lineage is where - from the placement
+# evidence rather than from the assembled catalog.
+PATH_DICT["PLACEMENT_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "placement"
+).resolve()
+# gappa writes every artifact of a command into one --out-dir, mixing figures,
+# tables and trees. They are split back out by type here so the directory
+# contract holds: figures under plots/, CSVs under tables/, and the Newick and
+# Nexus trees beside the .jplace they were derived from.
+PATH_DICT["PLACEMENT_TABLE_DIR"] = (
+    PATH_DICT["TABLE_OUTPUT_DIR"] / "placement"
+).resolve()
 # Structural views of the genus-founded ERV assembly (completeness, canonical
 # order, structure_class). Built by erv_like_plot_generator.R from the loci table;
 # the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.
@@ -237,6 +256,13 @@ PATH_DICT["STRUCTURE_PLOT_DIR"] = (
     PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "structure"
 ).resolve()
 PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "loss").resolve()
+# The curated per-segment panel (taxonomy_segments.R). A figure directory, so it
+# lives under plots/ beside the other classification panels; the per-segment
+# CSVs stay under TAXONOMY_SEGMENTS_DIR. The by_<rank>/ level is appended by the
+# script, which knows the configured segment_rank.
+PATH_DICT["SEGMENTS_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "segments"
+).resolve()
 
 # --- Standalone analyses ---
 PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle").resolve()
@@ -254,6 +280,38 @@ PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve(
 # Orphans tier - non-LTR-associated hits recovered + classified by their own
 # sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
 PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
+
+# === Results - Trees ===
+# Phylogenetic interchange formats: Newick, Nexus, jplace. A fourth root beside
+# tracks/ on the same logic - tracks/ holds what a GENOME browser opens (GFF3,
+# BED), trees/ holds what a TREE viewer opens (iTOL, FigTree). They were
+# previously scattered: the placement evidence under tracks/ (where nothing can
+# load it as a track) and the co-phylogeny Newicks under tables/ (where the
+# contract says CSV).
+PATH_DICT["TREE_OUTPUT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "trees").resolve()
+# Published phylogenetic-placement evidence: one .jplace + labelled .newick per
+# (genome, tier, placement gene). EPA-ng writes these into TMP_DIR, which is
+# cleared between runs; they are the evidence behind every taxon_call and the
+# interchange format iTOL/gappa read, so they are promoted here (ADR-014).
+PATH_DICT["PLACEMENT_DIR"] = (PATH_DICT["TREE_OUTPUT_DIR"] / "placements").resolve()
+# The heat-tree Newick/Nexus exports - the same trees as the SVGs under
+# PLACEMENT_PLOT_DIR, in the formats FigTree and iTOL read.
+PATH_DICT["PLACEMENT_HEAT_TREE_DIR"] = (
+    PATH_DICT["PLACEMENT_DIR"] / "heat_trees"
+).resolve()
+# The ERV-composition tree per tier: a tree of the HOST genomes built from their
+# placement distributions. The summary CSV and KRD matrix behind it stay under
+# COPHYLOGENY_DIR, because those are tables.
+PATH_DICT["COPHYLOGENY_TREE_DIR"] = (
+    PATH_DICT["TREE_OUTPUT_DIR"] / "cophylogeny"
+).resolve()
+# gappa `analyze squash` also emits one copy of the REFERENCE tree per node of
+# the cluster hierarchy, with placement mass annotated. Informative but bulky,
+# and its tips are bare accessions, so it is kept a level down rather than
+# beside the headline composition tree.
+PATH_DICT["COPHYLOGENY_CLUSTER_MASS_DIR"] = (
+    PATH_DICT["COPHYLOGENY_TREE_DIR"] / "cluster_mass"
+).resolve()
 
 # === Results - LTR ===
 PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()

@@ -46,6 +46,14 @@ parameters:
   hit_domain_mode: 'membership'
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
+  # ORDERED, and the order is read in two places that want different things:
+  #   gene reliability - first = most reliable, wins the locus taxon call (POL)
+  #   canonical gene order - canonical_order/is_canonical compare a locus's
+  #                          genomic gene order against this list or its reverse
+  # The retroviral genome is 5'-gag-pro-pol-env-3', so a POL-first list gives the
+  # best taxon calls and reports canonical_order=false for a textbook provirus.
+  # Order for whichever column you intend to read; see docs/configuration.md
+  # ("How main_probes is used"). Loci with <=2 main genes are unaffected.
   main_probes:
     - 'POL'
     - 'GAG'
@@ -77,10 +85,25 @@ ltr_retriever:
   source_scn: retroviral
   nearest_erv_max_distance: 10000
 
+placement:
+  # Colour scale for the per-genome heat-trees. 'absolute' keeps raw placement
+  # mass, so a genome with more ERVs reads hotter; 'relative' normalises within
+  # each sample, which is what you want when comparing genomes of very different
+  # ERV load.
+  mass_norm: absolute
+
 classification:
   enable: true
+  # Genes classified by phylogenetic placement onto a per-gene reference tree;
+  # every other gene falls back to weighted-LCA. The builder reports mean
+  # pairwise identity against a >=25% bar: POL 25.9% OK, GAG 19.7% LOW,
+  # ENV 19.1% LOW (all-pairs medians: 23.2 / 16.7 / 16.2). GAG and ENV are
+  # genuinely more divergent, so their trees are the weaker evidence - keep
+  # them here only if their bootstrap support justifies it.
   placement_genes:
     - 'POL'
+    - 'GAG'
+    - 'ENV'
   search: blastx
   evalue: 0.001
   top_percent: 0.10
@@ -119,6 +142,13 @@ logging:
     thread: { color: 'green' }
 
 plots:
+  # How many figures the --segment stage renders per taxonomic segment:
+  #   full     every panel plot that means something for a single segment (28).
+  #   curated  the small legacy subset (3): who carries it, how sure, what shape.
+  #   none     per-segment tables only, no figures.
+  # Cost scales as segments x plots, and each plot's x axis is per-species, so
+  # drop to 'curated' if a high-genome-count run gets too slow or too bulky.
+  segment_panel: full
   dpi: 300
   width: 15
   height: 12

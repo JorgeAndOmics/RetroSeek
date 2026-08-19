@@ -17,6 +17,9 @@ This is the placement branch of the classifier dispatcher; non-placement genes u
 
 from __future__ import annotations
 
+import json
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +31,15 @@ from Bio import SeqIO
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 EPA_NG = "epa-ng"
 GAPPA = "gappa"
+
+# The five per-placement values EPA-ng records, in jplace v3 order.
+_JPLACE_FIELDS = [
+    "edge_num",
+    "likelihood",
+    "like_weight_ratio",
+    "distal_length",
+    "pendant_length",
+]
 
 
 def _run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]:
@@ -209,3 +221,111 @@ def place(
             "method": "placement",
         }
     return results
+
+
+# ---------------------------------------------------------------------
+# Artifact export
+#
+# EPA-ng and gappa write into a scratch workdir under data/tmp/, which is
+# cleared between runs. The jplace is the evidence behind every taxon_call -
+# which branch each locus attached to, with likelihood weights - and the
+# standard interchange format iTOL and gappa read. These helpers copy it
+# somewhere durable, and synthesise a valid empty file for the genomes where
+# placement legitimately never ran, so a rule declaring it as an output still
+# resolves. (tree_layout.py sets the same precedent with header-only CSVs.)
+# ---------------------------------------------------------------------
+def edge_numbered_newick(newick: str) -> str:
+    """Return ``newick`` with a jplace ``{N}`` edge tag appended to every edge.
+
+    jplace placements reference edges by number, so the embedded tree must carry
+    them even when there are no placements to reference. Numbers are assigned in
+    the order edges close, which is the post-order the format expects; with an
+    empty placement list any self-consistent numbering parses correctly.
+    """
+    counter = 0
+
+    def tag(_match: re.Match[str]) -> str:
+        nonlocal counter
+        out = f"{_match.group(0)}{{{counter}}}"
+        counter += 1
+        return out
+
+    # An edge ends either at a branch length (":0.1") or at a bare node.
+    body = newick.strip().rstrip(";")
+    tagged = re.sub(r":-?[0-9.eE+-]+", tag, body)
+    # The root edge carries no length of its own; give it the final number.
+    return f"{tagged}{{{counter}}};"
+
+
+def empty_jplace(newick: str, reason: str = "no queries were placed") -> str:
+    """Return a valid jplace document with the real tree and no placements.
+
+    The reference tree is carried through verbatim rather than replaced by a
+    stand-in: downstream gappa commands read it to know what they are drawing,
+    so a fabricated tree would silently mislabel a figure. ``reason`` is
+    recorded because "zero placements" and "the stage never ran" are different
+    claims and the file should say which one it is.
+    """
+    return json.dumps(
+        {
+            "version": 3,
+            "fields": _JPLACE_FIELDS,
+            "metadata": {"invocation": f"RetroSeek: {reason}"},
+            "tree": edge_numbered_newick(newick),
+            "placements": [],
+        },
+        indent=1,
+    )
+
+
+def _reference_newick(ref_dir: Path, gene: str) -> Path:
+    """Path to the tree ``place()`` would actually run on, for this gene.
+
+    Mirrors place()'s own preference for the raxml-ng-optimised tree, so the
+    exported evidence matches the tree the calls were produced on.
+    """
+    trees = ref_dir / "trees"
+    best = trees / f"{gene}.raxml.bestTree"
+    fallback = trees / f"{gene}.treefile"
+    if best.exists():
+        return best
+    if fallback.exists():
+        return fallback
+    raise FileNotFoundError(
+        f"no reference tree for gene {gene!r} under {trees} "
+        "(expected .raxml.bestTree or .treefile)"
+    )
+
+
+def export_placement(
+    workdir: Path, ref_dir: Path, gene: str, out_dir: Path, stem: str
+) -> tuple[Path, Path]:
+    """Copy this gene's placement artifacts to ``out_dir`` as ``stem.*``.
+
+    Returns ``(jplace_path, labelled_newick_path)``. When placement did not run -
+    no queries carried the gene, every query aligned to all-gaps, or the gene had
+    no tree package - an empty-but-valid jplace is written carrying the real
+    reference tree, and the reference tree itself stands in for the labelled one.
+
+    Raises ``FileNotFoundError`` when no reference tree exists at all, since
+    there is then nothing honest to write.
+    """
+    reference = _reference_newick(ref_dir, gene)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    jplace_out = out_dir / f"{stem}.jplace"
+    newick_out = out_dir / f"{stem}.labelled.newick"
+
+    jplace_src = workdir / "epa_result.jplace"
+    newick_src = workdir / "labelled_tree.newick"
+
+    if jplace_src.is_file():
+        shutil.copyfile(jplace_src, jplace_out)
+    else:
+        jplace_out.write_text(
+            empty_jplace(
+                reference.read_text().strip(),
+                reason=f"placement did not run for {gene}",
+            )
+        )
+    shutil.copyfile(newick_src if newick_src.is_file() else reference, newick_out)
+    return jplace_out, newick_out

@@ -280,6 +280,8 @@ def classify(
     structure_full_min: float = 1.0,
     source: str = "ltr-flanked",
     segment_rank: str = "genus",
+    placement_out: Path | None = None,
+    genome_name: str = "",
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
@@ -339,6 +341,17 @@ def classify(
                 queries, ref_dir, gene, workdir / f"place_{gene}"
             )
             placement.update(res)
+
+    # Publish the placement evidence before the scratch workdir is cleared. This
+    # runs for every placement gene, including those where `place()` never ran
+    # (no queries, all-gap alignment, missing tree package) - export writes a
+    # valid empty jplace in that case so a rule declaring it still resolves.
+    if placement_out is not None:
+        for gene in sorted(placement_genes):
+            stem = f"{genome_name or genome.stem}.{source}.{gene}"
+            taxonomy_placement.export_placement(
+                workdir / f"place_{gene}", ref_dir, gene, placement_out, stem
+            )
 
     return _assemble(
         loci,
@@ -528,6 +541,14 @@ def _assemble(
                 ((g, lc["genes"][g][0]) for g in present_main), key=lambda x: x[1]
             )
         ]
+        # `main_probes` IS the declared expected order, by design: the user sets
+        # one list and it serves both gene reliability (above) and this. The
+        # reverse is accepted because a minus-strand provirus reads backwards.
+        # Consequence to keep in mind when reading the column: a POL-first list
+        # (best for reliability) reports canonical=False for a textbook
+        # gag -> pol -> env provirus, since that is neither the list nor its
+        # reverse. Loci with <=2 main genes match either way. Documented under
+        # "How main_probes is used" in docs/configuration.md.
         canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
         # Discrete structural class over gene content (ADR-009): a single main
         # gene is a 'gene' fragment; a multi-gene locus is 'full' once its
@@ -854,6 +875,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="blastx-stage loss counts CSV (metric,value) for the loss funnel",
     )
+    p.add_argument(
+        "--out-placement-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory to publish the placement evidence into: one "
+            "{genome}.{tier}.{gene}.jplace + .labelled.newick per placement gene. "
+            "Omit to leave the artifacts in the scratch workdir."
+        ),
+    )
     return p
 
 
@@ -889,6 +920,8 @@ def main() -> int:
         structure_full_min=a.structure_full_min,
         source=a.source,
         segment_rank=a.segment_rank,
+        placement_out=a.out_placement_dir,
+        genome_name=a.gff3.stem,
     )
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was

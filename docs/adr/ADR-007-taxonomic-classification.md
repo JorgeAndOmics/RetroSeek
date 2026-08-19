@@ -27,6 +27,14 @@ The resulting per-locus table **is the genus-founded ERV assembly**: each LTR-el
 
 **Defaults**: `placement_genes: [POL]` (POL's tree is reliable); GAG is shipped but opt-in (its reference alignment is low-identity ~19.7%). Search is `blastx` (reuses BLAST+ already in the env - no new search dependency).
 
+> **Defaults note (2026-08-18).** `placement_genes` now defaults to
+> `[POL, GAG, ENV]`. The ~19.7% figure above still reproduces exactly, so the
+> alignment concern was real and is not retracted; what changed is that the
+> resulting trees were finally measured, and their bootstrap support is
+> comparable to POL's. See "Negative / costs" below for the numbers and the
+> ranking consequence. This paragraph keeps the original wording because an ADR
+> records what was decided at the time.
+
 ### Alternatives considered
 
 - **Genome-wide DIAMOND scan (Mode B)** - abandoned: redundant with the high-quality valid tier, and added a dependency. Everything is Mode A (valid-tier).
@@ -45,8 +53,10 @@ The resulting per-locus table **is the genus-founded ERV assembly**: each LTR-el
 **Negative / costs**
 
 - Adds external tools (`mafft`, `iqtree`, `raxml-ng`, `epa-ng`, `gappa`) to the env. Per-locus marker regions are cut with Biostrings (Bioconductor, `extract_region_fasta.R`), not bedtools - range/sequence work stays in Bioconductor.
+- **`hmmbuild` is in the tree-package build but not on the placement path.** EPA-ng requires each query to occupy exactly the reference MSA's columns. Two tools can enforce that: `hmmalign` against a profile, or `mafft --add --keeplength` against the alignment itself. MAFFT was chosen, so `<gene>.hmm` is built and published but never read - `hmmalign`/`hmmsearch` appear nowhere in the executable code. It is kept rather than dropped because it costs under a second on a ~64-sequence alignment, it is independently useful (hmmsearch your own sequences against the reference), and removing a declared output would trip Snakemake's rerun trigger and force a full reference rebuild: Entrez fetch, MAFFT L-INS-i, IQ-TREE with 1000 bootstraps, RAxML-NG. Not to be confused with `Pfam-A.hmm`, which is unrelated and genuinely load-bearing: LTRdigest uses it (`gt ltrdigest -hmms`) to produce the domain evidence behind `domain_tier` and the valid tier.
 - A one-time network reference build (`make reference` / `RetroSeek --build-reference`) is required before `--classify`.
-- GAG placement is low-confidence (kept opt-in); ENV stays an LCA-only marker.
+- GAG and ENV reference alignments are low-identity, and the tree builder flags them `LOW (tree may be unreliable)`. Re-measured 2026-08-18 on the current (ADR-008 axis) reference, the flag reproduces exactly - POL 25.9% OK, GAG 19.7%, ENV 19.1% - but **bootstrap support contradicts it**: median UFBoot 100 / 100 / 99, and ENV has the *fewest* weakly-supported nodes of the three (5.1% below 70, against POL's 9.8%). Divergence supplies informative sites, so identity is a proxy for alignment reliability, not for topological resolution. Both were therefore added to `placement_genes`, on the coverage argument that ~29% of catalog loci carry GAG or ENV but no POL and were previously unplaceable. They remain the weaker evidence: low identity leaves them more exposed to systematic error than bootstrap support alone shows.
+- **Ranking consequence of widening**: the locus call sorts `placement` ahead of `lca` *before* applying `parameters.main_probes` order, so a GAG/ENV placement now outranks a POL weighted-LCA call. With `[POL]` alone POL always spoke for the locus.
 
 ## References
 

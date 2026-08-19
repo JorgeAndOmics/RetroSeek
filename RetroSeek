@@ -121,6 +121,14 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '--placement-trees',
+        action='store_true',
+        help="Phylogenetic-placement figures: per-genome heat-trees, EDPL "
+             "placement uncertainty, and the co-phylogeny comparison against "
+             "the host tree. Requires --classify output."
+    )
+
+    parser.add_argument(
         '--build-reference',
         action='store_true',
         help="Build the taxonomic-classification reference (Entrez fetch of the "
@@ -222,6 +230,9 @@ if __name__ == '__main__':
 
     if args.solo_ltr_detection:
         main_cmd.append('--solo-ltr-detection')
+
+    if args.placement_trees:
+        main_cmd.append('--placement-trees')
 
     if args.build_reference:
         main_cmd.append('--build-reference')

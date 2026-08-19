@@ -25,13 +25,13 @@ read_config <- function(path) {
 }
 
 
-#' Load genome FASTA, normalise headers to NCBI-accession tokens, and rename
-#' the DNAStringSet in place so downstream `vmatchPattern` -> mask GRanges
-#' carries the normalised seqlevels and aligns with windows automatically.
+#' Load genome FASTA, reduce each header to its chromosome name, and rename the
+#' DNAStringSet in place so downstream `vmatchPattern` -> mask GRanges carries
+#' the same seqlevels as the tracks and aligns with windows automatically.
 #'
-#' Aborts loudly if any header fails to match the chrom-name pattern. The
-#' previous code path silently propagated NA seqlevels into the genome
-#' GRanges; here we surface the misconfiguration instead.
+#' Aborts loudly if any header carries no name at all, which means a malformed
+#' FASTA. The previous code path silently propagated NA seqlevels into the
+#' genome GRanges; here we surface the problem instead.
 #'
 #' Returns a list with:
 #'   $seqs        - DNAStringSet (renamed in place)
@@ -43,7 +43,7 @@ load_genome_for_hotspot <- function(fasta_path) {
   chrom_names <- normalise_chrom_names(headers_raw)
   if (any(is.na(chrom_names))) {
     stop(sprintf(
-      "load_genome_for_hotspot(): %d of %d FASTA headers in %s did not match the chromosome-name pattern. Check FASTA contents or extend utils/chrom_names.R::normalise_chrom_names().",
+      "load_genome_for_hotspot(): %d of %d FASTA headers in %s carry no name at all (empty or whitespace-only). Check the FASTA.",
       sum(is.na(chrom_names)), length(chrom_names), fasta_path
     ))
   }
