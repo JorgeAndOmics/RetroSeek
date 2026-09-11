@@ -40,6 +40,7 @@ select = [
 ignore = [
     "E501",    # line length handled by formatter
     "PLR0913", # too many arguments
+    "PLR0917", # too many positional arguments: PLR0913's sibling, enforced under "PL" since ruff 0.16
     "PLR2004", # magic values in comparisons
 ]
 
