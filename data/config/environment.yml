@@ -28,7 +28,14 @@ dependencies:
   - snakemake-wrapper-utils
 
   # -- external bio tools ----------------------------------
-  - blast>=2.15          # tblastn, blastn, makeblastdb
+  # Pinned to 2.14.1 rather than a newer release, and kept in lockstep with rmblast below:
+  # repeatmasker (pulled in by ltr_retriever) depends on rmblast, which installs its OWN
+  # tblastn/blastn/makeblastdb into the same bin/ and overwrites blast's copies. With
+  # mismatched pins, `conda list` said 2.16.0 while `tblastn -version` said 2.14.1. Matching
+  # the two makes the declared version the one that actually runs. repeatmasker 4.2.3 has no
+  # rmblast >= 2.17 build, so raising this pin makes the environment unsolvable.
+  - blast=2.14.1         # tblastn, blastn, makeblastdb
+  - rmblast=2.14.1       # explicit: must equal the blast pin above
   - genometools-genometools  # gt ltrharvest, gt ltrdigest
   - ncbi-datasets-cli    # genome download via `datasets`
   - ltr_retriever        # solo-LTR post-processing of LTRharvest output
