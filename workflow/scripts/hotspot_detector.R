@@ -290,37 +290,13 @@ if (length(hotspots_for_bed) > 0L) {
 }
 bed_exporter(hotspots_for_bed, bed_path)
 
-# Hotspot-specific manifest emitter (the ranges one is shaped for that
-# pipeline's args). Keeps provenance for reruns.
-emit_hotspot_manifest <- function(args, opts, species, species_name,
-                                  fit_diagnostics, counts,
-                                  generator_version, path) {
-  manifest <- list(
-    generator       = generator_version,
-    timestamp       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
-    species         = species,
-    species_display = species_name,
-    inputs = list(
-      fasta  = list(path = args$fasta,  md5 = file_md5(args$fasta)),
-      gff    = list(path = args$gff,    md5 = file_md5(args$gff)),
-      config = list(path = args$config, md5 = file_md5(args$config))
-    ),
-    options = opts,
-    counts = counts,
-    per_label_diagnostics = fit_diagnostics,
-    outputs = list(
-      csv      = csv_path,
-      parquet  = parquet_path,
-      gff3     = gff_path,
-      bed      = bed_path
-    )
-  )
-  yaml::write_yaml(manifest, path)
-  invisible(path)
-}
 
 emit_hotspot_manifest(
-  args, opts, species, species_name, fit_diagnostics,
+  inputs  = list(fasta = args$fasta, hits = args$hits, config = args$config),
+  outputs = list(csv = csv_path, parquet = parquet_path,
+                 gff3 = gff_path, bed = bed_path),
+  opts = opts, species = species, species_name = species_name,
+  fit_diagnostics = fit_diagnostics,
   counts = list(
     total_hits      = length(hits),
     total_windows   = length(windows),

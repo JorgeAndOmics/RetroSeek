@@ -111,60 +111,18 @@ test_that("values are coerced to character before processing", {
 })
 
 
-# ----------------------------- make_tiebreaker_picker -----------------------------
-
-test_that("make_tiebreaker_picker('bitscore') returns the bitscore vector", {
-  pick <- make_tiebreaker_picker("bitscore")
-  out <- pick(bitscore = c(10, 20, 30), identity = c(90, 80, 70))
-  expect_equal(out, c(10, 20, 30))
-})
-
-test_that("make_tiebreaker_picker('identity') returns the identity vector", {
-  pick <- make_tiebreaker_picker("identity")
-  out <- pick(bitscore = c(10, 20, 30), identity = c(90, 80, 70))
-  expect_equal(out, c(90, 80, 70))
-})
-
-test_that("make_tiebreaker_picker('align_length') errors when align_length is absent", {
-  pick <- make_tiebreaker_picker("align_length")
-  expect_error(
-    pick(bitscore = c(10, 20), identity = c(90, 80)),
-    "align_length"
-  )
-})
-
-test_that("make_tiebreaker_picker('align_length') returns align_length when supplied", {
-  pick <- make_tiebreaker_picker("align_length")
-  out <- pick(bitscore = c(10, 20), identity = c(90, 80), align_length = c(500, 300))
-  expect_equal(out, c(500, 300))
-})
-
-test_that("make_tiebreaker_picker falls back to bitscore for unknown names", {
-  pick <- make_tiebreaker_picker("zzz_unknown")
-  out <- pick(bitscore = c(10, 20), identity = c(90, 80))
-  expect_equal(out, c(10, 20))
-})
-
-test_that("tiebreaker picker closure captures tb_name by value (force semantics)", {
-  pick <- make_tiebreaker_picker("identity")
-  # Reassign the outer variable; the closure should still use "identity"
-  tb_name <- "bitscore"
-  out <- pick(bitscore = c(10, 20), identity = c(90, 80))
-  expect_equal(out, c(90, 80))
-})
-
-
 # ----------------------------- end-to-end composition -----------------------------
 
-test_that("aggregate_values + make_tiebreaker_picker compose cleanly for the `best` case", {
-  # Simulates the call pattern used in ranges_analysis.R's reduce_ranges_directed.
-  pick <- make_tiebreaker_picker("bitscore")
+test_that("aggregate_values picks the row the tiebreaker vector points at", {
+  # Mirrors the live call pattern: ranges/reductions.R resolves the configured
+  # `best_tiebreaker` to a COLUMN via .primary_tiebreak_col() and hands the
+  # values of that column straight in as a numeric vector.
   bitscore <- c(100, 200, 50)
-  identity <- c(90, 80, 70)
   values   <- c("POL", "GAG", "ENV")
-  out <- aggregate_values(values, strategy = "best",
-                          tiebreaker = pick(bitscore = bitscore, identity = identity))
-  expect_equal(out, "GAG")
+  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = bitscore), "GAG")
+
+  identity <- c(90, 80, 70)
+  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = identity), "POL")
 })
 
 

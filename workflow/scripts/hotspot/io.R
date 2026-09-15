@@ -230,3 +230,37 @@ read_hotspot_options <- function(config) {
     unplaced_min_factor  = as.integer(h$unplaced_min_factor      %||% 10L)
   )
 }
+
+
+#' Emit the hotspot provenance manifest.
+#'
+#' Lives here rather than inline in the orchestrator so it can be tested. The
+#' inline version closed over the four output paths and read `args$gff`, an
+#' argument the CLI stopped defining when ADR-012 renamed it to `--hits`. Since
+#' `file_md5(NULL)` returns NA, every run silently recorded `path: ~ / md5: ~`
+#' for its input track. Taking `inputs` and `outputs` explicitly turns that
+#' class of mistake into a missing-argument error instead of a silent NA.
+#'
+#' Depends on `file_md5()` from ranges/exporters.R, which the orchestrator
+#' sources; resolution happens at call time.
+#'
+#' @param inputs  Named list of input paths, e.g. fasta / hits / config.
+#' @param outputs Named list of emitted artifact paths.
+#' @return The manifest path, invisibly.
+emit_hotspot_manifest <- function(inputs, outputs, opts, species, species_name,
+                                  fit_diagnostics, counts, generator_version,
+                                  path) {
+  manifest <- list(
+    generator       = generator_version,
+    timestamp       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    species         = species,
+    species_display = species_name,
+    inputs  = lapply(inputs, function(p) list(path = p, md5 = file_md5(p))),
+    options = opts,
+    counts  = counts,
+    per_label_diagnostics = fit_diagnostics,
+    outputs = outputs
+  )
+  yaml::write_yaml(manifest, path)
+  invisible(path)
+}

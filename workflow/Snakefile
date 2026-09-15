@@ -761,7 +761,7 @@ rule plot_generator:
 
 # Middle-stage plots (homology + LTRharvest/LTRdigest integration). Mirrors
 # plot_generator_setup: aggregate rule consuming the per-genome stage
-# dataframes + manifests, emitting a fixed panel of PNGs into PLOT_DIR.
+# dataframes, emitting a fixed panel of PNGs into PLOT_DIR.
 rule stage_plot_generator_setup:
     input:
         homology_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),

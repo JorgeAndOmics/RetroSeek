@@ -10,7 +10,6 @@ suppressMessages({
   library(yaml)           # For reading YAML configuration file
   library(arrow)          # Provides tools for reading and writing Parquet files
   library(tidyverse)      # Collection of R packages for data manipulation and visualization
-  library(waffle)         # For creating waffle charts
   library(argparse)       # Command-line argument parsing
   library(GenomicRanges)  # Genomic interval operations
   library(plyranges)      # "Tidyverse"-style GRanges operations
@@ -92,29 +91,6 @@ pair_df <- find_pairs(ranges, probe_to_pair, max_gap)
 # ------------------------------
 # 5. PLOT GENERATION
 # ------------------------------
-# Create a waffle plot to visualize the distribution of pairs
-pair_counts <- pair_df %>%
-  group_by(other.probe) %>%
-  summarise(count = dplyr::n(), .groups = 'drop') %>%
-  mutate(type = ifelse(toupper(other.probe) %in% c("ENV", "GAG", "POL"), "main", "accessory")) %>%
-  arrange(desc(count))
-
-# Create a waffle plot
-waffle_plot <- pair_counts %>%
-  ggplot(aes(fill = other.probe, values = count)) +
-  geom_waffle(size = 0.1, color = "white") +
-  labs(title = paste("Distribution of pairs for", config$parameters$probe_to_pair),
-       subtitle = paste("Probe:", probe_to_pair)) +
-  theme_minimal() +
-  facet_grid(~type) +
-  theme(legend.position = "bottom",
-        axis.text.x = element_blank(),  # removes x-axis numbers
-        axis.ticks.x = element_blank(),  # removes x-axis ticks
-        axis.ticks.y = element_blank(),  # removes y-axis ticks
-        axis.text.y = element_blank(),  # removes y-axis numbers
-  )
-
-
 # ------------------------------
 # EXPORT RESULTS
 # ------------------------------

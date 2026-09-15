@@ -118,28 +118,3 @@ aggregate_values <- function(values, strategy,
     )
   }, character(1))
 }
-
-
-#' Build a tiebreaker-picker closure bound to a configured name.
-#'
-#' Returns a function that selects one of the candidate vectors based on
-#' the tiebreaker name captured at closure construction time. Used by
-#' ranges_analysis.R to resolve the configured `best_tiebreaker` once at
-#' startup, then call the closure at each aggregation site.
-#'
-#' @param tb_name One of bitscore | identity | align_length.
-#' @return A function(bitscore, identity, align_length = NULL) returning
-#'   whichever argument matches `tb_name`.
-make_tiebreaker_picker <- function(tb_name = "bitscore") {
-  force(tb_name)
-  function(bitscore = NULL, identity = NULL, align_length = NULL) {
-    switch(
-      tb_name,
-      bitscore     = bitscore,
-      identity     = identity,
-      align_length = if (!is.null(align_length)) align_length
-                     else stop("best_tiebreaker='align_length' not available in this context yet"),
-      bitscore  # default fallback
-    )
-  }
-}
