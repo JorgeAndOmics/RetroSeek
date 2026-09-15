@@ -9,7 +9,7 @@ make env                    # Create the conda/mamba env
 conda activate RetroSeek
 ```
 
-The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.10, R 4.3, Bioconductor, and every library the pipeline needs. No system-level tools are required beyond mamba/conda itself.
+The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.11, R 4.3, Bioconductor, and every library the pipeline needs. No system-level tools are required beyond mamba/conda itself.
 
 ## CLI
 
@@ -33,7 +33,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 | `--blast`                   | `blast_pkl2parquet`           | BLAST DBs + probe dict                  | `{genome}.pkl` -> `full_genome_blast.parquet` |
 | `--ranges-analysis`         | `ranges_analysis`             | BLAST Parquet + LTRdigest GFF3          | GFF3 tracks + overlap matrices + dataframes  |
 | `--generate-global-plots`   | `plot_generator`              | Plot dataframes                         | PNG plots (density, raincloud, bar, Sankey)  |
-| `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF            |
+| `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF (currently broken) |
 | `--hotspot-detection`       | `hotspot_detector`            | Original GFF3 tracks + FASTA            | Hotspot CSV + GFF3 + histogram/density PDFs  |
 
 > **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and `{genome}_composition.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
@@ -100,16 +100,17 @@ cp data/config/config.example.yaml data/config/config.local.yaml
   - `solo_ltr_aggregation` - separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
   - (The composite ERV assembly is no longer a `parameters.erv_like` tier - it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
-- **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`valid` | `original`), `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
+- **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`catalog` | `original`), `group_by`, `source`, `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
 - **`ltr_retriever`** - LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
-- **`classification`** - per-locus ERV genus calls: `enable`, `placement_genes` (default `[POL]`; GAG opt-in), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
+- **`placement`** - colour scale for the published heat-trees: `mass_norm` (`absolute` | `relative`).
+- **`classification`** - per-locus ERV genus calls: `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
 - **`logging`** - colour styles for console logging.
 - **`plots`** - DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
 - **`execution`** - parallelism and API politeness:
   - `num_cores`, `max_threadpool_workers`.
   - `retrieval_time_lag` (Entrez delay), `max_retrieval_attempts` (retries).
   - `entrez_email` - **required** (NCBI ToS).
-- **`input`** - `probe_csv` (absolute path to your probe metadata CSV).
+- **`input`** - `probe_csv` (path to your probe metadata CSV; relative paths resolve against the repo root) and `species_tree`.
 - **`display`** - verbosity toggles.
 - **`root`** - base directories for DB, data, results, logs.
 - **`domains`** - per-probe Pfam domain/regex lists used in validation.

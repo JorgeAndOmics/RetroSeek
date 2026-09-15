@@ -4,7 +4,7 @@
 ![Logo](https://i.postimg.cc/Vs3JLfVM/High-Resolution-Color-Logo-cropped.png)
 
 [![CI](https://github.com/JorgeAndOmics/RetroSeek/actions/workflows/ci.yml/badge.svg)](https://github.com/JorgeAndOmics/RetroSeek/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![R](https://img.shields.io/badge/R-4.3-blue?logo=r&logoColor=white)
 ![Snakemake](https://img.shields.io/badge/Snakemake-8%2B-brightgreen)
 ![Bioconductor](https://img.shields.io/badge/Bioconductor-R%20ecosystem-lightgrey?logo=r&logoColor=white)
@@ -66,11 +66,12 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
 - Intuitive CLI delegating to Snakemake - resume from checkpoints after interruption, compose with any Snakemake flag.
 
-> **Feature maturity:** `--hotspot-detection` and `--generate-circle-plots` are *experimental* - functional but lightly tested and subject to change.
+> **Feature maturity:** `--hotspot-detection` is *experimental* - functional but lightly tested and subject to change.
+> `--generate-circle-plots` is **currently broken**: it reads per-locus metrics that a later refactor replaced, and fails at plot time.
 
 ## Requirements
 
-- **Mamba** (recommended) or **Conda**. No other system deps - the env provides BLAST+, GenomeTools, NCBI Datasets, Python 3.10, R 4.3, Bioconductor, and all libraries.
+- **Mamba** (recommended) or **Conda**. No other system deps - the env provides BLAST+, GenomeTools, NCBI Datasets, Python 3.11, R 4.3, Bioconductor, and all libraries.
 - A valid **email address for the NCBI Entrez API**, set under `execution.entrez_email` in `config.yaml` (required by NCBI ToS).
 - Optional: an [NCBI API key](https://support.nlm.nih.gov/kbArticle/?pn=KA-05317) for faster remote queries.
 
@@ -94,12 +95,15 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--blast`                   | tBLASTn probes against each genome                       |
 | `--ranges-analysis`         | Integrate BLAST + LTR -> GFF3 tracks + tables             |
 | `--generate-global-plots`   | Density / raincloud / bar / Sankey / balloon plots       |
-| `--generate-circle-plots`   | Per-genome Circos-style plots                            |
-| `--hotspot-detection`       | Permutation-based hotspot analysis                       |
+| `--generate-circle-plots`   | Per-genome Circos-style plots (currently broken)         |
+| `--hotspot-detection`       | Deterministic NB-GLM hotspot detection                   |
 | `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
 | `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo-LTR probe-label propagation, solo/intact ratio tables |
 | `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
 | `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
+| `--placement-trees`         | Publish placement evidence: heat-trees + cophylogeny     |
+| `--segment`                 | Split the catalog by taxon at `classification.segment_rank` |
+| `--config-help [KEY]`       | Print documentation for a config field, then exit        |
 | `-skp`, `--skip-validation` | Skip pre-run validation (debug use)                      |
 
 Any additional arguments are forwarded to Snakemake (e.g., `--cores`, `--profile`, `--keep-going`, `--latency-wait`).
