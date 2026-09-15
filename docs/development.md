@@ -10,7 +10,7 @@ conda activate RetroSeek
 make env-update       # Update env in place (after pulling changes)
 ```
 
-The env provides Python 3.10, R 4.3, Snakemake 8, BLAST+, GenomeTools, NCBI Datasets, Bioconductor, and every dev tool (ruff, mypy, pytest, pre-commit, lintr, styler).
+The env provides Python 3.11, R 4.3, Snakemake 8, BLAST+, GenomeTools, NCBI Datasets, Bioconductor, and every dev tool (ruff, mypy, pytest, pre-commit, lintr, styler).
 
 ## Branching
 
