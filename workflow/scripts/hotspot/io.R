@@ -246,6 +246,13 @@ read_hotspot_options <- function(config) {
 #'
 #' @param inputs  Named list of input paths, e.g. fasta / hits / config.
 #' @param outputs Named list of emitted artifact paths.
+#' @param opts Resolved hotspot options, as returned by read_hotspot_options().
+#' @param species Genome key (FASTA stem).
+#' @param species_name Display name from the config `species:` map.
+#' @param fit_diagnostics Per-label NB-GLM fit diagnostics.
+#' @param counts Named list of run tallies (hits, windows, hotspots, groups).
+#' @param generator_version Build string from resolve_generator_version().
+#' @param path Where to write the manifest.
 #' @return The manifest path, invisibly.
 emit_hotspot_manifest <- function(inputs, outputs, opts, species, species_name,
                                   fit_diagnostics, counts, generator_version,
