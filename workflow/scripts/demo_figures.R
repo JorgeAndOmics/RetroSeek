@@ -59,7 +59,7 @@ source(file.path(.script_dir, "plot2sort", "plots_categorical.R"))
 source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
 # The erv-like structural panel now reads the genus-founded loci table; reuse its
 # loader + composition-heatmap builder (the file's main() stays dormant when sourced).
-source(file.path(.script_dir, "erv_like_plot_generator.R"))
+source(file.path(.script_dir, "taxonomy", "erv_like_plot_generator.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ anonymise <- function(df, maps) {
 main <- function() {
   parser <- ArgumentParser(description = "Regenerate anonymised README demo figures")
   parser$add_argument("--input", default = "results/tables/ranges_analysis",
-                      help = "Dir with *.final_loci.parquet and *.erv_like_loci.parquet")
+                      help = "Dir with *.final_loci.parquet (taxon loci come from taxonomy_classification/)")
   parser$add_argument("--output", default = "data/images",
                       help = "Output directory for the demo PNGs")
   parser$add_argument("--config", default = "data/config/config.yaml",
@@ -163,8 +163,6 @@ main <- function() {
   all.full <- anonymise(all.full, maps)
   all.main <- all.full %>% dplyr::filter(probe_type == "main")
 
-  bit.main <- if (nrow(all.main) > 0L) q_stats(all.main)
-              else list(q1 = NA, median = NA, q3 = NA, mean = NA)
 
   all.counted_probe <- group_count(all.full)
   main.counted_probe <- group_count(all.main)

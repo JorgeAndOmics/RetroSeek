@@ -31,9 +31,18 @@ build_plot_dataframe <- function(gr_virus, probe_df_sum, main_probes,
   }
 
   df <- as.data.frame(gr_virus, stringsAsFactors = FALSE)
-  # When virus is a concatenated string, split into multiple rows so each row
-  # carries a single virus identity.
-  if (identical(agg_virus_strategy, "concatenate")) {
+  # `virus` arrives in one of three shapes, depending on how it was aggregated:
+  #   * a single value            - `best` / `first`
+  #   * a separator-joined string - `concatenate`, and ALSO `list` through the
+  #     plyranges reduce path (see "IMPORTANT - why list is concatenated here"
+  #     in range_aggregation_strategies.R)
+  #   * a genuine list-column     - `list` when aggregate_values is called direct
+  # Explode the last two so every row carries one virus identity. Miss this and
+  # the match() below returns NA, so label and abbreviation go silently empty for
+  # every multi-virus locus - and ranges/io.R defaults agg_virus to "list".
+  if (is.list(df$virus)) {
+    df <- tidyr::unnest(df, virus)
+  } else if (agg_virus_strategy %in% c("concatenate", "list")) {
     df <- tidyr::separate_rows(df, virus, sep = agg_concat_separator)
   }
 
