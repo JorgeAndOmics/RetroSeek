@@ -65,7 +65,7 @@ The Snakemake rule body collapses to one line: `python scripts/run_ltr_retriever
 
 ## References
 
-- `workflow/scripts/run_ltr_retriever.py` - the runner.
+- `workflow/scripts/run_ltr_retriever.py` - the runner. (Moved to `workflow/scripts/solo_ltr/run_ltr_retriever.py` when the stages were grouped into subdirectories; the decision itself is unchanged.)
 - `workflow/Snakefile` `rule ltr_retriever_setup` - consumer.
 - `tests/unit/test_run_ltr_retriever.py` - coverage of every building block + an end-to-end test with a fake bash shim binary.
 - [ADR-003](ADR-003-ltr-retriever-pre-filter.md) - Coupling A pre-filter rationale.
