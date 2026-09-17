@@ -34,6 +34,16 @@ def test_negative_frames_translate_the_reverse_complement() -> None:
     assert scan_domains.six_frame_translations("ATGGCCATT")[-1] == "NGH"
 
 
+def test_stop_codons_become_unknown_not_asterisk() -> None:
+    """`*` is a non-residue an alignment cannot cross, so a domain is broken at
+    every stop. Measured on the Homo LTR-flanked set, keeping `*` cost 246 loci
+    and 309 retroviral-diagnostic loci. See ADR-016."""
+    # ATG TAA GCC -> M * A
+    got = scan_domains.six_frame_translations("ATGTAAGCC")[1]
+    assert got == "MXA"
+    assert "*" not in got
+
+
 def test_short_sequence_yields_empty_strings_not_an_error() -> None:
     frames = scan_domains.six_frame_translations("AT")
     assert all(p == "" for p in frames.values())

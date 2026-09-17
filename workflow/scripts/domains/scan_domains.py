@@ -66,6 +66,19 @@ SIX_FRAMES = (1, 2, 3, -1, -2, -3)
 def six_frame_translations(dna: str) -> dict[int, str]:
     """Translate `dna` in all six frames, keyed by frame (1..3, -1..-3).
 
+    Stop codons become `X` rather than staying `*`, matching
+    taxonomy_classify_loci.py. This is not cosmetic: measured on the Homo
+    LTR-flanked set, keeping `*` covered 1,946 loci against 2,192 with `X`, and
+    1,557 retroviral-diagnostic loci against 1,866. `*` is a non-residue that an
+    alignment cannot cross, so a degraded ERV's domain is broken at every stop;
+    `X` is the neutral unknown, letting the domain score as one unit.
+
+    Splitting into ORFs at stops instead (the esl-translate convention) was also
+    benchmarked and is worse for this data: it recovers a wider family repertoire
+    but loses the most degraded loci, because a 102 aa domain broken by one stop
+    becomes two ~50 aa fragments that each fail the gathering threshold. See
+    ADR-016 and the Phase 1 bench.
+
     Sequences shorter than a codon yield empty strings rather than raising, which
     keeps a degenerate locus from aborting a whole genome's scan.
     """
@@ -76,7 +89,7 @@ def six_frame_translations(dna: str) -> dict[int, str]:
             s = s.reverse_complement()  # type: ignore[no-untyped-call]
         s = s[abs(frame) - 1 :]
         s = s[: len(s) - (len(s) % 3)]
-        out[frame] = str(s.translate())  # type: ignore[no-untyped-call]
+        out[frame] = str(s.translate()).replace("*", "X")  # type: ignore[no-untyped-call]
     return out
 
 
