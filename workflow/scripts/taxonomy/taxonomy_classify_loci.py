@@ -37,6 +37,13 @@ from Bio.Seq import Seq
 
 from colored_logging import colored_logging
 
+# Domain-class semantics are shared with the scanner. The scanner imports THIS
+# module for locus grouping, so the shared piece lives in its own module to keep
+# that from becoming a cycle.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "domains"))
+from domain_classes import load_classes
+from domain_classes import summarise as summarise_domains
+
 logger = logging.getLogger(__name__)
 
 BLASTX = "blastx"  # translated search; all tools resolved from PATH (RetroSeek env)
@@ -49,12 +56,7 @@ _PROBE = re.compile(r"probe=([^;\t]+)")
 _PARENT = re.compile(r"Parent=([^;\t]+)")
 _LABEL = re.compile(r"label=([^;\t]+)")
 _ID = re.compile(r"ID=([^;\t]+)")
-_DOMAIN_TIER = re.compile(r"domain_tier=([^;\t]+)")
-_DOMAIN_HIT_CLASS = re.compile(r"domain_hit_class=([^;\t]+)")
 _OVERSIZED = re.compile(r"oversized=([^;\t]+)")
-# Per-provirus domain tier, strongest-wins when a locus's hits disagree (they
-# shouldn't, since the tier is element-wise, but be defensive). See validation.R.
-_DOMAIN_TIER_RANK = {"non_domain": 0, "domain_unlisted": 1, "domain_selected": 2}
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
 # (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
 # classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
@@ -86,8 +88,6 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
             probe = _PROBE.search(f[8])
             parent = _PARENT.search(f[8])
             label = _LABEL.search(f[8])
-            tier = _DOMAIN_TIER.search(f[8])
-            hit_class = _DOMAIN_HIT_CLASS.search(f[8])
             oversized = _OVERSIZED.search(f[8])
             feats.append(
                 {
@@ -98,12 +98,6 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
                     "gene": (probe.group(1).upper() if probe else "OTHER"),
                     "parent": parent.group(1) if parent else "",
                     "label": (label.group(1) if label else "").replace("%3b", ";"),
-                    # Domain labels ride the valid track (validation.R). The orphan
-                    # track carries neither, so default to the weakest tier.
-                    "domain_tier": tier.group(1) if tier else "non_domain",
-                    "domain_hit_class": (
-                        hit_class.group(1) if hit_class else "no_substring_match"
-                    ),
                     # oversized rides the orphan track (overlap cluster wider than
                     # the widest real provirus); LTR-flanked track carries no attr.
                     "oversized": oversized.group(1) if oversized else "False",
@@ -178,9 +172,6 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
         strand = Counter(m["strand"] for m in members).most_common(1)[0][0]
         genes: dict[str, tuple[int, int]] = {}
         probe_labels: set[str] = set()
-        # Per-provirus domain tier: element-wise, so a locus's members agree; take
-        # the strongest defensively. All-orphan loci stay non_domain.
-        domain_tier = "non_domain"
         # oversized: an orphan overlap-cluster wider than any real provirus; members
         # share a cluster, so any "True" marks the locus.
         oversized = "False"
@@ -196,9 +187,6 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
             for lab in m["label"].split(";"):
                 if lab.strip():
                     probe_labels.add(lab.strip())
-            mt = m.get("domain_tier", "non_domain")
-            if _DOMAIN_TIER_RANK.get(mt, 0) > _DOMAIN_TIER_RANK.get(domain_tier, 0):
-                domain_tier = mt
         start = min(v[0] for v in genes.values())
         end = max(v[1] for v in genes.values())
         loci.append(
@@ -210,12 +198,58 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
                 "start": start,
                 "end": end,
                 "genes": genes,
-                "domain_tier": domain_tier,
                 "oversized": oversized,
                 "probe_label_set": ";".join(sorted(probe_labels)),
             }
         )
     return loci
+
+
+def annotate_loci_with_domains(
+    loci: list[dict[str, Any]],
+    domains_parquet: Path,
+    classes_tsv: Path,
+    scanned_txt: Path,
+) -> None:
+    """Attach domain evidence to each locus in place, from the domain scan.
+
+    Four columns are set: `domain_tier` (ADR-009 values, recomputed from curated
+    classes rather than the retired name regexes), `domain_evidence` (the
+    strongest class present), `domain_names` (the distinct families found) and
+    `domain_source`.
+
+    `domain_source` is the column that fixes the original defect. Before this,
+    99.04% of `non_domain` rows meant "never assessed" yet were indistinguishable
+    from the 292 that meant "assessed and empty". A locus present in the scanned
+    roster but absent from the hit table is genuinely `non_domain`; one missing
+    from the roster is `not_scanned`.
+
+    Loci are joined on `{seqname}|{parent}`, the natural key. The catalog's own
+    `L{i}` ids are positional and must never be used to join across processes.
+    """
+    hits = pd.read_parquet(domains_parquet).to_dict("records")
+    per_locus = summarise_domains(hits, load_classes(classes_tsv))
+    scanned = {
+        line.strip()
+        for line in scanned_txt.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    for lc in loci:
+        key = f"{lc['seqname']}|{lc['parent']}"
+        found = per_locus.get(key)
+        if found is not None:
+            lc.update(found)
+            lc["domain_source"] = "scan"
+        elif key in scanned:
+            lc["domain_tier"] = "non_domain"
+            lc["domain_evidence"] = "none"
+            lc["domain_names"] = ""
+            lc["domain_source"] = "scan"
+        else:
+            lc["domain_tier"] = "non_domain"
+            lc["domain_evidence"] = "none"
+            lc["domain_names"] = ""
+            lc["domain_source"] = "not_scanned"
 
 
 def write_region_bed(loci: list[dict[str, Any]], bed: Path) -> None:
@@ -282,9 +316,14 @@ def classify(
     segment_rank: str = "genus",
     placement_out: Path | None = None,
     genome_name: str = "",
+    domains_parquet: Path | None = None,
+    domain_classes: Path | None = None,
+    scanned_txt: Path | None = None,
 ) -> list[dict[str, str]]:
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
+    if domains_parquet and domain_classes and scanned_txt:
+        annotate_loci_with_domains(loci, domains_parquet, domain_classes, scanned_txt)
     bed = workdir / "regions.bed"
     fna = workdir / "regions.fna"
     db = workdir / "ref_db"
@@ -583,6 +622,9 @@ def _assemble(
                 "canonical_order": str(canonical),
                 "structure_class": structure_class,
                 "domain_tier": lc.get("domain_tier", "non_domain"),
+                "domain_evidence": lc.get("domain_evidence", "none"),
+                "domain_names": lc.get("domain_names", ""),
+                "domain_source": lc.get("domain_source", "not_scanned"),
                 "oversized": lc.get("oversized", "False"),
                 "taxon_call": taxon_call,
                 "rank": rank,
@@ -737,6 +779,9 @@ LOCI_COLUMNS = [
     "canonical_order",
     "structure_class",
     "domain_tier",
+    "domain_evidence",
+    "domain_names",
+    "domain_source",
     "oversized",
     "taxon_call",
     "rank",
@@ -778,6 +823,8 @@ def write_track(records: list[dict[str, str]], gff3: Path, bed: Path) -> None:
                 f"confidence_tag={r['confidence_tag']};"
                 f"structure_class={r['structure_class']};"
                 f"domain_tier={r['domain_tier']};"
+                f"domain_evidence={r['domain_evidence']};"
+                f"domain_source={r['domain_source']};"
                 f"mosaic={r['is_mosaic']};erv_class={r['erv_class']};"
                 f"genes={r['genes_present']}"
             )
@@ -837,6 +884,23 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="min gene completeness (fraction of main genes) for structure_class "
         "'full'; a single-gene locus is 'gene', below-threshold multi-gene is "
         "'partial'. classification.structure_full_min.",
+    )
+    p.add_argument(
+        "--domains-parquet",
+        type=Path,
+        help="per-genome domain scan table (domains/scan_domains.py). Omit to "
+        "leave every locus domain_source=not_scanned.",
+    )
+    p.add_argument(
+        "--domain-classes",
+        type=Path,
+        help="curated Pfam class table, data/config/pfam_domain_classes.tsv.",
+    )
+    p.add_argument(
+        "--domains-scanned",
+        type=Path,
+        help="roster of loci the scan covered; distinguishes non_domain from "
+        "not_scanned.",
     )
     p.add_argument(
         "--segment-rank",
@@ -922,6 +986,9 @@ def main() -> int:
         segment_rank=a.segment_rank,
         placement_out=a.out_placement_dir,
         genome_name=a.gff3.stem,
+        domains_parquet=a.domains_parquet,
+        domain_classes=a.domain_classes,
+        scanned_txt=a.domains_scanned,
     )
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was

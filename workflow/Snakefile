@@ -153,6 +153,34 @@ rule pfam_hmm_downloader:
         """
 
 
+# Curated subset of Pfam-A, plus the name->accession map needed to interpret
+# LTRdigest output (which records model names only, never accessions).
+#
+# Build-once and genome-independent, mirroring pfam_hmm_downloader. It reruns only
+# when Pfam-A.hmm or the curated class table changes, never per genome or per run.
+# Outputs land under DATA_DIR rather than beside Pfam-A.hmm because ACCESSORY_DB is
+# a read-only input mount and these are derived artifacts.
+#
+# Why a subset at all: at Pfam gathering thresholds only 39 distinct families fire
+# across the orphan marker sets, against 6,175 reported by LTRdigest at its loose
+# E-value setting. The subset turns a multi-hour scan into minutes at negligible
+# cost in coverage.
+rule pfam_subset_builder:
+    input:
+        hmm     = rules.pfam_hmm_downloader.output.hmm,
+        classes = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv')
+    output:
+        hmm      = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam-A.retro.hmm'),
+        name_map = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'pfam_name_to_acc.tsv')
+    threads: config.get('rule_threads', 1)
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/domains/subset_pfam.py \
+            --hmm {input.hmm:q} --classes {input.classes:q} \
+            --out {output.hmm:q} --name-map {output.name_map:q}
+        '''
+
+
 rule blast_db_generator_setup:
     input:
         fa = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
@@ -995,6 +1023,55 @@ rule pair_detector:
         pair_table_parquet=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet'), genome=species_with_hits(wildcards))
 
 
+# ------------------------------- Domain evidence -----------------------------
+# Protein-domain evidence for every catalogued locus, in BOTH tiers, by one
+# identical procedure: same curated library, same `--cut_ga` threshold, same
+# six-frame translation, over the same kind of region (the catalogued locus span).
+#
+# This exists because domains previously reached the catalog only via
+# `gt ltrdigest -hmms`, which searches inside LTR elements. Orphan loci sit outside
+# every element and were therefore hard-defaulted to `non_domain`, making "never
+# assessed" indistinguishable from "assessed and empty" for 99.04% of such rows.
+#
+# LTRdigest is untouched and is NOT rerun: its protein_match and RR_tract features
+# keep feeding the structural panels and circle plots. What changes is that the
+# CLASSIFICATION signal now comes from a scan that records accessions and bit
+# scores, neither of which LTRdigest emits. Running both also yields a free
+# concordance check between the two annotations over identical sequence.
+rule domain_scanner_setup:
+    input:
+        valid   = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        orphans = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
+        genome  = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        hmm     = rules.pfam_subset_builder.output.hmm
+    output:
+        parquet = os.path.join(defaults.PATH_DICT['DOMAIN_TABLES_PARQUET_DIR'], '{genome}.domains.parquet'),
+        csv     = os.path.join(defaults.PATH_DICT['DOMAIN_TABLES_CSV_DIR'], '{genome}.domains.csv'),
+        # The roster of loci actually scanned. This is what lets the classifier
+        # distinguish `non_domain` (looked, found nothing) from `not_scanned`.
+        scanned = os.path.join(defaults.PATH_DICT['DOMAIN_TABLES_CSV_DIR'], '{genome}.scanned.txt')
+    params:
+        workdir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'domains')
+    threads: config.get('rule_threads', 1)
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/domains/scan_domains.py \
+            --valid-gff3 {input.valid:q} --orphan-gff3 {input.orphans:q} \
+            --genome {input.genome:q} --hmm {input.hmm:q} \
+            --workdir {params.workdir:q}/{wildcards.genome:q} \
+            --threads {threads} \
+            --out-parquet {output.parquet:q} --out-csv {output.csv:q} \
+            --out-scanned {output.scanned:q}
+        '''
+
+
+rule domain_scanner:
+    input:
+        domain_tables = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['DOMAIN_TABLES_PARQUET_DIR'], '{genome}.domains.parquet'),
+            genome=species_with_hits(wildcards))
+
+
 # ----------------------------- Taxonomic classification ----------------------
 # Per-locus ERV taxon calls (rank-agnostic axis; ADR-008): each valid LTR-element
 # locus is reclassified from its own marker sequence against a pinned,
@@ -1084,6 +1161,9 @@ rule taxonomy_classify_setup:
     input:
         valid     = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        domains   = rules.domain_scanner_setup.output.parquet,
+        scanned   = rules.domain_scanner_setup.output.scanned,
+        dom_class = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv'),
         faa       = rules.taxonomy_reference.output.faa,
         csv       = rules.taxonomy_reference.output.csv,
         taxonomy  = rules.taxonomy_reference.output.taxonomy,
@@ -1126,6 +1206,8 @@ rule taxonomy_classify_setup:
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
             --out-placement-dir {params.placement_dir:q} \
+            --domains-parquet {input.domains:q} --domain-classes {input.dom_class:q} \
+            --domains-scanned {input.scanned:q} \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \
@@ -1165,6 +1247,9 @@ rule taxonomy_orphans_setup:
     input:
         orphans = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
+        domains   = rules.domain_scanner_setup.output.parquet,
+        scanned   = rules.domain_scanner_setup.output.scanned,
+        dom_class = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv'),
         faa       = rules.taxonomy_reference.output.faa,
         csv       = rules.taxonomy_reference.output.csv,
         taxonomy  = rules.taxonomy_reference.output.taxonomy,
@@ -1206,6 +1291,8 @@ rule taxonomy_orphans_setup:
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
             --out-placement-dir {params.placement_dir:q} \
+            --domains-parquet {input.domains:q} --domain-classes {input.dom_class:q} \
+            --domains-scanned {input.scanned:q} \
             --threads {threads} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
             --out-parquet {output.loci_parquet:q} --out-csv {output.loci_csv:q} \

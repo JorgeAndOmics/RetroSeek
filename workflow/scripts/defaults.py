@@ -179,6 +179,13 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
     PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
 ) = table_dirs("taxonomy_classification")
+# Per-genome protein-domain evidence: one row per (locus, domain hit) for BOTH
+# tiers, produced by the domain scan (domains/scan_domains.py). Durable on
+# purpose - TMP_DIR is wiped by the blast_pkl2parquet checkpoint.
+(
+    PATH_DICT["DOMAIN_TABLES_PARQUET_DIR"],
+    PATH_DICT["DOMAIN_TABLES_CSV_DIR"],
+) = table_dirs("domains")
 # Tree coordinates (ADR-011) - flat x/y segment + tip tables written by
 # tree_layout.py so the R plot generators can draw the taxon and host-species
 # trees with geom_segment, without an R tree library.
@@ -327,6 +334,11 @@ PATH_DICT["DOWNLOAD_LOG"] = (PATH_DICT["LOG_DIR"] / "download_log.log").resolve(
 
 # === Accessory Tools ===
 PATH_DICT["HMM_PROFILE_DIR"] = (PATH_DICT["ACCESSORY_DB"] / "hmm_profiles").resolve()
+# The curated Pfam subset and the name->accession map derived from it. Kept under
+# DATA_DIR, not beside Pfam-A.hmm: ACCESSORY_DB is a read-only input mount, and
+# these are pipeline-derived artifacts that must be rebuildable from the config
+# table plus the full library.
+PATH_DICT["HMM_SUBSET_DIR"] = (PATH_DICT["DATA_DIR"] / "hmm_profiles").resolve()
 
 
 # Directory generation

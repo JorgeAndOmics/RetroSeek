@@ -10,6 +10,9 @@ test covers the gappa-output parser used by the placement branch.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pandas as pd
 import pytest
 import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
@@ -451,50 +454,123 @@ class TestStructureClass:
         assert rec["structure_class"] == "full"  # 2/3 >= 0.66
 
 
-class TestDomainTier:
-    """ADR-009: the per-provirus domain_tier rides the valid track, aggregates
-    strongest-wins in build_loci, and surfaces in the assembled record."""
+class TestDomainEvidence:
+    """Domain evidence now comes from the scan (domains/scan_domains.py), joined on
+    `{seqname}|{parent}`, not from a `domain_tier=` attribute on the track.
 
-    def _feat(self, gene: str, start: str, end: str, tier: str) -> dict[str, str]:
+    The column that matters most is `domain_source`: before this, 99.04% of
+    `non_domain` rows meant "never assessed" and were indistinguishable from the
+    292 that meant "assessed and empty".
+    """
+
+    def _feat(self, gene: str, start: str, end: str, parent: str) -> dict[str, str]:
         return {
             "seqname": "chr1",
             "start": start,
             "end": end,
             "strand": "+",
             "gene": gene,
-            "parent": "retro1",
+            "parent": parent,
             "label": "MLV",
-            "domain_tier": tier,
-            "domain_hit_class": "substring_match",
         }
 
-    def test_build_loci_takes_strongest_tier(self) -> None:
-        # same element, two hits: unlisted + selected -> locus is domain_selected
-        feats = [
-            self._feat("GAG", "100", "200", "domain_unlisted"),
-            self._feat("POL", "210", "300", "domain_selected"),
-        ]
-        locus = tcl.build_loci(feats)[0]
-        assert locus["domain_tier"] == "domain_selected"
+    def _scan(
+        self, tmp_path: Path, hits: list[dict[str, str]], scanned: list[str]
+    ) -> tuple[Path, Path, Path]:
+        parquet = tmp_path / "d.parquet"
+        pd.DataFrame(
+            hits, columns=["locus_id", "source", "pfam_acc", "pfam_name"]
+        ).to_parquet(parquet, index=False)
+        classes = tmp_path / "classes.tsv"
+        classes.write_text(
+            "pfam_acc\tpfam_name\tclass\n"
+            "PF00665\trve\tretroviral_diagnostic\n"
+            "PF02994\tTransposase_22\tnon_ltr\n"
+        )
+        roster = tmp_path / "scanned.txt"
+        roster.write_text("\n".join(scanned) + "\n")
+        return parquet, classes, roster
 
-    def test_assemble_emits_domain_tier(self) -> None:
-        loci = tcl.build_loci([self._feat("POL", "100", "200", "domain_unlisted")])
+    def test_hit_sets_tier_evidence_and_names(self, tmp_path: Path) -> None:
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        args = self._scan(
+            tmp_path,
+            [
+                {
+                    "locus_id": "chr1|retro1",
+                    "source": "ltr-flanked",
+                    "pfam_acc": "PF00665",
+                    "pfam_name": "rve",
+                }
+            ],
+            ["chr1|retro1"],
+        )
+        tcl.annotate_loci_with_domains(loci, *args)
+        assert loci[0]["domain_tier"] == "domain_selected"
+        assert loci[0]["domain_evidence"] == "retroviral_diagnostic"
+        assert loci[0]["domain_names"] == "rve"
+        assert loci[0]["domain_source"] == "scan"
+
+    def test_scanned_but_empty_is_non_domain_not_unscanned(
+        self, tmp_path: Path
+    ) -> None:
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        tcl.annotate_loci_with_domains(loci, *self._scan(tmp_path, [], ["chr1|retro1"]))
+        assert loci[0]["domain_tier"] == "non_domain"
+        assert loci[0]["domain_source"] == "scan"
+
+    def test_locus_absent_from_the_roster_is_not_scanned(self, tmp_path: Path) -> None:
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        tcl.annotate_loci_with_domains(loci, *self._scan(tmp_path, [], []))
+        assert loci[0]["domain_source"] == "not_scanned"
+
+    def test_l1_domain_is_unlisted_not_selected(self, tmp_path: Path) -> None:
+        """The retired regex matched `ase` against Transposase_22 and called it
+        POL. Curation must place it in non_ltr, which is not a selected class."""
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        args = self._scan(
+            tmp_path,
+            [
+                {
+                    "locus_id": "chr1|retro1",
+                    "source": "ltr-flanked",
+                    "pfam_acc": "PF02994",
+                    "pfam_name": "Transposase_22",
+                }
+            ],
+            ["chr1|retro1"],
+        )
+        tcl.annotate_loci_with_domains(loci, *args)
+        assert loci[0]["domain_evidence"] == "non_ltr"
+        assert loci[0]["domain_tier"] == "domain_unlisted"
+
+    def test_assemble_emits_all_four_columns(self, tmp_path: Path) -> None:
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        args = self._scan(
+            tmp_path,
+            [
+                {
+                    "locus_id": "chr1|retro1",
+                    "source": "ltr-flanked",
+                    "pfam_acc": "PF00665",
+                    "pfam_name": "rve",
+                }
+            ],
+            ["chr1|retro1"],
+        )
+        tcl.annotate_loci_with_domains(loci, *args)
         rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
-        assert rec["domain_tier"] == "domain_unlisted"
+        assert rec["domain_tier"] == "domain_selected"
+        assert rec["domain_evidence"] == "retroviral_diagnostic"
+        assert rec["domain_names"] == "rve"
+        assert rec["domain_source"] == "scan"
 
-    def test_missing_attr_defaults_non_domain(self) -> None:
-        # orphan track carries no domain_tier -> parse defaults to non_domain
-        feat = {
-            "seqname": "chr1",
-            "start": "1",
-            "end": "9",
-            "strand": "+",
-            "gene": "POL",
-            "parent": "",
-            "label": "",
-        }
-        locus = tcl.build_loci([feat])[0]
-        assert locus["domain_tier"] == "non_domain"
+    def test_unannotated_loci_report_not_scanned(self) -> None:
+        """Running the classifier without a scan must say so, not claim absence."""
+        loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
+        rec = tcl._assemble(loci, {}, {}, "v", ["POL"], {}, 0.10, _AXIS)[0]
+        assert rec["domain_source"] == "not_scanned"
+        assert rec["domain_tier"] == "non_domain"
 
 
 class TestOversized:
