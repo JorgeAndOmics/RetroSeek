@@ -41,7 +41,6 @@ TOP_LEVEL_SECTIONS = [
     "input",
     "display",
     "root",
-    "domains",
     "species",
 ]
 

@@ -136,20 +136,20 @@ strand_concordance_plot <- function(ltr_int_df, subset_label = NULL,
 
 
 # Tile heatmap of tBLASTn-locus probe (hit_probe) vs the probe assigned to the
-# overlapped Pfam domain (domain_probe). The diagonal is agreement (the
+# overlapped Pfam domain's curated class (domain_class). See ADR-015: the
 # validation signal); off-diagonal cells are cross-probe overlaps.
 probe_domain_heatmap <- function(probe_domain_df, subset_label = NULL,
                                  warning_caption = NULL) {
   if (nrow(probe_domain_df) == 0L) return(empty_plot())
-  d <- probe_domain_df %>% dplyr::count(hit_probe, domain_probe, name = "count")
+  d <- probe_domain_df %>% dplyr::count(hit_probe, domain_class, name = "count")
   ordered_hit <- order_by_count(d, "hit_probe", weight = "count")
-  ordered_dom <- order_by_count(d, "domain_probe", weight = "count")
+  ordered_dom <- order_by_count(d, "domain_class", weight = "count")
   d <- d %>% dplyr::mutate(
     hit_probe    = factor(hit_probe, levels = ordered_hit),
-    domain_probe = factor(domain_probe, levels = ordered_dom)
+    domain_class = factor(domain_class, levels = ordered_dom)
   )
 
-  p <- ggplot(d, aes(x = domain_probe, y = hit_probe, fill = count)) +
+  p <- ggplot(d, aes(x = domain_class, y = hit_probe, fill = count)) +
     geom_tile(colour = "grey90") +
     geom_text(aes(label = count), size = 3, fontface = "bold") +
     scale_fill_gradient(low = "#deebf7", high = "#08519c") +

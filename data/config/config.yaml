@@ -35,15 +35,6 @@ parameters:
   ltr_resize: 0
   ltr_flank_margin: 0
   merge_option: 'virus'
-  # How the per-hit domain flag (domain_hit_class) on LTR-flanked hits is decided:
-  #   membership - a hit is 'substring_match' if its own gene has a config-matched
-  #                Pfam domain anywhere in its enclosing LTR element (co-occurrence;
-  #                cheap, the default). Values: substring_match / no_substring_match.
-  #   positional - 'substring_match' only if the hit physically overlaps a
-  #                config-matched domain of its gene; adds a 'non_domain' level for
-  #                hits overlapping no domain (co-localization; stronger, opt-in).
-  # Independent of the per-provirus domain_tier (which is always element-wise).
-  hit_domain_mode: 'membership'
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
   # ORDERED, and the order is read in two places that want different things:
@@ -177,6 +168,10 @@ input:
   # Tip labels are matched to the `species:` display names below.
   species_tree: ''
   probe_csv: 'data/tables/probes.csv'
+  # Curated Pfam domain class table: pfam_acc, pfam_name, class. Assigns each
+  # Pfam family to one of retroviral_diagnostic / retroelement_shared / non_ltr /
+  # dna_transposon / other, which is what decides domain_tier and domain_evidence.
+  pfam_domain_classes: 'data/config/pfam_domain_classes.tsv'
 
 display:
   display_snakemake_info: false
@@ -188,26 +183,6 @@ root:
   data_root_folder: 'data'
   results_root_folder: 'results'
   logs_root_folder: 'logs'
-
-domains:
-  POL:
-    - "ase"
-    - "RVT_1"
-    - "RVT_2"
-  GAG:
-    - "Gag"
-    - "gag"
-    - "GAG"
-    - "zf"
-    - "PTAP"
-    - "YPXL"
-  ENV:
-    - "coat"
-    - "FP"
-    - "HR1"
-    - "HR2"
-  PR15:
-    - "PR15"
 
 species:
   # key = genome FASTA stem in SPECIES_DB; value = display name.

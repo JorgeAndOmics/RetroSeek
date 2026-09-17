@@ -11,7 +11,7 @@
 # `has_both_ltrs` and `has_tsd` are ~constant (LTRharvest only emits 2-LTR,
 # TSD-flanked elements), so summing them into a score added no discrimination.
 # Each component is shown on its own facet instead; the genuinely-varying
-# signals (`n_probe_domains`, `n_domains_total`, `has_ppt`) carry the
+# signals (`n_selected_domains`, `n_domains_total`, `has_ppt`) carry the
 # information, and the near-constant ones are reported honestly as rates in the
 # subtitle rather than dressed up as a score.
 ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
@@ -32,7 +32,7 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
   )
   d <- dplyr::bind_rows(
     tibble::tibble(component = components[1], category = bucket(ltr_df$n_flanking_ltrs)),
-    tibble::tibble(component = components[2], category = bucket(ltr_df$n_probe_domains)),
+    tibble::tibble(component = components[2], category = bucket(ltr_df$n_selected_domains)),
     tibble::tibble(component = components[3], category = bucket(ltr_df$n_domains_total)),
     tibble::tibble(component = components[4], category = yesno(ltr_df$has_ppt)),
     tibble::tibble(component = components[5], category = yesno(ltr_df$has_tsd))
@@ -68,27 +68,29 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
 }
 
 
-# Bar: which probe-domain combinations occur across retrotransposons. The
+# Bar: which curated domain-class combinations occur across retrotransposons.
+# An element carrying only L1 machinery now reads as `non_ltr` rather than
+# being counted as POL by the retired name regex (ADR-015). The
 # long tail of rare combinations is folded into a single "Other (k)" stratum
 # via collapse_long_tail (shared with plot2sort).
 domain_composition_plot <- function(ltr_df, subset_label = NULL,
                                     top_n = 20L, warning_caption = NULL) {
   if (nrow(ltr_df) == 0L) return(empty_plot())
   d <- ltr_df %>%
-    dplyr::mutate(domain_probes = dplyr::if_else(is.na(domain_probes),
-                                                 "(no domains)", domain_probes)) %>%
-    dplyr::count(domain_probes, name = "count") %>%
-    collapse_long_tail("domain_probes", top_n = top_n, weight = "count") %>%
-    dplyr::group_by(domain_probes) %>%
+    dplyr::mutate(domain_classes = dplyr::if_else(is.na(domain_classes),
+                                                 "(no domains)", domain_classes)) %>%
+    dplyr::count(domain_classes, name = "count") %>%
+    collapse_long_tail("domain_classes", top_n = top_n, weight = "count") %>%
+    dplyr::group_by(domain_classes) %>%
     dplyr::summarise(count = sum(count), .groups = "drop")
-  ordered <- order_by_count(d, "domain_probes", weight = "count")
-  d <- d %>% dplyr::mutate(domain_probes = factor(domain_probes, levels = ordered))
+  ordered <- order_by_count(d, "domain_classes", weight = "count")
+  d <- d %>% dplyr::mutate(domain_classes = factor(domain_classes, levels = ordered))
 
-  p <- ggplot(d, aes(x = domain_probes, y = count, fill = count)) +
+  p <- ggplot(d, aes(x = domain_classes, y = count, fill = count)) +
     geom_col(colour = "black", linewidth = 0.2) +
     scale_fill_gradient(low = "#fff7ec", high = "#7f0000", trans = "sqrt") +
     theme_minimal() +
-    labs(x = "Probe-domain combination", y = "Retrotransposons", fill = "Count") +
+    labs(x = "Domain-class combination", y = "Retrotransposons", fill = "Count") +
     theme(text = element_text(face = "bold"),
           axis.text.x = element_text(angle = 45, hjust = 1))
   out <- add_titles(

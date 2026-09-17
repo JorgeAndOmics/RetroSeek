@@ -12,6 +12,7 @@ suppressMessages({
 })
 
 .script_dir <- file.path("..", "..", "scripts", "ranges")
+source(file.path(.script_dir, "granges_build.R"))   # extract_selected_domains
 source(file.path(.script_dir, "stage_dataframe.R"))
 
 
@@ -60,10 +61,10 @@ test_that("build_stage_hits_df classifies inside / flanking / disjoint concordan
   retros <- .fake_retros()
   cand   <- gv[c(1, 2)]   # loci 1 & 2 are ltr-flanked (candidates)
   # valid is now the annotated LTR-flanked set (both candidates), carrying the
-  # per-provirus domain_tier + per-hit domain_hit_class labels.
+  # per-provirus domain_tier. The per-hit domain_hit_class was retired with the
+  # name regexes (ADR-015).
   valid  <- gv[c(1, 2)]
-  S4Vectors::mcols(valid)$domain_tier      <- c("domain_selected", "domain_unlisted")
-  S4Vectors::mcols(valid)$domain_hit_class <- c("substring_match", "no_substring_match")
+  S4Vectors::mcols(valid)$domain_tier <- c("domain_selected", "domain_unlisted")
   df <- build_stage_hits_df(gv, retros, cand, valid)
 
   expect_equal(nrow(df), 3L)
@@ -73,8 +74,6 @@ test_that("build_stage_hits_df classifies inside / flanking / disjoint concordan
   expect_equal(df$is_candidate, c(TRUE, TRUE, FALSE))
   # domain labels join by ID; non-LTR-flanked locus 3 (ENV) is NA.
   expect_equal(df$domain_tier, c("domain_selected", "domain_unlisted", NA_character_))
-  expect_equal(df$domain_hit_class,
-               c("substring_match", "no_substring_match", NA_character_))
   expect_equal(df$n_hits, c(5L, 2L, 1L))   # M1 carried through unchanged
 })
 
@@ -83,7 +82,7 @@ test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
   df <- build_stage_hits_df(empty, .fake_retros(), empty, empty)
   expect_equal(nrow(df), 0L)
   expect_true(all(c("concordance", "is_candidate", "domain_tier",
-                    "domain_hit_class", "n_hits") %in% colnames(df)))
+                    "n_hits") %in% colnames(df)))
 })
 
 
@@ -103,14 +102,16 @@ test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotrans
     ranges   = IRanges::IRanges(start = c(120, 150), end = c(140, 170)),
     strand   = "+"
   )
-  S4Vectors::mcols(doms)$Parent <- c("retro_1", "retro_1")
-  S4Vectors::mcols(doms)$probe  <- c("POL", "GAG")
+  S4Vectors::mcols(doms)$Parent       <- c("retro_1", "retro_1")
+  # Curated classes, not probe guesses: one integrase-grade domain and one L1
+  # domain. Only the first is `selected`.
+  S4Vectors::mcols(doms)$domain_class <- c("retroviral_diagnostic", "non_ltr")
 
   # ltr_data mixes three child types. Critically, target_site_duplication is
   # parented to the *repeat_region*, not the LTR_retrotransposon - the join in
   # build_stage_ltr_df must translate through retrotransposons$Parent. RR_tract
   # and protein_match are parented to the LTR_retrotransposon directly. retro_1
-  # carries 2 TSD arms, 1 PPT and 3 Pfam domains (2 probe-assigned); retro_2 has
+  # carries 2 TSD arms, 1 PPT and 3 Pfam domains (1 in a selected class); retro_2 has
   # none of these.
   ltr_data <- GenomicRanges::GRanges(
     seqnames = "chr1",
@@ -138,9 +139,9 @@ test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotrans
 
   expect_equal(r1$n_flanking_ltrs, 2L)
   expect_true(r1$has_both_ltrs)
-  expect_equal(r1$n_probe_domains, 2L)         # POL + GAG (regex-matched subset)
+  expect_equal(r1$n_selected_domains, 1L)      # only the retroviral_diagnostic one
   expect_equal(r1$n_domains_total, 3L)         # all 3 protein_match features
-  expect_equal(r1$domain_probes, "GAG; POL")   # sorted unique set
+  expect_equal(r1$domain_classes, "non_ltr; retroviral_diagnostic")  # sorted set
   expect_equal(r1$n_tsd, 2L)                   # both TSD arms, via repeat_region join
   expect_true(r1$has_tsd)                      # would be FALSE under the namespace bug
   expect_equal(r1$n_ppt, 1L)
@@ -148,7 +149,7 @@ test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotrans
 
   expect_equal(r2$n_flanking_ltrs, 1L)
   expect_false(r2$has_both_ltrs)
-  expect_equal(r2$n_probe_domains, 0L)
+  expect_equal(r2$n_selected_domains, 0L)
   expect_equal(r2$n_domains_total, 0L)
   expect_equal(r2$n_tsd, 0L)
   expect_false(r2$has_tsd)
@@ -160,8 +161,8 @@ test_that("build_stage_ltr_df returns a typed empty tibble for no retrotransposo
   empty <- .fake_retros()[FALSE]
   df <- build_stage_ltr_df(empty, empty, empty, empty, .fake_gr_virus())
   expect_equal(nrow(df), 0L)
-  expect_true(all(c("n_flanking_ltrs", "has_both_ltrs", "n_probe_domains",
-                    "n_domains_total", "domain_probes", "has_tsd", "n_tsd",
+  expect_true(all(c("n_flanking_ltrs", "has_both_ltrs", "n_selected_domains",
+                    "n_domains_total", "domain_classes", "has_tsd", "n_tsd",
                     "has_ppt", "n_ppt") %in% colnames(df)))
 })
 
@@ -204,7 +205,8 @@ test_that("build_stage_reduced_df returns a typed empty tibble for empty input",
 
 .fake_domains <- function() {
   gr <- GenomicRanges::GRanges("chr1", IRanges::IRanges(110, 190), "+")
-  S4Vectors::mcols(gr) <- S4Vectors::DataFrame(probe = "POL", Parent = "retro_1")
+  S4Vectors::mcols(gr) <- S4Vectors::DataFrame(
+    domain_class = "retroviral_diagnostic", Parent = "retro_1")
   gr
 }
 
@@ -247,15 +249,17 @@ test_that("build_stage_ltr_interaction_df relative position is strand-aware", {
   expect_true(out$strand_concordant[1] == FALSE)         # hit + vs retro -
 })
 
-test_that("build_stage_probe_domain_df emits one row per locus x domain overlap", {
+test_that("build_stage_probe_domain_df pairs the hit's probe with the domain's class", {
   out <- build_stage_probe_domain_df(.fake_gr_virus(), .fake_domains())
   expect_equal(nrow(out), 1L)
   expect_equal(out$hit_probe, "POL")
-  expect_equal(out$domain_probe, "POL")
+  # The domain is reported by what it IS, not by which probe regex its name
+  # happened to match (ADR-015).
+  expect_equal(out$domain_class, "retroviral_diagnostic")
 })
 
 test_that("build_stage_probe_domain_df is typed-empty when no domains", {
   out <- build_stage_probe_domain_df(.fake_gr_virus(), GenomicRanges::GRanges())
   expect_equal(nrow(out), 0L)
-  expect_true(all(c("hit_probe", "domain_probe") %in% names(out)))
+  expect_true(all(c("hit_probe", "domain_class") %in% names(out)))
 })

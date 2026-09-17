@@ -51,9 +51,10 @@ source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
     ID                 = paste0("retro_", 1:4),
     n_flanking_ltrs    = c(2L, 1L, 2L, 0L),
     has_both_ltrs      = c(TRUE, FALSE, TRUE, FALSE),
-    n_probe_domains    = c(3L, 0L, 1L, 0L),
+    n_selected_domains = c(3L, 0L, 1L, 0L),
     n_domains_total    = c(5L, 1L, 1L, 0L),
-    domain_probes      = c("GAG; POL", NA, "ENV", NA),
+    domain_classes     = c("retroviral_diagnostic", NA,
+                           "non_ltr; retroviral_diagnostic", NA),
     has_tsd            = c(TRUE, TRUE, FALSE, FALSE),
     n_tsd              = c(2L, 2L, 0L, 0L),
     has_ppt            = c(TRUE, FALSE, TRUE, FALSE),
@@ -149,7 +150,8 @@ test_that("warning_caption is accepted and still yields a ggplot", {
   enclosing_retro_width = c(500L, NA))
 
 .pd_df  <- function() tibble::tibble(hit_probe = c("GAG", "POL", "POL"),
-                                     domain_probe = c("GAG", "GAG", "POL"))
+                                     domain_class = c("retroelement_shared", "retroelement_shared",
+                                                      "retroviral_diagnostic"))
 .cov_df <- function() tibble::tibble(
   metric = c("total_bp_unreduced", "total_bp_reduced"), value = c(50000, 32000))
 .ltr_struct_df <- function() tibble::tibble(width = c(5000L, 8000L),

@@ -14,6 +14,10 @@ input:
   # Absolute path to your probe metadata CSV. Columns are parsed by
   # workflow/scripts/probe_extractor.py::table_parser().
   probe_csv: '/path/to/your/probes.csv'
+  # Curated Pfam domain class table: pfam_acc, pfam_name, class. Assigns each
+  # Pfam family to one of retroviral_diagnostic / retroelement_shared / non_ltr /
+  # dna_transposon / other, which is what decides domain_tier and domain_evidence.
+  pfam_domain_classes: 'data/config/pfam_domain_classes.tsv'
 
 root:
   # Where genome FASTAs / BLAST DBs / suffix arrays live. Often on a

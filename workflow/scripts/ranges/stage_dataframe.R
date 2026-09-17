@@ -29,11 +29,12 @@ suppressMessages({
 
 # One row per gr_virus locus. `concordance` classifies each homology locus by
 # its spatial relationship to the LTRdigest retrotransposons; `is_candidate`
-# flags whether the locus is LTR-flanked (overlaps an element). `domain_tier` and
-# `domain_hit_class` carry the per-provirus / per-hit domain labels from
-# annotate_ltr_flanked_hits (NA for non-LTR-flanked loci); the former replaces the old
-# boolean `is_valid` - "valid" is now the whole LTR-flanked set, so domain support
-# is a 3-level tier, not a survive/drop flag (ADR-009). `n_hits` is M1 - the
+# flags whether the locus is LTR-flanked (overlaps an element). `domain_tier`
+# carries the per-provirus domain label from annotate_ltr_flanked_hits (NA for
+# non-LTR-flanked loci) and replaces the old boolean `is_valid` - "valid" is now
+# the whole LTR-flanked set, so domain support is a 3-level tier, not a
+# survive/drop flag (ADR-009). The per-hit `domain_hit_class` was retired with
+# the name regexes (ADR-015): nothing downstream ever read it. `n_hits` is M1 - the
 # count of threshold-passing raw tBLASTn hits collapsed into the locus.
 build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
                                 valid_hits,
@@ -45,8 +46,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
     species = character(0), n_hits = integer(0),
     max_bitscore = numeric(0), max_identity = numeric(0),
     query_coverage = numeric(0), concordance = character(0),
-    is_candidate = logical(0), domain_tier = character(0),
-    domain_hit_class = character(0)
+    is_candidate = logical(0), domain_tier = character(0)
   )
   if (length(gr_virus) == 0L) return(empty)
 
@@ -69,7 +69,6 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
   # Per-LTR-flanked-locus domain labels, keyed by ID (valid_hits  subset-or-equal  gr_virus IDs).
   valid_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
   tier_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_tier), valid_ids)
-  hitc_by_id <- setNames(as.character(S4Vectors::mcols(valid_hits)$domain_hit_class), valid_ids)
 
   df <- as.data.frame(gr_virus, stringsAsFactors = FALSE)
   tibble::tibble(
@@ -89,7 +88,6 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
     concordance      = concordance,
     is_candidate     = ids %in% cand_ids,
     domain_tier      = unname(tier_by_id[ids]),        # NA for non-LTR-flanked loci
-    domain_hit_class = unname(hitc_by_id[ids])
   )
 }
 
@@ -99,16 +97,18 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
 # are in play: flanking LTRs, Pfam domains and RR-tracts (PPT) are children of
 # the `LTR_retrotransposon` (so they join on `retro_ids`), while target-site
 # duplications are children of the enclosing `repeat_region` (so they join on
-# each retrotransposon's own `Parent`, i.e. `retro_parent`). `domain_probes` is
-# a "; "-joined sorted set for the domain-composition plot.
+# each retrotransposon's own `Parent`, i.e. `retro_parent`). `domain_classes` is
+# a "; "-joined sorted set of curated classes for the domain-composition plot -
+# it replaces the old `domain_probes`, which reported which probe regex a domain
+# name happened to match rather than what the domain is (ADR-015).
 build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
-                               domains_w_probes, ltr_data, gr_virus) {
+                               all_domains, ltr_data, gr_virus) {
   empty <- tibble::tibble(
     seqnames = character(0), start = integer(0), end = integer(0),
     width = integer(0), strand = character(0), ID = character(0),
     n_flanking_ltrs = integer(0), has_both_ltrs = logical(0),
-    n_probe_domains = integer(0), n_domains_total = integer(0),
-    domain_probes = character(0),
+    n_selected_domains = integer(0), n_domains_total = integer(0),
+    domain_classes = character(0),
     has_tsd = logical(0), n_tsd = integer(0),
     has_ppt = logical(0), n_ppt = integer(0),
     n_overlapping_hits = integer(0)
@@ -127,16 +127,23 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   } else character(0)
   n_flank <- as.integer(table(factor(flank_parent, levels = retro_ids)))
 
-  # Probe-assigned Pfam domains per parent (the config-regex-matched subset).
-  dom_parent <- if (length(domains_w_probes) > 0L) {
-    as.character(S4Vectors::mcols(domains_w_probes)$Parent)
+  # Curated-class Pfam domains per parent. `selected` counts only the classes that
+  # are informative about retroviral identity; `domain_classes` reports the whole
+  # class composition, so an element carrying only L1 machinery reads as non_ltr
+  # instead of silently counting as POL.
+  selected_domains <- extract_selected_domains(all_domains)
+  sel_parent <- if (length(selected_domains) > 0L) {
+    as.character(S4Vectors::mcols(selected_domains)$Parent)
   } else character(0)
-  dom_probe <- if (length(domains_w_probes) > 0L) {
-    as.character(S4Vectors::mcols(domains_w_probes)$probe)
+  dom_parent_all <- if (length(all_domains) > 0L) {
+    as.character(S4Vectors::mcols(all_domains)$Parent)
   } else character(0)
-  n_probe_domains <- as.integer(table(factor(dom_parent, levels = retro_ids)))
-  probe_by_parent <- split(dom_probe, factor(dom_parent, levels = retro_ids))
-  domain_probes <- vapply(probe_by_parent, function(p) {
+  dom_class <- if (length(all_domains) > 0L) {
+    as.character(S4Vectors::mcols(all_domains)$domain_class)
+  } else character(0)
+  n_selected_domains <- as.integer(table(factor(sel_parent, levels = retro_ids)))
+  class_by_parent <- split(dom_class, factor(dom_parent_all, levels = retro_ids))
+  domain_classes <- vapply(class_by_parent, function(p) {
     if (length(p) == 0L) return(NA_character_)
     paste(sort(unique(p)), collapse = "; ")
   }, character(1))
@@ -188,9 +195,9 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
     ID                 = retro_ids,
     n_flanking_ltrs    = n_flank,
     has_both_ltrs      = n_flank >= 2L,
-    n_probe_domains    = n_probe_domains,
+    n_selected_domains = n_selected_domains,
     n_domains_total    = n_domains_total,
-    domain_probes      = unname(domain_probes),
+    domain_classes     = unname(domain_classes),
     has_tsd            = has_tsd,
     n_tsd              = n_tsd,
     has_ppt            = has_ppt,
@@ -245,13 +252,12 @@ build_stage_overlap_df <- function(gr_virus) {
 
 # One row per gr_virus locus, characterising its interaction with the nearest
 # LTRdigest retrotransposon. `feature_class` refines the homology concordance
-# with a `domain_overlap` level (overlaps a probe-assigned Pfam domain - the
-# validation signal); `relative_position_in_retro` is the strand-aware 5'->3'
+# with a `domain_overlap` level (overlaps any LTRdigest Pfam domain); `relative_position_in_retro` is the strand-aware 5'->3'
 # position [0,1] of the locus midpoint within its enclosing retrotransposon
 # (NA when not inside); `strand_concordant` compares the hit strand to the
 # enclosing element's (NA when not inside; `*` retro strand counts as concordant).
 build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
-                                           domains_with_probes,
+                                           all_domains,
                                            flanking_window = .STAGE_FLANKING_WINDOW) {
   empty <- tibble::tibble(
     seqnames = character(0), start = integer(0), end = integer(0),
@@ -299,9 +305,9 @@ build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
   feature_class <- rep("disjoint", n)
   feature_class[!is.na(dist) & dist > 0 & dist <= flanking_window] <- "flanking_ltr"
   feature_class[inside] <- "inside_retro"
-  if (length(domains_with_probes) > 0L) {
+  if (length(all_domains) > 0L) {
     dom_ov <- S4Vectors::queryHits(
-      GenomicRanges::findOverlaps(gr_virus, domains_with_probes, ignore.strand = TRUE)
+      GenomicRanges::findOverlaps(gr_virus, all_domains, ignore.strand = TRUE)
     )
     feature_class[unique(dom_ov)] <- "domain_overlap"
   }
@@ -322,19 +328,23 @@ build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
 }
 
 
-# Long table (one row per gr_virus-locus x overlapped probe-domain pair): the
-# raw co-occurrence used by the probe x Pfam-domain heatmap. `hit_probe` is the
-# tBLASTn locus's probe; `domain_probe` is the probe assigned to the overlapped
-# Pfam domain. Their agreement is exactly the validation signal made visible.
-build_stage_probe_domain_df <- function(gr_virus, domains_with_probes) {
-  empty <- tibble::tibble(hit_probe = character(0), domain_probe = character(0))
-  if (length(gr_virus) == 0L || length(domains_with_probes) == 0L) return(empty)
-  ov <- GenomicRanges::findOverlaps(gr_virus, domains_with_probes,
-                                    ignore.strand = TRUE)
+# Long table (one row per gr_virus-locus x overlapped domain pair): the raw
+# co-occurrence behind the probe x domain heatmap. `hit_probe` is the tBLASTn
+# locus's probe; `domain_class` is the curated class of the overlapped Pfam
+# domain.
+#
+# This is strictly more informative than the retired `domain_probe`, which
+# reported which probe regex the domain's NAME happened to match. A POL hit
+# sitting on a `non_ltr` domain is now visible as exactly that, where before the
+# `ase` pattern silently relabelled L1 ORF1p machinery as POL.
+build_stage_probe_domain_df <- function(gr_virus, all_domains) {
+  empty <- tibble::tibble(hit_probe = character(0), domain_class = character(0))
+  if (length(gr_virus) == 0L || length(all_domains) == 0L) return(empty)
+  ov <- GenomicRanges::findOverlaps(gr_virus, all_domains, ignore.strand = TRUE)
   if (length(ov) == 0L) return(empty)
   tibble::tibble(
     hit_probe    = as.character(S4Vectors::mcols(gr_virus)$probe)[S4Vectors::queryHits(ov)],
-    domain_probe = as.character(S4Vectors::mcols(domains_with_probes)$probe)[S4Vectors::subjectHits(ov)]
+    domain_class = as.character(S4Vectors::mcols(all_domains)$domain_class)[S4Vectors::subjectHits(ov)]
   )
 }
 

@@ -82,56 +82,54 @@ extract_repeat_regions <- function(ltr_data) {
 }
 
 
-# Build a domain-name -> probe regex map from the config$domains list.
-# Each probe's pattern alternates its domain regexes via "|".
-build_domain_map <- function(config_domains) {
-  vapply(config_domains, function(domain_regexes) {
-    paste(domain_regexes, collapse = "|")
-  }, character(1))
+# Load the curated Pfam domain class table (data/config/pfam_domain_classes.tsv)
+# as a name -> class lookup.
+#
+# Matching is on the domain NAME because that is all `gt ltrdigest` records; it
+# never writes the accession. Names are unique within one Pfam release (38.2:
+# 30,134 names, 30,134 accessions, no duplicates) but they are NOT stable across
+# releases, so this lookup is only as good as the Pfam version the tracks were
+# built with. The classifier joins the same table on accession, which is stable,
+# because its scan records accessions.
+#
+# This replaces the retired `config$domains` regex map, which substring-matched
+# domain names against probe patterns. That was measurably wrong: "ase" matched
+# `Transposase_22` (an L1 ORF1p domain) 29,081 times while `rve`, `RVP`,
+# `IN_DBD_C` and `GP41` matched nothing and were discarded.
+load_domain_classes <- function(path) {
+  tbl <- utils::read.delim(path, stringsAsFactors = FALSE)
+  stats::setNames(as.character(tbl$class), as.character(tbl$pfam_name))
 }
 
 
-# Given a single domain `name` (the GFF3 `name` attribute, typically a Pfam
-# domain), return the probe whose regex matches first. Among multiple matches,
-# prefer the most-specific (longest probe name).
-assign_probe_to_domain_name <- function(domain_name, domain_map) {
-  matched <- vapply(names(domain_map), function(probe) {
-    grepl(domain_map[[probe]], domain_name, ignore.case = TRUE)
-  }, logical(1))
-  if (!any(matched)) return(NA_character_)
-  candidates <- names(domain_map)[matched]
-  candidates[order(nchar(candidates), decreasing = TRUE)[1]]
+# Classes that make an element `domain_selected`. Mirrors SELECTED_CLASSES in
+# workflow/scripts/domains/domain_classes.py - the two must agree.
+SELECTED_DOMAIN_CLASSES <- c("retroviral_diagnostic", "retroelement_shared")
+
+
+# Pull ALL LTRdigest protein domains (the `protein_match` features) and attach
+# each one's curated class as a `domain_class` mcol.
+#
+# This is LTRdigest's full view of an element's coding capacity, drawn from the
+# whole of Pfam. It backs the "does this element carry ANY protein domain?" signal
+# that separates `domain_unlisted` (has domains, none curated as informative) from
+# `non_domain` (no domain at all). A domain absent from the curated table is
+# classed "other" rather than dropped, matching DEFAULT_CLASS in
+# workflow/scripts/domains/domain_classes.py.
+extract_all_domains <- function(ltr_data, domain_classes = NULL) {
+  doms <- ltr_data[ltr_data$type == "protein_match"]
+  if (length(doms) == 0L || is.null(domain_classes)) return(doms)
+  cls <- unname(domain_classes[as.character(doms$name)])
+  S4Vectors::mcols(doms)$domain_class <- ifelse(is.na(cls), "other", cls)
+  doms
 }
 
 
-# Pull ALL LTRdigest protein domains (the `protein_match` features), regardless
-# of whether they match the config probe regexes. This is LTRdigest's full view
-# of an element's coding capacity - the superset from which
-# `extract_domains_with_probes` selects the config-matched subset. It backs the
-# "does this element carry ANY protein domain?" signal that separates the
-# `domain_unlisted` tier (has domains, none config-matched) from `non_domain`
-# (no domain at all). See annotate_ltr_flanked_hits in validation.R (ADR-009).
-extract_all_domains <- function(ltr_data) {
-  ltr_data[ltr_data$type == "protein_match"]
-}
-
-
-# Pull domain features (those with a non-NA `name` attribute) and assign each
-# a probe label via the domain_map. Domains without a probe assignment are
-# dropped - they cannot contribute to validation.
-extract_domains_with_probes <- function(ltr_data, domain_map) {
-  doms <- ltr_data[!is.na(ltr_data$name)]
-  if (length(doms) == 0L) {
-    S4Vectors::mcols(doms)$probe <- character(0)
-    return(doms)
-  }
-  S4Vectors::mcols(doms)$probe <- vapply(
-    doms$name,
-    assign_probe_to_domain_name,
-    domain_map = domain_map,
-    FUN.VALUE = character(1)
-  )
-  doms[!is.na(doms$probe)]
+# Narrow annotated domains to the classes that are informative about retroviral
+# identity. Everything else still counts towards `domain_unlisted`.
+extract_selected_domains <- function(all_domains) {
+  if (length(all_domains) == 0L) return(all_domains)
+  all_domains[S4Vectors::mcols(all_domains)$domain_class %in% SELECTED_DOMAIN_CLASSES]
 }
 
 

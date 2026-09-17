@@ -58,6 +58,68 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
     assert "genome_fasta_normalizer_setup" in _all_rules(project_root)
 
 
+# ---------------------------------------------------------------------
+# Domain evidence (ADR-015)
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "rule_name",
+    ["pfam_subset_builder", "domain_scanner_setup", "domain_scanner"],
+)
+def test_domain_evidence_rule_present(project_root: Path, rule_name: str) -> None:
+    """The domain scan must stay in the workflow: without it every locus falls
+    back to domain_source=not_scanned."""
+    assert rule_name in _all_rules(project_root)
+
+
+def test_domain_scan_does_not_rerun_ltrdigest(project_root: Path) -> None:
+    """ADR-015 keeps LTRdigest untouched. The scan must read the finished tracks,
+    never re-invoke gt ltrdigest, which costs ~24 h per genome."""
+    text = (project_root / "workflow" / "Snakefile").read_text(encoding="utf-8")
+    start = text.index("rule domain_scanner_setup:")
+    end = text.index("rule domain_scanner:")
+    assert "gt ltrdigest" not in text[start:end]
+
+
+def test_classification_consumes_the_domain_scan(project_root: Path) -> None:
+    """Both tiers must be wired to the scan, or orphans silently regress to the
+    hard-coded non_domain default this ADR removed."""
+    text = (project_root / "workflow" / "Snakefile").read_text(encoding="utf-8")
+    assert text.count("--domains-parquet") == 2
+    assert text.count("--domains-scanned") == 2
+
+
+def test_retired_domain_regex_config_is_gone(project_root: Path) -> None:
+    """`config.domains` and `parameters.hit_domain_mode` were retired by ADR-015;
+    a reintroduced block would silently resurrect the name-regex labelling."""
+    config = (project_root / "data" / "config" / "config.yaml").read_text(
+        encoding="utf-8"
+    )
+    schema = (project_root / "data" / "config" / "schema.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "\ndomains:" not in config
+    assert "hit_domain_mode" not in config
+    assert "domains_schema" not in schema
+
+
+def test_curated_class_table_is_committed(project_root: Path) -> None:
+    """The class table is the only human artifact in the feature; it must ship."""
+    tsv = project_root / "data" / "config" / "pfam_domain_classes.tsv"
+    lines = tsv.read_text(encoding="utf-8").splitlines()
+    assert lines[0].split("\t") == ["pfam_acc", "pfam_name", "class"]
+    classes = {line.split("\t")[2] for line in lines[1:]}
+    assert classes <= {
+        "retroviral_diagnostic",
+        "retroelement_shared",
+        "non_ltr",
+        "dna_transposon",
+        "other",
+    }
+    # The families the retired regex could not see must now be present.
+    names = {line.split("\t")[1] for line in lines[1:]}
+    assert {"rve", "RVP", "IN_DBD_C", "GP41"} <= names
+
+
 def test_ruleorder_normalizer_wins_over_downloader(project_root: Path) -> None:
     """The normalizer must take precedence when both can produce {genome}.fa."""
     text = _read_snakefile(project_root)
