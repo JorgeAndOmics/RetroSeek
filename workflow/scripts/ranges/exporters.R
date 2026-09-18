@@ -74,19 +74,18 @@ bed_exporter <- function(track, path) {
 # (pipeline-internal) and CSV (user-facing). Rows: probe; Columns:
 # candidate / valid / total. Lightweight summary that replaces the pre-refactor
 # full overlap-matrix machinery (which is not consumed by any downstream rule).
-overlap_matrix_exporter <- function(gr_virus, gr_candidates, gr_valid,
-                                    parquet_path, csv_path) {
+overlap_matrix_exporter <- function(gr_virus, gr_valid, parquet_path, csv_path) {
   probes <- sort(unique(c(
     as.character(S4Vectors::mcols(gr_virus)$probe),
-    as.character(S4Vectors::mcols(gr_candidates)$probe),
     as.character(S4Vectors::mcols(gr_valid)$probe)
   )))
   counts <- function(g, p) sum(as.character(S4Vectors::mcols(g)$probe) == p)
+  # The former `candidate` column is gone (ADR-016): it was always equal to
+  # `valid`, since valid is the candidate set with a Parent attached.
   out <- data.frame(
-    probe     = probes,
-    total     = vapply(probes, function(p) counts(gr_virus,      p), integer(1)),
-    candidate = vapply(probes, function(p) counts(gr_candidates, p), integer(1)),
-    valid     = vapply(probes, function(p) counts(gr_valid,      p), integer(1)),
+    probe = probes,
+    total = vapply(probes, function(p) counts(gr_virus, p), integer(1)),
+    valid = vapply(probes, function(p) counts(gr_valid, p), integer(1)),
     stringsAsFactors = FALSE
   )
   write_table(out, parquet_path, csv_path)

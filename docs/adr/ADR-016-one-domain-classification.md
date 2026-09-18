@@ -81,6 +81,30 @@ The route worth trying if the runtime ever needs reclaiming is **PBS**: `gt ltrd
 a tRNA library and is currently not passed one, so PBS emits zero features. It is LTRdigest's
 designed strand evidence and would be independent of domains.
 
+## The `candidate` tier goes with it
+
+`find_candidate_hits` output was exported as its own track, counted as its own
+funnel stage, and carried as its own variable. Once ADR-009 stopped `valid` from
+filtering, `valid` became `candidate` plus a `Parent` attribute, and the two were
+identical in every genome:
+
+| genome | `candidate_ranges` | `valid_ranges` |
+|---|---|---|
+| Homo_sapiens | 36,348 | 36,348 |
+| Mus_musculus | 153,248 | 153,248 |
+| Antrozous_pallidus | 11,202 | 11,202 |
+
+So `tracks/candidates/`, the `candidate_ranges` counters, the `candidate` column
+of the overlap matrix and the duplicated funnel step are removed.
+`build_stage_hits_df` takes one set instead of two, and `is_candidate` keeps its
+name because it still says something true: the hit overlaps an LTR element.
+
+The track is NOT renamed here. `valid` is a poor name for a set that no longer
+excludes anything, and `element_hits` is the intended replacement, but
+`valid_ranges` has 24 receivers and four of them belong to the solo-LTR
+workstream, whose branch is unmerged and already edits the same lines. The
+rename lands with that work, in one pass instead of two.
+
 ## Consequences
 
 - One curated judgement, in one place, on the stable key. Editing the table changes the catalog and

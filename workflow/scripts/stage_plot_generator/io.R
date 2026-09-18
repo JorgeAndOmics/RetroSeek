@@ -69,8 +69,7 @@ load_counts_table <- function(input_dir) {
   stage_keys <- c(
     filtered_blast_hits  = "homology hits",
     first_reduced_ranges = "first-reduced",
-    candidate_ranges     = "candidate",
-    valid_ranges         = "valid"
+    valid_ranges         = "ltr-flanked"
   )
   files <- list.files(input_dir, pattern = "\\.counts\\.parquet$",
                       full.names = TRUE)

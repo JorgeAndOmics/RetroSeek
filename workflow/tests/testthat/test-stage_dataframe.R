@@ -59,11 +59,11 @@ source(file.path(.script_dir, "stage_dataframe.R"))
 test_that("build_stage_hits_df classifies inside / flanking / disjoint concordance", {
   gv     <- .fake_gr_virus()
   retros <- .fake_retros()
-  cand   <- gv[c(1, 2)]   # loci 1 & 2 are ltr-flanked (candidates)
-  # valid is the annotated LTR-flanked set (both candidates). It carries no
-  # domain label: that is the catalog's job now, at locus grain (ADR-016).
+  # valid is the annotated LTR-flanked set. The separate `candidate` set was
+  # retired by ADR-016: it held the same rows. It carries no domain label
+  # either; that is the catalog's job now, at locus grain.
   valid  <- gv[c(1, 2)]
-  df <- build_stage_hits_df(gv, retros, cand, valid)
+  df <- build_stage_hits_df(gv, retros, valid)
 
   expect_equal(nrow(df), 3L)
   expect_equal(df$concordance[df$probe == "POL"], "inside")    # overlaps retro_1
@@ -77,7 +77,7 @@ test_that("build_stage_hits_df classifies inside / flanking / disjoint concordan
 
 test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
   empty <- .fake_gr_virus()[FALSE]
-  df <- build_stage_hits_df(empty, .fake_retros(), empty, empty)
+  df <- build_stage_hits_df(empty, .fake_retros(), empty)
   expect_equal(nrow(df), 0L)
   expect_true(all(c("concordance", "is_candidate", "n_hits") %in% colnames(df)))
 })

@@ -36,8 +36,7 @@ suppressMessages({
 # element-grain `domain_tier` beside it meant one name with two answers.
 # `n_hits` is M1 - the
 # count of threshold-passing raw tBLASTn hits collapsed into the locus.
-build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
-                                valid_hits,
+build_stage_hits_df <- function(gr_virus, retrotransposons, valid_hits,
                                 flanking_window = .STAGE_FLANKING_WINDOW) {
   empty <- tibble::tibble(
     seqnames = character(0), start = integer(0), end = integer(0),
@@ -65,9 +64,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
   }
 
   ids      <- as.character(S4Vectors::mcols(gr_virus)$ID)
-  cand_ids <- as.character(S4Vectors::mcols(candidate_hits)$ID)
-  # Per-LTR-flanked-locus domain labels, keyed by ID (valid_hits  subset-or-equal  gr_virus IDs).
-  valid_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
+  ltr_flanked_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
 
   df <- as.data.frame(gr_virus, stringsAsFactors = FALSE)
   tibble::tibble(
@@ -85,7 +82,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, candidate_hits,
     max_identity     = as.numeric(df$max_identity),
     query_coverage   = as.numeric(df$query_coverage),
     concordance      = concordance,
-    is_candidate     = ids %in% cand_ids,
+    is_candidate     = ids %in% ltr_flanked_ids,
   )
 }
 

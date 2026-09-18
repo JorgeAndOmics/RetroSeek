@@ -18,7 +18,6 @@ test_that("build_loss_funnel orders stages and computes step retention", {
     "g1",    "raw_blast_hits",        1000,
     "g1",    "filtered_blast_hits",    600,
     "g1",    "first_reduced_ranges",   500,
-    "g1",    "candidate_ranges",       300,
     "g1",    "valid_ranges",            60,
     "g1",    "global_reduced_ranges",  250,
     "g1",    "orphans",                180,
@@ -35,11 +34,13 @@ test_that("build_loss_funnel orders stages and computes step retention", {
   filt <- f %>% filter(metric == "filtered_blast_hits")
   expect_equal(filt$step_retained, 0.6)            # 600 / 1000
 
-  # candidate descends from FIRST reduction (LTR-flanked spine), not global reduction
-  cand <- f %>% filter(metric == "candidate_ranges")
-  expect_equal(cand$branch, "main")
-  expect_equal(cand$step_retained, 300 / 500)      # vs first_reduced parent -> <= 1
-  expect_true(cand$step_retained <= 1)
+  # the ltr-flanked stage descends from FIRST reduction (the spine), not the
+  # global reduction. The former `candidate_ranges` step was retired by ADR-016:
+  # it was identical to valid_ranges, so it never lost anything.
+  vr <- f %>% filter(metric == "valid_ranges")
+  expect_equal(vr$branch, "main")
+  expect_equal(vr$step_retained, 60 / 500)         # vs first_reduced parent -> <= 1
+  expect_true(vr$step_retained <= 1)
 
   # frac_of_input is value / raw hits
   expect_equal((f %>% filter(metric == "valid_ranges"))$frac_of_input, 0.06)
