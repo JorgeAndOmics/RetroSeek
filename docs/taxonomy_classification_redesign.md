@@ -258,7 +258,7 @@ structure  &  Pfam domain), which is why location is reliable while identity is 
 ## 3.3 Pipeline placement
 
 ```
-... detection (tBLASTn) -> range reduction -> validation (valid_ranges) -+
+... detection (tBLASTn) -> range reduction -> validation (element_hits) -+
                                                                        v
                                             [ NEW: per-marker classification stage ]
                                                                        |

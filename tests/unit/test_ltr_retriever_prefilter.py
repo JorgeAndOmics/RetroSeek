@@ -1,6 +1,6 @@
 """Unit tests for ``workflow/scripts/ltr_retriever_prefilter.py``.
 
-Covers the four pure helpers (``_parse_des``, ``_parse_valid_ranges``,
+Covers the four pure helpers (``_parse_des``, ``_parse_element_hits``,
 ``_intervals_overlap``, ``_any_overlap``) and the public ``prefilter_scn``
 function. Tests pin the current single-output contract; Phase 2 extends
 these with dual-output (retroviral + full SCN) cases.
@@ -15,7 +15,7 @@ from ltr_retriever_prefilter import (
     _any_overlap,
     _intervals_overlap,
     _parse_des,
-    _parse_valid_ranges,
+    _parse_element_hits,
     prefilter_scn,
 )
 from ltr_retriever_prefilter import main as prefilter_main
@@ -64,9 +64,9 @@ def test_parse_des_missing_file_raises(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------
-# _parse_valid_ranges
+# _parse_element_hits
 # ---------------------------------------------------------------------
-def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(
+def test_parse_element_hits_converts_one_indexed_to_zero_indexed(
     tmp_path: Path,
 ) -> None:
     """GFF3 1-indexed closed -> returned as 0-indexed (start - 1, end unchanged).
@@ -79,11 +79,13 @@ def test_parse_valid_ranges_converts_one_indexed_to_zero_indexed(
     gff.write_text(
         "##gff-version 3\nchr1\tRetroSeek\tERV\t100\t200\t.\t+\t.\tID=erv1\n"
     )
-    intervals = _parse_valid_ranges(gff)
+    intervals = _parse_element_hits(gff)
     assert intervals == {"chr1": [(99, 200)]}
 
 
-def test_parse_valid_ranges_skips_comments_and_short_rows(tmp_path: Path) -> None:
+def test_parse_element_hits_skips_comments_and_short_rows(
+    tmp_path: Path,
+) -> None:
     """Comment lines and rows with fewer than 5 fields are ignored silently."""
     gff = tmp_path / "messy.gff3"
     gff.write_text(
@@ -93,11 +95,11 @@ def test_parse_valid_ranges_skips_comments_and_short_rows(tmp_path: Path) -> Non
         "chr1\tRetroSeek\tERV\t10\t20\t.\t+\t.\tID=ok\n"
         "## another comment\n"
     )
-    intervals = _parse_valid_ranges(gff)
+    intervals = _parse_element_hits(gff)
     assert intervals == {"chr1": [(9, 20)]}
 
 
-def test_parse_valid_ranges_sorts_by_start(tmp_path: Path) -> None:
+def test_parse_element_hits_sorts_by_start(tmp_path: Path) -> None:
     """Per-chromosome intervals are sorted to enable short-circuit overlap walks."""
     gff = tmp_path / "unsorted.gff3"
     gff.write_text(
@@ -105,14 +107,14 @@ def test_parse_valid_ranges_sorts_by_start(tmp_path: Path) -> None:
         "chr1\t.\t.\t100\t200\t.\t.\t.\tID=b\n"
         "chr1\t.\t.\t300\t400\t.\t.\t.\tID=c\n"
     )
-    intervals = _parse_valid_ranges(gff)
+    intervals = _parse_element_hits(gff)
     assert intervals["chr1"] == [(99, 200), (299, 400), (499, 600)]
 
 
-def test_parse_valid_ranges_missing_file_raises(tmp_path: Path) -> None:
+def test_parse_element_hits_missing_file_raises(tmp_path: Path) -> None:
     missing = tmp_path / "no_such.gff3"
-    with pytest.raises(FileNotFoundError, match="valid_ranges GFF3 not found"):
-        _parse_valid_ranges(missing)
+    with pytest.raises(FileNotFoundError, match="element_hits GFF3 not found"):
+        _parse_element_hits(missing)
 
 
 # ---------------------------------------------------------------------
@@ -166,7 +168,7 @@ def test_any_overlap_short_circuits_when_start_exceeds_end() -> None:
 # always materialised so a user can inspect either at will.
 # ---------------------------------------------------------------------
 def _write_tiny_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """Build a tiny SCN + .des + valid_ranges trio for prefilter tests."""
+    """Build a tiny SCN + .des + element_hits trio for prefilter tests."""
     scn = tmp_path / "tiny.scn"
     scn.write_text(
         "# LTR_FINDER args=...\n"
@@ -266,7 +268,7 @@ def test_prefilter_main_cli_accepts_dual_output_flags(tmp_path: Path) -> None:
             str(scn),
             "--des",
             str(des),
-            "--valid-ranges",
+            "--element-hits",
             str(gff),
             "--output-retroviral",
             str(retroviral),

@@ -24,7 +24,7 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
   if (nrow(hits_df) == 0L) return(empty_plot())
   tiers <- dplyr::bind_rows(
     hits_df %>% dplyr::transmute(n_hits, tier = "original"),
-    hits_df %>% dplyr::filter(is_candidate) %>%
+    hits_df %>% dplyr::filter(is_ltr_flanked) %>%
       dplyr::transmute(n_hits, tier = "candidate")
   ) %>%
     dplyr::mutate(tier = factor(tier, levels = c("original", "candidate"))) %>%

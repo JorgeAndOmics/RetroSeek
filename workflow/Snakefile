@@ -472,8 +472,8 @@ rule ranges_analysis_setup:
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         orphans_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
-        valid_tracks=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
-        valid_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+        element_hits_tracks=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
+        element_hits_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}_reduced.gff3'),
         # solo_ltr production has moved to the LTR_retriever-based workstream
         # (separate rule); the file is no longer produced by ranges_analysis.R.
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
@@ -500,7 +500,7 @@ rule ranges_analysis_setup:
         reduction_coverage_parquet=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
         reduction_coverage_csv=os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],'{genome}.reduction_coverage.csv'),
         manifest=os.path.join(defaults.PATH_DICT['MANIFEST_DIR'],'{genome}.yaml'),
-        valid_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.bed')
+        element_hits_ranges_reduced_bed=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}_reduced.bed')
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         segmented_species_dir=defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'],
@@ -512,7 +512,7 @@ rule ranges_analysis_setup:
         yaml_config_file=defaults.CONFIG_FILE,
         original_tracks_dir=defaults.PATH_DICT['TRACK_ORIGINAL_DIR'],
         orphans_tracks_dir=defaults.PATH_DICT['TRACK_ORPHANS_DIR'],
-        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        element_hits_dir=defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
     threads:
@@ -528,8 +528,8 @@ rule ranges_analysis_setup:
         --config {params.yaml_config_file:q} \
         --original_ranges {params.original_tracks_dir:q}/{wildcards.genome:q}.gff3 \
         --orphans_ranges {params.orphans_tracks_dir:q}/{wildcards.genome:q}.gff3 \
-        --valid_ranges {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
-        --valid_ranges_reduced {params.valid_tracks_dir:q}/{wildcards.genome:q}_reduced.gff3 \
+        --element_hits_ranges {params.element_hits_dir:q}/{wildcards.genome:q}.gff3 \
+        --element_hits_ranges_reduced {params.element_hits_dir:q}/{wildcards.genome:q}_reduced.gff3 \
         --flanking_ltr_ranges {params.flanking_ltr_dir:q}/{wildcards.genome:q}.gff3 \
         --overlap_matrix_parquet {output.overlap_matrix_parquet:q} \
         --overlap_matrix_csv {output.overlap_matrix_csv:q} \
@@ -544,9 +544,9 @@ rule ranges_analysis:
     input:
         original_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
                                genome=species_with_hits(wildcards)),
-        valid_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}.gff3'),
+        element_hits_tracks=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}.gff3'),
                              genome=species_with_hits(wildcards)),
-        valid_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],'{genome}_reduced.gff3'),
+        element_hits_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}_reduced.gff3'),
                                 genome=species_with_hits(wildcards)),
         # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
         # demand solo_ltr/{genome}.gff3 here.
@@ -570,7 +570,7 @@ rule ranges_analysis:
 
 # ----------------------------- LTR_retriever chain ---------------------------
 # Pre-filter LTRharvest SCN by RetroSeek's retroviral-confirmed ERV set
-# (valid_ranges.gff3) - Coupling A. Then hand the filtered SCN to
+# (element_hits/{genome}.gff3) - Coupling A. Then hand the filtered SCN to
 # LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
 # derived from the retained intact ERVs. See docs/solo_ltr.md for full
 # mechanism and the LTR_retriever stages.
@@ -583,7 +583,7 @@ rule ltr_retriever_prefilter_setup:
     input:
         scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
         des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
-        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3')
+        element_hits = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3')
     output:
         retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
         full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn')
@@ -595,7 +595,7 @@ rule ltr_retriever_prefilter_setup:
         PYTHONPATH=scripts python scripts/solo_ltr/ltr_retriever_prefilter.py \
             --scn {input.scn:q} \
             --des {input.des:q} \
-            --valid-ranges {input.valid_ranges:q} \
+            --element-hits {input.element_hits:q} \
             --output-retroviral {output.retroviral_scn:q} \
             --output-full {output.full_scn:q} \
             2> {log:q}
@@ -669,13 +669,13 @@ rule ltr_retriever:
         )
 
 
-# Integrate LTR_retriever output with RetroSeek's valid_ranges (Coupling B).
+# Integrate LTR_retriever output with RetroSeek's element_hits track (Coupling B).
 # Emits the final annotated solo-LTR GFF3 + per-genome solo/intact ratio CSV.
 rule solo_ltr_integrator_setup:
     input:
         nmtf         = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
         ltr_library  = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
-        valid_ranges = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'],   '{genome}.gff3')
+        element_hits = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],   '{genome}.gff3')
     output:
         solo_ltr_gff3 = os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],            '{genome}.gff3'),
         ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'],     '{genome}.csv'),
@@ -688,7 +688,7 @@ rule solo_ltr_integrator_setup:
         PYTHONPATH=scripts python scripts/solo_ltr/solo_ltr_integrator.py \
             --nmtf-pass-list {input.nmtf:q} \
             --ltr-library {input.ltr_library:q} \
-            --valid-ranges {input.valid_ranges:q} \
+            --element-hits {input.element_hits:q} \
             --genome {wildcards.genome:q} \
             --output-gff3 {output.solo_ltr_gff3:q} \
             --output-ratio-csv {output.ratio_csv:q} \
@@ -885,7 +885,7 @@ rule erv_like_plot_generator:
 rule circle_plot_generator_setup:
     input:
         fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
-        hits=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        hits=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
         ltrdigest=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
     output:
         circle_plot_png=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),
@@ -894,7 +894,7 @@ rule circle_plot_generator_setup:
     params:
         species_db=defaults.PATH_DICT['SPECIES_DB'],
         ltrdigest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
-        valid_tracks_dir=defaults.PATH_DICT['TRACK_VALID_DIR'],
+        element_hits_dir=defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],
         circle_plot_dir=defaults.PATH_DICT['CIRCLE_PLOT_DIR'],
         config_file=defaults.CONFIG_FILE
     threads:
@@ -903,7 +903,7 @@ rule circle_plot_generator_setup:
         '''
         Rscript scripts/circle_plot_generator.R \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --gff_custom {params.valid_tracks_dir:q}/{wildcards.genome:q}.gff3 \
+        --gff_custom {params.element_hits_dir:q}/{wildcards.genome:q}.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
         --config {params.config_file:q} \
         --output {params.circle_plot_dir:q}/{wildcards.genome:q}
@@ -993,7 +993,7 @@ rule hotspot_detector:
 
 rule pair_detector_setup:
     input:
-        gff3_file=os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        gff3_file=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
     output:
         pair_table_csv=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'),
         pair_table_parquet=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet')
@@ -1035,7 +1035,7 @@ rule pair_detector:
 # concordance check between the two annotations over identical sequence.
 rule domain_scanner_setup:
     input:
-        valid   = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        valid   = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
         orphans = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         genome  = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
         hmm     = rules.pfam_subset_builder.output.hmm
@@ -1154,7 +1154,7 @@ rule taxonomy_reference_trees:
 
 rule taxonomy_classify_setup:
     input:
-        valid     = os.path.join(defaults.PATH_DICT['TRACK_VALID_DIR'], '{genome}.gff3'),
+        valid     = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
         domains   = rules.domain_scanner_setup.output.parquet,
         scanned   = rules.domain_scanner_setup.output.scanned,

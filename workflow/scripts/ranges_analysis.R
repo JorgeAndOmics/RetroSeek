@@ -68,8 +68,8 @@ parser$add_argument("--orphans_ranges",         required = TRUE,
                     help = paste("GFF3 of non-LTR-associated orphans (reduced",
                                  "BLAST hits overlapping no retrotransposon).",
                                  "Recovered + classified as the orphans tier."))
-parser$add_argument("--valid_ranges",             required = TRUE)
-parser$add_argument("--valid_ranges_reduced",     required = TRUE)
+parser$add_argument("--element_hits_ranges",             required = TRUE)
+parser$add_argument("--element_hits_ranges_reduced",     required = TRUE)
 parser$add_argument("--flanking_ltr_ranges",      required = TRUE)
 parser$add_argument("--overlap_matrix_parquet",   required = TRUE)
 parser$add_argument("--overlap_matrix_csv",       required = TRUE)
@@ -168,12 +168,12 @@ record_count("flanking_ltrs",         length(flanking_ltrs))
 # tracks holding the same features, and two funnel bars of the same height. Once
 # ADR-009 stopped valid from filtering anything, the distinction had no content.
 log_section("Phase 6: annotating ltr-flanked (valid) hits")
-valid_hits         <- annotate_ltr_flanked_hits(
+element_hits         <- annotate_ltr_flanked_hits(
   find_candidate_hits(gr_virus,  retrotransposons), retrotransposons)
-valid_hits_reduced <- annotate_ltr_flanked_hits(
+element_hits_reduced <- annotate_ltr_flanked_hits(
   find_candidate_hits(gr_global, retrotransposons), retrotransposons)
-record_count("valid_ranges",               length(valid_hits))
-record_count("valid_ranges_reduced",       length(valid_hits_reduced))
+record_count("element_hits_ranges",               length(element_hits))
+record_count("element_hits_ranges_reduced",       length(element_hits_reduced))
 
 # Non-LTR-associated orphans: the complement of the candidate set on the
 # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
@@ -209,13 +209,13 @@ log_section("Phase 7: plot dataframe + probe_category tagging")
 # output) rather than gr_virus (the homology-only original tier). The middle
 # stage is visualised separately by stage_plot_generator.R.
 plot_df <- build_plot_dataframe(
-  valid_hits_reduced, probes$df_sum, opts$main_probes,
+  element_hits_reduced, probes$df_sum, opts$main_probes,
   opts$agg_virus, opts$agg_concat_separator
 )
 gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
 gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
-valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
-valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
+element_hits             <- attach_probe_category(element_hits,           opts$main_probes, opts$agg_concat_separator)
+element_hits_reduced     <- attach_probe_category(element_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
 orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
 
 
@@ -227,7 +227,7 @@ gen_ver <- resolve_generator_version()
 
 # Original tier: unreduced GFF3 only. The reduced exports were retired (only
 # valid keeps a reduced track); gr_global is still computed above because
-# valid_hits_reduced and the reduction_multiplicity table depend on it.
+# element_hits_reduced and the reduction_multiplicity table depend on it.
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 
 # Orphan tier: orphan hits exported with the same probe=/label= GFF3
@@ -236,13 +236,13 @@ track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 # into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
 track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
 
-track_exporter(valid_hits,             args$valid_ranges,             gen_ver)
-track_exporter(valid_hits_reduced,     args$valid_ranges_reduced,     gen_ver)
-bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges_reduced))
+track_exporter(element_hits,             args$element_hits_ranges,             gen_ver)
+track_exporter(element_hits_reduced,     args$element_hits_ranges_reduced,     gen_ver)
+bed_exporter(  element_hits_reduced,     sub("\\.gff3$", ".bed", args$element_hits_ranges_reduced))
 
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
-overlap_matrix_exporter(gr_virus, valid_hits,
+overlap_matrix_exporter(gr_virus, element_hits,
                         args$overlap_matrix_parquet, args$overlap_matrix_csv)
 
 # Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
@@ -258,7 +258,7 @@ write_one <- function(table, df) {
 
 write_one("final_loci", plot_df)
 write_one("homology_loci",
-          build_stage_hits_df(gr_virus, retrotransposons, valid_hits))
+          build_stage_hits_df(gr_virus, retrotransposons, element_hits))
 write_one("ltr_structure",
           build_stage_ltr_df(retrotransposons, flanking_ltrs, all_domains,
                              ltr_data, gr_virus))

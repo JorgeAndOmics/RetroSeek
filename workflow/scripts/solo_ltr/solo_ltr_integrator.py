@@ -1,7 +1,7 @@
 """Post-process LTR_retriever output into RetroSeek-annotated solo LTRs.
 
 This is *Coupling B* of the LTR_retriever integration: we propagate
-RetroSeek's probe labels (from ``valid_ranges.gff3``) onto the solo
+RetroSeek's probe labels (from ``element_hits.gff3``) onto the solo
 LTRs that LTR_retriever discovered, using a hybrid two-tier approach
 that favours LTR_retriever's own family-clustering when available and
 falls back to nearest-valid-ERV location inheritance when it isn't.
@@ -22,7 +22,7 @@ Data sources
     the consensus. We parse the headers to build a ``family -> list of
     source-ERV-IDs`` mapping.
 
-``valid_ranges.gff3``
+``element_hits.gff3``
     RetroSeek's domain-validated retroviral ERV track. Each row has
     genomic coordinates + ``probe`` (or ``probe_labels``) attribute
     encoding the probe family or families the ERV matched. We parse
@@ -37,7 +37,7 @@ For each solo LTR in ``nmtf.pass.list``:
 1. **Primary path - consensus-family mapping.** Look up the solo
    LTR's family ID in the ``family -> source-ERVs`` map built from
    ``LTRlib.fa``. For each source ERV, find the corresponding valid
-   range in ``valid_ranges.gff3`` by coordinate overlap. Collect the
+   range in ``element_hits.gff3`` by coordinate overlap. Collect the
    probe labels from those valid ranges. Label the solo LTR with the
    union.
 2. **Fallback path - nearest-ERV.** If the primary path produced zero
@@ -69,7 +69,7 @@ Usage
         --nmtf-pass-list <path> \\
         --ltr-library <path> \\
         --pass-list-gff3 <path> \\
-        --valid-ranges <path> \\
+        --element-hits <path> \\
         --genome <name> \\
         --output-gff3 <path> \\
         --output-ratio-csv <path> \\
@@ -97,7 +97,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 @dataclass
 class ValidRange:
-    """One retroviral-confirmed ERV from valid_ranges.gff3."""
+    """One retroviral-confirmed ERV from element_hits.gff3."""
 
     chrom: str
     start: int  # 0-indexed inclusive
@@ -155,10 +155,10 @@ def _parse_probes_from_gff3_attrs(attrs: str) -> list[str]:
     return []
 
 
-def parse_valid_ranges(path: Path) -> list[ValidRange]:
-    """Return all ranges from valid_ranges.gff3 with their probe labels."""
+def parse_element_hits(path: Path) -> list[ValidRange]:
+    """Return all ranges from element_hits.gff3 with their probe labels."""
     if not path.exists():
-        raise FileNotFoundError(f"valid_ranges GFF3 not found: {path}")
+        raise FileNotFoundError(f"element_hits GFF3 not found: {path}")
     ranges: list[ValidRange] = []
     with path.open() as handle:
         for raw in handle:
@@ -305,21 +305,21 @@ def _valid_by_chrom(ranges: list[ValidRange]) -> dict[str, list[ValidRange]]:
     return dict(out)
 
 
-def _resolve_source_ervs_to_valid_ranges(
+def _resolve_source_ervs_to_element_hits(
     source_ids: list[str],
-    valid_ranges: list[ValidRange],
+    element_hits: list[ValidRange],
 ) -> list[ValidRange]:
-    """Match source-ERV IDs from LTR_retriever against valid_ranges.
+    """Match source-ERV IDs from LTR_retriever against element_hits.
 
     LTR_retriever's source IDs refer to LTRharvest candidate ERVs (e.g.
     ``LTR_retrotransposon5``) - these don't match RetroSeek's own
-    probe-based IDs in ``valid_ranges.gff3``. Fortunately, LTR_retriever
+    probe-based IDs in ``element_hits.gff3``. Fortunately, LTR_retriever
     preserves the source ERV's genomic coordinates in its
     ``pass.list.gff3``. If that's parsed separately and passed here,
     we can intersect coordinates.
 
     For the first implementation, this helper returns an empty list
-    when source IDs can't be directly matched to valid_ranges IDs -
+    when source IDs can't be directly matched to element_hits IDs -
     the caller then falls through to the nearest-ERV mechanism. Future
     enhancement: pass the parsed ``pass.list.gff3`` so we can do a
     two-step coord mapping.
@@ -327,7 +327,7 @@ def _resolve_source_ervs_to_valid_ranges(
     # Build an ID -> ValidRange map; if the ID nomenclature happens to
     # align, we resolve cleanly. Otherwise return empty and let the
     # fallback handle it.
-    id_to_range = {r.erv_id: r for r in valid_ranges if r.erv_id}
+    id_to_range = {r.erv_id: r for r in element_hits if r.erv_id}
     return [id_to_range[sid] for sid in source_ids if sid in id_to_range]
 
 
@@ -357,7 +357,7 @@ def _nearest_valid_erv(
 
 def propagate_labels(
     solos: list[SoloLTR],
-    valid_ranges: list[ValidRange],
+    element_hits: list[ValidRange],
     family_to_sources: dict[str, list[str]],
     max_distance: int,
 ) -> None:
@@ -367,12 +367,12 @@ def propagate_labels(
     ERV fallback. Each solo's ``probe_labels``, ``contributing_ervs``,
     and ``label_source`` fields are populated.
     """
-    valid_by_chrom = _valid_by_chrom(valid_ranges)
+    valid_by_chrom = _valid_by_chrom(element_hits)
     for solo in solos:
         # ---- primary path ----
         if solo.family and solo.family in family_to_sources:
             sources = family_to_sources[solo.family]
-            resolved = _resolve_source_ervs_to_valid_ranges(sources, valid_ranges)
+            resolved = _resolve_source_ervs_to_element_hits(sources, element_hits)
             if resolved:
                 labels: set[str] = set()
                 contributors: list[str] = []
@@ -432,7 +432,7 @@ def write_solo_ltr_gff3(solos: list[SoloLTR], output_path: Path) -> None:
 
 def compute_solo_intact_ratio(
     solos: list[SoloLTR],
-    valid_ranges: list[ValidRange],
+    element_hits: list[ValidRange],
     species: str,
 ) -> pd.DataFrame:
     """Return per-probe-family solo/intact counts + ratios.
@@ -458,7 +458,7 @@ def compute_solo_intact_ratio(
         bucket[key][field_name] += amount
 
     bucket: dict[tuple[str, str], dict[str, int]] = {}
-    for r in valid_ranges:
+    for r in element_hits:
         if not r.probes:
             continue
         mode = "exclusive" if len(r.probes) == 1 else "shared"
@@ -511,7 +511,10 @@ def main(argv: list[str] | None = None) -> int:
         help="LTR_retriever .LTRlib.fa (consensus library with source-ERV headers).",
     )
     parser.add_argument(
-        "--valid-ranges", type=Path, required=True, help="RetroSeek valid_ranges.gff3."
+        "--element-hits",
+        type=Path,
+        required=True,
+        help="RetroSeek element_hits.gff3.",
     )
     parser.add_argument(
         "--genome",
@@ -546,20 +549,20 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    valid_ranges = parse_valid_ranges(args.valid_ranges)
+    element_hits = parse_element_hits(args.element_hits)
     family_to_sources = parse_ltr_library_headers(args.ltr_library)
     solos = parse_nmtf_pass_list(args.nmtf_pass_list)
 
     logger.info(
         "Loaded %d valid ranges, %d consensus families, %d candidate solo LTRs",
-        len(valid_ranges),
+        len(element_hits),
         len(family_to_sources),
         len(solos),
     )
 
     propagate_labels(
         solos=solos,
-        valid_ranges=valid_ranges,
+        element_hits=element_hits,
         family_to_sources=family_to_sources,
         max_distance=args.nearest_erv_max_distance,
     )
@@ -576,7 +579,7 @@ def main(argv: list[str] | None = None) -> int:
 
     write_solo_ltr_gff3(solos, args.output_gff3)
 
-    ratio_df = compute_solo_intact_ratio(solos, valid_ranges, species=args.genome)
+    ratio_df = compute_solo_intact_ratio(solos, element_hits, species=args.genome)
     args.output_ratio_csv.parent.mkdir(parents=True, exist_ok=True)
     args.output_ratio_parquet.parent.mkdir(parents=True, exist_ok=True)
     ratio_df.to_csv(args.output_ratio_csv, index=False)

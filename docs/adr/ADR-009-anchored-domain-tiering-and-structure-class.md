@@ -11,6 +11,13 @@
 > keeps the original wording (and its filename) because an ADR records what was
 > decided at the time; read "anchored" here as "ltr-flanked".
 
+> **Terminology note (2026-09-18).** What this ADR calls the **`valid`** track
+> (`valid_ranges.gff3`) is now named **`element_hits`**
+> (`results/tracks/element_hits/{genome}.gff3`) - see ADR-016. Nothing is
+> invalidated any more, so the old name described a status that no longer
+> exists. This file keeps the original wording because an ADR records what was
+> decided at the time.
+
 ## Context
 
 The candidate->valid step (`ranges/validation.R::find_valid_hits`) **discarded**

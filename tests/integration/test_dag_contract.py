@@ -245,8 +245,8 @@ def test_original_candidate_reduced_exports_removed(project_root: Path) -> None:
     assert "--original_ranges_reduced" not in text
     assert "--candidate_ranges_reduced" not in text
     # The valid reduced track and its CLI flag must remain.
-    assert "valid_tracks_reduced" in text
-    assert "--valid_ranges_reduced" in text
+    assert "element_hits_tracks_reduced" in text
+    assert "--element_hits_ranges_reduced" in text
 
 
 def test_erv_like_config_block_removed(project_root: Path) -> None:
