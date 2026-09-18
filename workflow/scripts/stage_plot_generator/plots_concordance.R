@@ -52,16 +52,15 @@ concordance_plot <- function(hits_df, subset_label = NULL,
 probe_yield_plot <- function(hits_df, subset_label = NULL,
                              warning_caption = NULL) {
   if (nrow(hits_df) == 0L) return(empty_plot())
-  stage_levels <- c("homology", "candidate", "domain_selected")
+  stage_levels <- c("homology", "candidate")
   d <- hits_df %>%
     dplyr::group_by(probe) %>%
     dplyr::summarise(
-      homology        = dplyr::n(),
-      candidate       = sum(is_candidate),
-      domain_selected = sum(domain_tier == "domain_selected", na.rm = TRUE),
-      .groups         = "drop"
+      homology  = dplyr::n(),
+      candidate = sum(is_candidate),
+      .groups   = "drop"
     ) %>%
-    tidyr::pivot_longer(c(homology, candidate, domain_selected),
+    tidyr::pivot_longer(c(homology, candidate),
                         names_to = "stage", values_to = "count") %>%
     dplyr::mutate(stage = factor(stage, levels = stage_levels))
   ordered_probe <- d %>%

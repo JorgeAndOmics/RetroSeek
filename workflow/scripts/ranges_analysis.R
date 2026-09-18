@@ -149,15 +149,13 @@ record_count("global_reduced_ranges", length(gr_global))
 # Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
 # ----------------------------------------------------------------------------
 log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
-domain_classes    <- load_domain_classes(opts$domain_classes_path)
 retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
-# Full Pfam superset (backs the any/none tier), each domain tagged with its
-# curated class; `selected_domains` is the informative subset of that.
-all_domains       <- extract_all_domains(ltr_data, domain_classes)
-selected_domains  <- extract_selected_domains(all_domains)
+# LTRdigest's protein domains, UNCLASSIFIED. The curated table is applied once,
+# in the domain scan, on accessions and at locus grain (ADR-016). Here they are
+# only counted, which is what LTRdigest can honestly report about an element.
+all_domains       <- extract_all_domains(ltr_data)
 flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
 record_count("retrotransposons",      length(retrotransposons))
-record_count("selected_domains",      length(selected_domains))
 record_count("all_domains",           length(all_domains))
 record_count("flanking_ltrs",         length(flanking_ltrs))
 
@@ -168,23 +166,15 @@ record_count("flanking_ltrs",         length(flanking_ltrs))
 log_section("Phase 6: identifying candidate + annotating ltr-flanked (valid) hits")
 candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
 candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
-# "valid" is now the WHOLE LTR-flanked set, labelled (not filtered) with Parent +
-# domain_tier. See annotate_ltr_flanked_hits / ADR-009, mechanism revised by ADR-015.
-valid_hits               <- annotate_ltr_flanked_hits(candidate_hits,         retrotransposons,
-                                                   selected_domains, all_domains)
-valid_hits_reduced       <- annotate_ltr_flanked_hits(candidate_hits_reduced, retrotransposons,
-                                                   selected_domains, all_domains)
+# "valid" is now the WHOLE LTR-flanked set, labelled (not filtered) with Parent.
+# See annotate_ltr_flanked_hits / ADR-009; domain labelling moved to the scan
+# (ADR-016).
+valid_hits               <- annotate_ltr_flanked_hits(candidate_hits,         retrotransposons)
+valid_hits_reduced       <- annotate_ltr_flanked_hits(candidate_hits_reduced, retrotransposons)
 record_count("candidate_ranges",           length(candidate_hits))
 record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
-# Per-provirus domain-tier breakdown of the LTR-flanked set (recall preserved: no
-# LTR-flanked hit is dropped, only labelled). Counts feed the loss/tier plots.
-.tier_of <- function(gr) if (length(gr) == 0L) character(0) else
-  as.character(S4Vectors::mcols(gr)$domain_tier)
-record_count("valid_domain_selected", sum(.tier_of(valid_hits) == "domain_selected"))
-record_count("valid_domain_unlisted", sum(.tier_of(valid_hits) == "domain_unlisted"))
-record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 
 # Non-LTR-associated orphans: the complement of the candidate set on the
 # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate

@@ -36,12 +36,7 @@ source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
     max_identity   = c(95, 70, 82, 90, 75),
     query_coverage = c(0.9, 0.4, 0.6, 0.85, 0.5),
     concordance    = c("inside", "flanking", "inside", "disjoint", "inside"),
-    is_candidate   = c(TRUE, TRUE, TRUE, FALSE, TRUE),
-    # domain_tier replaces the old is_valid boolean; NA for the non-LTR-flanked locus.
-    domain_tier    = c("domain_selected", "domain_unlisted", "domain_selected",
-                       NA_character_, "non_domain"),
-    domain_hit_class = c("substring_match", "no_substring_match", "substring_match",
-                         NA_character_, "no_substring_match")
+    is_candidate   = c(TRUE, TRUE, TRUE, FALSE, TRUE)
   )
 }
 
@@ -51,10 +46,8 @@ source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
     ID                 = paste0("retro_", 1:4),
     n_flanking_ltrs    = c(2L, 1L, 2L, 0L),
     has_both_ltrs      = c(TRUE, FALSE, TRUE, FALSE),
-    n_selected_domains = c(3L, 0L, 1L, 0L),
     n_domains_total    = c(5L, 1L, 1L, 0L),
-    domain_classes     = c("retroviral_diagnostic", NA,
-                           "non_ltr; retroviral_diagnostic", NA),
+    element_domains    = c("rve; RVT_1", NA, "Transposase_22; rve", NA),
     has_tsd            = c(TRUE, TRUE, FALSE, FALSE),
     n_tsd              = c(2L, 2L, 0L, 0L),
     has_ppt            = c(TRUE, FALSE, TRUE, FALSE),
@@ -150,8 +143,7 @@ test_that("warning_caption is accepted and still yields a ggplot", {
   enclosing_retro_width = c(500L, NA))
 
 .pd_df  <- function() tibble::tibble(hit_probe = c("GAG", "POL", "POL"),
-                                     domain_class = c("retroelement_shared", "retroelement_shared",
-                                                      "retroviral_diagnostic"))
+                                     domain_name = c("RVT_1", "RVT_1", "rve"))
 .cov_df <- function() tibble::tibble(
   metric = c("total_bp_unreduced", "total_bp_reduced"), value = c(50000, 32000))
 .ltr_struct_df <- function() tibble::tibble(width = c(5000L, 8000L),

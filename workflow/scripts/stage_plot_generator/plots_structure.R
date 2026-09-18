@@ -11,7 +11,7 @@
 # `has_both_ltrs` and `has_tsd` are ~constant (LTRharvest only emits 2-LTR,
 # TSD-flanked elements), so summing them into a score added no discrimination.
 # Each component is shown on its own facet instead; the genuinely-varying
-# signals (`n_selected_domains`, `n_domains_total`, `has_ppt`) carry the
+# signals (`n_domains_total`, `has_ppt`) carry the
 # information, and the near-constant ones are reported honestly as rates in the
 # subtitle rather than dressed up as a score.
 ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
@@ -26,16 +26,14 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
   yesno <- function(x) ifelse(x, "yes", "no")
 
   components <- c(
-    "Flanking LTRs (n)", "Probe-assigned domains (n)",
-    "Pfam domains, total (n)", "Polypurine tract (PPT)",
-    "Target-site duplication (TSD)"
+    "Flanking LTRs (n)", "Pfam domains, total (n)",
+    "Polypurine tract (PPT)", "Target-site duplication (TSD)"
   )
   d <- dplyr::bind_rows(
     tibble::tibble(component = components[1], category = bucket(ltr_df$n_flanking_ltrs)),
-    tibble::tibble(component = components[2], category = bucket(ltr_df$n_selected_domains)),
-    tibble::tibble(component = components[3], category = bucket(ltr_df$n_domains_total)),
-    tibble::tibble(component = components[4], category = yesno(ltr_df$has_ppt)),
-    tibble::tibble(component = components[5], category = yesno(ltr_df$has_tsd))
+    tibble::tibble(component = components[2], category = bucket(ltr_df$n_domains_total)),
+    tibble::tibble(component = components[3], category = yesno(ltr_df$has_ppt)),
+    tibble::tibble(component = components[4], category = yesno(ltr_df$has_tsd))
   ) %>%
     dplyr::count(component, category, name = "count") %>%
     dplyr::mutate(
@@ -68,29 +66,29 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
 }
 
 
-# Bar: which curated domain-class combinations occur across retrotransposons.
-# An element carrying only L1 machinery now reads as `non_ltr` rather than
-# being counted as POL by the retired name regex (ADR-015). The
+# Bar: which Pfam domain combinations occur across retrotransposons, by raw
+# name. Unclassified on purpose: what a domain means is decided once, in the
+# scan, at locus grain (ADR-016). The
 # long tail of rare combinations is folded into a single "Other (k)" stratum
 # via collapse_long_tail (shared with plot2sort).
 domain_composition_plot <- function(ltr_df, subset_label = NULL,
                                     top_n = 20L, warning_caption = NULL) {
   if (nrow(ltr_df) == 0L) return(empty_plot())
   d <- ltr_df %>%
-    dplyr::mutate(domain_classes = dplyr::if_else(is.na(domain_classes),
-                                                 "(no domains)", domain_classes)) %>%
-    dplyr::count(domain_classes, name = "count") %>%
-    collapse_long_tail("domain_classes", top_n = top_n, weight = "count") %>%
-    dplyr::group_by(domain_classes) %>%
+    dplyr::mutate(element_domains = dplyr::if_else(is.na(element_domains),
+                                                 "(no domains)", element_domains)) %>%
+    dplyr::count(element_domains, name = "count") %>%
+    collapse_long_tail("element_domains", top_n = top_n, weight = "count") %>%
+    dplyr::group_by(element_domains) %>%
     dplyr::summarise(count = sum(count), .groups = "drop")
-  ordered <- order_by_count(d, "domain_classes", weight = "count")
-  d <- d %>% dplyr::mutate(domain_classes = factor(domain_classes, levels = ordered))
+  ordered <- order_by_count(d, "element_domains", weight = "count")
+  d <- d %>% dplyr::mutate(element_domains = factor(element_domains, levels = ordered))
 
-  p <- ggplot(d, aes(x = domain_classes, y = count, fill = count)) +
+  p <- ggplot(d, aes(x = element_domains, y = count, fill = count)) +
     geom_col(colour = "black", linewidth = 0.2) +
     scale_fill_gradient(low = "#fff7ec", high = "#7f0000", trans = "sqrt") +
     theme_minimal() +
-    labs(x = "Domain-class combination", y = "Retrotransposons", fill = "Count") +
+    labs(x = "Domain combination", y = "Retrotransposons", fill = "Count") +
     theme(text = element_text(face = "bold"),
           axis.text.x = element_text(angle = 45, hjust = 1))
   out <- add_titles(

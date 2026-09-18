@@ -362,6 +362,12 @@ DISPLAY_OPERATION_INFO: bool = config["display"].get("display_operation_info", F
 
 # INPUT
 PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/_input/probes.csv")
+# Curated Pfam domain class table: the single place a Pfam family's meaning is
+# decided (ADR-016). Applied only by the domain scan; the ranges stage counts
+# LTRdigest's domains but deliberately does not classify them.
+PFAM_DOMAIN_CLASSES = _anchor(
+    config["input"].get("pfam_domain_classes"), "data/config/pfam_domain_classes.tsv"
+)
 
 # Genomes
 SPECIES_DICT: dict[str, str] = config.get("species", {})

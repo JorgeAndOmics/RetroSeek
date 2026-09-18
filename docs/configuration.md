@@ -290,6 +290,12 @@ across the model genomes it missed 43.8% of the retroviral-diagnostic signal
 discarded) while its POL pattern `ase` captured `Transposase_22`, an L1 ORF1p
 domain, 29,081 times.
 
+**Where it applies.** Exactly one place: the domain scan, which reads Pfam
+accessions and works at locus grain, for both tiers (ADR-016). The `ranges` stage
+counts LTRdigest's domains (`n_domains_total`, `element_domains`) but deliberately
+does not classify them, so there is one `domain_tier` in the project and it means
+one thing.
+
 Regenerating the subset is automatic: `pfam_subset_builder` reruns whenever this
 table or `Pfam-A.hmm` changes, and never per genome or per run.
 

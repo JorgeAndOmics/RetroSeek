@@ -183,21 +183,20 @@ def read_fasta(path: Path) -> dict[str, str]:
     return seqs
 
 
-def scan(
-    gff3: Path,
+def scan_regions(
+    bed: Path,
     genome: Path,
     hmm: Path,
     workdir: Path,
     source: str,
     threads: int,
-) -> pd.DataFrame:
-    """Scan every locus in `gff3` and return one row per (locus, domain hit)."""
-    workdir.mkdir(parents=True, exist_ok=True)
-    loci = build_loci(parse_valid_full(gff3))
-    logger.info("%s: %d loci to scan", source, len(loci))
+) -> list[dict[str, Any]]:
+    """Extract, translate and search the regions in `bed`. Returns raw hits.
 
-    bed, fna = workdir / "loci.bed", workdir / "loci.fna"
-    write_locus_bed(loci, bed)
+    Shared by the locus scan and the element scan. Keeping one body is what makes
+    the two comparable: they differ only in which regions the BED names.
+    """
+    fna = workdir / "regions.fna"
     run(
         [
             "Rscript",
@@ -236,43 +235,46 @@ def scan(
 
     hits = parse_domtblout(domtbl)
     logger.info("%s: %d domain hits at GA", source, len(hits))
-    scanned = {f"{lc['seqname']}|{lc['parent']}" for lc in loci}
-    for h in hits:
-        h["source"] = source
-    frame = pd.DataFrame(
-        hits,
-        columns=[
-            "locus_id",
-            "source",
-            "pfam_acc",
-            "pfam_name",
-            "bitscore",
-            "evalue",
-            "frame",
-        ],
-    )
+    for hit in hits:
+        hit["source"] = source
+    return hits
+
+
+_HIT_COLUMNS = [
+    "locus_id",
+    "source",
+    "pfam_acc",
+    "pfam_name",
+    "bitscore",
+    "evalue",
+    "frame",
+]
+
+
+def scan(
+    gff3: Path,
+    genome: Path,
+    hmm: Path,
+    workdir: Path,
+    source: str,
+    threads: int,
+) -> pd.DataFrame:
+    """Scan every catalogued locus in `gff3`, one row per (locus, domain hit)."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    loci = build_loci(parse_valid_full(gff3))
+    logger.info("%s: %d loci to scan", source, len(loci))
+    bed = workdir / "regions.bed"
+    write_locus_bed(loci, bed)
+    hits = scan_regions(bed, genome, hmm, workdir, source, threads)
+    frame = pd.DataFrame(hits, columns=_HIT_COLUMNS)
     # Loci that produced no hit still need a row in the provenance record, so the
     # classifier can tell `non_domain` (scanned, empty) from `not_scanned`.
-    frame.attrs["scanned"] = scanned
+    frame.attrs["scanned"] = {f"{lc['seqname']}|{lc['parent']}" for lc in loci}
     return frame
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Scan catalogued loci for Pfam domains"
-    )
-    parser.add_argument("--valid-gff3", type=Path, required=True)
-    parser.add_argument("--orphan-gff3", type=Path, required=True)
-    parser.add_argument("--genome", type=Path, required=True)
-    parser.add_argument("--hmm", type=Path, required=True)
-    parser.add_argument("--workdir", type=Path, required=True)
-    parser.add_argument("--out-parquet", type=Path, required=True)
-    parser.add_argument("--out-csv", type=Path, required=True)
-    parser.add_argument("--out-scanned", type=Path, required=True)
-    parser.add_argument("--threads", type=int, default=1)
-    args = parser.parse_args()
-    colored_logging(log_file_name=f"domain_scan_{args.genome.stem}.txt")
-
+def _run_loci(args: argparse.Namespace) -> None:
+    """Locus mode: the symmetric cross-tier scan that feeds the catalog columns."""
     frames, scanned = [], set()
     for gff3, source in (
         (args.valid_gff3, "ltr-flanked"),
@@ -292,6 +294,25 @@ def main() -> None:
     # "never looked"; without it the old ambiguity returns.
     args.out_scanned.write_text("\n".join(sorted(scanned)) + "\n", encoding="utf-8")
     logger.info("wrote %d domain hits over %d scanned loci", len(out), len(scanned))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Scan catalogued loci for Pfam domains"
+    )
+    parser.add_argument("--genome", type=Path, required=True)
+    parser.add_argument("--hmm", type=Path, required=True)
+    parser.add_argument("--workdir", type=Path, required=True)
+    parser.add_argument("--out-parquet", type=Path, required=True)
+    parser.add_argument("--out-csv", type=Path, required=True)
+    parser.add_argument("--threads", type=int, default=1)
+    parser.add_argument("--valid-gff3", type=Path, required=True)
+    parser.add_argument("--orphan-gff3", type=Path, required=True)
+    parser.add_argument("--out-scanned", type=Path, required=True)
+    args = parser.parse_args()
+    colored_logging(log_file_name=f"domain_scan_{args.genome.stem}.txt")
+
+    _run_loci(args)
 
 
 if __name__ == "__main__":

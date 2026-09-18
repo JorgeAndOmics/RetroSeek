@@ -112,72 +112,48 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
 
 # ---------------------------------------------------------------------------
 # annotate_ltr_flanked_hits KEEPS every candidate (nothing discarded) and labels
-# each with `Parent` (greatest-overlap element - the taxonomic classifier's
-# grouping anchor) and a per-provirus `domain_tier`. See ranges/validation.R,
-# ADR-009, and ADR-015 for the mechanism change from name regexes to curation.
+# each with `Parent`, the greatest-overlap element: the anchor the taxonomic
+# classifier groups a locus's per-gene hits by.
+#
+# It no longer emits a domain label. Domain evidence is classified once, in the
+# scan, at LOCUS grain, and lives in the catalog (ADR-016). An element-grain
+# `domain_tier` beside it meant one column name with two different answers.
 # ---------------------------------------------------------------------------
 source(file.path(.script_dir, "validation.R"))
 
-# Three elements exercising every domain_tier:
-#   retroA - carries a retroviral_diagnostic domain   -> domain_selected
-#   retroB - carries a domain, but classed non_ltr    -> domain_unlisted
-#   retroC - no protein domain at all                 -> non_domain
-.tier_fixture <- function() {
+.parent_fixture <- function() {
   retros <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(100, 1000, 2000), c(500, 1500, 2500)),
     strand = "+", ID = c("retroA", "retroB", "retroC")
-  )
-  # full protein_match superset with curated classes attached
-  # (extract_all_domains output): retroA's integrase + retroB's L1 domain.
-  all_domains <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(120, 1020), c(200, 1100)), strand = "+",
-    Parent = c("retroA", "retroB"),
-    domain_class = c("retroviral_diagnostic", "non_ltr")
   )
   candidates <- GenomicRanges::GRanges(
     "chr1", IRanges::IRanges(c(150, 350, 1100, 2100), c(300, 450, 1200, 2200)),
     strand = "+", probe = c("POL", "GAG", "POL", "ENV")
   )
-  list(retros = retros, all_domains = all_domains,
-       selected_domains = extract_selected_domains(all_domains),
-       candidates = candidates)
+  list(retros = retros, candidates = candidates)
 }
 
 test_that("annotate_ltr_flanked_hits keeps all candidates and attaches greatest-overlap Parent", {
-  f <- .tier_fixture()
-  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$selected_domains, f$all_domains)
+  f <- .parent_fixture()
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros)
   expect_equal(length(out), length(f$candidates))   # nothing discarded
   expect_equal(as.character(S4Vectors::mcols(out)$Parent),
                c("retroA", "retroA", "retroB", "retroC"))
 })
 
-test_that("domain_tier is element-wise: selected / unlisted / non_domain", {
-  f <- .tier_fixture()
-  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$selected_domains, f$all_domains)
-  expect_equal(as.character(S4Vectors::mcols(out)$domain_tier),
-               c("domain_selected", "domain_selected", "domain_unlisted", "non_domain"))
-})
-
-test_that("an L1 domain does not make an element domain_selected", {
-  # The retired regex matched "ase" against Transposase_22 and called it POL,
-  # which made L1-only elements look domain_selected. Curation must not.
-  f <- .tier_fixture()
-  out <- annotate_ltr_flanked_hits(f$candidates, f$retros, f$selected_domains, f$all_domains)
-  # candidate 3 sits in retroB, whose only domain is classed non_ltr
-  expect_equal(as.character(S4Vectors::mcols(out)$domain_tier)[3], "domain_unlisted")
-})
-
-test_that("extract_selected_domains keeps only the informative classes", {
-  f <- .tier_fixture()
-  expect_equal(length(f$selected_domains), 1L)
-  expect_equal(as.character(S4Vectors::mcols(f$selected_domains)$Parent), "retroA")
+test_that("annotate_ltr_flanked_hits emits no domain label", {
+  # The catalog owns domain_tier now; a second one here would be a trap.
+  f <- .parent_fixture()
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros)
+  expect_false("domain_tier" %in% names(S4Vectors::mcols(out)))
+  expect_false("domain_hit_class" %in% names(S4Vectors::mcols(out)))
 })
 
 test_that("annotate_ltr_flanked_hits on empty input returns a typed-empty GRanges", {
-  f <- .tier_fixture()
-  out <- annotate_ltr_flanked_hits(f$candidates[FALSE], f$retros, f$selected_domains, f$all_domains)
+  f <- .parent_fixture()
+  out <- annotate_ltr_flanked_hits(f$candidates[FALSE], f$retros)
   expect_equal(length(out), 0L)
-  expect_true(all(c("Parent", "domain_tier") %in% names(S4Vectors::mcols(out))))
+  expect_true("Parent" %in% names(S4Vectors::mcols(out)))
 })
 
 

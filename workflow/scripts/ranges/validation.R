@@ -7,8 +7,7 @@
 #                       (ERV); these are the LTR-flanked candidates for ERV identity.
 #   - LTR-flanked hits   = the candidate set, LABELLED (not filtered): every
 #                       candidate is kept and annotated with its enclosing
-#                       element (`Parent`), a per-provirus `domain_tier`, and a
-#                       per-hit `domain_hit_class`. Nothing is discarded - the
+#                       element (`Parent`). Nothing is discarded - the
 #                       "valid" tier is now the whole LTR-flanked set carrying the
 #                       labels needed to judge domain support downstream (ADR-009).
 #   - orphan hits     = the strand-aware complement: hits overlapping no element.
@@ -94,97 +93,43 @@ cluster_orphan_hits <- function(orphan_hits, max_provirus_len = Inf) {
 }
 
 
-# Per-retrotransposon boolean: does the element carry at least one domain whose
-# curated class is informative about retroviral identity?
+# Annotate every candidate (LTR-flanked) hit WITHOUT discarding any. Emits one
+# mcols column:
 #
-# This replaces the old probe-set union. The retired `config$domains` regex mapped
-# each domain NAME to a probe (POL/GAG/ENV), which is what made the per-hit
-# `domain_hit_class` possible; curation classifies a family biologically instead,
-# and carries no probe identity, so that per-hit grain is gone (it was written to
-# the track and then never read by anything downstream).
-build_retrotransposon_selected <- function(retrotransposons, selected_domains) {
-  retro_ids <- as.character(retrotransposons$ID)
-  selected  <- setNames(rep(FALSE, length(retro_ids)), retro_ids)
-  if (length(retro_ids) == 0L || length(selected_domains) == 0L) return(selected)
-  parents <- unique(as.character(selected_domains$Parent))
-  selected[intersect(parents, retro_ids)] <- TRUE
-  selected
-}
-
-
-# Per-retrotransposon boolean: does the element carry at least one LTRdigest
-# protein domain child (any Pfam, regardless of the config probe filter)?
-# `all_domains` are the `protein_match` features (extract_all_domains); each
-# points at its enclosing LTR_retrotransposon via `Parent`. This separates the
-# `domain_unlisted` tier (has domains, none config-matched) from `non_domain`.
-build_retrotransposon_domain_presence <- function(retrotransposons, all_domains) {
-  retro_ids <- as.character(retrotransposons$ID)
-  presence  <- setNames(rep(FALSE, length(retro_ids)), retro_ids)
-  if (length(retro_ids) == 0L || length(all_domains) == 0L) return(presence)
-  parents <- unique(as.character(all_domains$Parent))
-  presence[intersect(parents, retro_ids)] <- TRUE
-  presence
-}
-
-
-# Domain-tier precedence (strongest wins when a hit straddles several elements).
-.DOMAIN_TIER_RANK <- c(non_domain = 0L, domain_unlisted = 1L, domain_selected = 2L)
-
-
-# Annotate every candidate (LTR-flanked) hit WITHOUT discarding any. Emits two
-# mcols columns (ADR-009, mechanism revised by ADR-015):
+#   Parent   greatest-overlap LTR_retrotransposon id - the anchor the taxonomic
+#            classifier groups a locus's per-gene hits by.
 #
-#   Parent        greatest-overlap LTR_retrotransposon id - the anchor the
-#                 taxonomic classifier groups a locus's per-gene hits by.
-#   domain_tier   per-provirus, strongest across straddled elements:
-#                   domain_selected  >=1 domain curated as retroviral_diagnostic
-#                                    or retroelement_shared
-#                   domain_unlisted  has protein domains, none of those classes
-#                   non_domain       no protein domain at all
-#
-# `domain_hit_class` is gone. It was a per-hit grain that only existed because the
-# retired regex mapped each domain name to a probe; it rode the track and the loci
-# parser read it, but nothing downstream ever consumed the value.
-annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons,
-                                   selected_domains, all_domains) {
+# `domain_tier` no longer lives here (ADR-016). It was computed from LTRdigest's
+# domain NAMES at ELEMENT grain, while the catalog's `domain_tier` is computed
+# from the domain scan's ACCESSIONS at LOCUS grain. Two columns with one name and
+# two answers is a trap, so the curated classification happens once, in the scan.
+# What LTRdigest still contributes is `n_domains_total`, a count (stage_dataframe.R).
+annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons) {
   if (length(gr_candidates) == 0L || length(retrotransposons) == 0L) {
-    S4Vectors::mcols(gr_candidates)$Parent      <- character(0)
-    S4Vectors::mcols(gr_candidates)$domain_tier <- character(0)
+    S4Vectors::mcols(gr_candidates)$Parent <- character(0)
     return(gr_candidates)
   }
 
-  selected   <- build_retrotransposon_selected(retrotransposons, selected_domains)
-  has_domain <- build_retrotransposon_domain_presence(retrotransposons, all_domains)
-
-  # Element-wise tier for every retrotransposon (curated > any-domain > none).
   retro_ids <- as.character(retrotransposons$ID)
-  elem_tier <- vapply(retro_ids, function(id) {
-    if (isTRUE(selected[[id]])) "domain_selected"
-    else if (isTRUE(has_domain[[id]])) "domain_unlisted"
-    else "non_domain"
-  }, character(1))
-
   ov    <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons, ignore.strand = FALSE)
   qhits <- S4Vectors::queryHits(ov)
   shits <- S4Vectors::subjectHits(ov)
   retro_ids_per_subj <- retro_ids[shits]
 
-  n           <- length(gr_candidates)
-  domain_tier <- rep("non_domain", n)   # every candidate overlaps >=1 element
-  parent_of   <- rep(NA_character_, n)
-  best_w      <- rep(-1L, n)
+  n         <- length(gr_candidates)
+  parent_of <- rep(NA_character_, n)
+  best_w    <- rep(-1L, n)
 
   ov_widths <- IRanges::width(GenomicRanges::pintersect(
     gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE))
   for (i in seq_along(qhits)) {
-    q  <- qhits[i]
-    id <- retro_ids_per_subj[i]
-    t  <- elem_tier[[id]]
-    if (.DOMAIN_TIER_RANK[[t]] > .DOMAIN_TIER_RANK[[domain_tier[q]]]) domain_tier[q] <- t
-    if (ov_widths[i] > best_w[q]) { best_w[q] <- ov_widths[i]; parent_of[q] <- id }
+    q <- qhits[i]
+    if (ov_widths[i] > best_w[q]) {
+      best_w[q] <- ov_widths[i]
+      parent_of[q] <- retro_ids_per_subj[i]
+    }
   }
 
-  S4Vectors::mcols(gr_candidates)$Parent      <- parent_of
-  S4Vectors::mcols(gr_candidates)$domain_tier <- domain_tier
+  S4Vectors::mcols(gr_candidates)$Parent <- parent_of
   gr_candidates
 }

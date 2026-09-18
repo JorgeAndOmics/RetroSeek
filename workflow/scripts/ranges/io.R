@@ -92,10 +92,6 @@ read_pipeline_options <- function(config) {
     # per-locus marker reliability used by the taxonomic classifier. unique()
     # preserves first-seen order, so keep it.
     main_probes         = unique(config$parameters$main_probes),
-    # Curated Pfam domain class table (data/config/pfam_domain_classes.tsv).
-    # Replaces the retired `config$domains` regex map; see granges_build.R.
-    domain_classes_path = config$input$pfam_domain_classes %||%
-                            "data/config/pfam_domain_classes.tsv",
     agg_virus           = agg$virus            %||% "list",
     agg_label           = agg$label            %||% "list",
     agg_probe           = agg$probe            %||% "list",

@@ -168,7 +168,7 @@ rule pfam_hmm_downloader:
 rule pfam_subset_builder:
     input:
         hmm     = rules.pfam_hmm_downloader.output.hmm,
-        classes = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv')
+        classes = defaults.PFAM_DOMAIN_CLASSES
     output:
         hmm      = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam-A.retro.hmm'),
         name_map = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'pfam_name_to_acc.tsv')
@@ -1163,7 +1163,7 @@ rule taxonomy_classify_setup:
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
         domains   = rules.domain_scanner_setup.output.parquet,
         scanned   = rules.domain_scanner_setup.output.scanned,
-        dom_class = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv'),
+        dom_class = defaults.PFAM_DOMAIN_CLASSES,
         faa       = rules.taxonomy_reference.output.faa,
         csv       = rules.taxonomy_reference.output.csv,
         taxonomy  = rules.taxonomy_reference.output.taxonomy,
@@ -1249,7 +1249,7 @@ rule taxonomy_orphans_setup:
         genome    = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
         domains   = rules.domain_scanner_setup.output.parquet,
         scanned   = rules.domain_scanner_setup.output.scanned,
-        dom_class = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'pfam_domain_classes.tsv'),
+        dom_class = defaults.PFAM_DOMAIN_CLASSES,
         faa       = rules.taxonomy_reference.output.faa,
         csv       = rules.taxonomy_reference.output.csv,
         taxonomy  = rules.taxonomy_reference.output.taxonomy,

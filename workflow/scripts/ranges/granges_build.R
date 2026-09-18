@@ -82,54 +82,20 @@ extract_repeat_regions <- function(ltr_data) {
 }
 
 
-# Load the curated Pfam domain class table (data/config/pfam_domain_classes.tsv)
-# as a name -> class lookup.
+# Pull ALL LTRdigest protein domains (the `protein_match` features).
 #
-# Matching is on the domain NAME because that is all `gt ltrdigest` records; it
-# never writes the accession. Names are unique within one Pfam release (38.2:
-# 30,134 names, 30,134 accessions, no duplicates) but they are NOT stable across
-# releases, so this lookup is only as good as the Pfam version the tracks were
-# built with. The classifier joins the same table on accession, which is stable,
-# because its scan records accessions.
+# Deliberately UNCLASSIFIED. The curated Pfam table is applied exactly once, in
+# the domain scan (workflow/scripts/domains/), on accessions and at locus grain.
+# Applying it a second time here, to LTRdigest's NAMES, would give two different
+# answers to what looks like the same question, and the name-keyed one rots
+# across Pfam releases (22 of the 6,175 names in the current tracks are already
+# absent from Pfam 38.2). See ADR-016.
 #
-# This replaces the retired `config$domains` regex map, which substring-matched
-# domain names against probe patterns. That was measurably wrong: "ase" matched
-# `Transposase_22` (an L1 ORF1p domain) 29,081 times while `rve`, `RVP`,
-# `IN_DBD_C` and `GP41` matched nothing and were discarded.
-load_domain_classes <- function(path) {
-  tbl <- utils::read.delim(path, stringsAsFactors = FALSE)
-  stats::setNames(as.character(tbl$class), as.character(tbl$pfam_name))
-}
-
-
-# Classes that make an element `domain_selected`. Mirrors SELECTED_CLASSES in
-# workflow/scripts/domains/domain_classes.py - the two must agree.
-SELECTED_DOMAIN_CLASSES <- c("retroviral_diagnostic", "retroelement_shared")
-
-
-# Pull ALL LTRdigest protein domains (the `protein_match` features) and attach
-# each one's curated class as a `domain_class` mcol.
-#
-# This is LTRdigest's full view of an element's coding capacity, drawn from the
-# whole of Pfam. It backs the "does this element carry ANY protein domain?" signal
-# that separates `domain_unlisted` (has domains, none curated as informative) from
-# `non_domain` (no domain at all). A domain absent from the curated table is
-# classed "other" rather than dropped, matching DEFAULT_CLASS in
-# workflow/scripts/domains/domain_classes.py.
-extract_all_domains <- function(ltr_data, domain_classes = NULL) {
-  doms <- ltr_data[ltr_data$type == "protein_match"]
-  if (length(doms) == 0L || is.null(domain_classes)) return(doms)
-  cls <- unname(domain_classes[as.character(doms$name)])
-  S4Vectors::mcols(doms)$domain_class <- ifelse(is.na(cls), "other", cls)
-  doms
-}
-
-
-# Narrow annotated domains to the classes that are informative about retroviral
-# identity. Everything else still counts towards `domain_unlisted`.
-extract_selected_domains <- function(all_domains) {
-  if (length(all_domains) == 0L) return(all_domains)
-  all_domains[S4Vectors::mcols(all_domains)$domain_class %in% SELECTED_DOMAIN_CLASSES]
+# What survives is a count: how many protein domains LTRdigest saw in this
+# element. That is a structural observation, not a judgement about what the
+# element is, and it is what `n_domains_total` and the circle plots report.
+extract_all_domains <- function(ltr_data) {
+  ltr_data[ltr_data$type == "protein_match"]
 }
 
 
