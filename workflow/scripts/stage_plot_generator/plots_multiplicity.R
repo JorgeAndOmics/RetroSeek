@@ -25,12 +25,9 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
   tiers <- dplyr::bind_rows(
     hits_df %>% dplyr::transmute(n_hits, tier = "original"),
     hits_df %>% dplyr::filter(is_candidate) %>%
-      dplyr::transmute(n_hits, tier = "candidate"),
-    hits_df %>% dplyr::filter(domain_tier == "domain_selected") %>%
-      dplyr::transmute(n_hits, tier = "domain_selected")
+      dplyr::transmute(n_hits, tier = "candidate")
   ) %>%
-    dplyr::mutate(tier = factor(tier,
-                                levels = c("original", "candidate", "domain_selected"))) %>%
+    dplyr::mutate(tier = factor(tier, levels = c("original", "candidate"))) %>%
     dplyr::count(tier, n_hits, name = "loci")
 
   p <- ggplot(tiers, aes(x = n_hits, y = loci, fill = tier)) +

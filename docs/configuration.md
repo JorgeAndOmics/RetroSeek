@@ -50,7 +50,6 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_resize` | int >= 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
 | `ltr_flank_margin` | int >= 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** - typos fail validation. |
-| `hit_domain_mode` | `membership` \| `positional` | `membership` | How the per-hit `domain_hit_class` on LTR-flanked hits is decided. `membership`: a hit is `substring_match` when its own gene has a config-matched (`domains`) Pfam domain **anywhere in its enclosing LTR element** (co-occurrence; cheap) - values `substring_match` / `no_substring_match`. `positional`: `substring_match` only when the hit **physically overlaps** a config-matched domain of its gene (co-localization; stronger), adding a `non_domain` level for hits overlapping no domain. Orthogonal to the per-provirus `domain_tier`, which is always element-wise. **Strict enum.** |
 | `main_probes` | **ordered** list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). **The order is meaningful and does four jobs at once** - see "How `main_probes` is used" below. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. Duplicates are ignored, but unlike a set the sequence is read, so reordering this list changes published columns. |
 | `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
 
@@ -248,21 +247,57 @@ Base directories. Must be absolute paths. Everything under `data/`, `results/`, 
 | `results_root_folder` | Output tracks, tables, plots. |
 | `logs_root_folder` | Per-rule log files. |
 
-## `domains`
+## `input.pfam_domain_classes`
 
-Map of probe name -> list of domain patterns. Patterns are treated as case-insensitive regexes by `ranges_analysis.R` when assigning probes to LTRdigest Pfam hits. Example:
+Path to the curated Pfam domain class table. Default
+`data/config/pfam_domain_classes.tsv`.
 
-```yaml
-domains:
-  POL:
-    - "ase"
-    - "RVT_1"
-    - "RVT_2"
-  GAG:
-    - "Gag"
-    - "zf"
-    - "PTAP"
+Three columns, one row per Pfam family:
+
 ```
+pfam_acc    pfam_name       class
+PF00665     rve             retroviral_diagnostic
+PF00078     RVT_1           retroelement_shared
+PF02994     Transposase_22  non_ltr
+PF03184     DDE_1           dna_transposon
+PF00098     zf-CCHC         other
+```
+
+`pfam_acc` is the key and is unversioned (`PF00665`, not `PF00665.33`). Pfam
+guarantees accession stability but reserves the right to rename families, so an
+accession-keyed table survives a Pfam upgrade where a name-keyed one would not.
+`pfam_name` is kept because `gt ltrdigest` records only names.
+
+The five classes, ordered most to least informative about retroviral identity:
+
+| class | meaning |
+|---|---|
+| `retroviral_diagnostic` | essentially exclusive to retroviruses and close relatives (`rve`, `RVP`, `TLV_coat`, `Gag_p24`, `GP41`) |
+| `retroelement_shared` | reverse-transcribing element, but shared with LINEs and others (`RVT_1`, `RNase_H`) |
+| `non_ltr` | LINE/L1 machinery, evidence *against* a retroviral origin (`Transposase_22`, `ORF2p_C`) |
+| `dna_transposon` | cut-and-paste transposon (`DDE_1`, `Dimer_Tnp_hAT`) |
+| `other` | a real domain, but host housekeeping; says nothing about element type |
+
+The first two classes make a locus `domain_selected`; any other class makes it
+`domain_unlisted`; no domain at all is `non_domain`. A family absent from the
+table is treated as `other` and is still reported in `domain_names`, never
+dropped.
+
+This table replaces the former `domains` block, a map of probe name to
+case-insensitive name regexes. That mechanism was retired in ADR-015: measured
+across the model genomes it missed 43.8% of the retroviral-diagnostic signal
+(`rve`, `RVP`, `IN_DBD_C`, `MLVIN_C` and `GP41` matched no pattern and were
+discarded) while its POL pattern `ase` captured `Transposase_22`, an L1 ORF1p
+domain, 29,081 times.
+
+**Where it applies.** Exactly one place: the domain scan, which reads Pfam
+accessions and works at locus grain, for both tiers (ADR-016). The `ranges` stage
+counts LTRdigest's domains (`n_domains_total`, `element_domains`) but deliberately
+does not classify them, so there is one `domain_tier` in the project and it means
+one thing.
+
+Regenerating the subset is automatic: `pfam_subset_builder` reruns whenever this
+table or `Pfam-A.hmm` changes, and never per genome or per run.
 
 ## `species`
 

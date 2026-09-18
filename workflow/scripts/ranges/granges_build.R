@@ -82,56 +82,20 @@ extract_repeat_regions <- function(ltr_data) {
 }
 
 
-# Build a domain-name -> probe regex map from the config$domains list.
-# Each probe's pattern alternates its domain regexes via "|".
-build_domain_map <- function(config_domains) {
-  vapply(config_domains, function(domain_regexes) {
-    paste(domain_regexes, collapse = "|")
-  }, character(1))
-}
-
-
-# Given a single domain `name` (the GFF3 `name` attribute, typically a Pfam
-# domain), return the probe whose regex matches first. Among multiple matches,
-# prefer the most-specific (longest probe name).
-assign_probe_to_domain_name <- function(domain_name, domain_map) {
-  matched <- vapply(names(domain_map), function(probe) {
-    grepl(domain_map[[probe]], domain_name, ignore.case = TRUE)
-  }, logical(1))
-  if (!any(matched)) return(NA_character_)
-  candidates <- names(domain_map)[matched]
-  candidates[order(nchar(candidates), decreasing = TRUE)[1]]
-}
-
-
-# Pull ALL LTRdigest protein domains (the `protein_match` features), regardless
-# of whether they match the config probe regexes. This is LTRdigest's full view
-# of an element's coding capacity - the superset from which
-# `extract_domains_with_probes` selects the config-matched subset. It backs the
-# "does this element carry ANY protein domain?" signal that separates the
-# `domain_unlisted` tier (has domains, none config-matched) from `non_domain`
-# (no domain at all). See annotate_ltr_flanked_hits in validation.R (ADR-009).
+# Pull ALL LTRdigest protein domains (the `protein_match` features).
+#
+# Deliberately UNCLASSIFIED. The curated Pfam table is applied exactly once, in
+# the domain scan (workflow/scripts/domains/), on accessions and at locus grain.
+# Applying it a second time here, to LTRdigest's NAMES, would give two different
+# answers to what looks like the same question, and the name-keyed one rots
+# across Pfam releases (22 of the 6,175 names in the current tracks are already
+# absent from Pfam 38.2). See ADR-016.
+#
+# What survives is a count: how many protein domains LTRdigest saw in this
+# element. That is a structural observation, not a judgement about what the
+# element is, and it is what `n_domains_total` and the circle plots report.
 extract_all_domains <- function(ltr_data) {
   ltr_data[ltr_data$type == "protein_match"]
-}
-
-
-# Pull domain features (those with a non-NA `name` attribute) and assign each
-# a probe label via the domain_map. Domains without a probe assignment are
-# dropped - they cannot contribute to validation.
-extract_domains_with_probes <- function(ltr_data, domain_map) {
-  doms <- ltr_data[!is.na(ltr_data$name)]
-  if (length(doms) == 0L) {
-    S4Vectors::mcols(doms)$probe <- character(0)
-    return(doms)
-  }
-  S4Vectors::mcols(doms)$probe <- vapply(
-    doms$name,
-    assign_probe_to_domain_name,
-    domain_map = domain_map,
-    FUN.VALUE = character(1)
-  )
-  doms[!is.na(doms$probe)]
 }
 
 

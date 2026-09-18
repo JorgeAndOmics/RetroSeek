@@ -11,7 +11,6 @@ execution: include('execution_schema')
 input: include('input_schema')
 display: include('display_schema')
 root: include('root_schema')
-domains: include('domains_schema')
 species: include('species_schema')
 
 ---
@@ -46,7 +45,6 @@ parameters_schema:
   ltr_resize: int(min=0)
   ltr_flank_margin: int(min=0)
   merge_option: str(matches='^(virus|label)$')
-  hit_domain_mode: str(matches='^(membership|positional)$', required=False)
   probe_to_pair: str(required=False)
   pair_max_gap: num(min=0)
   main_probes: list(str())
@@ -148,6 +146,9 @@ execution_schema:
 input_schema:
   probe_csv: str()
   species_tree: str(required=False)
+  # Curated Pfam domain class table. Optional: defaults to
+  # data/config/pfam_domain_classes.tsv.
+  pfam_domain_classes: str(required=False)
 
 display_schema:
   display_snakemake_info: bool()
@@ -159,7 +160,5 @@ root_schema:
   data_root_folder: str()
   results_root_folder: str()
   logs_root_folder: str()
-
-domains_schema: map(list(str()), key=str())
 
 species_schema: map(str(), key=str())

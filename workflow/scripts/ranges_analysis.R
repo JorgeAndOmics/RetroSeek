@@ -14,7 +14,7 @@
 #   4. Globally reduce per probe across virus|label groupings.
 #   5. Process LTRdigest into retrotransposons, domains-with-probes, and
 #      flanking LTRs.
-#   6. Identify candidate hits (LTR-overlapping) and valid hits (probe matches
+#   6. Identify LTR-flanked (valid) hits: those overlapping an LTR element
 #      a Pfam-domain probe in the same retrotransposon).
 #   7. Build the per-row plot dataframe + attach probe_category to all tracks.
 #   8. Export GFF3 / BED6 / parquet / overlap matrix / manifest.
@@ -64,7 +64,6 @@ parser$add_argument("--probe_dict",               required = TRUE,
                                  "per-hit query_coverage."))
 parser$add_argument("--config",                   required = TRUE)
 parser$add_argument("--original_ranges",          required = TRUE)
-parser$add_argument("--candidate_ranges",         required = TRUE)
 parser$add_argument("--orphans_ranges",         required = TRUE,
                     help = paste("GFF3 of non-LTR-associated orphans (reduced",
                                  "BLAST hits overlapping no retrotransposon).",
@@ -149,42 +148,32 @@ record_count("global_reduced_ranges", length(gr_global))
 # Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
 # ----------------------------------------------------------------------------
 log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
-domain_map        <- build_domain_map(opts$domains)
 retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
-domains_w_probes  <- extract_domains_with_probes(ltr_data, domain_map)
-all_domains       <- extract_all_domains(ltr_data)   # full Pfam superset (any/none tier)
+# LTRdigest's protein domains, UNCLASSIFIED. The curated table is applied once,
+# in the domain scan, on accessions and at locus grain (ADR-016). Here they are
+# only counted, which is what LTRdigest can honestly report about an element.
+all_domains       <- extract_all_domains(ltr_data)
 flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
 record_count("retrotransposons",      length(retrotransposons))
-record_count("domains_with_probes",   length(domains_w_probes))
 record_count("all_domains",           length(all_domains))
 record_count("flanking_ltrs",         length(flanking_ltrs))
 
 
 # ----------------------------------------------------------------------------
-# Phase 6. Candidate + valid (annotated LTR-flanked) hits
+# Phase 6. LTR-flanked (valid) hits
 # ----------------------------------------------------------------------------
-log_section("Phase 6: identifying candidate + annotating ltr-flanked (valid) hits")
-candidate_hits           <- find_candidate_hits(gr_virus,  retrotransposons)
-candidate_hits_reduced   <- find_candidate_hits(gr_global, retrotransposons)
-# "valid" is now the WHOLE LTR-flanked set, labelled (not filtered) with Parent +
-# domain_tier + domain_hit_class. See annotate_ltr_flanked_hits / ADR-009.
-valid_hits               <- annotate_ltr_flanked_hits(candidate_hits,         retrotransposons,
-                                                   domains_w_probes, all_domains,
-                                                   opts$hit_domain_mode, opts$agg_concat_separator)
-valid_hits_reduced       <- annotate_ltr_flanked_hits(candidate_hits_reduced, retrotransposons,
-                                                   domains_w_probes, all_domains,
-                                                   opts$hit_domain_mode, opts$agg_concat_separator)
-record_count("candidate_ranges",           length(candidate_hits))
-record_count("candidate_ranges_reduced",   length(candidate_hits_reduced))
+# The former "candidate" tier is gone (ADR-016). It was `find_candidate_hits`
+# output, and "valid" was the same rows with a `Parent` attached: identical
+# counts in every genome (Homo 36,348 = 36,348; Mus 153,248 = 153,248), two GFF3
+# tracks holding the same features, and two funnel bars of the same height. Once
+# ADR-009 stopped valid from filtering anything, the distinction had no content.
+log_section("Phase 6: annotating ltr-flanked (valid) hits")
+valid_hits         <- annotate_ltr_flanked_hits(
+  find_candidate_hits(gr_virus,  retrotransposons), retrotransposons)
+valid_hits_reduced <- annotate_ltr_flanked_hits(
+  find_candidate_hits(gr_global, retrotransposons), retrotransposons)
 record_count("valid_ranges",               length(valid_hits))
 record_count("valid_ranges_reduced",       length(valid_hits_reduced))
-# Per-provirus domain-tier breakdown of the LTR-flanked set (recall preserved: no
-# LTR-flanked hit is dropped, only labelled). Counts feed the loss/tier plots.
-.tier_of <- function(gr) if (length(gr) == 0L) character(0) else
-  as.character(S4Vectors::mcols(gr)$domain_tier)
-record_count("valid_domain_selected", sum(.tier_of(valid_hits) == "domain_selected"))
-record_count("valid_domain_unlisted", sum(.tier_of(valid_hits) == "domain_unlisted"))
-record_count("valid_non_domain",      sum(.tier_of(valid_hits) == "non_domain"))
 
 # Non-LTR-associated orphans: the complement of the candidate set on the
 # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
@@ -225,8 +214,6 @@ plot_df <- build_plot_dataframe(
 )
 gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
 gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
-candidate_hits         <- attach_probe_category(candidate_hits,       opts$main_probes, opts$agg_concat_separator)
-candidate_hits_reduced <- attach_probe_category(candidate_hits_reduced, opts$main_probes, opts$agg_concat_separator)
 valid_hits             <- attach_probe_category(valid_hits,           opts$main_probes, opts$agg_concat_separator)
 valid_hits_reduced     <- attach_probe_category(valid_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
 orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
@@ -238,12 +225,10 @@ orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, 
 log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
 gen_ver <- resolve_generator_version()
 
-# original + candidate tiers: unreduced GFF3 only. The reduced exports were
-# retired (only valid needs a reduced track); gr_global / candidate_hits_reduced
-# are still computed above because valid_hits_reduced and the reduction_
-# multiplicity table depend on them.
+# Original tier: unreduced GFF3 only. The reduced exports were retired (only
+# valid keeps a reduced track); gr_global is still computed above because
+# valid_hits_reduced and the reduction_multiplicity table depend on it.
 track_exporter(gr_virus,               args$original_ranges,          gen_ver)
-track_exporter(candidate_hits,         args$candidate_ranges,         gen_ver)
 
 # Orphan tier: orphan hits exported with the same probe=/label= GFF3
 # attributes as the valid track PLUS a synthetic Parent= from proximity
@@ -257,7 +242,7 @@ bed_exporter(  valid_hits_reduced,     sub("\\.gff3$", ".bed", args$valid_ranges
 
 track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
-overlap_matrix_exporter(gr_virus, candidate_hits, valid_hits,
+overlap_matrix_exporter(gr_virus, valid_hits,
                         args$overlap_matrix_parquet, args$overlap_matrix_csv)
 
 # Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
@@ -273,9 +258,9 @@ write_one <- function(table, df) {
 
 write_one("final_loci", plot_df)
 write_one("homology_loci",
-          build_stage_hits_df(gr_virus, retrotransposons, candidate_hits, valid_hits))
+          build_stage_hits_df(gr_virus, retrotransposons, valid_hits))
 write_one("ltr_structure",
-          build_stage_ltr_df(retrotransposons, flanking_ltrs, domains_w_probes,
+          build_stage_ltr_df(retrotransposons, flanking_ltrs, all_domains,
                              ltr_data, gr_virus))
 write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
 # Genomic counts as their own long-form table - the run manifest no longer
@@ -287,9 +272,9 @@ write_one("counts", tibble::tibble(
 # Provirus overlap / LTR-interaction tables - feed the new provirus plots.
 write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
 write_one("ltr_interaction",
-          build_stage_ltr_interaction_df(gr_virus, retrotransposons, domains_w_probes))
+          build_stage_ltr_interaction_df(gr_virus, retrotransposons, all_domains))
 write_one("probe_domain_overlap",
-          build_stage_probe_domain_df(gr_virus, domains_w_probes))
+          build_stage_probe_domain_df(gr_virus, all_domains))
 # Pre/post-reduction total range length (bp) - numeric (not in the integer
 # counts table, to avoid overflow on large genomes).
 write_one("reduction_coverage", tibble::tibble(

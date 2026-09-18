@@ -179,6 +179,13 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["TAXONOMY_TABLES_PARQUET_DIR"],
     PATH_DICT["TAXONOMY_TABLES_CSV_DIR"],
 ) = table_dirs("taxonomy_classification")
+# Per-genome protein-domain evidence: one row per (locus, domain hit) for BOTH
+# tiers, produced by the domain scan (domains/scan_domains.py). Durable on
+# purpose - TMP_DIR is wiped by the blast_pkl2parquet checkpoint.
+(
+    PATH_DICT["DOMAIN_TABLES_PARQUET_DIR"],
+    PATH_DICT["DOMAIN_TABLES_CSV_DIR"],
+) = table_dirs("domains")
 # Tree coordinates (ADR-011) - flat x/y segment + tip tables written by
 # tree_layout.py so the R plot generators can draw the taxon and host-species
 # trees with geom_segment, without an R tree library.
@@ -271,7 +278,6 @@ PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
 PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve()
-PATH_DICT["TRACK_CANDIDATES_DIR"] = (PATH_DICT["TRACK_DIR"] / "candidates").resolve()
 PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
 # Taxonomic-classification tier - per-locus genus calls projected to genome
@@ -327,6 +333,11 @@ PATH_DICT["DOWNLOAD_LOG"] = (PATH_DICT["LOG_DIR"] / "download_log.log").resolve(
 
 # === Accessory Tools ===
 PATH_DICT["HMM_PROFILE_DIR"] = (PATH_DICT["ACCESSORY_DB"] / "hmm_profiles").resolve()
+# The curated Pfam subset and the name->accession map derived from it. Kept under
+# DATA_DIR, not beside Pfam-A.hmm: ACCESSORY_DB is a read-only input mount, and
+# these are pipeline-derived artifacts that must be rebuildable from the config
+# table plus the full library.
+PATH_DICT["HMM_SUBSET_DIR"] = (PATH_DICT["DATA_DIR"] / "hmm_profiles").resolve()
 
 
 # Directory generation
@@ -350,6 +361,12 @@ DISPLAY_OPERATION_INFO: bool = config["display"].get("display_operation_info", F
 
 # INPUT
 PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/_input/probes.csv")
+# Curated Pfam domain class table: the single place a Pfam family's meaning is
+# decided (ADR-016). Applied only by the domain scan; the ranges stage counts
+# LTRdigest's domains but deliberately does not classify them.
+PFAM_DOMAIN_CLASSES = _anchor(
+    config["input"].get("pfam_domain_classes"), "data/config/pfam_domain_classes.tsv"
+)
 
 # Genomes
 SPECIES_DICT: dict[str, str] = config.get("species", {})
