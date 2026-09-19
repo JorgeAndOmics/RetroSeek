@@ -112,6 +112,62 @@ A phylogeny of 1,212 LTR sequences across all three classes (MAFFT, IQ-TREE
 Full working, with every calibration curve and both negative results, is in
 `notebooks/solo_ltr_native_method.Rmd`.
 
+### The bait-set similarity threshold, calibrated
+
+Criterion 5's 95% identity is an age filter, so the bait set limits how old a solo
+can be and still be found. The remedy is to supply older bait from an LTRharvest run
+at relaxed `-similar`. Which relaxation is defensible was measured rather than
+guessed.
+
+LTRharvest was run at `-similar` 85, 80, 75, 70, 65 and 60 on two genomes
+(`orchestration/harvest_sweep/`, 76 to 105 minutes per run). The 85 run reproduced
+the production element count **exactly** (9,893 for Desmodus), which is the control
+on the harness. Each threshold's *new* elements, matched on coordinates, were then
+six-frame translated and scanned against the ADR-015 curated subset at `--cut_ga`.
+
+Raw domain fractions are uninterpretable on their own: 48% of production elements
+carry a LINE-1 ORF2p domain, but the median element is 7.6 kb and Desmodus is
+roughly a fifth LINE-1 by mass. So the identical scan was run on 9,893
+**length-matched random windows**, drawn from the real length distribution, placed
+uniformly over sequence mass, and rejected if they touched any element found at
+`-similar 60` or exceeded 20% N. Both sets produce exactly 59,358 translated frames.
+
+Enrichment over that null, for Desmodus:
+
+| set | n | retroviral_diagnostic | retroelement_shared | non_ltr (L1) |
+|---|---|---|---|---|
+| `-similar 85` (production) | 9,893 | **23.1x** | 5.4x | 2.2x |
+| new at 80 | 3,427 | 8.6x | 3.7x | 2.3x |
+| new at 75 | 1,521 | 3.9x | 2.4x | 1.8x |
+| new at 70 | 489 | 3.6x | 1.6x | 1.5x |
+| new at 65 | 133 | **0.0x** | 0.2x | 1.4x |
+| new at 60 | 34 | **0.0x** | 0.9x | 0.3x |
+
+DNA transposons come out **depleted** at 0.3x in the production set, which is the
+negative control working: the enrichment is specific to retroelements, not to
+repeats in general.
+
+Two conclusions:
+
+1. **The bait range is `-similar` 75 to 80.** That adds roughly 4,900 older elements
+   to the bait set while every step stays several-fold above the null. Below 70 the
+   new elements carry no retroviral-diagnostic family at all and their shared-RT
+   content falls *below* the null, so they are indistinguishable from random genomic
+   sequence. This is an empirical floor.
+2. **The production `-similar 85` is not changed.** Its 23.1x enrichment is the
+   cleanest tier available, and the relaxed run is a separate bait-only artifact
+   that never enters the catalog.
+
+Antrozous pallidus replicates the saturation shape (26,499 elements at 85, +34% at
+80, then under 1% per step from 70 down), so the curve is a property of the method
+rather than of one genome.
+
+A side benefit: the null control bounds the non-LTR contamination question that
+motivated retiring the LTR_retriever route. At 2.2x over background the L1 signal in
+element intervals is mostly genomic L1 bleeding into 7.6 kb windows, not LTRharvest
+pairing the flanks of LINE arrays. That bounds the problem; it does not resolve
+individual cases, which needs per-element L1 masking (see Consequences).
+
 ## What this gives up
 
 **Sensitivity to ancient solos.** Criterion 5's identity requirement is an age
@@ -164,7 +220,7 @@ a hand-curated LTR-to-internal dictionary that the paper is explicit cannot be
 automated for human. Their curated human dictionary is from the 2012 library.
 Revisit if ancient solos become the binding constraint.
 
-**`dante_ltr_solo`** (Novák et al. 2024, *NAR Genomics and Bioinformatics* 6:113).
+**`dante_ltr_solo`** (Novak et al. 2024, *NAR Genomics and Bioinformatics* 6:113).
 Purpose-built, TSD-validated, emits the solo/complete ratio directly. Rejected:
 plant-benchmarked, self-labelled work in progress, and installs from a personal
 conda channel rather than bioconda.
@@ -181,6 +237,6 @@ conda channel rather than bioconda.
 - `notebooks/solo_ltr_native_method.Rmd` - the full calibration and validation.
 - Ou & Jiang 2018, *Plant Physiology* 176:1410. doi:10.1104/pp.17.01310.
 - Bailly-Bechet, Haudry & Lerat 2014, *Mobile DNA* 5:13. doi:10.1186/1759-8753-5-13.
-- Novák et al. 2024, *NAR Genomics and Bioinformatics* 6:113.
+- Novak et al. 2024, *NAR Genomics and Bioinformatics* 6:113.
 - `origin/solo-ltr-v1-archive` - the superseded LTR_retriever implementation.
 - Gotcha 60 - LTR_retriever output traps, preserved from that branch.
