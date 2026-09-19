@@ -49,12 +49,12 @@ suppressMessages({
   "raw_blast_hits",        1L,          "main",           NA_character_,           "raw tBLASTn hits",
   "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
   "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
-  "valid_ranges",          4L,          "main",           "first_reduced_ranges",  "ltr-flanked (LTR-overlapping)",
+  "element_hits_ranges",          4L,          "main",           "first_reduced_ranges",  "ltr-flanked (LTR-overlapping)",
   "global_reduced_ranges", 5L,          "orphan",         "first_reduced_ranges",  "global reduction",
   "orphans",               6L,          "orphan",         "global_reduced_ranges", "non-LTR orphan hits",
   "orphans_total",         7L,          "orphan",         "orphans",               "orphan loci (clustered)",
   "orphans_recovered",     8L,          "orphan",         "orphans_total",         "orphans recovered",
-  "loci_total",            9L,          "classification", "valid_ranges",          "ltr-flanked loci (grouped)",
+  "loci_total",            9L,          "classification", "element_hits_ranges",          "ltr-flanked loci (grouped)",
   "loci_classified",      10L,          "classification", "loci_total",            "loci classified",
   "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "loci w/ no blastx hit"
 )

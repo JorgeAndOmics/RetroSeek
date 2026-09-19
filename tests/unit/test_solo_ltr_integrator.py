@@ -1,6 +1,6 @@
 """Unit tests for ``workflow/scripts/solo_ltr_integrator.py``.
 
-Covers the four parsers (``parse_valid_ranges``, ``parse_ltr_library_headers``,
+Covers the four parsers (``parse_element_hits``, ``parse_ltr_library_headers``,
 ``parse_nmtf_pass_list``, ``_parse_coord_column``) and the two label-
 propagation paths (consensus-family primary + nearest-ERV fallback) plus
 the solo/intact ratio computation.
@@ -24,9 +24,9 @@ from solo_ltr_integrator import (
     _parse_coord_column,
     _parse_probes_from_gff3_attrs,
     compute_solo_intact_ratio,
+    parse_element_hits,
     parse_ltr_library_headers,
     parse_nmtf_pass_list,
-    parse_valid_ranges,
     propagate_labels,
 )
 
@@ -51,16 +51,16 @@ def test_parse_probes_returns_empty_when_no_probe_attr() -> None:
 
 
 # ---------------------------------------------------------------------
-# parse_valid_ranges
+# parse_element_hits
 # ---------------------------------------------------------------------
-def test_parse_valid_ranges_extracts_id_probes_coords(tmp_path: Path) -> None:
+def test_parse_element_hits_extracts_id_probes_coords(tmp_path: Path) -> None:
     """ID + probe_labels + coords (1->0-indexed) are read off the GFF3 row."""
     gff = tmp_path / "valid.gff3"
     gff.write_text(
         "##gff-version 3\n"
         "chr1\tRS\tERV\t101\t300\t.\t+\t.\tID=erv1;probe_labels=ENV,GAG\n"
     )
-    ranges = parse_valid_ranges(gff)
+    ranges = parse_element_hits(gff)
     assert len(ranges) == 1
     r = ranges[0]
     assert r.chrom == "chr1"
@@ -139,7 +139,7 @@ def test_parse_nmtf_pass_list_extracts_coords_and_family(tmp_path: Path) -> None
 # propagate_labels - primary path (family) and fallback (nearest_erv)
 # ---------------------------------------------------------------------
 def test_propagate_labels_uses_family_path_when_resolvable() -> None:
-    """When source-ERV IDs map to valid_ranges entries, label_source=family."""
+    """When source-ERV IDs map to element_hits entries, label_source=family."""
     valid = [
         ValidRange(chrom="chr1", start=99, end=300, probes=["ENV"], erv_id="erv1"),
         ValidRange(chrom="chr1", start=999, end=1200, probes=["GAG"], erv_id="erv2"),
@@ -155,7 +155,7 @@ def test_propagate_labels_uses_family_path_when_resolvable() -> None:
 
 
 def test_propagate_labels_falls_back_to_nearest_erv() -> None:
-    """When no source IDs match valid_ranges, take the nearest valid ERV's labels."""
+    """When no source IDs match element_hits, take the nearest valid ERV's labels."""
     valid = [
         ValidRange(chrom="chr1", start=4900, end=4950, probes=["POL"], erv_id="ervN"),
     ]

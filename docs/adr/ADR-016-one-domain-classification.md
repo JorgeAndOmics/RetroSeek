@@ -99,11 +99,22 @@ of the overlap matrix and the duplicated funnel step are removed.
 `build_stage_hits_df` takes one set instead of two, and `is_candidate` keeps its
 name because it still says something true: the hit overlaps an LTR element.
 
-The track is NOT renamed here. `valid` is a poor name for a set that no longer
-excludes anything, and `element_hits` is the intended replacement, but
-`valid_ranges` has 24 receivers and four of them belong to the solo-LTR
-workstream, whose branch is unmerged and already edits the same lines. The
-rename lands with that work, in one pass instead of two.
+## The track is renamed to `element_hits`
+
+`valid` described a status that no longer exists: nothing is invalidated, ADR-009
+made it a label, and the sections above removed the last label it carried. The
+track is now `results/tracks/element_hits/`, and `is_candidate` is
+`is_ltr_flanked`.
+
+`ltr_flanked` was rejected. `results/tracks/flanking_ltr/` already exists and
+holds the LTR **arms** (`long_terminal_repeat` features carrying `arm=L`/`arm=R`,
+52,998 of them for Antrozous). Two directories whose names are near-anagrams,
+naming an element's arms and the hits between them, is a trap. `ltr-flanked`
+stays correct as the catalog's `source` VALUE, which is a different namespace.
+
+ADR-003 and ADR-009 carry a terminology note rather than a rewrite, following the
+precedent ADR-009 itself set for anchored -> ltr-flanked. The dated
+`docs/taxonomy_classification/*.md` logs are historical record and are untouched.
 
 ## Consequences
 

@@ -83,16 +83,16 @@ RetroSeek brings two things LTR_retriever doesn't: (1) a probe-based classificat
 
 **Problem.** LTR_retriever's Stage 1 keeps all structurally-sound LTR retrotransposons, including Copia/Gypsy/BEL/Pao. Their LTRs cluster into families in Stage 2, those families' consensuses are BLASTed back in Stage 3, and the solo LTRs reported include non-retroviral solos. Most of them, for typical eukaryotic genomes.
 
-**Solution.** Before handing LTRharvest output to LTR_retriever, we **intersect the SCN file with RetroSeek's `valid_ranges.gff3`** - the domain-validated retroviral ERV track. Only LTRharvest candidates that overlap a retroviral-confirmed valid range survive into LTR_retriever's input. As a result:
+**Solution.** Before handing LTRharvest output to LTR_retriever, we **intersect the SCN file with RetroSeek's `element_hits/{genome}.gff3`** - the domain-validated retroviral ERV track. Only LTRharvest candidates that overlap a retroviral-confirmed valid range survive into LTR_retriever's input. As a result:
 
 - LTR_retriever's Stage 1 sees a candidate pool restricted to retroviral-confirmed positions.
 - Stage 2's consensus library is built from retroviral LTR sequences only.
 - Stage 3's BLAST-back hits match retroviral consensuses.
 - Solo LTRs reported are guaranteed retroviral by construction.
 
-This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`. From a single read pass over the input `.scn` + `.des` (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `valid_ranges.gff3`, the script emits **both** SCN files:
+This is implemented in `workflow/scripts/ltr_retriever_prefilter.py`. From a single read pass over the input `.scn` + `.des` (LTRharvest's sequence-index descriptor, mapping seq-nr back to chromosome names) + `element_hits/{genome}.gff3`, the script emits **both** SCN files:
 
-- `data/ltr_scn/{genome}_retroviral.scn` - rows whose `[s(ret), e(ret)]` overlaps a `valid_ranges` interval on the same chromosome. Closed-interval, 0-indexed semantics. This is the file LTR_retriever currently consumes.
+- `data/ltr_scn/{genome}_retroviral.scn` - rows whose `[s(ret), e(ret)]` overlaps an `element_hits` interval on the same chromosome. Closed-interval, 0-indexed semantics. This is the file LTR_retriever currently consumes.
 - `data/ltr_scn/{genome}_full.scn` - every well-formed source row, byte-equivalent to the LTRharvest stdout (modulo malformed rows). This is the unfiltered passthrough, kept on disk for inspection and as the backing file for the upcoming `source_scn: full` mode.
 
 Both files always materialise; which one drives LTR_retriever is a runtime config decision via `config.ltr_retriever.source_scn` (`retroviral` | `full`, default `retroviral`). Keeping the full SCN on disk makes ad-hoc inspection trivial and supports side-by-side comparisons between filter modes.
@@ -106,14 +106,14 @@ The filename underscore separator (`_retroviral.scn`, `_full.scn`, not dotted fo
 - Those labels drive hotspot analysis, plot categorisation, and probe-pair detection.
 - Users think in probe-family terms, not in LTR_retriever's internal cluster IDs.
 
-**Solution.** `workflow/scripts/solo_ltr_integrator.py` propagates probe labels from RetroSeek's `valid_ranges.gff3` onto LTR_retriever's solo LTRs using a **hybrid two-tier approach**.
+**Solution.** `workflow/scripts/solo_ltr_integrator.py` propagates probe labels from RetroSeek's `element_hits/{genome}.gff3` onto LTR_retriever's solo LTRs using a **hybrid two-tier approach**.
 
 #### Primary path - consensus-family mapping
 
 For each solo LTR:
 
 1. Look up its family in `LTRlib.fa` (the headers list source-ERV IDs contributing to the consensus).
-2. Match those source-ERV IDs against `valid_ranges.gff3` - the RetroSeek ERVs that seeded this family's consensus.
+2. Match those source-ERV IDs against `element_hits/{genome}.gff3` - the RetroSeek ERVs that seeded this family's consensus.
 3. Collect probe labels from every matching valid ERV.
 4. Assign the union of those labels to the solo LTR.
 5. Record `label_source=family` and list the contributing ERVs in the GFF3 attributes.
@@ -126,8 +126,8 @@ The primary path may fail for several reasons:
 
 - The solo LTR's family is unresolved (e.g., LTR_retriever couldn't confidently classify it).
 - `LTRlib.fa` header format doesn't surface source-ERV IDs parseably (version-dependent).
-- Source-ERV IDs from LTR_retriever (e.g., `LTR_retrotransposon5`, which references LTRharvest's candidate numbering) don't match RetroSeek's ID nomenclature in `valid_ranges.gff3`.
-- A family exists but none of its source ERVs are in `valid_ranges.gff3` (e.g., filtered out at RetroSeek's domain-validation stage).
+- Source-ERV IDs from LTR_retriever (e.g., `LTR_retrotransposon5`, which references LTRharvest's candidate numbering) don't match RetroSeek's ID nomenclature in `element_hits/{genome}.gff3`.
+- A family exists but none of its source ERVs are in `element_hits/{genome}.gff3` (e.g., filtered out at RetroSeek's domain-validation stage).
 
 When the primary path yields zero labels, the integrator falls back:
 

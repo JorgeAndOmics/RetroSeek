@@ -12,7 +12,7 @@
 #                       labels needed to judge domain support downstream (ADR-009).
 #   - orphan hits     = the strand-aware complement: hits overlapping no element.
 #
-# This replaces the earlier find_valid_hits filter (which dropped every LTR-flanked
+# This replaces the earlier find_element_hits filter (which dropped every LTR-flanked
 # hit lacking a matching Pfam domain) with a findOverlaps + per-retrotransposon
 # probe-set membership annotation.
 

@@ -4,6 +4,13 @@
 - **Date**: 2026-04-24
 - **Deciders**: Jorge González García
 
+> **Terminology note (2026-09-18).** What this ADR calls the **`valid`** track
+> (`valid_ranges.gff3`) is now named **`element_hits`**
+> (`results/tracks/element_hits/{genome}.gff3`) - see ADR-016. Nothing is
+> invalidated any more, so the old name described a status that no longer
+> exists. This file keeps the original wording because an ADR records what was
+> decided at the time.
+
 ## Context
 
 RetroSeek needed to add **solo-LTR detection** - finding the single-LTR remnants of ancient retroviral integrations that LTRharvest cannot detect structurally because it only reports paired-LTR candidates. The chosen approach integrates LTR_retriever as a post-processor of LTRharvest output, which internally handles solo-LTR discovery by building consensus LTR sequences from intact ERVs and BLASTing them back against the genome.

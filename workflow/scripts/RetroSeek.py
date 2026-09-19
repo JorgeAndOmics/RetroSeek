@@ -192,7 +192,7 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         "--solo-ltr-detection",
         action="store_true",
         help="Solo-LTR detection via LTR_retriever; retroviral-only pre-filter "
-        "via valid_ranges; multi-label probe-label propagation; emits "
+        "via element_hits_ranges; multi-label probe-label propagation; emits "
         "solo_ltr/{genome}.gff3 + solo_intact_ratio/{genome}.csv + "
         "solo_intact_ratio/all_species.csv.",
     )

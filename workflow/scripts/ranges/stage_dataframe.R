@@ -28,7 +28,7 @@ suppressMessages({
 
 
 # One row per gr_virus locus. `concordance` classifies each homology locus by
-# its spatial relationship to the LTRdigest retrotransposons; `is_candidate`
+# its spatial relationship to the LTRdigest retrotransposons; `is_ltr_flanked`
 # flags whether the locus is LTR-flanked (overlaps an element).
 #
 # There is deliberately no domain column here (ADR-016). Domain evidence is
@@ -36,7 +36,7 @@ suppressMessages({
 # element-grain `domain_tier` beside it meant one name with two answers.
 # `n_hits` is M1 - the
 # count of threshold-passing raw tBLASTn hits collapsed into the locus.
-build_stage_hits_df <- function(gr_virus, retrotransposons, valid_hits,
+build_stage_hits_df <- function(gr_virus, retrotransposons, element_hits,
                                 flanking_window = .STAGE_FLANKING_WINDOW) {
   empty <- tibble::tibble(
     seqnames = character(0), start = integer(0), end = integer(0),
@@ -45,7 +45,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, valid_hits,
     species = character(0), n_hits = integer(0),
     max_bitscore = numeric(0), max_identity = numeric(0),
     query_coverage = numeric(0), concordance = character(0),
-    is_candidate = logical(0)
+    is_ltr_flanked = logical(0)
   )
   if (length(gr_virus) == 0L) return(empty)
 
@@ -64,7 +64,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, valid_hits,
   }
 
   ids      <- as.character(S4Vectors::mcols(gr_virus)$ID)
-  ltr_flanked_ids <- as.character(S4Vectors::mcols(valid_hits)$ID)
+  ltr_flanked_ids <- as.character(S4Vectors::mcols(element_hits)$ID)
 
   df <- as.data.frame(gr_virus, stringsAsFactors = FALSE)
   tibble::tibble(
@@ -82,7 +82,7 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, valid_hits,
     max_identity     = as.numeric(df$max_identity),
     query_coverage   = as.numeric(df$query_coverage),
     concordance      = concordance,
-    is_candidate     = ids %in% ltr_flanked_ids,
+    is_ltr_flanked     = ids %in% ltr_flanked_ids,
   )
 }
 

@@ -46,7 +46,7 @@ concordance_plot <- function(hits_df, subset_label = NULL,
 
 
 # Grouped bar: per probe, locus count surviving each refinement stage
-# (homology -> candidate -> domain_selected). `is_candidate` nests inside
+# (homology -> candidate -> domain_selected). `is_ltr_flanked` nests inside
 # homology, and the domain_selected tier nests inside candidate, so the bars are
 # monotonically non-increasing within a probe.
 probe_yield_plot <- function(hits_df, subset_label = NULL,
@@ -57,7 +57,7 @@ probe_yield_plot <- function(hits_df, subset_label = NULL,
     dplyr::group_by(probe) %>%
     dplyr::summarise(
       homology  = dplyr::n(),
-      candidate = sum(is_candidate),
+      candidate = sum(is_ltr_flanked),
       .groups   = "drop"
     ) %>%
     tidyr::pivot_longer(c(homology, candidate),

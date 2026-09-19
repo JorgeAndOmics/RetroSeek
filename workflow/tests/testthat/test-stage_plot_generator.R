@@ -36,7 +36,7 @@ source(file.path(.scripts, "stage_plot_generator", "plots_ltr_interaction.R"))
     max_identity   = c(95, 70, 82, 90, 75),
     query_coverage = c(0.9, 0.4, 0.6, 0.85, 0.5),
     concordance    = c("inside", "flanking", "inside", "disjoint", "inside"),
-    is_candidate   = c(TRUE, TRUE, TRUE, FALSE, TRUE)
+    is_ltr_flanked   = c(TRUE, TRUE, TRUE, FALSE, TRUE)
   )
 }
 

@@ -278,7 +278,13 @@ PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()
 PATH_DICT["TRACK_ORIGINAL_DIR"] = (PATH_DICT["TRACK_DIR"] / "original").resolve()
-PATH_DICT["TRACK_VALID_DIR"] = (PATH_DICT["TRACK_DIR"] / "valid").resolve()
+# Probe hits that fall inside an LTR element, the complement of TRACK_ORPHANS_DIR.
+# Renamed from "valid" (ADR-016): nothing is invalidated, so the old name described
+# a status that does not exist. NOT "ltr_flanked", which would sit confusingly
+# beside FLANKING_LTR_DIR, a different thing (the LTR arms themselves).
+PATH_DICT["TRACK_ELEMENT_HITS_DIR"] = (
+    PATH_DICT["TRACK_DIR"] / "element_hits"
+).resolve()
 PATH_DICT["TRACK_HOTSPOTS_DIR"] = (PATH_DICT["TRACK_DIR"] / "hotspots").resolve()
 # Taxonomic-classification tier - per-locus genus calls projected to genome
 # coordinates (GFF3 + BED for IGV, colour-by-genus). Additive to the valid tier.

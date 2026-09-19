@@ -1,4 +1,4 @@
-"""Pre-filter LTRharvest SCN output by intersecting with valid_ranges.gff3.
+"""Pre-filter LTRharvest SCN output by intersecting with element_hits.gff3.
 
 This is *Coupling A* of the LTR_retriever integration. RetroSeek's
 ``ranges_analysis`` step has already validated a subset of LTRharvest
@@ -6,7 +6,7 @@ candidates as retroviral by domain matching; this script writes two SCN
 files from a single read pass:
 
 * ``{genome}_retroviral.scn`` - the rows whose paired-LTR coordinates
-  overlap a valid_ranges interval on the same chromosome. This is the
+  overlap a element_hits interval on the same chromosome. This is the
   default LTR_retriever input under ``config.ltr_retriever.source_scn:
   retroviral``: LTR_retriever's family-building and BLAST-back passes
   see only retroviral-confirmed candidates, so the solo LTRs it
@@ -37,9 +37,9 @@ LTRharvest SCN
     Companion to the suffix-array index. Line ``N`` (0-indexed) holds
     the chromosome name assigned to ``seq-nr = N``. Used to translate
     the SCN's ``seq-nr`` column into chromosome names that match
-    valid_ranges.gff3.
+    element_hits.gff3.
 
-valid_ranges.gff3
+element_hits.gff3
     RetroSeek's domain-validated retroviral ERV track - output of
     ``ranges_analysis_setup``. Standard GFF3: comment lines start with
     ``#``, data rows have 9 tab-separated fields.
@@ -59,7 +59,7 @@ Usage (CLI)
     python ltr_retriever_prefilter.py \\
         --scn data/ltr_scn/{genome}.scn \\
         --des SPECIES_DB/{genome}/{genome}.des \\
-        --valid-ranges results/tracks/valid/{genome}.gff3 \\
+        --element-hits results/tracks/element_hits/{genome}.gff3 \\
         --output-retroviral data/ltr_scn/{genome}_retroviral.scn \\
         --output-full       data/ltr_scn/{genome}_full.scn
 """
@@ -119,7 +119,7 @@ def _parse_des(des_path: Path) -> list[str]:
     return names
 
 
-def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
+def _parse_element_hits(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
     """Return per-chromosome sorted list of (start, end) intervals, 0-indexed.
 
     GFF3 is 1-indexed closed; this converts start to 0-indexed (``- 1``)
@@ -130,7 +130,7 @@ def _parse_valid_ranges(gff3_path: Path) -> dict[str, list[tuple[int, int]]]:
     silently skipped.
     """
     if not gff3_path.exists():
-        raise FileNotFoundError(f"valid_ranges GFF3 not found: {gff3_path}")
+        raise FileNotFoundError(f"element_hits GFF3 not found: {gff3_path}")
     intervals: dict[str, list[tuple[int, int]]] = defaultdict(list)
     with gff3_path.open() as handle:
         for raw in handle:
@@ -173,7 +173,7 @@ def _any_overlap(start: int, end: int, intervals: list[tuple[int, int]] | None) 
 def prefilter_scn(
     scn_path: Path,
     des_path: Path,
-    valid_ranges_path: Path,
+    element_hits_path: Path,
     retroviral_output_path: Path,
     full_output_path: Path,
 ) -> tuple[int, int, int]:
@@ -185,7 +185,7 @@ def prefilter_scn(
 
     Each well-formed data row is always written to ``full_output_path``;
     it is *also* written to ``retroviral_output_path`` iff its paired-LTR
-    coordinates overlap a valid_ranges interval on the same chromosome.
+    coordinates overlap a element_hits interval on the same chromosome.
 
     Returns
     -------
@@ -196,7 +196,7 @@ def prefilter_scn(
         ``rows_in`` modulo malformed rows.
     """
     chrom_names = _parse_des(des_path)
-    valid_intervals = _parse_valid_ranges(valid_ranges_path)
+    element_hits_intervals = _parse_element_hits(element_hits_path)
 
     rows_in = 0
     rows_kept_retroviral = 0
@@ -236,7 +236,7 @@ def prefilter_scn(
                 # from retroviral but it's already in full.
                 continue
             chrom = chrom_names[seq_nr]
-            if _any_overlap(ret_start, ret_end, valid_intervals.get(chrom)):
+            if _any_overlap(ret_start, ret_end, element_hits_intervals.get(chrom)):
                 fout_retroviral.write(raw)
                 rows_kept_retroviral += 1
 
@@ -256,10 +256,10 @@ def main(argv: list[str] | None = None) -> int:
         help="LTRharvest/suffixerator .des file (one chromosome name per line).",
     )
     parser.add_argument(
-        "--valid-ranges",
+        "--element-hits",
         type=Path,
         required=True,
-        help="Path to valid_ranges.gff3 from ranges_analysis_setup.",
+        help="Path to element_hits.gff3 from ranges_analysis_setup.",
     )
     parser.add_argument(
         "--output-retroviral",
@@ -276,12 +276,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    logger.info("Pre-filtering SCN %s against %s", args.scn, args.valid_ranges)
+    logger.info("Pre-filtering SCN %s against %s", args.scn, args.element_hits)
 
     rows_in, rows_kept_retroviral, rows_kept_full = prefilter_scn(
         scn_path=args.scn,
         des_path=args.des,
-        valid_ranges_path=args.valid_ranges,
+        element_hits_path=args.element_hits,
         retroviral_output_path=args.output_retroviral,
         full_output_path=args.output_full,
     )

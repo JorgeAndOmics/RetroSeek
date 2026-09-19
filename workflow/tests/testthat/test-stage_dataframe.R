@@ -69,7 +69,7 @@ test_that("build_stage_hits_df classifies inside / flanking / disjoint concordan
   expect_equal(df$concordance[df$probe == "POL"], "inside")    # overlaps retro_1
   expect_equal(df$concordance[df$probe == "GAG"], "flanking")  # ~600 bp from retro_2
   expect_equal(df$concordance[df$probe == "ENV"], "disjoint")  # far from all retros
-  expect_equal(df$is_candidate, c(TRUE, TRUE, FALSE))
+  expect_equal(df$is_ltr_flanked, c(TRUE, TRUE, FALSE))
   # domain labels join by ID; non-LTR-flanked locus 3 (ENV) is NA.
   expect_false("domain_tier" %in% colnames(df))   # one domain column, in the catalog
   expect_equal(df$n_hits, c(5L, 2L, 1L))   # M1 carried through unchanged
@@ -79,7 +79,7 @@ test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
   empty <- .fake_gr_virus()[FALSE]
   df <- build_stage_hits_df(empty, .fake_retros(), empty)
   expect_equal(nrow(df), 0L)
-  expect_true(all(c("concordance", "is_candidate", "n_hits") %in% colnames(df)))
+  expect_true(all(c("concordance", "is_ltr_flanked", "n_hits") %in% colnames(df)))
 })
 
 
