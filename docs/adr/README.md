@@ -25,6 +25,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 014   | [Publishing placement evidence + cophylogeny](ADR-014-publishing-placement-evidence-and-cophylogeny.md) | Accepted |
 | 015   | [Domain evidence from one symmetric scan, curated by accession](ADR-015-domain-evidence-by-symmetric-scan.md) | Accepted |
 | 016   | [One domain classification, at locus grain](ADR-016-one-domain-classification.md) | Accepted |
+| 017   | [Native solo-LTR detection, using detected LTRs as bait](ADR-017-native-solo-ltr-detection.md) | Accepted |
 
 ## When to write a new ADR
 
