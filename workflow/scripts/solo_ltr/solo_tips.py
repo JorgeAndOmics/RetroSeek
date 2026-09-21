@@ -124,6 +124,14 @@ def main(argv: list[str] | None = None) -> int:
         f"tree tips: {len(tips)} flanking arms, {len(solos)} solos, "
         f"{len(monos)} monoLTRs-at-orphans -> {written} total"
     )
+    # IQ-TREE cannot build a tree from fewer than three sequences, and it fails
+    # with a message that does not point back here. Say what is actually wrong.
+    if written < 3:
+        raise SystemExit(
+            f"only {written} tree tips: too few to build a phylogeny. This genome "
+            f"has almost no ERV-bearing elements, so there is nothing for the tree "
+            f"to show. Set solo_ltr.tree.enable to false to skip the tree stage."
+        )
     return 0
 
 
