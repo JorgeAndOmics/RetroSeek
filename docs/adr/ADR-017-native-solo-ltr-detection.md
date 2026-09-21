@@ -132,35 +132,62 @@ roughly a fifth LINE-1 by mass. So the identical scan was run on 9,893
 uniformly over sequence mass, and rejected if they touched any element found at
 `-similar 60` or exceeded 20% N. Both sets produce exactly 59,358 translated frames.
 
-Enrichment over that null, for Desmodus:
+Enrichment over that null. Counts matter as much as ratios here, because the
+marginal sets shrink by two orders of magnitude as the threshold falls, so a step can
+read "0.0% retroviral" simply for holding too few elements to contain one:
 
-| set | n | retroviral_diagnostic | retroelement_shared | non_ltr (L1) |
+| step | n | retroviral obs (exp) | ratio [95% CI] | any curated domain |
 |---|---|---|---|---|
-| `-similar 85` (production) | 9,893 | **23.1x** | 5.4x | 2.2x |
-| new at 80 | 3,427 | 8.6x | 3.7x | 2.3x |
-| new at 75 | 1,521 | 3.9x | 2.4x | 1.8x |
-| new at 70 | 489 | 3.6x | 1.6x | 1.5x |
-| new at 65 | 133 | **0.0x** | 0.2x | 1.4x |
-| new at 60 | 34 | **0.0x** | 0.9x | 0.3x |
+| **Desmodus** `-similar 85` | 9,893 | 389 (15.0) | 25.9x [15.5-43.4] | 2.5x [2.4-2.7] |
+| new at 80 | 3,427 | 50 (5.2) | 9.6x [5.4-17.1] | 2.3x [2.2-2.5] |
+| new at 75 | 1,521 | 10 (2.3) | 4.3x [1.9-9.7] | 1.8x [1.7-2.0] |
+| new at 70 | 489 | 3 (0.7) | 4.0x [1.2-14.0] | 1.4x [1.2-1.7] |
+| new at 65 | 133 | 0 (0.2) | uninformative | 1.2x [0.9-1.7] |
+| new at 60 | 34 | 0 (0.1) | uninformative | 0.6x [0.3-1.4] |
+| **Antrozous** `-similar 85` | 26,499 | 883 (83.0) | 10.6x [8.5-13.3] | 1.8x [1.8-1.9] |
+| new at 80 | 10,050 | 109 (31.5) | 3.5x [2.6-4.6] | 1.4x [1.3-1.4] |
+| new at 75 | 3,758 | 27 (11.8) | 2.3x [1.5-3.5] | 1.2x [1.1-1.2] |
+| new at 70 | 1,245 | 4 (3.9) | 1.0x [0.4-2.8] | 1.1x [0.9-1.2] |
+| new at 65 | 366 | 1 (1.1) | 0.9x [0.1-6.3] | 0.9x [0.7-1.1] |
+| new at 60 | 117 | 0 (0.4) | uninformative | 1.1x [0.8-1.6] |
 
-DNA transposons come out **depleted** at 0.3x in the production set, which is the
-negative control working: the enrichment is specific to retroelements, not to
-repeats in general.
+DNA transposons come out **depleted** in both genomes (0.3x Desmodus, 0.6x
+Antrozous), which is the negative control working: the enrichment is specific to
+retroelements, not to repeats in general.
 
-Two conclusions:
+"Any curated domain" is included because it is the only well-powered column at the
+small steps. Its counts are in the thousands where the retroviral count is in single
+digits, so its intervals are +/- 0.2x rather than +/- 14x.
 
-1. **The bait range is `-similar` 75 to 80.** That adds roughly 4,900 older elements
-   to the bait set while every step stays several-fold above the null. Below 70 the
-   new elements carry no retroviral-diagnostic family at all and their shared-RT
-   content falls *below* the null, so they are indistinguishable from random genomic
-   sequence. This is an empirical floor.
-2. **The production `-similar 85` is not changed.** Its 23.1x enrichment is the
-   cleanest tier available, and the relaxed run is a separate bait-only artifact
-   that never enters the catalog.
+Three conclusions:
 
-Antrozous pallidus replicates the saturation shape (26,499 elements at 85, +34% at
-80, then under 1% per step from 70 down), so the curve is a property of the method
-rather than of one genome.
+1. **The bait threshold is `-similar 80`.** It is the only relaxation whose
+   enrichment is unambiguous in BOTH genomes (9.6x and 3.5x, both intervals
+   excluding 1), and it captures about two thirds of everything the sweep can
+   recover: 3,427 of 5,537 new Desmodus elements, 10,050 of 14,932 in Antrozous. The
+   remaining third costs most of the signal-to-noise.
+2. **The floor is real but is not a constant.** Enrichment decays monotonically in
+   both genomes, and "any curated domain" reaches the null at the 70-to-65 step in
+   Desmodus and at 75-to-70 in Antrozous. Going below 80 therefore needs per-genome
+   justification that five genomes cannot support. Note that the retroviral column's
+   zeros below 70 are NOT evidence of absence: at the null rate only 0.2 retroviral
+   elements are expected in 133, so a one-sided bound on zero events cannot even
+   exclude 14x enrichment. An earlier draft of this ADR read those zeros as a sharp
+   floor at 70, which they do not establish.
+3. **Production `-similar 85` is not changed.** It is the cleanest tier available,
+   and the relaxed run is a separate bait-only artifact that never enters the
+   catalog.
+
+The two genomes differ by 2.5x in baseline enrichment (25.9x against 10.6x at the
+same setting), so any single threshold is a compromise across genomes of differing
+catalog cleanliness. `-similar 80` is chosen because it is the one setting that is
+safe in both.
+
+Ratios are quoted to one decimal but are not that precise: the null denominator for
+the retroviral class is ~15 windows of 9,893 in Desmodus, so two independent null
+draws moved the baseline ratio between 23.1x and 25.9x while agreeing closely in
+absolute counts (15 vs 17 retroviral, 340 vs 336 shared-RT, 2,121 vs 2,142 L1). Read
+the intervals, not the point estimates.
 
 A side benefit: the null control bounds the non-LTR contamination question that
 motivated retiring the LTR_retriever route. At 2.2x over background the L1 signal in
