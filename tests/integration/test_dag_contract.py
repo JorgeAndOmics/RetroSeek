@@ -59,6 +59,64 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
 
 
 # ---------------------------------------------------------------------
+# Native solo-LTR detection (ADR-017)
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "rule_name",
+    [
+        "solo_bait_builder_setup",
+        "solo_blaster_setup",
+        "solo_finder_setup",
+        "solo_annotator_setup",
+        "solo_tree_setup",
+        "solo_plot_generator_setup",
+        "solo_ltr_native",
+    ],
+)
+def test_native_solo_ltr_rule_present(project_root: Path, rule_name: str) -> None:
+    """Every stage of the native solo-LTR chain must stay in the workflow."""
+    assert rule_name in _all_rules(project_root)
+
+
+def test_native_solo_route_does_not_write_the_ltr_retriever_paths(
+    project_root: Path,
+) -> None:
+    """The two routes run side by side, so they must not share output paths.
+
+    Two rules writing one file is a DAG conflict rather than a style question, and
+    it would also make the locus-level comparison between the methods impossible.
+    """
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    native = text[text.index("rule solo_bait_builder_setup") :]
+    assert "TRACK_SOLO_NATIVE_DIR" in native
+    assert "SOLO_LTR_DIR" not in native, (
+        "the native chain must not write into the LTR_retriever track directory"
+    )
+
+
+def test_solo_thresholds_come_from_config_not_literals(project_root: Path) -> None:
+    """Every acceptance threshold must be read from config, never hard-coded.
+
+    The prototype had these as literals; moving them into config.yaml is what lets
+    a threshold be changed in one place and stay consistent across the scripts.
+    """
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    native = text[
+        text.index("rule solo_finder_setup") : text.index("rule solo_finder:")
+    ]
+    for key in (
+        "min_identity",
+        "min_coverage",
+        "max_coverage",
+        "min_alignment_length",
+        "min_hit_length",
+        "merge_gap",
+        "orphan_pad",
+    ):
+        assert f"_SOLO['{key}']" in native, f"{key} is not read from config"
+
+
+# ---------------------------------------------------------------------
 # Domain evidence (ADR-015)
 # ---------------------------------------------------------------------
 @pytest.mark.parametrize(

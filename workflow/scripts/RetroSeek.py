@@ -189,6 +189,17 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
     )
 
     parser.add_argument(
+        "--solo-ltr-native",
+        action="store_true",
+        help=(
+            "Native solo-LTR detection (ADR-017). Writes "
+            "tracks/solo_ltr_native/{genome}.gff3, "
+            "tables/solo_ltr_native/{genome}.solo_ltr.csv, the per-genome funnel "
+            "and candidate tables, the LTR evidence tree, and the figure panel "
+            "under plots/classification/solo_ltr/."
+        ),
+    )
+    parser.add_argument(
         "--solo-ltr-detection",
         action="store_true",
         help="Solo-LTR detection via LTR_retriever; retroviral-only pre-filter "
@@ -368,6 +379,14 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.solo_ltr_detection:
             run_snakemake_rule(
                 "solo_ltr_detector",
+                num_cores=defaults.NUM_CORES,
+                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+                snakemake_flags=unknown,
+            )
+
+        if args.solo_ltr_native:
+            run_snakemake_rule(
+                "solo_ltr_native",
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,

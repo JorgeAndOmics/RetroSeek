@@ -162,6 +162,35 @@ Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr
 
 Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
 
+## `solo_ltr`
+
+Native solo-LTR detection (ADR-017). A solo LTR is the single LTR left behind when a provirus's two LTRs recombine homologously and excise everything between them; each one marks an ancestral integration whose provirus is gone. The detector uses the LTR arms of ERV-bearing elements as `blastn` bait and then subtracts the hits that are something else: hits overlapping an intact LTRharvest element, and hits sitting close to an orphan locus (a monoLTR beside surviving coding sequence, so the provirus is damaged rather than excised). See [ADR-017](adr/ADR-017-native-solo-ltr-detection.md) for the method, its calibration against a length-matched random-window null, and what it deliberately gives up.
+
+Every threshold the method depends on is here, and the scripts take them as required arguments with no defaults of their own, so this table is the single source of truth.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `solo_ltr.min_bait_length` | int >= 1 | `300` | Minimum length (bp) of a bait LTR arm. Arms run 100 to 1000 bp, and 80% coverage of a 102 bp arm is not evidence of anything, so short arms are dropped rather than trusted. |
+| `solo_ltr.min_hit_length` | int >= 1 | `300` | Minimum alignment length (bp) of an accepted hit. Together with `min_bait_length` this is the near-full-length requirement that took the solo/intact ratio from 492:1 to 27.6:1 on Desmodus. |
+| `solo_ltr.min_identity` | number 0-100 | `95` | Minimum percent identity between bait arm and hit. This is an **age filter**: it keeps solos whose family still has a close modern relative, and under-reports ancient ones. |
+| `solo_ltr.min_coverage` | number >= 0 | `0.8` | Lower bound on alignment length divided by bait arm length (Ou and Jiang's published rule). |
+| `solo_ltr.max_coverage` | number >= 0 | `1.2` | Upper bound on the same ratio, so an alignment running far past the bait is rejected. |
+| `solo_ltr.min_alignment_length` | int >= 1 | `80` | Absolute minimum alignment length (bp), also from Ou and Jiang. Redundant with `min_hit_length` at default settings, kept because it is a separate published criterion. |
+| `solo_ltr.orphan_pad` | int >= 0 | `10000` | Distance (bp) within which a candidate counts as a **monoLTR at an orphan** rather than a solo. A proviral distance: close enough that the surviving coding sequence plausibly belongs to the same element. |
+| `solo_ltr.merge_gap` | int >= 0 | `0` | Gap tolerated when merging overlapping hits into one candidate locus. `0` merges only touching or overlapping hits. |
+| `solo_ltr.blast_task` | str (`blastn` \| `megablast` \| `dc-megablast` \| `blastn-short`) | `dc-megablast` | `blastn -task`. Discontiguous megablast is the sensitive-but-affordable setting for diverged nucleotide matches. |
+| `solo_ltr.blast_evalue` | number >= 0 | `1.0e-5` | `blastn -evalue`. Generous on purpose: the acceptance criteria above do the real filtering, not the E-value. |
+| `solo_ltr.max_target_seqs` | int >= 1 | `5000` | `blastn -max_target_seqs`. High because one LTR family can have thousands of genomic copies and truncating the hit list would silently lose solos. |
+| `solo_ltr.calibration_lengths` | list of int >= 0 | `[0, 300, 400, 500]` | Length thresholds swept by the per-genome calibration plot. |
+| `solo_ltr.calibration_identities` | list of number 0-100 | `[70, 80, 85, 90, 95, 97, 99]` | Identity thresholds swept by the same plot. |
+| `solo_ltr.tree.enable` | bool | `true` | Build the LTR phylogeny for this stage. |
+| `solo_ltr.tree.n_solo_tips` | int >= 0 | `200` | Solos sampled as tree tips. A tree over every solo would be neither computable nor readable, so the sample is seeded and reported. |
+| `solo_ltr.tree.n_mono_tips` | int >= 0 | `200` | MonoLTR-at-orphan candidates sampled as tree tips. |
+| `solo_ltr.tree.permutations` | int >= 0 | `20` | Label permutations for the same-class-sister null, which is what makes "solos cluster with solos" a measurement rather than an impression. |
+| `solo_ltr.tree.seed` | int >= 0 | `67` | RNG seed for tip sampling and permutations, so the tree and its statistics are reproducible. |
+| `solo_ltr.tree.model` | str | `GTR+G` | IQ-TREE substitution model. |
+| `solo_ltr.tree.fast` | bool | `true` | Pass IQ-TREE `-fast` (two iterations, no bootstrap). The tree is **exploratory evidence** and is never an input to classification, so speed beats support values here. |
+
 ## `placement`
 
 Phylogenetic-placement figures built from the evidence EPA-ng already produces.
