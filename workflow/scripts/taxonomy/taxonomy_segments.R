@@ -16,8 +16,13 @@
 #   <plots>/by_<rank>/<segment>/*.png    a small curated panel per segment
 #   <plots>/by_<rank>/segment_overview.png   all segments side by side
 #
-# Only a CURATED subset of the taxonomy panel is rendered per segment: the full
-# 20-plot panel times N segments would be hundreds of PNGs for little gain.
+# How much is rendered per segment is set by `plots.segment_panel`:
+#   full     (default) every panel that means something within one segment: 21 of
+#            the 24 taxonomy panels plus all 7 structure panels, so 28.
+#   curated  the small legacy subset of 3.
+#   none     tables only.
+# Cost scales as segments x plots and each plot's x axis is per-species, so drop
+# to `curated` if a high-genome-count run gets bulky.
 # The builders are REUSED from taxonomy_plot_generator.R (sourced for its
 # functions - its `if (sys.nframe() == 0L) main()` guard keeps the CLI dormant).
 
@@ -211,6 +216,11 @@ segments_main <- function() {
   # the taxonomy cladogram collapses to one tip).
   panel <- segment_panel(c(panel_registry(), structure_panel_registry()), panel_mode)
   ctx <- list(tree_dir = args$tree_dir %||% "", confidence_min = conf_min)
+  # The host tree, read once for every segment: panels flagged `tree_axis` in the
+  # registry also get a `_tree.png` variant here, so the per-segment panel and the
+  # global one stay in step by construction.
+  species_tips <- read_tree_part(ctx$tree_dir, "species", "tips")
+  species_segs <- read_tree_part(ctx$tree_dir, "species", "segments")
   log_section(sprintf("Panel mode '%s': %d plots per segment", panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {
     sub <- catalog %>% filter(as.character(.data$segment) == seg)
@@ -241,6 +251,21 @@ segments_main <- function() {
       }
       save_plot(e$file, pl, pdir, dims = dims,
                 base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+
+      if (isTRUE(e$tree_axis) && !is.null(species_tips)) {
+        variant <- attach_tree_axis(
+          e$build(d, ctx), species_tips, species_segs, unique(d$species),
+          title = NULL,
+          subtitle = "Rows ordered by the host phylogeny"
+        )
+        if (!is.null(variant)) {
+          save_plot(sub("\\.png$", "_tree.png", e$file), variant, pdir,
+                    dims = auto_dims(nrow(species_tips), axis = "y",
+                                     base_w = plot_width, base_h = plot_height,
+                                     per_stratum = per_stratum, cap = max_dim),
+                    base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+        }
+      }
     }
   }
   log_section(sprintf("Done - wrote %d segment tables to %s and figures to %s",

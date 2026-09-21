@@ -1744,11 +1744,21 @@ rule taxonomy_plot_generator:
 #     plus a curated per-segment plot subset. Rank-agnostic: set segment_rank to
 #     family and the same code segments by family.
 # =============================================================================
+# The per-segment tables and figures are declared as DIRECTORY outputs rather
+# than left to params. Previously only segment_summary.csv was declared, so the
+# N per-segment CSVs and the 28N PNGs were invisible to the DAG: never rebuilt
+# when stale, never cleaned up after a failure, and a half-finished run looked
+# complete. They are directories rather than a file list because the segment
+# names are only known at runtime (they come from the distinct `segment` values
+# in catalog.csv, not from config), and because one job writes all of them, so a
+# checkpoint would add machinery without adding anything.
 rule taxonomy_segments_setup:
     input:
         catalog = rules.taxonomy_plot_generator_setup.output.catalog
     output:
-        summary = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv')
+        summary  = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv'),
+        tables   = directory(defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR']),
+        plots    = directory(defaults.PATH_DICT['SEGMENTS_PLOT_DIR'])
     params:
         out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
         plot_dir    = defaults.PATH_DICT['SEGMENTS_PLOT_DIR'],
@@ -1768,7 +1778,9 @@ rule taxonomy_segments_setup:
 
 rule taxonomy_segments:
     input:
-        summary = rules.taxonomy_segments_setup.output.summary
+        summary = rules.taxonomy_segments_setup.output.summary,
+        tables  = rules.taxonomy_segments_setup.output.tables,
+        plots   = rules.taxonomy_segments_setup.output.plots
 
 
 # =============================================================================
