@@ -111,13 +111,13 @@ test_that("empty_plot returns a ggplot with the requested title", {
   expect_equal(p$labels$title, "nothing here")
 })
 
-test_that("empty_plot forces a white plot.background", {
-  # Same reason as add_titles: theme_void()'s default transparent background
-  # composes as black in some viewers and hides the diagnostic title text.
+test_that("empty_plot paints the house paper colour", {
+  # theme_void()'s default transparent background composes as black in some
+  # viewers and would hide the placeholder text.
   p <- empty_plot("placeholder")
   bg <- p$theme$plot.background
   expect_s3_class(bg, "element_rect")
-  expect_equal(bg$fill, "white")
+  expect_equal(bg$fill, .PAPER)
 })
 
 
@@ -149,7 +149,7 @@ test_that("bar_plot returns empty placeholder on zero-row input", {
                                label   = character(0),
                                count   = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("bar_plot reorders species levels by total count descending", {
@@ -170,7 +170,7 @@ test_that("bar_virus_plot returns empty placeholder on zero-row input", {
   p <- bar_virus_plot(tibble::tibble(species = character(0), virus = character(0),
                                      count = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
@@ -193,7 +193,7 @@ test_that("balloon plot returns empty placeholder on zero-row input", {
     species = character(0), virus = character(0), probe = character(0),
     label = character(0), abbreviation = character(0), count = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("balloon plot species y-axis ordered by total contribution", {
@@ -217,7 +217,7 @@ test_that("balloon plot species y-axis ordered by total contribution", {
 test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   p <- density_bitscore_plot(.fake_plot_df()[0, ], q1 = 0, median = 0, q3 = 0)
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
@@ -229,7 +229,7 @@ test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
 test_that("raincloud_bitscore_plot empty-input guard fires on 0 rows", {
   p <- raincloud_bitscore_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", {
@@ -251,7 +251,7 @@ test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", 
 test_that("sankey_species_probe_plot empty-input guard fires on 0 rows", {
   p <- sankey_species_probe_plot(.sankey_input()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("sankey_species_probe_plot orders species axis by count descending", {
@@ -302,7 +302,7 @@ test_that("sankey_species_label_plot orders both axes by count", {
 test_that("query_coverage_plot empty-input guard fires on 0 rows", {
   p <- query_coverage_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("query_coverage_plot returns placeholder when column missing", {
@@ -332,7 +332,7 @@ test_that("query_coverage_plot returns placeholder when column is all NA", {
 test_that("heatmap_probe_species_plot empty-input guard fires on 0 rows", {
   p <- heatmap_probe_species_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("heatmap reorders both axes by marginal count", {
@@ -359,7 +359,7 @@ test_that("waffle_virus_plot empty-input guard fires on 0 rows", {
   skip_if_not_installed("waffle")
   p <- waffle_virus_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("waffle_virus_plot returns ggplot at unit_hits = 1", {
@@ -391,11 +391,13 @@ test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap"
 
 # ------------------------- title / subtitle injection ---------------------
 
-test_that("add_titles prepends subset_label when supplied", {
+test_that("add_titles leads the subtitle with subset_label, never a dash in the title", {
+  # House style: titles stay identical across subsets; what the page is about
+  # leads the subtitle instead of being glued to the title with " - ".
   p <- ggplot2::ggplot()
   q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
-  expect_equal(q$labels$title,    "Main - Foo")
-  expect_equal(q$labels$subtitle, "Bar")
+  expect_equal(q$labels$title,    "Foo")
+  expect_equal(q$labels$subtitle, "Main. Bar")
 })
 
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
@@ -406,7 +408,7 @@ test_that("add_titles leaves title untouched when subset_label is NULL or empty"
   expect_equal(q2$labels$title, "Foo")
 })
 
-test_that("add_titles forces a white plot.background", {
+test_that("add_titles pins the paper background", {
   # theme_void() makes plot.background transparent, which renders as black in
   # some viewers and hides the title. add_titles must pin the background to
   # white regardless of the underlying theme.
@@ -414,12 +416,13 @@ test_that("add_titles forces a white plot.background", {
   q <- add_titles(p, "T", "S")
   bg <- q$theme$plot.background
   expect_s3_class(bg, "element_rect")
-  expect_equal(bg$fill, "white")
+  expect_equal(bg$fill, .PAPER)
 })
 
 test_that("query_coverage_plot threads subset_label into title", {
   p <- query_coverage_plot(.fake_plot_df(), subset_label = "Accessory")
-  expect_equal(p$labels$title, "Accessory - Probe query coverage density")
+  expect_equal(p$labels$title, "Probe query coverage density")
+  expect_match(p$labels$subtitle, "^Accessory\\. ")
   expect_match(p$labels$subtitle, "alignment length / probe length")
 })
 

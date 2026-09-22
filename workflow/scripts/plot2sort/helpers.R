@@ -92,48 +92,41 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 }
 
 
-# Placeholder ggplot for zero-row inputs. Keeps the Snakemake DAG flowing on
-# genomes / probe_types with no hits - the rule still produces an output PNG.
-# Forces white plot.background so the diagnostic title remains legible in
-# viewers that compose transparent PNGs on a dark canvas (same reason as
-# add_titles).
-empty_plot <- function(label = "no data") {
+# Placeholder for zero-row inputs, so a stage still writes its page and the DAG
+# keeps flowing on genomes with no hits. Styled like every other page.
+empty_plot <- function(label = "No data") {
   ggplot() +
-    theme_void() +
+    theme_void(base_family = .FONT) +
     labs(title = label) +
     theme(
-      plot.title      = element_text(hjust = 0.5, face = "bold", size = 18),
-      plot.background = element_rect(fill = "white", colour = NA)
+      plot.title.position = "plot",
+      plot.title      = element_text(hjust = 0, face = "bold", size = 15, colour = .INK_SOFT),
+      plot.background = element_rect(fill = .PAPER, colour = NA),
+      plot.margin     = margin(14, 18, 12, 14)
     )
 }
 
 
-# Attach a centred title + subtitle to a plot. `subset_label` (e.g. "Main",
-# "Accessory") is prepended to the title so the same builder can produce
-# differently-named PNGs without duplicating logic. `warning_caption`, when
-# supplied, stamps a bold red caption on the plot - used to flag multi-value
-# aggregation (entry explosion) so the caveat travels with the PNG artifact.
+# Title and subtitle for a plot, in the house style (style.R): left-aligned,
+# sentence case. `subset_label` names what the page is about (a genome, a probe
+# set, a segment); it leads the subtitle rather than being glued onto the title
+# with a dash, so titles stay short and identical across genomes. Genome stems
+# must already be readable names here (display_species), never file names.
+# `warning_caption`, when supplied, stamps a caveat that travels with the page.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
                        warning_caption = NULL) {
-  full_title <- if (!is.null(subset_label) && nzchar(subset_label)) {
-    sprintf("%s - %s", subset_label, title)
+  lead <- if (!is.null(subset_label) && nzchar(subset_label)) subset_label else NULL
+  full_subtitle <- if (!is.null(lead) && !is.null(subtitle) && nzchar(subtitle)) {
+    paste0(lead, ". ", subtitle)
+  } else if (!is.null(lead)) {
+    lead
   } else {
-    title
+    subtitle
   }
-  p <- p +
-    labs(title = full_title, subtitle = subtitle) +
-    theme(
-      plot.title      = element_text(face = "bold", hjust = 0.5, size = 16,
-                                     margin = margin(b = 4)),
-      plot.subtitle   = element_text(hjust = 0.5, size = 11,
-                                     margin = margin(b = 10)),
-      # theme_void()-based builders (sankey, bar) leave plot.background as
-      # element_blank(), which serialises as transparent in the PNG. Some
-      # viewers compose transparent against a dark canvas, making the black
-      # title text invisible. Forcing white here pins the background across
-      # every builder so titles are always legible.
-      plot.background = element_rect(fill = "white", colour = NA)
-    )
+  p <- p + labs(title = title, subtitle = full_subtitle) +
+    # A void-theme page (sankey, placeholder) is otherwise transparent, which some
+    # viewers compose on black and which hides the title.
+    theme(plot.background = element_rect(fill = .PAPER, colour = NA))
   stamp_warning_caption(p, warning_caption)
 }
 
@@ -148,7 +141,7 @@ stamp_tier_note <- function(p, tier) {
   if (is.null(tier) || !nzchar(tier)) return(p)
   existing <- p$labels$subtitle
   combined <- if (!is.null(existing) && nzchar(existing)) {
-    paste0(existing, "  -  ", tier)
+    paste0(existing, "\n", tier)
   } else {
     tier
   }
@@ -165,7 +158,7 @@ stamp_warning_caption <- function(p, caption) {
   p +
     labs(caption = caption) +
     theme(plot.caption = element_text(hjust = 0, face = "bold",
-                                      colour = "#b22222", size = 10,
+                                      colour = .WARNING_INK, size = 9.5,
                                       margin = margin(t = 8)))
 }
 
@@ -185,8 +178,8 @@ aggregation_warning <- function(cfg) {
     if (!is.null(agg$label) && agg$label %in% multi) sprintf("label=%s", agg$label)
   )
   if (length(offenders) == 0L) return(NULL)
-  sprintf(paste0("WARNING: multi-value aggregation active (%s) - plot counts ",
-                 "may be inflated by entry explosion; interpret with caution"),
+  sprintf(paste0("Caution: multi-value aggregation is active (%s), so plot counts ",
+                 "may be inflated by entry explosion."),
           paste(offenders, collapse = ", "))
 }
 

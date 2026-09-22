@@ -57,9 +57,10 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
 source(file.path(.script_dir, "..", "plot2sort", "io.R"))       # save_plot
-source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # read_tree_part, attach_tree_axis
+source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
 
 
 # ----------------------------------------------------------------------------
@@ -559,7 +560,7 @@ confidence_gradient_plot <- function(combined) {
 # next to a tree, where saturated colour fights the topology for attention.
 .SOFT_CONFIDENCE <- c("#efe7d6", "#dbe3cf", "#bfd4c6", "#9cc0bf", "#7aa7ad", "#5f88a1")
 
-# read_tree_part(), tree_column() and attach_tree_axis() come from
+# read_tree_part(), tree_column() and species_rows() come from
 # plot2sort/tree_axis.R, which main() sources.
 
 # Horizontal confidence-gradient bars whose y order is fixed by a tree, with the
@@ -607,7 +608,8 @@ tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
 
   # Tree drawing and titling live in plot2sort/tree_axis.R; both tree panels and
   # every tree-axis variant share that one copy.
-  compose_with_tree(tree_column(tips, segs, ylim), bars, title, subtitle)
+  compose_with_tree(tree_column(tips, segs, ylim),
+                    bars + labs(title = title, subtitle = subtitle))
 }
 
 
@@ -657,7 +659,8 @@ tree_composition_plot <- function(combined, tree_dir, tree_name, key, fill_col,
           panel.grid.major.y = element_blank())
 
   # Same shared tree drawing as tree_confidence_plot above.
-  compose_with_tree(tree_column(tips, segs, ylim), bars, title, subtitle)
+  compose_with_tree(tree_column(tips, segs, ylim),
+                    bars + labs(title = title, subtitle = subtitle))
 }
 
 
@@ -946,23 +949,6 @@ main <- function() {
   for (e in panel_registry()) {
     d <- if (identical(e$data, "loci")) loci else combined
     p <- e$build(d, ctx)
-    if (isTRUE(e$tree_axis) && !is.null(species_tips)) {
-      variant <- attach_tree_axis(
-        p, species_tips, species_segs, unique(d$species),
-        # The panel supplies its own title through add_titles(); a second one
-        # built from the file name would just repeat it, less readably.
-        title = NULL,
-        subtitle = "Rows ordered by the host phylogeny"
-      )
-      if (!is.null(variant)) {
-        dims <- auto_dims(nrow(species_tips), axis = "y", base_w = plot_width,
-                          base_h = plot_height, per_stratum = per_stratum,
-                          cap = max_dim)
-        save_plot(sub("\\.png$", "_tree.png", e$file), variant, args$output,
-                  dims = dims, base_w = plot_width, base_h = plot_height,
-                  dpi = plot_dpi)
-      }
-    }
     if (identical(e$axis, "y")) {
       n_tips <- if (identical(e$n_x, "taxa")) n_taxa else n_species
       dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,

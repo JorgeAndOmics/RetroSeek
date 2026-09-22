@@ -15,6 +15,7 @@ suppressMessages({
 })
 
 .scripts <- file.path("..", "..", "scripts")
+source(file.path(.scripts, "plot2sort", "style.R"))
 source(file.path(.scripts, "plot2sort", "helpers.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_concordance.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_structure.R"))
@@ -167,11 +168,11 @@ test_that("LTR-interaction builders return ggplots", {
 })
 
 test_that("new builders fall back to empty_plot on zero-row input", {
-  expect_equal(overlap_degree_plot(.ov_df()[0, ])$labels$title, "no data")
-  expect_equal(distance_to_retro_plot(.li_df()[0, ])$labels$title, "no data")
-  expect_equal(probe_domain_heatmap(.pd_df()[0, ])$labels$title, "no data")
-  expect_equal(coverage_before_after_plot(.cov_df()[0, ])$labels$title, "no data")
-  expect_equal(retro_length_vs_hits_plot(.ltr_struct_df()[0, ])$labels$title, "no data")
+  expect_equal(overlap_degree_plot(.ov_df()[0, ])$labels$title, "No data")
+  expect_equal(distance_to_retro_plot(.li_df()[0, ])$labels$title, "No data")
+  expect_equal(probe_domain_heatmap(.pd_df()[0, ])$labels$title, "No data")
+  expect_equal(coverage_before_after_plot(.cov_df()[0, ])$labels$title, "No data")
+  expect_equal(retro_length_vs_hits_plot(.ltr_struct_df()[0, ])$labels$title, "No data")
 })
 
 test_that("position_within_provirus needs >=2 inside-retrotransposon loci", {

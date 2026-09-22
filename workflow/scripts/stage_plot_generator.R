@@ -56,6 +56,7 @@ suppressMessages({
 # Reused from plot2sort: helpers (theme, add_titles, auto_dims, empty_plot,
 # order_by_count, collapse_long_tail, futurama_unlimited_palette,
 # aggregation_warning) + io (save_plot, verify_required_columns).
+source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
 # Stage-specific modules.

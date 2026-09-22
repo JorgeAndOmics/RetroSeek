@@ -38,7 +38,7 @@
 #
 # Pages 8 to 12 appear only when the tree stage ran (solo_ltr.tree.enable).
 #
-# Shared infrastructure (empty_plot, add_titles, relabel_species) is reused
+# Shared infrastructure (style.R, empty_plot, add_titles) is reused
 # from plot2sort/*.R. The `if (sys.nframe() == 0L) main()` guard keeps the CLI
 # dormant when testthat sources this file for its builders.
 
@@ -574,6 +574,7 @@ read_optional <- function(path) {
 #   (no --genome)   write the all-species PDF and the summary report
 main <- function() {
   script_dir <- .resolve_script_dir()
+  source(file.path(script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(script_dir, "..", "plot2sort", "io.R"))
 

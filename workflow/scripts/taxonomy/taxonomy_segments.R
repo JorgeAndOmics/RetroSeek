@@ -251,21 +251,6 @@ segments_main <- function() {
       }
       save_plot(e$file, pl, pdir, dims = dims,
                 base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-
-      if (isTRUE(e$tree_axis) && !is.null(species_tips)) {
-        variant <- attach_tree_axis(
-          e$build(d, ctx), species_tips, species_segs, unique(d$species),
-          title = NULL,
-          subtitle = "Rows ordered by the host phylogeny"
-        )
-        if (!is.null(variant)) {
-          save_plot(sub("\\.png$", "_tree.png", e$file), variant, pdir,
-                    dims = auto_dims(nrow(species_tips), axis = "y",
-                                     base_w = plot_width, base_h = plot_height,
-                                     per_stratum = per_stratum, cap = max_dim),
-                    base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-        }
-      }
     }
   }
   log_section(sprintf("Done - wrote %d segment tables to %s and figures to %s",
@@ -275,6 +260,7 @@ segments_main <- function() {
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
+  source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(.script_dir, "..", "plot2sort", "io.R"))
   .t0 <- Sys.time()
