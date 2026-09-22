@@ -13,24 +13,24 @@
 # Outputs are split by TYPE, both under a rank-agnostic by_<rank>/ level:
 #   <out_dir>/by_<rank>/<segment>.csv    one table per segment
 #   segment_summary.csv                  loci / species / HC counts per segment
-#   <plots>/by_<rank>/<segment>/*.png    a small curated panel per segment
-#   <plots>/by_<rank>/segment_overview.png   all segments side by side
+#   <plots>/by_<rank>/<segment>.pdf      the segment's pages, after a key page
+#   <plots>/by_<rank>/overview.pdf       every segment side by side
 #
 # How much is rendered per segment is set by `plots.segment_panel`:
-#   full     (default) every panel that means something within one segment: 21 of
-#            the 24 taxonomy panels plus all 7 structure panels, so 28.
+#   full     (default) every page that means something within one segment: 20 of
+#            the 23 taxonomy pages plus all 7 structure pages, so 27.
 #   curated  the small legacy subset of 3.
 #   none     tables only.
-# Cost scales as segments x plots and each plot's x axis is per-species, so drop
+# Cost scales as segments x pages and each page has a row per species, so drop
 # to `curated` if a high-genome-count run gets bulky.
-# The builders are REUSED from taxonomy_plot_generator.R (sourced for its
-# functions - its `if (sys.nframe() == 0L) main()` guard keeps the CLI dormant).
+# The builders are REUSED from taxonomy_plot_generator.R and
+# erv_like_plot_generator.R (sourced for their functions; their
+# `if (sys.nframe() == 0L) main()` guards keep the CLIs dormant).
 
 suppressMessages({
   library(argparse)
   library(tidyverse)
   library(yaml)
-  library(ggsci)
 })
 
 
@@ -118,27 +118,29 @@ load_catalog <- function(path) {
 
 
 # ----------------------------------------------------------------------------
-# Overview: loci per segment, split by tier. The one plot that shows every
-# segment at once, so it stays at the top level rather than inside a segment dir.
+# Overview: loci per segment, split by tier. The one page that shows every
+# segment at once, so it has its own PDF beside the per-segment ones.
 # ----------------------------------------------------------------------------
 segment_overview_plot <- function(catalog) {
   if (nrow(catalog) == 0L || !"segment" %in% names(catalog)) {
-    return(empty_plot("no segmented loci"))
+    return(empty_plot("No segmented loci"))
   }
   counts <- catalog %>%
     count(segment = as.character(.data$segment),
           source = as.character(.data$source), name = "n")
-  lvl <- counts %>% group_by(.data$segment) %>%
-    summarise(t = sum(.data$n), .groups = "drop") %>%
-    arrange(desc(.data$t)) %>% pull(.data$segment)
-  counts$segment <- factor(counts$segment, levels = lvl)
+  # Largest segment on top; "unassigned" last whatever its size.
+  counts$segment <- factor(counts$segment,
+                           levels = rev(taxon_levels(counts$segment, counts$n)))
   p <- ggplot(counts, aes(x = .data$segment, y = .data$n, fill = .data$source)) +
-    geom_col() +
-    scale_fill_manual(values = c(`ltr-flanked` = "#1F78B4", orphan = "#33A02C")) +
-    labs(x = NULL, y = "loci", fill = "tier") +
-    theme_bw()
-  add_titles(p, "ERV loci per segment",
-             "Per-segment burden, split by LTR-flanked vs orphan tier")
+    geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
+    coord_flip() +
+    scale_x_discrete(labels = taxon_labels) +
+    scale_y_continuous(labels = scales::comma) +
+    scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
+    labs(x = NULL, y = "Loci", fill = NULL) +
+    theme(panel.grid.major.y = element_blank())
+  add_titles(p, "ERV loci per lineage",
+             "Every locus by the lineage it rolls up to at the segment rank, by tier.")
 }
 
 
@@ -170,16 +172,11 @@ segments_main <- function() {
 
   cfg <- yaml::read_yaml(args$config)
   `%||%` <- function(x, y) if (is.null(x)) y else x
-  plot_dpi    <- cfg$plots$dpi    %||% 300
-  plot_height <- cfg$plots$height %||% 12
-  plot_width  <- cfg$plots$width  %||% 15
-  per_stratum <- cfg$plots$per_stratum %||% 0.18
-  max_dim     <- cfg$plots$max_dim     %||% 60
   seg_rank    <- cfg$classification$segment_rank %||% "genus"
   # full = every panel entry meaningful for one segment; curated = the small
   # legacy subset; none = tables only. See docs/configuration.md.
   panel_mode  <- cfg$plots$segment_panel %||% "full"
-  conf_min    <- cfg$classification$confidence_min %||% 0.5
+  use_retroseek_style()
 
   catalog <- load_catalog(args$catalog)
   if (!"segment" %in% names(catalog)) {
@@ -191,8 +188,7 @@ segments_main <- function() {
   log_section(sprintf("Segmenting %d catalog loci by %s", nrow(catalog), seg_rank))
 
   # Tables and figures split by TYPE, not by stage: results/tables/ is CSV and
-  # results/plots/ is figures, so the per-segment PNGs do not live beside the
-  # per-segment CSVs. Both keep the rank-agnostic by_<rank>/ level.
+  # results/plots/ is figures. Both keep the rank-agnostic by_<rank>/ level.
   root <- file.path(args$output, paste0("by_", seg_rank))
   dir.create(root, showWarnings = FALSE, recursive = TRUE)
   plot_root <- file.path(args$plots %||% args$output, paste0("by_", seg_rank))
@@ -202,57 +198,48 @@ segments_main <- function() {
   dir.create(dirname(args$summary_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(summary_tbl, args$summary_csv)
 
-  n_species <- length(unique(catalog$species))
-  overview <- scale_categorical_axis(
-    segment_overview_plot(catalog), max(nrow(summary_tbl), 1L), axis = "x",
-    base_w = plot_width, base_h = plot_height,
-    per_stratum = per_stratum, cap = max_dim
-  )
-  save_plot("segment_overview.png", overview, plot_root,
-            dims = attr(overview, "intended_dims"),
-            base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+  tiers <- stats::setNames(unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]),
+                           display_label(c("ltr-flanked", "orphan")))
+  overview <- segment_overview_plot(catalog)
+  save_stage_pdf(
+    list(key_page(sprintf("ERV loci by %s", seg_rank),
+                  paste("How the study's ERV loci divide among viral lineages at the",
+                        "segment rank. Each lineage has its own PDF beside this one."),
+                  colours = tiers, pages = page_titles(list(overview))),
+         overview),
+    file.path(plot_root, "overview.pdf"),
+    height = page_height_for(nrow(summary_tbl),
+                             per_species = cfg$plots$per_stratum %||% 0.18))
 
-  # Per-segment tables + the plot panel. The registry is resolved once: it is
-  # the same declaration the full panel uses, filtered to entries that mean
-  # something for a single segment (erv_class is constant within a genus, and
-  # the taxonomy cladogram collapses to one tip).
+  # Per-segment tables and pages. The registry is resolved once: it is the same
+  # declaration the full panels use, filtered to entries that mean something for
+  # a single segment (erv_class is constant within a genus, and the taxonomy
+  # cladogram collapses to one tip).
   panel <- segment_panel(c(panel_registry(), structure_panel_registry()), panel_mode)
-  ctx <- list(tree_dir = args$tree_dir %||% "",
-              species_tree_dir = args$species_tree_dir %||% "",
-              confidence_min = conf_min)
-  log_section(sprintf("Panel mode '%s': %d plots per segment", panel_mode, length(panel)))
+  ctx <- panel_ctx(cfg, args$species_tree_dir %||% "", tree_dir = args$tree_dir %||% "")
+  height <- page_height_for(max(length(ctx$species_order), length(unique(catalog$species))),
+                            per_species = cfg$plots$per_stratum %||% 0.18)
+  log_section(sprintf("Panel mode '%s': %d pages per segment", panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {
     sub <- catalog %>% filter(as.character(.data$segment) == seg)
     stem <- safe_name(seg)
     readr::write_csv(sub, file.path(root, paste0(stem, ".csv")))
 
     if (length(panel) == 0L) next
-    pdir <- file.path(plot_root, stem)
-    dir.create(pdir, showWarnings = FALSE, recursive = TRUE)
-    # Same sizing rules as the full panel, because the same registry declares
-    # them. `data` keeps the tier scope: composition and mosaic panels are
-    # LTR-flanked only, so orphans are not silently mixed in.
+    # `data` keeps the tier scope: composition and mosaic pages are LTR-flanked
+    # only, so orphans are not silently mixed in.
     sub_loci <- sub %>% filter(as.character(.data$source) == "ltr-flanked")
-    n_sub_species <- max(1L, length(unique(sub$species)))
-    for (e in panel) {
-      d <- if (identical(e$data, "loci")) sub_loci else sub
-      pl <- e$build(d, ctx)
-      dims <- if (identical(e$axis, "y")) {
-        auto_dims(n_sub_species, axis = "y", base_w = plot_width,
-                  base_h = plot_height, per_stratum = per_stratum, cap = max_dim)
-      } else {
-        if (identical(e$n_x, "species")) {
-          pl <- scale_categorical_axis(pl, n_sub_species, axis = "x",
-                                       base_w = plot_width, base_h = plot_height,
-                                       per_stratum = per_stratum, cap = max_dim)
-        }
-        attr(pl, "intended_dims")
-      }
-      save_plot(e$file, pl, pdir, dims = dims,
-                base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-    }
+    pages <- render_panel(panel, sub_loci, sub, ctx)
+    key <- key_page(
+      sprintf("ERV loci: %s", display_label(seg)),
+      sprintf(paste("The taxonomy and structure pages, restricted to the %s loci",
+                    "of this lineage. Hosts are rows in the order of the host tree."),
+              scales::comma(nrow(sub))),
+      colours = tiers, pages = page_titles(pages))
+    save_stage_pdf(c(list(key), pages), file.path(plot_root, paste0(stem, ".pdf")),
+                   height = height)
   }
-  log_section(sprintf("Done - wrote %d segment tables to %s and figures to %s",
+  log_section(sprintf("Done: wrote %d segment tables to %s and PDFs to %s",
                       nrow(summary_tbl), root, plot_root))
 }
 
@@ -261,7 +248,7 @@ if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
   source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
-  source(file.path(.script_dir, "..", "plot2sort", "io.R"))
+  source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
   .t0 <- Sys.time()
   log_section <- function(name) {
     elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))

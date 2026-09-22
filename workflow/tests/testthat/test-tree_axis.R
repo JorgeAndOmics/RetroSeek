@@ -113,3 +113,46 @@ test_that("a panel already on rows keeps its own x axis text", {
                       fallback_order = c("Homo sapiens", "Mus musculus"))
   expect_equal(out$theme$axis.text.x$angle, 30)
 })
+
+test_that("on_rows takes the tree and order from a panel ctx, and works without one", {
+  ctx <- list(species_tree = NULL, species_order = c("Mus musculus", "Homo sapiens"))
+  p <- on_rows(.panel(c("Homo sapiens", "Mus musculus")), c("Homo sapiens", "Mus musculus"), ctx)
+  expect_equal(p$scales$get_scales("x")$limits, c("Homo sapiens", "Mus musculus"))
+  expect_s3_class(on_rows(.panel("Homo sapiens"), "Homo sapiens"), "ggplot")
+  expect_s3_class(on_rows(.panel(c("Homo sapiens", "Mus musculus")),
+                          c("Homo sapiens", "Mus musculus"),
+                          list(species_tree = .tree)), "patchwork")
+})
+
+test_that("panel_ctx carries the readable config order and the host tree", {
+  dir <- withr::local_tempdir()
+  write.csv(data.frame(tip = c("House mouse", "Homo sapiens"), x = 1, y = 1:2),
+            file.path(dir, "species.tree_tips.csv"), row.names = FALSE)
+  write.csv(data.frame(x = 0, y = 1, xend = 0, yend = 2),
+            file.path(dir, "species.tree_segments.csv"), row.names = FALSE)
+  cfg <- list(species = list(Mus_musculus = "House mouse", Homo_sapiens = ""),
+              classification = list(confidence_min = 0.7))
+  ctx <- panel_ctx(cfg, species_tree_dir = dir)
+  expect_equal(ctx$species_order, c("House mouse", "Homo sapiens"))
+  expect_equal(ctx$species_tree$tips$tip, c("House mouse", "Homo sapiens"))
+  expect_equal(ctx$confidence_min, 0.7)
+  expect_null(panel_ctx(list())$species_tree)
+})
+
+test_that("render_panel feeds each entry the tier scope it declares", {
+  reg <- list(
+    list(name = "a", data = "loci", build = function(d, ctx) nrow(d)),
+    list(name = "b", data = "combined", build = function(d, ctx) nrow(d)))
+  expect_equal(render_panel(reg, data.frame(x = 1), data.frame(x = 1:3), list()),
+               list(1L, 3L))
+})
+
+test_that("species_facets stacks one row per species, first configured on top", {
+  d <- data.frame(species = c("Homo sapiens", "Mus musculus", "Homo sapiens"),
+                  value = c(1, 2, 3))
+  p <- ggplot(d, aes(x = .data$value)) + geom_histogram(bins = 3)
+  ctx <- list(species_order = c("Mus musculus", "Homo sapiens"))
+  faceted <- species_facets(p, ctx)
+  expect_equal(levels(faceted$data$species), c("Mus musculus", "Homo sapiens"))
+  expect_s3_class(faceted$facet, "FacetGrid")
+})

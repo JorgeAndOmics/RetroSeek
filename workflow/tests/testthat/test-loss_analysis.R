@@ -126,3 +126,57 @@ test_that("novel_burden_table guards zero/absent totals and empty funnel", {
   ))
   expect_equal(novel_burden_table(funnel)$frac, 0)
 })
+
+
+# ---------------------------------------------------------------------------
+# The loss pages, in the house style (docs/visual_style.md).
+# ---------------------------------------------------------------------------
+source(file.path(.script_dir, "plot2sort", "style.R"))
+source(file.path(.script_dir, "plot2sort", "helpers.R"))
+source(file.path(.script_dir, "plot2sort", "tree_axis.R"))
+
+.funnel <- function() {
+  counts <- tibble::tribble(
+    ~genome,        ~metric,                ~value,
+    "Homo sapiens", "raw_blast_hits",        1000,
+    "Homo sapiens", "filtered_blast_hits",   800,
+    "Homo sapiens", "first_reduced_ranges",  400,
+    "Homo sapiens", "element_hits_ranges",   100,
+    "Homo sapiens", "orphans_total",         50,
+    "Homo sapiens", "orphans_recovered",     20,
+    "Homo sapiens", "loci_total",            90,
+    "Homo sapiens", "loci_no_blastx_hit",    3,
+    "Mus musculus", "raw_blast_hits",        2000,
+    "Mus musculus", "filtered_blast_hits",   900,
+    "Mus musculus", "orphans_total",         10,
+    "Mus musculus", "orphans_recovered",     5,
+    "Mus musculus", "loci_total",            80,
+    "Mus musculus", "loci_no_blastx_hit",    0
+  )
+  build_loss_funnel(counts)
+}
+
+test_that("stage labels are plain words, never abbreviations or dash asides", {
+  expect_false(any(grepl("w/|->| - ", .STAGE_SPEC$label)))
+  expect_true(all(grepl("^[A-Z]", .STAGE_SPEC$label)))
+})
+
+test_that("every loss page renders, with genomes in the configured order", {
+  ctx <- list(species_order = c("Mus musculus", "Homo sapiens"))
+  f <- .funnel()
+  for (p in list(loss_funnel_plot(f, ctx), step_retention_plot(f, ctx),
+                 orphan_recovery_plot(f, ctx), novel_burden_plot(f, ctx),
+                 loss_waterfall_plot(f, ctx))) {
+    expect_s3_class(p, "gg")
+  }
+  expect_equal(levels(loss_funnel_plot(f, ctx)$data$genome),
+               c("Mus musculus", "Homo sapiens"))
+  expect_equal(novel_burden_plot(f, ctx)$scales$get_scales("x")$limits,
+               c("Homo sapiens", "Mus musculus"))
+})
+
+test_that("the funnel branches wear the tier colours", {
+  fills <- ggplot2::ggplot_build(loss_funnel_plot(.funnel()))$data[[1]]$fill
+  expect_true(.TIER_COLOUR[["ltr-flanked"]] %in% fills)
+  expect_true(.TIER_COLOUR[["orphan"]] %in% fills)
+})

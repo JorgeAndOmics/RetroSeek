@@ -92,6 +92,17 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 }
 
 
+# Build every page a panel registry declares, in registry order. Each entry's
+# `data` picks its tier scope: "loci" is LTR-flanked only, "combined" is both
+# tiers. Losing that distinction would quietly mix orphans into the composition
+# and mosaic pages, which deliberately exclude them.
+render_panel <- function(registry, loci, combined, ctx) {
+  lapply(registry, function(e) {
+    e$build(if (identical(e$data, "loci")) loci else combined, ctx)
+  })
+}
+
+
 # Placeholder for zero-row inputs, so a stage still writes its page and the DAG
 # keeps flowing on genomes with no hits. Styled like every other page.
 empty_plot <- function(label = "No data") {

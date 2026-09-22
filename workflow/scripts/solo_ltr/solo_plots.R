@@ -550,15 +550,7 @@ read_optional <- function(path) {
   getwd()
 }
 
-# The key pages. What each PDF shows, what its colours mean, and its pages.
-.GENOME_PAGES <- c(
-  "From raw LTR matches to solo LTRs", "Identity to the bait LTR, by fate",
-  "Candidate length against identity", "Distance to the nearest orphan locus",
-  "Candidate loci per sequence", "Solo LTRs per seeding element",
-  "Divergence from the bait exemplar, as time", "The LTR evidence tree",
-  "Do the three fates form their own clades?", "LTR families on the evidence tree",
-  "The solo-only tree", "The largest LTR families"
-)
+# The key pages' colour list: the three fates, in words.
 .fate_key <- function() stats::setNames(unname(.FATE_COLOUR[.FATE_LEVELS]),
                                         display_label(.FATE_LEVELS))
 
@@ -632,7 +624,7 @@ main <- function() {
             "flanks of intact elements, and lone LTRs beside surviving coding sequence.",
             "What remains are the solos. The later pages show the LTR evidence tree",
             "and the LTR families cut from it."),
-      colours = .fate_key(), pages = .GENOME_PAGES[seq_along(plots)])
+      colours = .fate_key(), pages = page_titles(plots))
     save_stage_pdf(c(list(key), plots), args$out_pdf)
     log_section(sprintf("wrote %s (%d pages)", args$out_pdf, length(plots) + 1L))
     return(invisible(NULL))
@@ -663,18 +655,16 @@ main <- function() {
   report <- rbindlist(report_rows, fill = TRUE)
   tree <- read_species_tree(args$species_tree_dir)
   order <- display_species(names(species_map), species_map)
+  pages <- list(solo_intact_ratio_plot(report, tree, order),
+                class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree, order))
   key <- key_page(
     "Solo LTRs across genomes",
     paste("The solo-LTR stage for every genome side by side, genomes on rows in the",
           "host-tree order used by every RetroSeek figure. Per-genome detail is in",
           "each genome's own PDF."),
-    colours = .fate_key(),
-    pages = c("Solo LTRs per intact ERV locus", "What the LTR matches turn out to be"))
-  save_stage_pdf(
-    list(key, solo_intact_ratio_plot(report, tree, order),
-         class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree, order)),
-    args$out_pdf, height = page_height_for(nrow(report))
-  )
+    colours = .fate_key(), pages = page_titles(pages))
+  save_stage_pdf(c(list(key), pages), args$out_pdf,
+                 height = page_height_for(nrow(report)))
   fwrite(report, args$report)
   log_section(sprintf("wrote %s and %s (%d genomes)", args$out_pdf, args$report,
                       nrow(report)))

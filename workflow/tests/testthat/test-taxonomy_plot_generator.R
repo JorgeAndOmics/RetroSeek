@@ -148,8 +148,8 @@ test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", 
 
   # empty-safe: no mosaic rows -> labelled placeholder (still a ggplot)
   none <- loci[loci$is_mosaic == "False", ]
-  expect_match(mosaic_taxon_pairs_plot(none)$labels$title, "no mosaic loci")
-  expect_match(mosaic_gene_discordance_plot(none)$labels$title, "no mosaic loci")
+  expect_match(mosaic_taxon_pairs_plot(none)$labels$title, "No mosaic loci")
+  expect_match(mosaic_gene_discordance_plot(none)$labels$title, "No mosaic loci")
   expect_s3_class(mosaic_burden_plot(loci[0, ]), "ggplot")
 })
 
@@ -182,17 +182,17 @@ test_that("tree panels degrade to a placeholder when no tree is configured", {
   tmp <- tempfile(); dir.create(tmp)
   d <- .fake_loci("ltr-flanked")
   d$confidence_num <- 0.9
-  expect_s3_class(species_confidence_tree_plot(d, tmp), "ggplot")
   expect_s3_class(taxon_confidence_tree_plot(d, tmp), "ggplot")
+  expect_s3_class(taxon_tier_tree_plot(d, tmp), "ggplot")
 })
 
-test_that("species tree panel builds when tips match the loci", {
+test_that("a per-host page sits beside the host tree when one is configured", {
   tmp <- tempfile(); dir.create(tmp)
   d <- .fake_loci("ltr-flanked")
   d$confidence_num <- c(0.9, 0.4)[seq_len(nrow(d)) %% 2 + 1]
   .write_tree_fixture(tmp, "species", unique(as.character(d$species)))
-  p <- species_confidence_tree_plot(d, tmp)
-  expect_true(inherits(p, "patchwork") || inherits(p, "ggplot"))
+  ctx <- list(species_tree = read_species_tree(tmp))
+  expect_s3_class(confidence_gradient_plot(d, ctx), "patchwork")
 })
 
 test_that("taxon tree panel builds and is level-agnostic about tip rank", {
@@ -236,7 +236,7 @@ test_that("tree_composition_plot degrades to a placeholder without a tree", {
   p <- tree_composition_plot(.composition_loci(), dir, "species", "species",
                              "segment", "t", "s")
   expect_s3_class(p, "ggplot")
-  expect_match(p$labels$title, "no species tree")
+  expect_match(p$labels$title, "No species tree")
 })
 
 test_that("tree_composition_plot is empty-safe and tolerates a missing column", {
@@ -267,6 +267,42 @@ test_that("the two ADR-014 panels build from the catalog frame", {
   .write_tree_fixture(dir, "taxon", c("Gammaretrovirus", "Betaretrovirus"))
   loci <- .composition_loci()
 
-  expect_s3_class(species_composition_tree_plot(loci, dir), "patchwork")
+  ctx <- list(species_tree = read_species_tree(dir))
+  expect_s3_class(lineage_composition_plot(loci, ctx), "patchwork")
   expect_s3_class(taxon_tier_tree_plot(loci, dir), "patchwork")
+})
+
+
+# ---------------------------------------------------------------------------
+# The house style (docs/visual_style.md): species on rows in the canonical
+# order, every configured species keeping its row, and fixed genus colours.
+# ---------------------------------------------------------------------------
+test_that("per-host pages put every configured species on rows, in config order", {
+  loci <- .composition_loci()
+  loci$resolved <- "True"
+  loci$rank <- "genus"
+  loci$confidence_tag <- "HC"
+  loci$structure_class <- "gene"
+  order <- c("Mus musculus", "Desmodus rotundus", "Antrozous pallidus")
+  ctx <- list(species_order = order)
+  for (p in list(taxon_composition_plot(loci, ctx), rank_resolution_plot(loci, ctx),
+                 confidence_plot(loci, ctx), source_yield_plot(loci, ctx),
+                 structure_class_composition_plot(loci, ctx),
+                 lineage_composition_plot(loci, ctx))) {
+    expect_equal(p$scales$get_scales("x")$limits, rev(order))
+    expect_s3_class(p$coordinates, "CoordFlip")
+  }
+})
+
+test_that("a genus is drawn in its fixed colour", {
+  loci <- .composition_loci()
+  loci$resolved <- "True"
+  fills <- ggplot2::ggplot_build(taxon_composition_plot(loci))$data[[1]]$fill
+  expect_true(.GENUS_COLOUR[["Gammaretrovirus"]] %in% fills)
+  expect_true(.GENUS_COLOUR[["Betaretrovirus"]] %in% fills)
+})
+
+test_that("tiers are drawn in the tier colours", {
+  fills <- ggplot2::ggplot_build(source_yield_plot(.composition_loci()))$data[[1]]$fill
+  expect_setequal(unique(fills), unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]))
 })

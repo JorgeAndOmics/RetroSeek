@@ -132,3 +132,72 @@ test_that("the blank theme really removes grid lines and axes", {
   # Titles keep the house style.
   expect_equal(p$theme$plot.title$face, "bold")
 })
+
+test_that("ERV classes wear the colour of their defining genus", {
+  # Class I is gamma-like, Class II beta-like, Class III spumaviral (Jern/Blomberg).
+  expect_equal(.ERV_CLASS_COLOUR[["Class I"]], .GENUS_COLOUR[["Gammaretrovirus"]])
+  expect_equal(.ERV_CLASS_COLOUR[["Class II"]], .GENUS_COLOUR[["Betaretrovirus"]])
+  expect_true(.ERV_CLASS_COLOUR[["Class III"]] %in% .SPUMA_SHADES)
+})
+
+test_that("ordinal maps get darker as evidence gets stronger, and 'none' is grey", {
+  lum <- function(h) sum(grDevices::col2rgb(h) * c(0.299, 0.587, 0.114))
+  expect_lt(lum(.CONFIDENCE_COLOUR[["HC"]]), lum(.CONFIDENCE_COLOUR[["LC"]]))
+  expect_lt(lum(.RANK_COLOUR[["genus"]]), lum(.RANK_COLOUR[["subfamily"]]))
+  expect_lt(lum(.RANK_COLOUR[["subfamily"]]), lum(.RANK_COLOUR[["family"]]))
+  expect_equal(.RANK_COLOUR[["none"]], .GREY_OTHER)
+  expect_lt(lum(.DOMAIN_TIER_COLOUR[["domain_selected"]]),
+            lum(.DOMAIN_TIER_COLOUR[["domain_unlisted"]]))
+  expect_equal(.DOMAIN_TIER_COLOUR[["non_domain"]], .GREY_OTHER)
+})
+
+test_that("a small set of plain categories never borrows a tier colour", {
+  cols <- category_colours(c("a", "b", "c", "d", "e", "f"))
+  expect_length(intersect(cols, .TIER_COLOUR), 0L)
+  expect_equal(unname(category_colours(c("a", "Other (3)"))[2]), .GREY_OTHER)
+})
+
+test_that("taxon legends italicise taxa and keep leftovers upright", {
+  labs <- taxon_labels(c("Betaretrovirus", "unassigned_at_genus", "Other (4)"))
+  expect_identical(labs[[1]], quote(italic("Betaretrovirus")))
+  expect_identical(labs[[2]], "Unassigned at genus")
+  expect_identical(labs[[3]], "Other (4)")
+})
+
+test_that("the taxon fill scale keeps fixed colours and lists taxa by abundance", {
+  sc <- scale_fill_taxon(c("Gammaretrovirus", "Betaretrovirus", "Retroviridae"),
+                         weights = c(5, 9, 100))
+  expect_equal(sc$palette(3)[["Gammaretrovirus"]], .GENUS_COLOUR[["Gammaretrovirus"]])
+  # Retroviridae is not resolved to a genus, but it is still a taxon: by abundance.
+  expect_equal(sc$breaks, c("Retroviridae", "Betaretrovirus", "Gammaretrovirus"))
+})
+
+test_that("heatmap text is light on the dark end of the ramp and dark elsewhere", {
+  expect_equal(ink_on_ramp(c(1, 50, 100)), c(.INK, .INK, .PAPER))
+  expect_equal(ink_on_ramp(5), .INK)   # one value: no ramp, default ink
+})
+
+test_that("the LCA method has a readable label", {
+  expect_equal(display_label("lca"), "Weighted LCA")
+})
+
+test_that("page_titles reads plain and tree-composed pages alike", {
+  plain <- ggplot2::ggplot() + ggplot2::labs(title = "Plain page")
+  composed <- patchwork::wrap_plots(ggplot2::ggplot(), ggplot2::ggplot()) +
+    patchwork::plot_annotation(title = "Composed page")
+  untitled <- ggplot2::ggplot()
+  expect_equal(page_titles(list(plain, composed, untitled)),
+               c("Plain page", "Composed page", ""))
+})
+
+test_that("taxon_factor orders lineages like the legend, so stacks match it", {
+  f <- taxon_factor(c("Gammaretrovirus", "Betaretrovirus", "unassigned_at_genus"),
+                    weights = c(5, 9, 100))
+  expect_equal(levels(f), c("Betaretrovirus", "Gammaretrovirus", "unassigned_at_genus"))
+})
+
+test_that("the ramp fill scale runs from the lightest to the darkest ramp step", {
+  sc <- scale_fill_ramp(name = "Loci")
+  expect_equal(toupper(sc$palette(0)), toupper(seq_colours(9)[1]))
+  expect_equal(toupper(sc$palette(1)), toupper(seq_colours(9)[9]))
+})

@@ -76,8 +76,19 @@ div_colours <- function(n) {
     c(.TOL_MUTED[["rose"]], "#F7F7F7", .TOL_MUTED[["indigo"]]))(max(n, 1L))
 }
 
-# Ordinal categories on the sequential ramp, most complete darkest.
+# A single data series with no category meaning (one bar per species, a lone
+# histogram): a mid step of the ramp, so it reads as "data" and not as a tier.
+.DATA_COLOUR <- seq_colours(4)[3]
+
+# Ordinal categories on the sequential ramp, strongest evidence darkest. Where a
+# level means "no evidence at all" it is grey, not the lightest step.
 .STRUCTURE_COLOUR <- stats::setNames(seq_colours(4)[4:2], c("full", "partial", "gene"))
+.CONFIDENCE_COLOUR <- c(HC = seq_colours(4)[4], LC = seq_colours(4)[2])
+.RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2], c("genus", "subfamily", "family")),
+                  none = .GREY_OTHER)
+.DOMAIN_TIER_COLOUR <- c(domain_selected = seq_colours(4)[4],
+                         domain_unlisted = seq_colours(4)[2],
+                         non_domain      = .GREY_OTHER)
 
 # Viral genera. The six orthoretrovirus genera each get one fixed colour, chosen
 # from the palette entries not already carrying a tier meaning. The spumavirus
@@ -93,6 +104,14 @@ div_colours <- function(n) {
   Deltaretrovirus   = .TOL_MUTED[["cyan"]]
 )
 .SPUMA_SHADES <- c("#7A6A58", "#9C8B77", "#BCAE9C", "#D8CEC1")
+
+# ERV classes (Jern/Blomberg) are defined by the genus they resemble, so each
+# wears that genus's colour: Class I gamma-like, II beta-like, III spumaviral.
+.ERV_CLASS_COLOUR <- c(
+  `Class I`   = .GENUS_COLOUR[["Gammaretrovirus"]],
+  `Class II`  = .GENUS_COLOUR[["Betaretrovirus"]],
+  `Class III` = .SPUMA_SHADES[[1]]
+)
 
 # Fixed colours for any set of taxon names, in any plot. Orthoretrovirus genera
 # get their own colour; spumavirus genera (names ending "spumavirus") get the
@@ -126,14 +145,43 @@ taxon_levels <- function(values, weights = NULL) {
 }
 
 
+# Taxon values as a factor in legend order, so stacked bars run in the same order
+# as their legend (pair with position_stack(reverse = TRUE)).
+taxon_factor <- function(values, weights = NULL) {
+  factor(as.character(values), levels = taxon_levels(values, weights))
+}
+
+# The same fill scale for taxa everywhere: fixed colours, most abundant first in
+# the legend, leftovers last, taxa in italics. `weights` are counts aligned with
+# `taxa`, for the legend order only.
+scale_fill_taxon <- function(taxa, weights = NULL, ...) {
+  ggplot2::scale_fill_manual(values = taxon_colours(taxa),
+                             breaks = taxon_levels(taxa, weights),
+                             labels = taxon_labels, ...)
+}
+
+# A continuous fill on the sequential ramp (counts, shares, confidence), with a
+# colourbar long enough that its labels never run together.
+scale_fill_ramp <- function(...) {
+  ggplot2::scale_fill_gradientn(
+    colours = seq_colours(9), ...,
+    guide = ggplot2::guide_colourbar(barwidth = grid::unit(14, "lines"),
+                                     barheight = grid::unit(0.6, "lines"),
+                                     title.position = "top"))
+}
+
 # Colours for an open-ended categorical variable with no fixed meaning (probes,
-# viruses). Palette order, then interpolation if a plot has more levels than the
-# palette has colours, which a long-tail collapse should normally prevent.
+# methods, families). The tier colours come last, so a plot with up to six
+# levels never seems to be talking about tiers. Beyond nine levels the palette
+# is interpolated, which a long-tail collapse should normally prevent.
+.CATEGORY_ORDER <- c("cyan", "sand", "purple", "olive", "green", "wine",
+                     "rose", "indigo", "teal")
 category_colours <- function(levels) {
   levels <- unique(as.character(levels))
   n <- length(levels)
-  cols <- if (n <= length(.TOL_MUTED)) unname(.TOL_MUTED[seq_len(n)])
-          else grDevices::colorRampPalette(unname(.TOL_MUTED))(n)
+  palette <- unname(.TOL_MUTED[.CATEGORY_ORDER])
+  cols <- if (n <= length(palette)) palette[seq_len(n)]
+          else grDevices::colorRampPalette(palette)(n)
   cols[grepl("^Other", levels)] <- .GREY_OTHER
   stats::setNames(cols, levels)
 }
@@ -174,6 +222,7 @@ display_species <- function(values, species_map = NULL) {
   HC                   = "High confidence",
   LC                   = "Low confidence",
   placement            = "Phylogenetic placement",
+  lca                  = "Weighted LCA",
   weighted_lca         = "Weighted LCA",
   presence             = "Gene presence",
   no_intact            = "No intact member",
@@ -198,6 +247,19 @@ italic_labels <- function(values) {
   lapply(as.character(values), function(v) {
     if (grepl(.NOT_A_TAXON, v)) bquote(.(v)) else bquote(italic(.(v)))
   })
+}
+
+# Labels for taxon identifiers: readable words first ("unassigned_at_genus"
+# becomes "Unassigned at genus"), then italics for the real taxa.
+taxon_labels <- function(values) italic_labels(display_label(values))
+
+# Text colour for a label drawn on a sequential-ramp tile: light on the dark end,
+# dark elsewhere, so every number stays legible. `trans` matches the fill scale's
+# transform (log10 for count heatmaps).
+ink_on_ramp <- function(values, trans = identity) {
+  pos <- trans(as.numeric(values))
+  if (length(unique(pos)) < 2L) return(rep(.INK, length(values)))
+  ifelse(scales::rescale(pos) > 0.6, .PAPER, .INK)
 }
 
 # ---------------------------------------------------------------------------
@@ -226,6 +288,7 @@ theme_retroseek <- function(base_size = 11) {
       panel.grid.minor = ggplot2::element_blank(),
       strip.text    = ggplot2::element_text(size = base_size - 1, hjust = 0,
                                             face = "bold", colour = .INK),
+      panel.spacing = grid::unit(1.6, "lines"),
       legend.position = "bottom",
       legend.title  = ggplot2::element_text(size = base_size - 1.5, colour = .INK_SOFT),
       legend.text   = ggplot2::element_text(size = base_size - 1.5),
@@ -278,6 +341,16 @@ save_stage_pdf <- function(pages, path, width = .PAGE_WIDTH, height = .PAGE_HEIG
   on.exit(grDevices::dev.off())
   for (p in pages) print(p)
   invisible(path)
+}
+
+# The title of each page, for a key page's page list, read from the pages
+# themselves so the list cannot drift from what is drawn. A page composed with
+# the host tree carries its title on the composition, not on the panel.
+page_titles <- function(pages) {
+  vapply(pages, function(p) {
+    title <- if (inherits(p, "patchwork")) p$patches$annotation$title else p$labels$title
+    if (is.null(title)) "" else as.character(title)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 # The first page of every stage PDF: what the stage shows, what its colours mean,

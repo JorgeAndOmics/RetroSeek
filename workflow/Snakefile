@@ -1101,28 +1101,20 @@ rule stage_plot_generator:
         plots=rules.stage_plot_generator_setup.output
 
 
-# ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
-# tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
-# of PNGs into results/plots/erv-like/.
-# ERV-like structural panel - views of the taxon-founded ERV assembly (the
-# taxonomy_classify loci table): completeness, canonical order, gene
-# combinations, length, marker count, taxon x gene composition.
+# ERV structural panel: views of the taxon-founded ERV assembly (the
+# taxonomy_classify loci table), as one stage PDF: structural class,
+# completeness, gene count, gene combinations, gene order, length, and
+# lineage by gene.
 rule erv_like_plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],'{genome}.loci.parquet'),
                           genome=species_with_hits(wildcards))
     output:
-        structure_plots=expand(os.path.join(defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],'{structure_plot}.png'),
-                               structure_plot=['completeness',
-                                               'canonical_order',
-                                               'gene_combinations',
-                                               'length_distribution',
-                                               'n_main_genes',
-                                               'composition_heatmap',
-                                               'structure_class'])
+        pdf = os.path.join(defaults.PATH_DICT['STRUCTURE_PLOT_DIR'], 'structure.pdf')
     params:
         taxonomy_parquet_dir=defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1130,7 +1122,8 @@ rule erv_like_plot_generator_setup:
         '''
         Rscript scripts/taxonomy/erv_like_plot_generator.R \
         --input {params.taxonomy_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 
@@ -1622,36 +1615,11 @@ rule taxonomy_plot_generator_setup:
                                              genome=species_with_hits(wildcards)),
         trees = rules.taxonomy_tree_layout_setup.output.coords
     output:
-        plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
-                       tax_plot=['taxon_composition',
-                                 'rank_resolution',
-                                 'method_mix',
-                                 'erv_class_composition',
-                                 'mosaic_alluvial',
-                                 'confidence',
-                                 'evidence_depth',
-                                 'confidence_density',
-                                 'confidence_vs_evidence',
-                                 'structure_by_tier',
-                                 'source_yield',
-                                 'taxon_by_source',
-                                 'domain_tier_composition',
-                                 'structure_class_composition',
-                                 'mosaic_burden',
-                                 'mosaic_taxon_pairs',
-                                 'mosaic_gene_discordance',
-                                 'mosaic_composition_by_species',
-                                 'confidence_count',
-                                 'confidence_gradient',
-                                 'taxon_confidence_tree',
-                                 'species_confidence_tree',
-                                 'species_composition_tree',
-                                 'taxon_tier_tree']),
+        pdf = os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], 'taxonomy.pdf'),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv'),
         catalog = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
-        plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
         species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
@@ -1661,7 +1629,7 @@ rule taxonomy_plot_generator_setup:
         '''
         Rscript scripts/taxonomy/taxonomy_plot_generator.R \
         --input {params.parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
         --config {params.config_yaml:q} \
         --tree_dir {params.tree_dir:q} \
         --species_tree_dir {params.species_tree_dir:q} \
@@ -1865,22 +1833,18 @@ rule loss_analysis_setup:
         loci = lambda wildcards: (
             expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                    genome=species_with_hits(wildcards))
-            if _CLASSIFICATION.get('enable', True) else [])
+            if _CLASSIFICATION.get('enable', True) else []),
+        species_tree = rules.species_tree_layout.output.tips
     output:
         table_parquet = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_PARQUET_DIR'], 'loss_analysis.parquet'),
         table_csv     = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_CSV_DIR'], 'loss_analysis.csv'),
-        plots         = expand(os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], '{loss_plot}.png'),
-                               loss_plot=['loss_funnel',
-                                          'step_retention',
-                                          'orphan_recovery',
-                                          'novel_burden',
-                                          'loss_waterfall'])
+        pdf           = os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], 'loss.pdf')
     params:
         ranges_counts_dir = defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],
         class_counts_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'],
         loci_dir          = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         novel_dir         = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_CSV_DIR'], 'novel_candidates'),
-        plot_dir          = defaults.PATH_DICT['LOSS_PLOT_DIR'],
+        species_tree_dir  = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml       = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1893,7 +1857,8 @@ rule loss_analysis_setup:
         --out_parquet {output.table_parquet:q} \
         --out_csv {output.table_csv:q} \
         --novel_dir {params.novel_dir:q} \
-        --plot_dir {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 

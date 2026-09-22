@@ -126,3 +126,46 @@ species_rows <- function(panel, species, tree = NULL, fallback_order = NULL, axi
   panel <- panel + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
   compose_with_tree(tree_column(tips, tree$segments, ylim), panel)
 }
+
+
+# species_rows() for a panel-registry builder. Every registry passes its builders
+# one `ctx` list; the host tree and the config order travel in it as
+# ctx$species_tree (read_species_tree()) and ctx$species_order (display names,
+# config order). With no ctx, as in a unit test, rows fall back to sorted order.
+on_rows <- function(panel, species, ctx = NULL, axis = "x") {
+  species_rows(panel, species, tree = ctx$species_tree,
+               fallback_order = ctx$species_order, axis = axis)
+}
+
+
+# The `ctx` list a panel registry hands to its builders: the host tree and the
+# config order for species rows, plus the two settings some builders need.
+#   cfg               the parsed config
+#   species_tree_dir  species_tree_layout.py output; "" or missing means no tree
+#   tree_dir          the taxon tree coordinates (tree_layout.py), for the
+#                     lineage trees
+panel_ctx <- function(cfg, species_tree_dir = "", tree_dir = "") {
+  species <- cfg$species
+  confidence_min <- cfg$classification$confidence_min
+  list(
+    species_tree   = read_species_tree(species_tree_dir),
+    species_order  = if (length(species)) display_species(names(species), species) else NULL,
+    tree_dir       = tree_dir,
+    confidence_min = if (is.null(confidence_min)) 0.5 else confidence_min
+  )
+}
+
+
+# Small multiples, one row per species, the first species of the canonical order
+# on top: the species-on-rows rule for plots whose x axis is a measurement rather
+# than species (histograms). `panel`'s data must carry a `species` column; it is
+# turned into a factor in canonical order, which is what facet_grid lays out.
+# A species with no data has no row here, since a facet cannot be empty.
+species_facets <- function(panel, ctx = NULL, scales = "free_y") {
+  top_first <- rev(species_order(panel$data$species, ctx$species_tree, ctx$species_order))
+  panel$data$species <- factor(panel$data$species, levels = top_first)
+  panel +
+    facet_grid(rows = vars(.data$species), switch = "y", scales = scales) +
+    theme(strip.text.y.left = element_text(angle = 0, hjust = 1, face = "italic"),
+          strip.placement = "outside")
+}
