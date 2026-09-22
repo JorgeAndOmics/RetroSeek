@@ -61,7 +61,7 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) - POL/GAG by phylogenetic placement, weighted-LCA otherwise - against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
-- Publication-ready plots: density, raincloud, bar, Sankey, balloon, per-genome Circos-style visualisations.
+- Publication-ready figures: one multi-page vector PDF per stage in a single colour-blind-safe visual system, with host species on rows beside the host phylogeny ([visual style](docs/visual_style.md)).
 - Structured, colour-coded logging for audit; heartbeat log lines for long-running silent tools (suffixerator, ltrharvest) so progress is observable on multi-hour mammalian runs.
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
 - Intuitive CLI delegating to Snakemake - resume from checkpoints after interruption, compose with any Snakemake flag.
@@ -94,7 +94,7 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--probe-extractor`         | Parse probe CSV and fetch probe sequences via Entrez     |
 | `--blast`                   | tBLASTn probes against each genome                       |
 | `--ranges-analysis`         | Integrate BLAST + LTR -> GFF3 tracks + tables             |
-| `--generate-global-plots`   | Density / raincloud / bar / Sankey / balloon plots       |
+| `--generate-global-plots`   | Homology, integration and structure PDFs                 |
 | `--generate-circle-plots`   | Per-genome Circos-style plots (currently broken)         |
 | `--hotspot-detection`       | Deterministic NB-GLM hotspot detection                   |
 | `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |

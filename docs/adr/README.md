@@ -26,6 +26,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 015   | [Domain evidence from one symmetric scan, curated by accession](ADR-015-domain-evidence-by-symmetric-scan.md) | Accepted |
 | 016   | [One domain classification, at locus grain](ADR-016-one-domain-classification.md) | Accepted |
 | 017   | [Native solo-LTR detection, using detected LTRs as bait](ADR-017-native-solo-ltr-detection.md) | Accepted |
+| 018   | [One visual system for every figure, one PDF per stage](ADR-018-one-visual-system.md) | Accepted |
 
 ## When to write a new ADR
 
