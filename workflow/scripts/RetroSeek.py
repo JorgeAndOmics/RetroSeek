@@ -231,7 +231,7 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         action="store_true",
         help="Split the authoritative ERV catalog by taxonomic segment: one table "
         "per taxon at classification.segment_rank (genus by default, any rank), "
-        "plus a curated plot subset per segment. Requires --classify output.",
+        "plus a PDF of taxonomy and structure pages per segment. Requires --classify output.",
     )
 
     parser.add_argument(

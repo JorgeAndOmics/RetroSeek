@@ -1530,9 +1530,8 @@ rule taxonomy_orphans:
 # from the loci tables (so plots and tables are concordant by construction).
 # =============================================================================
 # 8b. TAXONOMY TREE LAYOUT - flat coordinates for the tree-attached panels
-#     Builds the taxon cladogram from the reference taxonomy hierarchy and, when
-#     the user pinned one, prunes their host-species Newick to the study's
-#     species. Emits x/y CSVs so the R panels draw trees without an R tree
+#     Builds the taxon cladogram from the reference taxonomy hierarchy (the host
+#     species tree is laid out earlier, by species_tree_layout). Emits x/y CSVs so the R panels draw trees without an R tree
 #     library (Bio.Phylo does the work; biopython is already a dependency).
 #     Reads the per-genome loci/orphan parquets - NOT catalog.csv, which is an
 #     OUTPUT of the plot stage, so depending on it here would cycle.
@@ -1621,7 +1620,7 @@ rule taxonomy_plot_generator:
 # =============================================================================
 # The per-segment tables and figures are declared as DIRECTORY outputs rather
 # than left to params. Previously only segment_summary.csv was declared, so the
-# N per-segment CSVs and the 28N PNGs were invisible to the DAG: never rebuilt
+# N per-segment CSVs and the per-segment figures were invisible to the DAG: never rebuilt
 # when stale, never cleaned up after a failure, and a half-finished run looked
 # complete. They are directories rather than a file list because the segment
 # names are only known at runtime (they come from the distinct `segment` values

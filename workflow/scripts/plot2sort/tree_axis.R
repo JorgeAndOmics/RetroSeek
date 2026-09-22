@@ -9,7 +9,7 @@
 #   with a host tree configured (input.species_tree)  the tree's tip order;
 #   without one                                        the config `species:` order.
 #
-# The tree itself is ADR-011's coordinate bridge: tree_layout.py lays it out and
+# The tree itself is ADR-011's coordinate bridge: species_tree_layout.py lays it out and
 # writes `species.tree_tips.csv` (tip, x, y) and `species.tree_segments.csv`; this
 # file only draws those coordinates. No R tree package is involved.
 
