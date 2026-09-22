@@ -99,17 +99,19 @@ compose_with_tree <- function(tree, panel, widths = c(1.1, 3)) {
 # the tree prints them and the panel's own labels are switched off.
 species_rows <- function(panel, species, tree = NULL, fallback_order = NULL, axis = "x") {
   levels <- species_order(species, tree, fallback_order)
-  panel <- panel +
-    { if (axis == "x") scale_x_discrete(limits = levels) else scale_y_discrete(limits = levels) } +
-    { if (axis == "x") coord_flip() } +
-    theme(
-      # After the flip the value axis is horizontal: undo any label rotation a
-      # builder applied for species-on-x, and keep grid lines only along values.
-      axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1),
-      axis.text.y = element_text(face = "italic", hjust = 1),
-      panel.grid.major.y = element_blank(),
-      axis.title.y = element_blank()
-    )
+  species_text <- theme(axis.text.y = element_text(face = "italic", hjust = 1),
+                        axis.title.y = element_blank())
+  panel <- if (axis == "x") {
+    panel + scale_x_discrete(limits = levels) + coord_flip() + species_text +
+      # After the flip the value axis is horizontal: undo any rotation the builder
+      # applied for species-on-x, and keep grid lines only along the values.
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1),
+            panel.grid.major.y = element_blank())
+  } else {
+    # Already on rows: only the species axis is touched, the x axis is the
+    # builder's own (a heatmap's categories, for instance).
+    panel + scale_y_discrete(limits = levels) + species_text
+  }
   if (is.null(tree)) return(panel)
 
   not_on_tree <- setdiff(species, tree$tips$tip)

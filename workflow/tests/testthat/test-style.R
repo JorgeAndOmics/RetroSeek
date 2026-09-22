@@ -115,3 +115,10 @@ test_that("a stage PDF embeds the house font", {
   fonts <- system2("pdffonts", path, stdout = TRUE)
   expect_true(any(grepl("IBMPlexSans", fonts)))
 })
+
+
+test_that("taxon legends run most abundant first, leftovers last", {
+  lv <- taxon_levels(c("Betaretrovirus", "Unassigned at genus", "Gammaretrovirus", "Other"),
+                     c(10, 99, 20, 50))
+  expect_equal(lv, c("Gammaretrovirus", "Betaretrovirus", "Unassigned at genus", "Other"))
+})

@@ -103,3 +103,13 @@ test_that("an unset tree directory means no tree, not an error", {
   expect_null(read_tree_part("", "species", "tips"))
   expect_null(read_species_tree(NULL))
 })
+
+
+test_that("a panel already on rows keeps its own x axis text", {
+  p <- ggplot(data.frame(g = c("a", "b"), species = c("Homo sapiens", "Mus musculus")),
+              aes(x = .data$g, y = .data$species)) + geom_tile() +
+    theme(axis.text.x = element_text(angle = 30))
+  out <- species_rows(p, c("Homo sapiens", "Mus musculus"), axis = "y",
+                      fallback_order = c("Homo sapiens", "Mus musculus"))
+  expect_equal(out$theme$axis.text.x$angle, 30)
+})

@@ -113,6 +113,19 @@ taxon_colours <- function(taxa) {
   out
 }
 
+# Legend order for taxa: most abundant first, and anything that is not a real
+# taxon (unassigned, unclassified, Other) last, so the legend reads from what
+# matters to what is left over. `weights` are counts aligned with `values`.
+taxon_levels <- function(values, weights = NULL) {
+  values <- as.character(values)
+  if (is.null(weights)) weights <- rep(1, length(values))
+  totals <- tapply(weights, values, sum)
+  ranked <- names(sort(totals, decreasing = TRUE))
+  leftover <- grepl(.NOT_A_TAXON, ranked, ignore.case = TRUE)
+  c(ranked[!leftover], ranked[leftover])
+}
+
+
 # Colours for an open-ended categorical variable with no fixed meaning (probes,
 # viruses). Palette order, then interpolation if a plot has more levels than the
 # palette has colours, which a long-tail collapse should normally prevent.
