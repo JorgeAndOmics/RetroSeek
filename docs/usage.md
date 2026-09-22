@@ -17,7 +17,7 @@ The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.11, R 4.3, Bio
 ./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
 ```
 
-One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-detection --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
+One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-detector --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
 
 ### Stage flags
 
@@ -39,7 +39,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 > **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and `{genome}_composition.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
 
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
-| `--solo-ltr-detection`      | `solo_ltr_detector`           | LTRharvest SCN + `element_hits/{genome}.gff3`    | `solo_ltr/{genome}.gff3` + `solo_intact_ratio/{genome}.csv` + `all_species.csv` |
+| `--solo-ltr-detector`       | `solo_ltr_detector`           | `flanking_ltr/{genome}.gff3` + `{genome}.loci.csv` + genome BLAST db | `tracks/solo_ltr/{genome}.gff3` + `tables/solo_ltr/` + `trees/solo_ltr/` + one PDF per genome under `plots/classification/solo_ltr/` (see `docs/solo_ltr.md`) |
 | `--placement-trees`        | `placement_trees`             | published `.jplace` + host tree          | per-genome heat-trees (SVG/Newick/Nexus), EDPL + LWR tables, tables `cophylogeny_summary.{tier}.{gene}.csv` + `{tier}.{gene}.krd_matrix.csv`; trees under `results/trees/` (`placements/`, `placements/heat_trees/`, `cophylogeny/erv_composition.{tier}.{gene}.newick`, `cophylogeny/cluster_mass/`) |
 | `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
 | `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `element_hits/{genome}.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + taxonomy plot panel |
@@ -97,11 +97,10 @@ cp data/config/config.example.yaml data/config/config.local.yaml
   - `main_probes` - probes subject to Pfam-domain validation.
   - `merge_option` - how overlapping ranges collapse (`virus` or `label`, strict enum).
   - `aggregation` - per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
-  - `solo_ltr_aggregation` - separate strategy block for propagating probe labels from seed ERVs onto discovered solo LTRs.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
   - (The composite ERV assembly is no longer a `parameters.erv_like` tier - it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
 - **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`catalog` | `original`), `group_by`, `source`, `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
-- **`ltr_retriever`** - LTR_retriever / solo-LTR knobs: `substitution_rate`, `min_ltr_similarity`, `threads_per_genome`, `noanno`, `source_scn` (Coupling A toggle: `retroviral` | `full`), `nearest_erv_max_distance` (Coupling B fallback window). See [`docs/configuration.md`](configuration.md#ltr_retriever) for the full reference and [`docs/solo_ltr.md`](solo_ltr.md) for the mechanism.
+- **`solo_ltr`** - native solo-LTR detection (ADR-017): the acceptance thresholds (`min_bait_length`, `min_hit_length`, `min_identity`, the coverage window), the monoLTR-at-orphan distance (`orphan_pad`), the blastn settings, and a `tree:` subblock for the evidence phylogeny. Every value the method depends on lives here; the scripts carry no defaults of their own. See [`docs/configuration.md`](configuration.md#solo_ltr) and [`docs/solo_ltr.md`](solo_ltr.md).
 - **`placement`** - colour scale for the published heat-trees: `mass_norm` (`absolute` | `relative`).
 - **`classification`** - per-locus ERV taxon calls, rank-agnostic since ADR-008 (`reference_taxa` sets the axis, `segment_rank` the roll-up): `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
 - **`logging`** - colour styles for console logging.

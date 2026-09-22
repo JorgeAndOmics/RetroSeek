@@ -160,10 +160,12 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["PROBE_PAIRS_PARQUET_DIR"],
     PATH_DICT["PROBE_PAIRS_CSV_DIR"],
 ) = table_dirs("probe_pairs")
+# Solo-LTR detection (ADR-017): per-genome solo calls, the full candidate set
+# with each candidate's fate, the funnel counts, and the tree statistics.
 (
-    PATH_DICT["SOLO_INTACT_PARQUET_DIR"],
-    PATH_DICT["SOLO_INTACT_CSV_DIR"],
-) = table_dirs("solo_intact_ratio")
+    PATH_DICT["SOLO_LTR_PARQUET_DIR"],
+    PATH_DICT["SOLO_LTR_CSV_DIR"],
+) = table_dirs("solo_ltr")
 (
     PATH_DICT["PROBE_DICT_PARQUET_DIR"],
     PATH_DICT["PROBE_DICT_CSV_DIR"],
@@ -206,10 +208,18 @@ PATH_DICT["COPHYLOGENY_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "cophyloge
 # Run manifest - provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
-# LTRharvest screen-format (.scn) intermediate - consumed by LTR_retriever.
-# Lives under /data (not /results) because it's a working format, not an output.
+# LTRharvest screen-format (.scn) intermediate. Its only consumer, LTR_retriever,
+# is gone (ADR-017), but ltr_harvester still DECLARES {genome}.scn as an output:
+# removing it would change that rule's signature and re-fire a 24-hour stage for
+# no gain. Lives under /data because it is a working format, not an output.
 PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
-# LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
+# Solo-LTR bait: the LTR arms of ERV-bearing elements as BED + FASTA, and the
+# gzipped blastn hit table they produce. Working formats under /data for the same
+# reason as LTR_SCN_DIR. The hit table is large (421 MB raw for Desmodus from 812
+# arms) and is kept rather than streamed so thresholds can be re-swept without
+# re-running blastn; gzip makes that affordable.
+PATH_DICT["SOLO_BAIT_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_bait").resolve()
+PATH_DICT["SOLO_BLAST_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_blast").resolve()
 
 # === Results - Plots ===
 # Layout mirrors the pipeline stages so the filesystem is self-documenting:
@@ -271,6 +281,13 @@ PATH_DICT["SEGMENTS_PLOT_DIR"] = (
     PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "segments"
 ).resolve()
 
+# Native solo-LTR detection: the detection funnel, the threshold calibration, and
+# the tree evidence. A classification panel because a solo is a catalogued
+# integration event, the same object the taxonomy panels describe.
+PATH_DICT["SOLO_LTR_PLOT_DIR"] = (
+    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "solo_ltr"
+).resolve()
+
 # --- Standalone analyses ---
 PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle").resolve()
 PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
@@ -292,6 +309,8 @@ PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve(
 # Orphans tier - non-LTR-associated hits recovered + classified by their own
 # sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
 PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
+# Solo-LTR calls as a browser track (ADR-017), taxonomy in the attributes.
+PATH_DICT["TRACK_SOLO_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "solo_ltr").resolve()
 
 # === Results - Trees ===
 # Phylogenetic interchange formats: Newick, Nexus, jplace. A fourth root beside
@@ -306,6 +325,10 @@ PATH_DICT["TREE_OUTPUT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "trees").resolve()
 # cleared between runs; they are the evidence behind every taxon_call and the
 # interchange format iTOL/gappa read, so they are promoted here (ADR-014).
 PATH_DICT["PLACEMENT_DIR"] = (PATH_DICT["TREE_OUTPUT_DIR"] / "placements").resolve()
+# The solo-LTR evidence trees (ADR-017): LTR nucleotide phylogenies over the
+# three fates a lone LTR can have. Newick for a tree viewer; the rendered panels
+# live under SOLO_LTR_PLOT_DIR.
+PATH_DICT["SOLO_TREE_DIR"] = (PATH_DICT["TREE_OUTPUT_DIR"] / "solo_ltr").resolve()
 # The heat-tree Newick/Nexus exports - the same trees as the SVGs under
 # PLACEMENT_PLOT_DIR, in the formats FigTree and iTOL read.
 PATH_DICT["PLACEMENT_HEAT_TREE_DIR"] = (
@@ -330,8 +353,6 @@ PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()
 PATH_DICT["LTRDIGEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrdigest").resolve()
 # LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
 # consensus library - all the files LTR_retriever emits per genome).
-PATH_DICT["LTR_RETRIEVER_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltr_retriever").resolve()
-PATH_DICT["SOLO_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "solo_ltr").resolve()
 PATH_DICT["FLANKING_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "flanking_ltr").resolve()
 
 # === Logs & Workflow ===

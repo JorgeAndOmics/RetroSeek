@@ -67,17 +67,68 @@ parameters:
     best_tiebreaker: "bitscore"
     concat_separator: "; "
     strict_marker: "ambiguous"
-  solo_ltr_aggregation:
-    probe: "list"
-    best_tiebreaker: "consensus_members"
 
-ltr_retriever:
-  substitution_rate: 1.3e-8
-  min_ltr_similarity: 91
-  threads_per_genome: 4
-  noanno: true
-  source_scn: retroviral
-  nearest_erv_max_distance: 10000
+
+# Native solo-LTR detection (ADR-017). A solo LTR is what a provirus leaves
+# behind when its two LTRs recombine and excise everything between them. The
+# detector uses the LTR arms of ERV-bearing elements as blastn bait, then
+# subtracts the hits that are something else. Every threshold the method depends
+# on lives here: the scripts take them as required arguments and carry no
+# defaults of their own, so this file is the single source of truth.
+solo_ltr:
+  # Bait and hit must both be near-full-length LTRs. Without this the published
+  # rules alone return a 492:1 solo/intact ratio, an order of magnitude too high,
+  # because the coverage rule below assumes a full-length family consensus while
+  # our bait is individual arms as short as 100 bp.
+  min_bait_length: 300
+  min_hit_length: 300
+  min_identity: 95
+  # Ou & Jiang's coverage window, as published: the alignment must span most of
+  # the bait arm without running far past it.
+  min_coverage: 0.8
+  max_coverage: 1.2
+  min_alignment_length: 80
+  # A lone LTR this close to surviving retroviral coding sequence is a monoLTR at
+  # an orphan, not a solo: the provirus is damaged, not excised.
+  orphan_pad: 10000
+  # Gap tolerated when merging overlapping blastn hits into one candidate locus.
+  # 0 means only touching or overlapping hits merge.
+  merge_gap: 0
+  blast_task: dc-megablast
+  blast_evalue: 1.0e-5
+  max_target_seqs: 5000
+  # Grid for the per-genome calibration plot, which shows how the solo/intact
+  # ratio responds to the two thresholds that matter.
+  calibration_lengths: [0, 300, 400, 500]
+  calibration_identities: [70, 80, 85, 90, 95, 97, 99]
+  tree:
+    enable: true
+    # Elements sampled as flanking-arm tips; both arms of a chosen element are
+    # kept, which is what preserves the tree's positive control. Capped because
+    # the clustering statistic compares against class abundance and saturates
+    # when one class dominates: taking every arm made the Mus tree 96.5%
+    # flanking, pushed the null to 0.94 and collapsed the enrichment to 1.03x.
+    n_element_tips: 300
+    # LTR families are cut from the tree as maximal clades whose largest
+    # tip-to-tip distance is at most this (substitutions/site). 0.2 is the
+    # 80-80-80 transposable-element family convention (80% identity), and it is
+    # where family counts stop tracking the cut on the model 5; below ~0.1 the
+    # tree shatters into pairs and "families" become an artefact.
+    family_max_distance: 0.2
+    # How many families of each kind (no intact member / with one) get their own
+    # subtree page, largest by solo count.
+    family_panels_per_kind: 3
+    # Tips are all bait arms plus a sample of the other two classes, because a
+    # tree over every solo would be neither computable nor readable.
+    n_solo_tips: 200
+    n_mono_tips: 200
+    # Label permutations for the same-class-sister null.
+    permutations: 20
+    seed: 67
+    model: GTR+G
+    # IQ-TREE -fast: two iterations, no bootstrap. The tree is exploratory
+    # evidence, never an input to classification.
+    fast: true
 
 logging:
   level_styles:

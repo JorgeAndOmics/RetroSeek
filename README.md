@@ -57,7 +57,7 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Automated genome acquisition via NCBI Datasets, with BLAST database and GenomeTools suffix-array generation per genome.
 - Configurable homology-based search via BLAST+ and *de novo* LTR discovery via LTRharvest / LTRdigest, reconciled into high-confidence ERV candidate tracks.
 - **Phylogenetic placement outputs**: the `.jplace` evidence behind every taxon call is published (iTOL-ready) rather than left in scratch, alongside per-genome heat-trees showing where a genome's ERV load sits on the retroviral phylogeny, EDPL placement-uncertainty tables, and a co-phylogeny comparison asking whether ERV complements track host ancestry. See [ADR-014](docs/adr/ADR-014-publishing-placement-evidence-and-cophylogeny.md).
-- **Solo-LTR detection via LTR_retriever**, pre-filtered to retroviral-only candidates by intersecting LTRharvest output with RetroSeek's `valid_ranges.gff3`. Solo LTRs inherit probe labels from their seed ERVs via a hybrid consensus-family + nearest-ERV fallback, and per-family solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
+- **Solo-LTR detection**, finding the single LTRs left behind when a provirus's two LTRs recombine and excise everything between them. In mammals these outnumber intact proviruses by one to two orders of magnitude, and each marks an ancestral integration the probe search cannot see. The LTR arms of ERV-bearing elements are used as `blastn` bait, and what is left after removing intact-element flanks and lone LTRs beside surviving coding sequence is a solo. Solos inherit taxonomy from the element whose arm matched them, and solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
 - **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) - POL/GAG by phylogenetic placement, weighted-LCA otherwise - against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
@@ -98,7 +98,7 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--generate-circle-plots`   | Per-genome Circos-style plots (currently broken)         |
 | `--hotspot-detection`       | Deterministic NB-GLM hotspot detection                   |
 | `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
-| `--solo-ltr-detection`      | LTR_retriever over LTRharvest output (retroviral-only pre-filter), solo-LTR probe-label propagation, solo/intact ratio tables |
+| `--solo-ltr-detector`       | Solo-LTR detection, taxonomy inheritance, the LTR evidence tree, and the solo-LTR figure panel |
 | `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
 | `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
 | `--placement-trees`         | Publish placement evidence: heat-trees + cophylogeny     |
@@ -133,7 +133,7 @@ Integrate BLAST + LTR evidence using an HPC profile:
 - [`docs/architecture.md`](docs/architecture.md) - pipeline design, rule graph, data flow.
 - [`docs/usage.md`](docs/usage.md) - CLI reference and configuration overview.
 - [`docs/configuration.md`](docs/configuration.md) - field-by-field config reference.
-- [`docs/solo_ltr.md`](docs/solo_ltr.md) - how LTR_retriever works, how RetroSeek couples to it, and the biology of solo LTRs.
+- [`docs/solo_ltr.md`](docs/solo_ltr.md) - what a solo LTR is, why detecting one is a subtraction rather than a classification, and how the method is calibrated.
 - [`docs/development.md`](docs/development.md) - contributor guide: env, TDD, branch rules, commit style.
 - [`docs/adr/`](docs/adr/) - architectural decision records.
 - [`CHANGELOG.md`](CHANGELOG.md) - released changes (Keep a Changelog format).

@@ -28,25 +28,17 @@ dependencies:
   - snakemake-wrapper-utils
 
   # -- external bio tools ----------------------------------
-  # Pinned to 2.14.1 rather than a newer release, and kept in lockstep with rmblast below:
-  # repeatmasker (pulled in by ltr_retriever) depends on rmblast, which installs its OWN
-  # tblastn/blastn/makeblastdb into the same bin/ and overwrites blast's copies. With
-  # mismatched pins, `conda list` said 2.16.0 while `tblastn -version` said 2.14.1. Matching
-  # the two makes the declared version the one that actually runs. repeatmasker 4.2.3 has no
-  # rmblast >= 2.17 build, so raising this pin makes the environment unsolvable.
+  # This pin used to be locked to rmblast=2.14.1. repeatmasker, pulled in by
+  # ltr_retriever, depends on rmblast, which installs its OWN tblastn/blastn/
+  # makeblastdb over blast's copies in the same bin/, so a mismatch meant
+  # `conda list` said 2.16.0 while `tblastn -version` said 2.14.1. ADR-017 removed
+  # ltr_retriever and with it repeatmasker and rmblast, so the lockstep is retired
+  # and this pin can move on its own. Left at 2.14.1 deliberately: raising it is a
+  # separate change needing `make env-update` and a rerun of the blast stages.
   - blast=2.14.1         # tblastn, blastn, makeblastdb
-  - rmblast=2.14.1       # explicit: must equal the blast pin above
   - genometools-genometools  # gt ltrharvest, gt ltrdigest
   - ncbi-datasets-cli    # genome download via `datasets`
-  - ltr_retriever        # solo-LTR post-processing of LTRharvest output
-                         #   pulls Perl + HMMER + TRF as transitive deps;
-                         #   used by workflow/scripts/ltr_retriever_prefilter.py
-                         #   + solo_ltr_integrator.py. See docs/solo_ltr.md.
-  # -- taxonomic classification (per-locus genus calls; see docs/configuration.md) --
-  # NB: per-locus marker regions are cut with Biostrings (see Bioconductor block
-  # below + extract_region_fasta.R), not bedtools - range/sequence work stays in
-  # Bioconductor.
-  - hmmer                # hmmbuild/hmmalign - gene profiles + query alignment (also via ltr_retriever)
+  - hmmer                # hmmbuild/hmmalign - gene profiles + query alignment
   - mafft                # reference MSA + aligning query markers into it
   - iqtree               # per-gene reference tree (placement scaffold)
   - raxml-ng             # --evaluate: optimise the placement model/branch lengths

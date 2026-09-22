@@ -37,25 +37,91 @@ def _all_rules(project_root: Path) -> set[str]:
 # ---------------------------------------------------------------------
 # Rule presence
 # ---------------------------------------------------------------------
+@pytest.mark.parametrize("rule_name", ["ltr_harvester_setup"])
+def test_existing_rule_present(project_root: Path, rule_name: str) -> None:
+    """Rules the rest of the workflow depends on must remain in the Snakefile."""
+    rules = _all_rules(project_root)
+    assert rule_name in rules, f"rule {rule_name!r} missing from Snakefile"
+
+
 @pytest.mark.parametrize(
     "rule_name",
     [
-        "ltr_harvester_setup",
         "ltr_retriever_prefilter_setup",
         "ltr_retriever_setup",
         "solo_ltr_integrator_setup",
-        "solo_ltr_detector",
+        "solo_intact_ratio_aggregate",
     ],
 )
-def test_existing_rule_present(project_root: Path, rule_name: str) -> None:
-    """Each LTR-Retriever workstream rule must remain in the Snakefile."""
-    rules = _all_rules(project_root)
-    assert rule_name in rules, f"rule {rule_name!r} missing from Snakefile"
+def test_ltr_retriever_rule_is_gone(project_root: Path, rule_name: str) -> None:
+    """The LTR_retriever workstream is archived (ADR-017).
+
+    Asserted as absence rather than deleted outright, so that a partial revert
+    that reinstates one rule without the rest is caught.
+    """
+    assert rule_name not in _all_rules(project_root)
+
+
+def test_ltr_harvest_still_writes_the_scn(project_root: Path) -> None:
+    """The .scn was LTR_retriever's input and now has no consumer, but it stays.
+
+    Removing an output from ltr_harvester_setup changes that rule's signature and
+    re-fires a 24-hour stage for no gain.
+    """
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    harvester = text[
+        text.index("rule ltr_harvester_setup") : text.index("rule ltr_digester_setup")
+    ]
+    assert "LTR_SCN_DIR" in harvester
 
 
 def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
     """``genome_fasta_normalizer_setup`` rule must be in the workflow."""
     assert "genome_fasta_normalizer_setup" in _all_rules(project_root)
+
+
+# ---------------------------------------------------------------------
+# Native solo-LTR detection (ADR-017)
+# ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "rule_name",
+    [
+        "solo_bait_builder_setup",
+        "solo_blaster_setup",
+        "solo_finder_setup",
+        "solo_annotator_setup",
+        "solo_tree_setup",
+        "solo_tree_views_setup",
+        "solo_plot_generator_setup",
+        "solo_plot_summary",
+        "solo_ltr_detector",
+    ],
+)
+def test_solo_ltr_rule_present(project_root: Path, rule_name: str) -> None:
+    """Every stage of the solo-LTR chain must stay in the workflow."""
+    assert rule_name in _all_rules(project_root)
+
+
+def test_solo_thresholds_come_from_config_not_literals(project_root: Path) -> None:
+    """Every acceptance threshold must be read from config, never hard-coded.
+
+    The prototype had these as literals; moving them into config.yaml is what lets
+    a threshold be changed in one place and stay consistent across the scripts.
+    """
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    finder = text[
+        text.index("rule solo_finder_setup") : text.index("rule solo_finder:")
+    ]
+    for key in (
+        "min_identity",
+        "min_coverage",
+        "max_coverage",
+        "min_alignment_length",
+        "min_hit_length",
+        "merge_gap",
+        "orphan_pad",
+    ):
+        assert f"_SOLO['{key}']" in finder, f"{key} is not read from config"
 
 
 # ---------------------------------------------------------------------
@@ -159,26 +225,6 @@ def test_genome_wildcard_constraint_pinned_to_species_list(
 # ---------------------------------------------------------------------
 # Phase-2/3 contract checks (xfail until those phases land)
 # ---------------------------------------------------------------------
-def test_prefilter_rule_declares_both_retroviral_and_full_outputs(
-    project_root: Path,
-) -> None:
-    """Phase 2: the prefilter rule emits both ``_retroviral`` and ``_full`` SCNs."""
-    text = _read_snakefile(project_root)
-    assert "{genome}_retroviral.scn" in text
-    assert "{genome}_full.scn" in text
-
-
-def test_ltr_retriever_setup_invokes_runner_script(project_root: Path) -> None:
-    """Phase 3: the inline LTR_retriever shell collapses into a runner script call."""
-    text = _read_snakefile(project_root)
-    assert "run_ltr_retriever.py" in text
-
-
-def test_config_yaml_uses_source_scn_field(project_root: Path) -> None:
-    """``restrict_to_retroviral`` replaced with ``source_scn``."""
-    text = (project_root / "data" / "config" / "config.yaml").read_text()
-    assert "source_scn:" in text
-    assert "restrict_to_retroviral" not in text
 
 
 # ---------------------------------------------------------------------

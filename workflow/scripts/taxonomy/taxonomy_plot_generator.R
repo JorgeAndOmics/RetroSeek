@@ -19,7 +19,7 @@
 #                               (per-species mosaic fraction), mosaic_taxon_pairs
 #                               (recombination-partner heatmap), mosaic_gene_discordance
 #                               (odd-one-out gene), mosaic_composition_by_species.
-# Plus the confidence / evidence / domain-tier / structure-class panels (18 PNGs total).
+# Plus the confidence / evidence / domain-tier / structure-class panels (24 PNGs total).
 #
 # Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
 # plot2sort/*.R - not duplicated - so the panel matches the existing plots.
@@ -59,6 +59,7 @@ suppressMessages({
 .script_dir <- .resolve_script_dir()
 source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
 source(file.path(.script_dir, "..", "plot2sort", "io.R"))       # save_plot
+source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # read_tree_part, attach_tree_axis
 
 
 # ----------------------------------------------------------------------------
@@ -215,32 +216,37 @@ build_report <- function(combined) {
 #           NULL keeps the fixed config canvas (histograms, heatmaps, alluvials)
 #   axis    "y" routes through auto_dims instead - the tree panels, whose height
 #           grows with tip count and whose y axis is supplied by the tree
+#   tree_axis TRUE where the panel is a simple species-on-x bar chart that reads
+#           well with the host phylogeny on the row axis. Those entries ALSO emit
+#           `<name>_tree.png`; the original file is untouched, so nothing a reader
+#           is used to changes. Panels with a continuous or non-species x axis
+#           (histograms, heatmaps, alluvials) are not eligible.
 #   segment  FALSE where the plot is DEGENERATE for a single segment:
 #           erv_class is constant within a genus (measured: exactly 1.00
 #           distinct values), and the taxonomy cladogram collapses to one tip.
 panel_registry <- function() {
   list(
-    list(file = "taxon_composition.png", build = function(d, ctx) taxon_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "rank_resolution.png", build = function(d, ctx) rank_resolution_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "method_mix.png", build = function(d, ctx) method_mix_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "taxon_composition.png", build = function(d, ctx) taxon_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
+    list(file = "rank_resolution.png", build = function(d, ctx) rank_resolution_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
+    list(file = "method_mix.png", build = function(d, ctx) method_mix_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
     # erv_class is a function of genus, so within one segment it is constant.
-    list(file = "erv_class_composition.png", build = function(d, ctx) erv_class_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = FALSE),
+    list(file = "erv_class_composition.png", build = function(d, ctx) erv_class_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = FALSE, tree_axis = TRUE),
     list(file = "mosaic_alluvial.png", build = function(d, ctx) mosaic_alluvial_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "mosaic_burden.png", build = function(d, ctx) mosaic_burden_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "mosaic_burden.png", build = function(d, ctx) mosaic_burden_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
     list(file = "mosaic_taxon_pairs.png", build = function(d, ctx) mosaic_taxon_pairs_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
     list(file = "mosaic_gene_discordance.png", build = function(d, ctx) mosaic_gene_discordance_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
     list(file = "mosaic_composition_by_species.png", build = function(d, ctx) mosaic_composition_by_species_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
     list(file = "confidence.png", build = function(d, ctx) confidence_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "confidence_count.png", build = function(d, ctx) confidence_count_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "confidence_count.png", build = function(d, ctx) confidence_count_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
     list(file = "confidence_gradient.png", build = function(d, ctx) confidence_gradient_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
     list(file = "evidence_depth.png", build = function(d, ctx) evidence_depth_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
     list(file = "confidence_density.png", build = function(d, ctx) confidence_density_plot(d, ctx$confidence_min), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
     list(file = "confidence_vs_evidence.png", build = function(d, ctx) confidence_vs_evidence_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
     list(file = "structure_by_tier.png", build = function(d, ctx) structure_by_tier_plot(d), data = "combined", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "source_yield.png", build = function(d, ctx) source_yield_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "taxon_by_source.png", build = function(d, ctx) taxon_by_source_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "domain_tier_composition.png", build = function(d, ctx) domain_tier_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "structure_class_composition.png", build = function(d, ctx) structure_class_composition_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE),
+    list(file = "source_yield.png", build = function(d, ctx) source_yield_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
+    list(file = "taxon_by_source.png", build = function(d, ctx) taxon_by_source_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
+    list(file = "domain_tier_composition.png", build = function(d, ctx) domain_tier_composition_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
+    list(file = "structure_class_composition.png", build = function(d, ctx) structure_class_composition_plot(d), data = "combined", n_x = "species", axis = "x", segment = TRUE, tree_axis = TRUE),
     # Tree panels: height grows with tip count, and the TREE supplies the tip
     # labels, so these route through auto_dims rather than the categorical axis.
     # The two taxonomy-cladogram trees are one tip for a single segment.
@@ -553,16 +559,8 @@ confidence_gradient_plot <- function(combined) {
 # next to a tree, where saturated colour fights the topology for attention.
 .SOFT_CONFIDENCE <- c("#efe7d6", "#dbe3cf", "#bfd4c6", "#9cc0bf", "#7aa7ad", "#5f88a1")
 
-# Read a tree coordinate CSV written by tree_layout.py. Missing/empty file =>
-# NULL, which the builders below turn into an explanatory placeholder rather
-# than an error: a study with no species tree configured is a normal state.
-read_tree_part <- function(dir, name, part) {
-  f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
-  if (!file.exists(f)) return(NULL)
-  df <- suppressWarnings(readr::read_csv(f, show_col_types = FALSE))
-  if (nrow(df) == 0L) NULL else df
-}
-
+# read_tree_part(), tree_column() and attach_tree_axis() come from
+# plot2sort/tree_axis.R, which main() sources.
 
 # Horizontal confidence-gradient bars whose y order is fixed by a tree, with the
 # tree drawn alongside. `key` is the catalog column the tips correspond to
@@ -607,28 +605,9 @@ tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
           panel.grid.major.y = element_blank())
 
-  tree <- ggplot() +
-    { if (!is.null(segs)) {
-        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
-                                      xend = .data$xend, yend = .data$yend),
-                     colour = "grey45", linewidth = 0.4, lineend = "round")
-      } } +
-    geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
-              hjust = -0.05, size = 3, colour = "grey20") +
-    scale_x_continuous(expand = expansion(mult = c(0.04, 0.9))) +
-    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
-    theme_void()
-
-  p <- patchwork::wrap_plots(tree, bars, widths = c(1.2, 3))
-  # add_titles() styles a ggplot; a patchwork needs its annotation instead.
-  p + patchwork::plot_annotation(
-    title = title, subtitle = subtitle,
-    theme = theme(
-      plot.title      = element_text(face = "bold", hjust = 0.5, size = 16),
-      plot.subtitle   = element_text(hjust = 0.5, size = 11),
-      plot.background = element_rect(fill = "white", colour = NA)
-    )
-  )
+  # Tree drawing and titling live in plot2sort/tree_axis.R; both tree panels and
+  # every tree-axis variant share that one copy.
+  compose_with_tree(tree_column(tips, segs, ylim), bars, title, subtitle)
 }
 
 
@@ -677,27 +656,8 @@ tree_composition_plot <- function(combined, tree_dir, tree_name, key, fill_col,
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
           panel.grid.major.y = element_blank())
 
-  tree <- ggplot() +
-    { if (!is.null(segs)) {
-        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
-                                      xend = .data$xend, yend = .data$yend),
-                     colour = "grey45", linewidth = 0.4, lineend = "round")
-      } } +
-    geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
-              hjust = -0.05, size = 3, colour = "grey20") +
-    scale_x_continuous(expand = expansion(mult = c(0.04, 0.9))) +
-    scale_y_continuous(limits = ylim, expand = c(0, 0)) +
-    theme_void()
-
-  patchwork::wrap_plots(tree, bars, widths = c(1.2, 3)) +
-    patchwork::plot_annotation(
-      title = title, subtitle = subtitle,
-      theme = theme(
-        plot.title      = element_text(face = "bold", hjust = 0.5, size = 16),
-        plot.subtitle   = element_text(hjust = 0.5, size = 11),
-        plot.background = element_rect(fill = "white", colour = NA)
-      )
-    )
+  # Same shared tree drawing as tree_confidence_plot above.
+  compose_with_tree(tree_column(tips, segs, ylim), bars, title, subtitle)
 }
 
 
@@ -979,9 +939,30 @@ main <- function() {
   tree_dir <- args$tree_dir %||% ""
   n_taxa <- length(unique(combined$taxon_call))
   ctx <- list(tree_dir = tree_dir, confidence_min = confidence_min)
+  # The host tree, read once: every tree-axis variant shares it.
+  species_tips <- read_tree_part(tree_dir, "species", "tips")
+  species_segs <- read_tree_part(tree_dir, "species", "segments")
+
   for (e in panel_registry()) {
     d <- if (identical(e$data, "loci")) loci else combined
     p <- e$build(d, ctx)
+    if (isTRUE(e$tree_axis) && !is.null(species_tips)) {
+      variant <- attach_tree_axis(
+        p, species_tips, species_segs, unique(d$species),
+        # The panel supplies its own title through add_titles(); a second one
+        # built from the file name would just repeat it, less readably.
+        title = NULL,
+        subtitle = "Rows ordered by the host phylogeny"
+      )
+      if (!is.null(variant)) {
+        dims <- auto_dims(nrow(species_tips), axis = "y", base_w = plot_width,
+                          base_h = plot_height, per_stratum = per_stratum,
+                          cap = max_dim)
+        save_plot(sub("\\.png$", "_tree.png", e$file), variant, args$output,
+                  dims = dims, base_w = plot_width, base_h = plot_height,
+                  dpi = plot_dpi)
+      }
+    }
     if (identical(e$axis, "y")) {
       n_tips <- if (identical(e$n_x, "taxa")) n_taxa else n_species
       dims <- auto_dims(n_tips, axis = "y", base_w = plot_width,
@@ -1020,7 +1001,11 @@ main <- function() {
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done - wrote 24 PNGs to %s + report %s + catalog %s",
+  # Count what landed rather than hard-coding a number: the panel has grown twice
+  # already (18 -> 24) and the tree-axis variants are conditional on a tree being
+  # configured, so any literal here goes stale.
+  log_section(sprintf("Done - wrote %d PNGs to %s + report %s + catalog %s",
+                      length(list.files(args$output, pattern = "\\.png$")),
                       args$output, args$report_csv, args$catalog_csv))
 }
 

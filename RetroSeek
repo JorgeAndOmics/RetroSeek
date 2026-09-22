@@ -113,11 +113,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--solo-ltr-detection',
+        '--solo-ltr-detector',
         action='store_true',
-        help='Run LTR_retriever over LTRharvest output (pre-filtered by valid_ranges), '
-             'annotate the resulting solo LTRs with probe labels from RetroSeek, and '
-             'compute per-family solo/intact ratios.'
+        help='Detect solo LTRs natively (ADR-017): use the LTR arms of ERV-bearing '
+             'elements as blastn bait, subtract the hits that are intact-element '
+             'flanks or monoLTRs beside an orphan, then annotate what remains with '
+             'taxonomy, build the evidence tree and render the figure panel.'
     )
 
     parser.add_argument(
@@ -228,8 +229,8 @@ if __name__ == '__main__':
     if args.pair_detection:
         main_cmd.append('--pair-detection')
 
-    if args.solo_ltr_detection:
-        main_cmd.append('--solo-ltr-detection')
+    if args.solo_ltr_detector:
+        main_cmd.append('--solo-ltr-detector')
 
     if args.placement_trees:
         main_cmd.append('--placement-trees')

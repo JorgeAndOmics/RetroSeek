@@ -242,7 +242,7 @@ main <- function() {
                                  top_n = top_n, other_label = other_label,
                                  subset_label = "Accessory"))
 
-  log_section(sprintf("Done - wrote 21 PNGs to %s", args$output))
+  log_section(sprintf("Done - wrote 22 PNGs to %s", args$output))
 }
 
 
