@@ -21,11 +21,14 @@ _BAIT = "".join(
     for arm in ("L", "R")
 )
 
-_CANDIDATES = "seqname,start,end,length,fate,best_identity,n_hits,bait,parent,orphan_distance\n" + "".join(
-    f"chr2,{i * 500},{i * 500 + 400},400,{fate},99.0,1,chr1|LTR_retrotransposon1|L,"
-    f"LTR_retrotransposon1,50000\n"
-    for fate in ("solo", "mono_ltr_at_orphan")
-    for i in range(1, 21)
+_CANDIDATES = (
+    "seqname,start,end,length,fate,best_identity,n_hits,bait,parent,orphan_distance\n"
+    + "".join(
+        f"chr2,{i * 500},{i * 500 + 400},400,{fate},99.0,1,chr1|LTR_retrotransposon1|L,"
+        f"LTR_retrotransposon1,50000\n"
+        for fate in ("solo", "mono_ltr_at_orphan")
+        for i in range(1, 21)
+    )
 )
 
 
@@ -94,5 +97,7 @@ def test_sampled_candidates_are_converted_to_bed_coordinates(candidates: Path) -
 
 def test_asking_for_more_candidates_than_exist_yields_all(candidates: Path) -> None:
     """A genome can easily have fewer monoLTRs than the cap."""
-    tips = solo_tips.sampled_tips(candidates, "mono_ltr_at_orphan", 999, random.Random(1))
+    tips = solo_tips.sampled_tips(
+        candidates, "mono_ltr_at_orphan", 999, random.Random(1)
+    )
     assert len(tips) == 20
