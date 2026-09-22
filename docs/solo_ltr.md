@@ -342,6 +342,50 @@ Two views are derived from the same tree, with no new inference:
   choice rather than a measurement. Its stability from 0.2 upwards was measured on
   the pre-2026-09-22 trees and has not yet been re-measured on the corrected ones.
 
+## Future directions: solos that match no known LTR
+
+Today a solo is found only if it is at least 95% identical to an arm of an intact,
+ERV-bearing element in the same genome. Three groups are therefore out of reach:
+old solos that have drifted below 95%, families with no intact copy left in the
+genome, and families whose intact copies carry no retroviral protein (non-autonomous
+families such as MaLR), which never become bait. Nothing below is built yet.
+
+**A prerequisite: genome-wide LTR families.** Families exist today only as clades cut
+from each genome's ~950-tip evidence tree, numbered per genome and used by nothing
+else. Clustering **all** bait arms at 80% identity (`cd-hit-est`, already in the
+environment) would give every element a family, and every solo would inherit one
+from its seed as it inherits its genus. That yields a real solos-per-intact-copy table
+per family, and the family alignments the first option needs.
+
+Options, simplest first:
+
+1. **Profile search.** Build a profile hidden Markov model per LTR family from its
+   aligned arms (`hmmbuild`) and search the genome with it (`nhmmer`); both are in
+   HMMER 3.4, already installed. A profile records which positions a family
+   conserves and which it tolerates changing, so it recognises diverged copies to
+   roughly 65 to 75% identity. Reaches old solos of known families.
+2. **Pool families across genomes.** Build the profiles from every genome of the
+   study, so a family intact in one genome is found where it has been lost in
+   another.
+3. **Iterative bait.** Use each round's solos as bait for the next, checking every
+   round that hits still align to their family, so the search does not drift into
+   unrelated repeats.
+4. **A curated library (Dfam).** Search with Dfam's LTR-family profiles through the
+   installed RepeatMasker. It finds families with no intact copy anywhere in the
+   genome and gives published names (MLT1A, LTR12C, MER41). The environment carries
+   only Dfam's root partition; the mammalian partition is a large download. Bat
+   families are less well covered than human and mouse, and many Dfam LTR families
+   (MaLR) never had retroviral genes.
+5. **De novo repeat discovery.** RepeatModeler finds high-copy repeats with no prior
+   knowledge; an LTR family surviving only as solos would appear as a 300 to 600 bp
+   repeat, recognised by `TG...CA` termini, flanking target-site duplications and
+   promoter and polyadenylation motifs. The only prior-free route, and the slowest.
+
+Whichever is chosen: keep the subtraction (flanks and monoLTRs are still removed),
+measure recall against the thorough RepeatMasker annotation of human and mouse, and
+keep a random-window null for the false-positive rate. Suggested first step: options
+1 and 2 together, on genome-wide families, benchmarked on human and mouse.
+
 ## Running it
 
 ```bash
