@@ -14,21 +14,27 @@
 # and each threshold visible, so a reader can see where candidates died and judge
 # whether the thresholds sit in sensible places for this genome.
 #
-# Per genome (results/plots/classification/solo_ltr/):
-#   1. funnel            - the subtraction as a waterfall: raw hits to solos.
-#   2. identity_by_class - identity to bait per class, with the cut drawn.
-#   3. length_scatter    - bait length vs hit length, with both cuts drawn.
-#   4. orphan_distance   - distance to nearest orphan, with the pad drawn.
-#   5. chromosome_density- solos per chromosome beside intact elements.
-#   6. family_abundance  - solos per seeding element, rank-ordered.
-#   7. divergence_age    - divergence from the bait exemplar, as time.
-#   8. tree_enrichment   - same-class-sister observed vs permutation null.
+# Output is ONE multi-page PDF per genome, and one for the cross-genome view, so a
+# reader opens a single file per species rather than hunting through a folder:
 #
-# Across genomes:
-#   9. all_species_solo_intact_ratio - the headline biological number.
-#  10. all_species_class_composition - the three fates per genome.
+#   {genome}.solo_ltr.pdf (results/plots/classification/solo_ltr/), one page each:
+#     1. funnel             - the subtraction as a waterfall: raw hits to solos.
+#     2. identity_by_class  - identity to bait per class, with the cut drawn.
+#     3. length_scatter     - candidate length vs identity, with the cut drawn.
+#     4. orphan_distance    - distance to nearest orphan, with the pad drawn.
+#     5. chromosome_density - candidates per sequence, by fate.
+#     6. family_abundance   - solos per seeding element, rank-ordered.
+#     7. divergence_age     - divergence from the bait exemplar, as time.
+#     8. ltr_tree           - the evidence tree itself, tips coloured by fate.
+#     9. tree_enrichment    - same-class-sister observed vs permutation null.
 #
-# Shared infrastructure (empty_plot, add_titles, save_plot, palettes) is reused
+#   all_species.solo_ltr.pdf:
+#     1. solo_intact_ratio  - the headline biological number, per genome.
+#     2. class_composition  - the three fates per genome.
+#
+# Pages 8 and 9 appear only when the tree stage ran (solo_ltr.tree.enable).
+#
+# Shared infrastructure (empty_plot, add_titles, relabel_species) is reused
 # from plot2sort/*.R. The `if (sys.nframe() == 0L) main()` guard keeps the CLI
 # dormant when testthat sources this file for its builders.
 
@@ -268,6 +274,50 @@ divergence_age_plot <- function(candidates, genome) {
 }
 
 
+#' The evidence tree itself, drawn from solo_tree_layout.py's coordinates.
+#'
+#' Tips are points, not labels: with around a thousand tips a label per tip is
+#' unreadable, and what the eye needs is where the colours cluster. A run of red
+#' (solo) points hanging together on one clade, with no blue (flanking) point
+#' among them, is an LTR family that survives only as solos.
+ltr_tree_plot <- function(tips, segs, summary_dt, genome) {
+  if (is.null(tips) || !nrow(tips)) return(empty_plot("no tree"))
+  class_to_fate <- c(FLANK = "intact_flank", SOLO = "solo", MONO = "mono_ltr_at_orphan")
+  d <- copy(tips)
+  d[, fate := factor(class_to_fate[class], levels = .FATE_LEVELS)]
+
+  get <- function(key) {
+    value <- summary_dt[metric == key, value][1]
+    if (length(value) == 0 || is.na(value)) return(NA_real_)
+    suppressWarnings(as.numeric(value))
+  }
+  subtitle <- sprintf(paste(
+    "%d tips: every LTR arm of a sample of ERV-bearing elements, plus sampled",
+    "solos and monoLTRs.\nPositive control: %.0f%% of elements recover their two",
+    "arms as sister tips. Same-class sisters %.0f%% against a %.0f%% permutation",
+    "null (%.2fx)."),
+    nrow(d), 100 * get("arm_sisterhood_fraction"),
+    100 * get("same_class_sister_observed"),
+    100 * get("same_class_sister_null_mean"), get("enrichment"))
+
+  p <- ggplot() +
+    { if (!is.null(segs) && nrow(segs)) {
+        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                      xend = .data$xend, yend = .data$yend),
+                     colour = "grey60", linewidth = 0.15)
+      } } +
+    geom_point(data = d, aes(x = .data$x, y = .data$y, colour = .data$fate),
+               size = 0.7) +
+    scale_colour_manual(values = .FATE_FILL, labels = .FATE_LABELS, drop = FALSE) +
+    theme_void() +
+    theme(legend.position = "bottom",
+          plot.background = element_rect(fill = "white", colour = NA))
+  add_titles(p, title = "The LTR evidence tree",
+             subtitle = subtitle, subset_label = genome) +
+    labs(colour = NULL)
+}
+
+
 #' The tree's clustering statistic against its permutation null.
 #'
 #' Without the null this number is uninterpretable, because any structured tree
@@ -361,6 +411,23 @@ class_composition_plot <- function(all_candidates) {
 }
 
 
+# Write several plots as pages of one PDF. ggsave writes a single page, so the
+# base graphics device is used directly; print() renders both ggplots and
+# patchworks.
+save_pdf_pages <- function(plots, path, width, height) {
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  grDevices::pdf(path, width = width, height = height, onefile = TRUE)
+  on.exit(grDevices::dev.off())
+  for (p in plots) print(p)
+  invisible(path)
+}
+
+# Read an optional table: NULL when the file is absent (tree stage disabled).
+read_optional <- function(path) {
+  if (file.exists(path)) fread(path) else NULL
+}
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -372,6 +439,10 @@ class_composition_plot <- function(all_candidates) {
   getwd()
 }
 
+# Two modes, because Snakemake renders one PDF per genome in parallel and the
+# cross-genome PDF once, after all of them:
+#   --genome G      write G's multi-page PDF
+#   (no --genome)   write the all-species PDF and the summary report
 main <- function() {
   script_dir <- .resolve_script_dir()
   source(file.path(script_dir, "..", "plot2sort", "helpers.R"))
@@ -379,62 +450,56 @@ main <- function() {
 
   parser <- ArgumentParser(description = "Solo-LTR figure panel (ADR-017)")
   parser$add_argument("--table_dir", required = TRUE)
-  parser$add_argument("--plot_dir", required = TRUE)
-  parser$add_argument("--tree_dir", required = TRUE)
   parser$add_argument("--config", required = TRUE)
-  parser$add_argument("--report", required = TRUE)
+  parser$add_argument("--out_pdf", required = TRUE)
+  parser$add_argument("--genome", default = NULL,
+                      help = "Render this genome's PDF; omit for the summary.")
+  parser$add_argument("--report", default = NULL,
+                      help = "Summary mode only: where to write the report CSV.")
   args <- parser$parse_args()
 
   cfg <- yaml::read_yaml(args$config)
   solo <- cfg$solo_ltr
   species_map <- cfg$species
-  plot_cfg <- cfg$plots %||% list()
-  base_w <- plot_cfg$width %||% 11
-  base_h <- plot_cfg$height %||% 7
-  dpi <- plot_cfg$dpi %||% 150
+  width <- cfg$plots$width
+  height <- cfg$plots$height
+  table <- function(genome, suffix) file.path(args$table_dir, paste0(genome, suffix))
 
-  dir.create(args$plot_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!is.null(args$genome)) {
+    genome <- args$genome
+    funnel <- fread(table(genome, ".funnel.csv"))
+    candidates <- fread(table(genome, ".candidates.csv"))
+    tree_summary <- read_optional(table(genome, ".tree_summary.csv"))
 
-  funnels <- list.files(args$table_dir, pattern = "\\.funnel\\.csv$", full.names = TRUE)
-  if (!length(funnels)) {
-    log_section("No solo-LTR tables found; nothing to plot.")
-    fwrite(data.table(), args$report)
+    plots <- list(
+      funnel_plot(funnel, genome),
+      identity_by_class_plot(candidates, genome, solo$min_identity),
+      length_scatter_plot(candidates, genome, solo$min_hit_length),
+      orphan_distance_plot(candidates, genome, solo$orphan_pad),
+      chromosome_density_plot(candidates, genome),
+      family_abundance_plot(candidates, genome),
+      divergence_age_plot(candidates, genome)
+    )
+    if (!is.null(tree_summary)) {
+      plots <- c(plots, list(
+        ltr_tree_plot(read_optional(table(genome, ".tree_tips.csv")),
+                      read_optional(table(genome, ".tree_segments.csv")),
+                      tree_summary, genome),
+        tree_enrichment_plot(tree_summary, genome)
+      ))
+    }
+    save_pdf_pages(plots, args$out_pdf, width, height)
+    log_section(sprintf("wrote %s (%d pages)", args$out_pdf, length(plots)))
     return(invisible(NULL))
   }
+
+  # Summary mode: every genome with a funnel table.
+  funnels <- list.files(args$table_dir, pattern = "\\.funnel\\.csv$", full.names = TRUE)
   genomes <- sub("\\.funnel\\.csv$", "", basename(funnels))
-
-  emit <- function(name, plot) {
-    save_plot(name, plot, args$plot_dir, base_w = base_w, base_h = base_h, dpi = dpi)
-  }
-
   report_rows <- list()
   all_candidates <- list()
-
   for (genome in genomes) {
-    funnel <- fread(file.path(args$table_dir, paste0(genome, ".funnel.csv")))
-    candidates_path <- file.path(args$table_dir, paste0(genome, ".candidates.csv"))
-    candidates <- if (file.exists(candidates_path)) fread(candidates_path) else data.table()
-
-    emit(sprintf("%s_funnel.pdf", genome), funnel_plot(funnel, genome))
-    emit(sprintf("%s_identity_by_class.pdf", genome),
-         identity_by_class_plot(candidates, genome, solo$min_identity))
-    emit(sprintf("%s_length_scatter.pdf", genome),
-         length_scatter_plot(candidates, genome, solo$min_hit_length))
-    emit(sprintf("%s_orphan_distance.pdf", genome),
-         orphan_distance_plot(candidates, genome, solo$orphan_pad))
-    emit(sprintf("%s_chromosome_density.pdf", genome),
-         chromosome_density_plot(candidates, genome))
-    emit(sprintf("%s_family_abundance.pdf", genome),
-         family_abundance_plot(candidates, genome))
-    emit(sprintf("%s_divergence_age.pdf", genome),
-         divergence_age_plot(candidates, genome))
-
-    tree_summary_path <- file.path(args$table_dir, paste0(genome, ".tree_summary.csv"))
-    if (file.exists(tree_summary_path)) {
-      emit(sprintf("%s_tree_enrichment.pdf", genome),
-           tree_enrichment_plot(fread(tree_summary_path), genome))
-    }
-
+    funnel <- fread(table(genome, ".funnel.csv"))
     solos <- funnel[stage == "solo", count][1]
     intact <- funnel[stage == "intact_loci", count][1]
     report_rows[[genome]] <- data.table(
@@ -446,23 +511,19 @@ main <- function() {
       intact_loci = intact,
       solo_to_intact_ratio = if (isTRUE(intact > 0)) solos / intact else NA_real_
     )
-    if (nrow(candidates)) {
-      candidates[, species := relabel_species(genome, species_map)]
-      all_candidates[[genome]] <- candidates[, .(species, fate)]
-    }
+    candidates <- fread(table(genome, ".candidates.csv"), select = "fate")
+    candidates[, species := relabel_species(genome, species_map)]
+    all_candidates[[genome]] <- candidates
   }
-
   report <- rbindlist(report_rows, fill = TRUE)
-  emit("all_species_solo_intact_ratio.pdf", solo_intact_ratio_plot(report))
-  emit("all_species_class_composition.pdf",
-       class_composition_plot(rbindlist(all_candidates, fill = TRUE)))
-
+  save_pdf_pages(
+    list(solo_intact_ratio_plot(report),
+         class_composition_plot(rbindlist(all_candidates, fill = TRUE))),
+    args$out_pdf, width, height
+  )
   fwrite(report, args$report)
-  # Count what is actually on disk rather than predicting it: the per-genome
-  # tree panel is conditional, so an arithmetic guess would drift.
-  log_section(sprintf("Done - %d genomes, %d PDFs in %s", nrow(report),
-                      length(list.files(args$plot_dir, pattern = "\\.pdf$")),
-                      args$plot_dir))
+  log_section(sprintf("wrote %s and %s (%d genomes)", args$out_pdf, args$report,
+                      nrow(report)))
 }
 
 

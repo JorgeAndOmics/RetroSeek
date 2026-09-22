@@ -160,14 +160,12 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["PROBE_PAIRS_PARQUET_DIR"],
     PATH_DICT["PROBE_PAIRS_CSV_DIR"],
 ) = table_dirs("probe_pairs")
-# Native solo-LTR detection (ADR-017): per-genome solo calls, the full candidate
-# set with its class, and the funnel counts. Named _native while the
-# LTR_retriever route still occupies the plain solo_ltr names; it takes them over
-# when that route is archived.
+# Solo-LTR detection (ADR-017): per-genome solo calls, the full candidate set
+# with each candidate's fate, the funnel counts, and the tree statistics.
 (
-    PATH_DICT["SOLO_NATIVE_PARQUET_DIR"],
-    PATH_DICT["SOLO_NATIVE_CSV_DIR"],
-) = table_dirs("solo_ltr_native")
+    PATH_DICT["SOLO_LTR_PARQUET_DIR"],
+    PATH_DICT["SOLO_LTR_CSV_DIR"],
+) = table_dirs("solo_ltr")
 (
     PATH_DICT["PROBE_DICT_PARQUET_DIR"],
     PATH_DICT["PROBE_DICT_CSV_DIR"],
@@ -311,12 +309,8 @@ PATH_DICT["TRACK_TAXONOMY_DIR"] = (PATH_DICT["TRACK_DIR"] / "taxonomy").resolve(
 # Orphans tier - non-LTR-associated hits recovered + classified by their own
 # sequence (parallel to taxonomy; only orphans that earn a taxonomic call).
 PATH_DICT["TRACK_ORPHANS_DIR"] = (PATH_DICT["TRACK_DIR"] / "orphans").resolve()
-# Native solo-LTR calls as a browser track (ADR-017). Separate from
-# SOLO_LTR_DIR, which the LTR_retriever route writes, so the two can run side by
-# side and be compared locus by locus.
-PATH_DICT["TRACK_SOLO_NATIVE_DIR"] = (
-    PATH_DICT["TRACK_DIR"] / "solo_ltr_native"
-).resolve()
+# Solo-LTR calls as a browser track (ADR-017), taxonomy in the attributes.
+PATH_DICT["TRACK_SOLO_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "solo_ltr").resolve()
 
 # === Results - Trees ===
 # Phylogenetic interchange formats: Newick, Nexus, jplace. A fourth root beside

@@ -17,7 +17,7 @@ The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.11, R 4.3, Bio
 ./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
 ```
 
-One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-native --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
+One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-detector --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
 
 ### Stage flags
 
@@ -39,7 +39,7 @@ One or more **stage flags** select which pipeline sections run. Snakemake resolv
 > **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and `{genome}_composition.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
 
 | `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
-| `--solo-ltr-native`         | `solo_ltr_native`             | `flanking_ltr/{genome}.gff3` + `{genome}.loci.csv` + genome BLAST db | `solo_ltr_native/{genome}.gff3` + `{genome}.solo_ltr.csv` + `{genome}.candidates.csv` + `{genome}.funnel.csv` + `trees/solo_ltr/` + the figure panel |
+| `--solo-ltr-detector`       | `solo_ltr_detector`           | `flanking_ltr/{genome}.gff3` + `{genome}.loci.csv` + genome BLAST db | `tracks/solo_ltr/{genome}.gff3` + `tables/solo_ltr/` + `trees/solo_ltr/` + one PDF per genome under `plots/classification/solo_ltr/` (see `docs/solo_ltr.md`) |
 | `--placement-trees`        | `placement_trees`             | published `.jplace` + host tree          | per-genome heat-trees (SVG/Newick/Nexus), EDPL + LWR tables, tables `cophylogeny_summary.{tier}.{gene}.csv` + `{tier}.{gene}.krd_matrix.csv`; trees under `results/trees/` (`placements/`, `placements/heat_trees/`, `cophylogeny/erv_composition.{tier}.{gene}.newick`, `cophylogeny/cluster_mass/`) |
 | `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
 | `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `element_hits/{genome}.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + taxonomy plot panel |

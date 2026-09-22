@@ -113,7 +113,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--solo-ltr-native',
+        '--solo-ltr-detector',
         action='store_true',
         help='Detect solo LTRs natively (ADR-017): use the LTR arms of ERV-bearing '
              'elements as blastn bait, subtract the hits that are intact-element '
@@ -229,8 +229,8 @@ if __name__ == '__main__':
     if args.pair_detection:
         main_cmd.append('--pair-detection')
 
-    if args.solo_ltr_native:
-        main_cmd.append('--solo-ltr-native')
+    if args.solo_ltr_detector:
+        main_cmd.append('--solo-ltr-detector')
 
     if args.placement_trees:
         main_cmd.append('--placement-trees')

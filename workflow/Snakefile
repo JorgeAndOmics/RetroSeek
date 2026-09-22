@@ -573,17 +573,14 @@ rule ranges_analysis:
 #    Solo LTRs from the LTR arms of ERV-bearing elements, by subtraction.
 #    See docs/solo_ltr.md and ADR-017.
 # =============================================================================
-# ------------------------ Native solo detection (ADR-017) --------------------
-# Solo LTRs without LTR_retriever. The LTR arms of ERV-bearing elements are
-# blastn bait; every hit is a copy of a known-retroviral LTR, so no classifier is
-# involved. What survives two subtractions is a solo: hits overlapping an intact
-# LTRharvest element are flanking arms of a catalogued element, and hits close to
-# an orphan locus are monoLTRs beside surviving coding sequence, where the
-# provirus is damaged rather than excised. That middle class is the one
-# LTR_retriever cannot represent, and it is why this route replaces it.
-#
-# Runs alongside the LTR_retriever chain above and writes to its own directories
-# until that route is archived. Every threshold comes from config solo_ltr.*.
+# The LTR arms of ERV-bearing elements are blastn bait; every hit is a copy of a
+# known-retroviral LTR, so no classifier is involved. What survives two
+# subtractions is a solo: hits overlapping an intact LTRharvest element are
+# flanking arms of a catalogued element, and hits close to an orphan locus are
+# monoLTRs beside surviving coding sequence, where the provirus is damaged rather
+# than excised. That middle class is the one LTR_retriever could not represent,
+# and it is why this route replaced it. Every threshold comes from config
+# solo_ltr.*.
 _SOLO = config['solo_ltr']
 _SOLO_TREE = _SOLO['tree']
 
@@ -670,11 +667,11 @@ rule solo_finder_setup:
         orphans  = os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         loci     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv')
     output:
-        solo_list  = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.solo_list.tsv'),
-        candidates_parquet = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.candidates.parquet'),
-        candidates_csv     = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.candidates.csv'),
-        funnel     = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.funnel.csv'),
-        manifest   = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.manifest.yaml')
+        solo_list  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
+        candidates_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.candidates.parquet'),
+        candidates_csv     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
+        funnel     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.funnel.csv'),
+        manifest   = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.manifest.yaml')
     params:
         min_identity         = _SOLO['min_identity'],
         min_coverage         = _SOLO['min_coverage'],
@@ -712,7 +709,7 @@ rule solo_finder_setup:
 rule solo_finder:
     input:
         funnel = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.funnel.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.funnel.csv'),
             genome=species_with_hits(wildcards)
         )
 
@@ -721,14 +718,14 @@ rule solo_finder:
 # solo's DNA matched that element's LTR, so homology rather than proximity.
 rule solo_annotator_setup:
     input:
-        solo_list = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.solo_list.tsv'),
+        solo_list = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
         loci      = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv')
     output:
-        gff3          = os.path.join(defaults.PATH_DICT['TRACK_SOLO_NATIVE_DIR'], '{genome}.gff3'),
-        solo_csv      = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.solo_ltr.csv'),
-        solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.solo_ltr.parquet'),
-        ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.ratio.csv'),
-        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_PARQUET_DIR'], '{genome}.ratio.parquet')
+        gff3          = os.path.join(defaults.PATH_DICT['TRACK_SOLO_LTR_DIR'], '{genome}.gff3'),
+        solo_csv      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
+        solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_ltr.parquet'),
+        ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ratio.csv'),
+        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet')
     params:
         species  = lambda wildcards: defaults.SPECIES_DICT.get(
             wildcards.genome, wildcards.genome.replace('_', ' ')),
@@ -760,7 +757,7 @@ rule solo_annotator_setup:
 rule solo_annotator:
     input:
         solo_csv = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.solo_ltr.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
             genome=species_with_hits(wildcards)
         )
 
@@ -772,15 +769,18 @@ rule solo_annotator:
 rule solo_tree_setup:
     input:
         bait       = os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.bed'),
-        candidates = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.candidates.csv'),
+        candidates = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
         genome     = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
     output:
         tips_bed  = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.tips.bed'),
         tips_fna  = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.tips.fna'),
         alignment = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.tips.afa'),
         treefile  = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.treefile'),
-        summary   = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.tree_summary.csv'),
-        adjacency = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.tree_adjacency.csv')
+        summary   = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_summary.csv'),
+        adjacency = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_adjacency.csv'),
+        # Drawing coordinates (ADR-011's bridge): Python lays the tree out, R draws it.
+        tips      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_tips.csv'),
+        segments  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_segments.csv')
     params:
         prefix       = lambda wildcards: os.path.join(
             defaults.PATH_DICT['SOLO_TREE_DIR'], wildcards.genome),
@@ -793,8 +793,11 @@ rule solo_tree_setup:
         fast         = '-fast' if _SOLO_TREE['fast'] else ''
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree', '{genome}.log')
-    threads:
-        workflow.cores
+    # One thread per tree, on purpose: IQ-TREE is only reproducible single-threaded.
+    # With -seed fixed, two 8-thread runs on the same alignment still wrote
+    # different trees, while two 1-thread runs were byte-identical (tested
+    # 2026-09-22). Parallelism comes from running the genomes side by side instead.
+    threads: 1
     shell:
         '''
         PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_tips.py \
@@ -811,7 +814,7 @@ rule solo_tree_setup:
             2>> {log:q}
         mafft --auto --thread {threads} --quiet {output.tips_fna:q} > {output.alignment:q} 2>> {log:q}
         iqtree -s {output.alignment:q} -m {params.model} {params.fast} \
-            -nt {threads} -pre {params.prefix:q} -quiet -redo >> {log:q} 2>&1
+            -nt {threads} -seed {params.seed} -pre {params.prefix:q} -quiet -redo >> {log:q} 2>&1
         PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/tree_stats.py \
             --treefile {output.treefile:q} \
             --out-summary-csv {output.summary:q} \
@@ -819,73 +822,110 @@ rule solo_tree_setup:
             --permutations {params.permutations} \
             --seed {params.seed} \
             2>> {log:q}
+        PYTHONPATH=scripts:scripts/solo_ltr:scripts/taxonomy python scripts/solo_ltr/solo_tree_layout.py \
+            --treefile {output.treefile:q} \
+            --out-tips-csv {output.tips:q} \
+            --out-segments-csv {output.segments:q} \
+            2>> {log:q}
         '''
 
 
 rule solo_tree:
     input:
         summary = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.tree_summary.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_summary.csv'),
             genome=species_with_hits(wildcards)
         )
+
+
+# One multi-page PDF per genome. The tree tables are inputs only when the tree
+# stage is enabled; without them the PDF simply omits the two tree pages.
+def _solo_tree_tables(wildcards):
+    if not _SOLO_TREE['enable']:
+        return []
+    return [os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], f'{wildcards.genome}.{part}.csv')
+            for part in ('tree_summary', 'tree_tips', 'tree_segments')]
 
 
 rule solo_plot_generator_setup:
     input:
-        candidates = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.candidates.csv'),
-            genome=species_with_hits(wildcards)
-        ),
-        funnel = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.funnel.csv'),
-            genome=species_with_hits(wildcards)
-        ),
-        solo_csv = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.solo_ltr.csv'),
-            genome=species_with_hits(wildcards)
-        )
+        funnel     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.funnel.csv'),
+        candidates = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
+        tree       = _solo_tree_tables
     output:
-        report = os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], 'solo_report.csv')
+        pdf = os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf')
     params:
-        table_dir = defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'],
-        plot_dir  = defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'],
-        tree_dir  = defaults.PATH_DICT['SOLO_TREE_DIR'],
+        table_dir   = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
         config_yaml = defaults.CONFIG_FILE
-    threads:
-        workflow.cores
+    threads: 1
     shell:
         '''
         Rscript scripts/solo_ltr/solo_plots.R \
             --table_dir {params.table_dir:q} \
-            --plot_dir {params.plot_dir:q} \
-            --tree_dir {params.tree_dir:q} \
             --config {params.config_yaml:q} \
+            --genome {wildcards.genome:q} \
+            --out_pdf {output.pdf:q}
+        '''
+
+
+# The cross-genome view, written once every genome's tables exist.
+rule solo_plot_summary:
+    input:
+        funnel = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.funnel.csv'),
+            genome=species_with_hits(wildcards)
+        ),
+        candidates = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
+            genome=species_with_hits(wildcards)
+        )
+    output:
+        pdf    = os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], 'all_species.solo_ltr.pdf'),
+        report = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'solo_report.csv')
+    params:
+        table_dir   = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
+        config_yaml = defaults.CONFIG_FILE
+    threads: 1
+    shell:
+        '''
+        Rscript scripts/solo_ltr/solo_plots.R \
+            --table_dir {params.table_dir:q} \
+            --config {params.config_yaml:q} \
+            --out_pdf {output.pdf:q} \
             --report {output.report:q}
         '''
 
 
 rule solo_plot_generator:
     input:
-        report = rules.solo_plot_generator_setup.output.report
+        pdfs = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
+            genome=species_with_hits(wildcards)
+        ),
+        summary = rules.solo_plot_summary.output.pdf
 
 
 # The CLI target. The tree is optional because it is evidence rather than a
 # product: config solo_ltr.tree.enable false skips it and everything else stands.
-rule solo_ltr_native:
+rule solo_ltr_detector:
     input:
         solo_csv = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.solo_ltr.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
             genome=species_with_hits(wildcards)
         ),
         track = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['TRACK_SOLO_NATIVE_DIR'], '{genome}.gff3'),
+            os.path.join(defaults.PATH_DICT['TRACK_SOLO_LTR_DIR'], '{genome}.gff3'),
             genome=species_with_hits(wildcards)
         ),
         trees = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_NATIVE_CSV_DIR'], '{genome}.tree_summary.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_summary.csv'),
             genome=species_with_hits(wildcards)
         ) if _SOLO_TREE['enable'] else [],
-        report = rules.solo_plot_generator_setup.output.report
+        pdfs = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
+            genome=species_with_hits(wildcards)
+        ),
+        summary = rules.solo_plot_summary.output.pdf
 
 
 # =============================================================================

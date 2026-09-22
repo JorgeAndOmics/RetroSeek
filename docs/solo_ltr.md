@@ -140,16 +140,56 @@ library involved.
 
 ## Outputs
 
-| path | content |
+All paths are under the configured results and data roots. `{genome}` is one of the model 5. Every
+file is a declared Snakemake output, so a missing or stale one is rebuilt.
+
+**Figures** (`results/plots/classification/solo_ltr/`)
+
+| file | what it is |
 |---|---|
-| `tracks/solo_ltr_native/{genome}.gff3` | the solo track, taxonomy in the attributes |
-| `tables/solo_ltr_native/{genome}.solo_ltr.csv` | one row per solo, in the catalog's column vocabulary |
-| `tables/solo_ltr_native/{genome}.candidates.csv` | **all three fates** with their evidence, not just solos |
-| `tables/solo_ltr_native/{genome}.funnel.csv` | counts at every stage, plus the solo/intact ratio |
-| `tables/solo_ltr_native/{genome}.ratio.csv` | solo/intact per taxonomic segment |
-| `tables/solo_ltr_native/{genome}.tree_summary.csv` | the tree's controls and clustering statistics |
-| `trees/solo_ltr/{genome}.treefile` | the LTR evidence tree, Newick |
-| `plots/classification/solo_ltr/` | the figure panel |
+| `{genome}.solo_ltr.pdf` | nine pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null. Pages 8 and 9 only when `tree.enable` |
+| `all_species.solo_ltr.pdf` | two pages: solo:intact per genome against the published range, and the three fates per genome |
+
+**Tables for people** (`results/tables/solo_ltr/`)
+
+| file | what it is |
+|---|---|
+| `{genome}.solo_ltr.csv` | one row per solo, in `catalog.csv`'s column vocabulary: coordinates, `taxon_call`, `rank`, `segment`, `erv_class`, `library_id` (the seeding element) and `label_source` |
+| `{genome}.candidates.csv` | **every** candidate, all three fates, with best identity, hit count, seeding bait and element, and distance to the nearest orphan. The evidence behind every call |
+| `{genome}.funnel.csv` | counts at every stage, where each rejected hit failed, and the solo:intact ratio |
+| `{genome}.ratio.csv` | solo:intact per taxonomic segment |
+| `{genome}.tree_summary.csv` | the tree's positive control, clustering against its null, tip census, seed |
+| `{genome}.tree_adjacency.csv` | which fate sits beside which on the tree, as enrichment |
+| `{genome}.tree_tips.csv`, `.tree_segments.csv` | the tree's drawing coordinates, for anyone redrawing it |
+| `solo_report.csv` | one row per genome: solos, monoLTRs, intact flanks, intact loci, ratio |
+
+**Genome-browser track** (`results/tracks/solo_ltr/`)
+
+| file | what it is |
+|---|---|
+| `{genome}.gff3` | one `solo_LTR` feature per solo, taxonomy in the attributes, for IGV |
+
+**Trees** (`results/trees/solo_ltr/`)
+
+| file | what it is |
+|---|---|
+| `{genome}.treefile` | the tree, Newick, for FigTree or iTOL |
+| `{genome}.tips.bed`, `.tips.fna`, `.tips.afa` | which tips were sampled, their sequences, and the alignment |
+| `{genome}.iqtree`, `.log` | IQ-TREE's report and log: model parameters, likelihood, the seed |
+| `{genome}.mldist`, `.bionj`, `.ckp.gz` | IQ-TREE byproducts (distance matrix, starting tree, checkpoint) |
+| `{genome}.uniqueseq.phy` | written by IQ-TREE only when some tips have identical sequences |
+
+**Working files** (`data/`, not meant for reading)
+
+| file | what it is |
+|---|---|
+| `solo_bait/{genome}.bait.bed`, `.bait.fna` | the bait: LTR arms of ERV-bearing elements |
+| `solo_blast/{genome}.hits.tsv.gz` | raw blastn hits, gzipped. The only large output: 3.4 GB for the model 5, 1.4 GB of it Homo. Kept so thresholds can be re-swept without re-running blastn |
+| `tables/solo_ltr/{genome}.solo_list.tsv` | the six-column hand-off from detector to annotator |
+| `tables/solo_ltr/{genome}.*.parquet` | parquet twins of the CSV tables, for the pipeline |
+| `tables/solo_ltr/{genome}.manifest.yaml` | provenance: input md5s, every threshold used, the funnel counts |
+
+**Logs** (`logs/solo_bait_builder/`, `solo_blaster/`, `solo_finder/`, `solo_annotator/`, `solo_tree/`): one `{genome}.log` each.
 
 The candidate table keeps all three fates deliberately. Evidence is recorded, not
 gated (the ADR-015 principle): distance to the nearest orphan is a column, because
@@ -158,29 +198,108 @@ and a reader should be able to see that rather than have it decided for them.
 
 ## The evidence tree
 
-The stage builds an LTR nucleotide phylogeny over all three fates: every bait arm,
-plus a seeded sample of solos and monoLTRs.
+### What it is for, and what it is not for
 
-**It detects nothing.** A tree cannot tell you a sequence is a solo, because being a
-solo is about genomic context. What it can say is whether the three fates are real
-classes, and it carries a positive control that comes for free: an element's two
-arms were identical the day it inserted, so they must be sister tips. On Desmodus,
-284 of 406 elements (70.0%) recover them as sisters, which says the tree carries
-real signal.
+The tree answers one question the detector cannot: are the three fates of a lone
+LTR real biological classes, or artefacts of where the thresholds were drawn? If
+solos were simply mis-called flanking arms, they would scatter among flanking arms
+on an LTR phylogeny. If instead some LTR families survive only as solos, solos will
+sit together in their own clades.
 
-The substantive result is that solos sit beside other solos 2.16x more often than
-class abundance predicts, and beside flanking arms 0.55x as often. Some LTR families
-in this genome exist predominantly or entirely as solos, with no intact
-representative for LTRharvest to find, which is evidence the method reaches
-genuinely new material rather than rediscovering what was already catalogued.
+**It detects nothing and decides nothing.** A tree cannot say a sequence is a solo,
+because being a solo is about genomic context (no partner, no internal region), not
+sequence. No output of this stage is computed from the tree: fates come from the
+subtraction, and taxonomy comes from the element whose LTR arm caught the solo. The
+tree is evidence about the method, read by a person.
 
-The tree is **exploratory**: `-fast`, no bootstrap, and a sample of the solos. No
-classification decision depends on it, and none should.
+### How it is built
+
+One tree per genome, built by rule `solo_tree_setup` in five steps:
+
+1. **Choose the tips** (`solo_tips.py`). Up to `tree.n_element_tips` (300)
+   ERV-bearing elements are sampled, and **both** LTR arms of each chosen element
+   are kept. Up to `tree.n_solo_tips` (200) solos and `tree.n_mono_tips` (200)
+   monoLTRs-at-orphans are sampled from the candidate table. Sampling is seeded
+   (`tree.seed`). Each tip's class is written into its
+   name as a prefix: `FLANK__`, `SOLO__` or `MONO__`.
+2. **Extract the sequences** with `taxonomy/extract_region_fasta.R`, the same
+   extractor the bait uses.
+3. **Align** with `mafft --auto`.
+4. **Infer** with `iqtree -m GTR+G -fast -seed` (`tree.model`, `tree.fast`,
+   `tree.seed`): maximum likelihood, two search iterations, no bootstrap. **Single
+   threaded on purpose**: with the seed fixed, two 8-thread runs still wrote
+   different trees, while 1-thread runs are byte-identical. The genomes build in
+   parallel instead, so the whole tree stage stays reproducible end to end.
+5. **Measure and lay out.** `tree_stats.py` computes the statistics below;
+   `solo_tree_layout.py` turns the tree into drawing coordinates using the same
+   `taxonomy/tree_layout.py` code the host and taxon trees use (ADR-011's
+   coordinate bridge: Python lays the tree out, R draws it, and no R tree package
+   is needed).
+
+**Why elements are sampled rather than every arm taken.** The clustering statistic
+is a comparison against class abundance, and it saturates when one class dominates.
+An earlier version took every bait arm, which made the Mus musculus tree 96.5%
+flanking arms: the permutation null rose to 0.94 and the enrichment collapsed to
+1.03x, a number that measured tip composition rather than biology. Sampling by
+element keeps the classes comparable and keeps the positive control intact, since
+that control needs both arms of an element on the tree.
+
+### What it measures
+
+**The positive control, for free.** An element's two arms were identical the day it
+inserted, so on a correct tree they must be sister tips. The fraction recovered as
+sisters says whether the tree carries real signal at all.
+
+**Same-class sisters against a permutation null.** For every tip: does its sister
+group contain at least one tip of its own class? The observed fraction is compared
+with the same fraction after the class labels are shuffled `tree.permutations`
+times over the fixed topology. Without that null the number means nothing, because
+any structured tree shows some clustering.
+
+**Who sits beside whom.** Class-by-class adjacency as enrichment over what class
+abundance alone predicts. This is where the substantive claim lives.
+
+Results on the model 5:
+
+| genome | arm control | same-class observed | null | enrichment | solo beside solo | solo beside flank |
+|---|---|---|---|---|---|---|
+| Antrozous pallidus | 76% | 84% | 57% | 1.47x | 2.42x | 0.12x |
+| Desmodus rotundus | 72% | 85% | 56% | 1.52x | 2.52x | 0.19x |
+| Homo sapiens | 72% | 89% | 55% | 1.60x | 3.41x | 0.15x |
+| Molossus molossus | 74% | 81% | 57% | 1.43x | 2.34x | 0.20x |
+| Mus musculus | 74% | 85% | 56% | 1.52x | 2.60x | 0.20x |
+
+The last two columns are the adjacency enrichment: how often a solo's sister is a
+solo, or a flanking arm, relative to what class abundance alone predicts. Solos sit
+beside solos two to three times more often than chance, and beside flanking arms
+five to nine times less often.
+
+The control holds in every genome, and the three fates cluster well above the null
+in every genome. Solos sit beside other solos far more often than their abundance
+predicts, and beside flanking arms far less often. Some LTR families therefore
+exist predominantly or entirely as solos, with no intact copy for LTRharvest to
+find: the method reaches genuinely new integrations rather than rediscovering
+catalogued ones.
+
+### Honest limits
+
+- **Exploratory, not publication-grade.** `-fast` and no bootstrap, so individual
+  branches carry no support values. The statistics above summarise the whole tree
+  and are robust to that; a reading of any single clade is not.
+- **Unrooted.** IQ-TREE infers an unrooted tree, so the root in the drawing is
+  arbitrary. Clade membership is meaningful; left-to-right depth near the root is
+  not.
+- **A sample.** 200 of up to 67,539 solos. Enough for the statistics, not a census.
+- **Family, not genus.** LTRs are short and fast-evolving, so an LTR tree resolves
+  families but not genera. Genus comes from protein domains; a solo inherits genus
+  through its seeding element.
+- **Not yet built:** a solo-only tree, and per-family subtrees showing solos beside
+  families that do and do not have an intact representative.
 
 ## Running it
 
 ```bash
-./RetroSeek --solo-ltr-native --configfile /abs/path/config.local.yaml --cores 8
+./RetroSeek --solo-ltr-detector --configfile /abs/path/config.local.yaml --cores 8
 ```
 
 Every threshold is a `solo_ltr.*` field in `config.yaml`, documented in

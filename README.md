@@ -98,7 +98,7 @@ Stage flags (one per invocation, or chain stages by running again):
 | `--generate-circle-plots`   | Per-genome Circos-style plots (currently broken)         |
 | `--hotspot-detection`       | Deterministic NB-GLM hotspot detection                   |
 | `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
-| `--solo-ltr-native`         | Solo-LTR detection, taxonomy inheritance, the LTR evidence tree, and the solo-LTR figure panel |
+| `--solo-ltr-detector`       | Solo-LTR detection, taxonomy inheritance, the LTR evidence tree, and the solo-LTR figure panel |
 | `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
 | `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
 | `--placement-trees`         | Publish placement evidence: heat-trees + cophylogeny     |
