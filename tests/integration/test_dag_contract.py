@@ -276,6 +276,7 @@ def test_stage_pdfs_declared(project_root: Path) -> None:
         "'structure.pdf'",
         "'loss.pdf'",
         "'all_species.solo_ltr.pdf'",
+        "'{genome}.hotspots.pdf'",
     ):
         assert pdf in text, f"stage PDF {pdf} not declared in the Snakefile"
 

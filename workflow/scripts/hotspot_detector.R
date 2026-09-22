@@ -16,11 +16,10 @@
 #   {parquet_dir}/{species}.manifest.yaml           provenance manifest
 #   {track_output_dir}/{species}.gff3              merged hotspot regions
 #   {track_output_dir}/{species}.bed               same regions, BED6
-#   {pdf_output_dir}/{species}_manhattan.pdf       per-label Manhattan
-#   {pdf_output_dir}/{species}_karyotype.pdf       ideogram + hotspots
-#   {pdf_output_dir}/{species}_qq.pdf              per-label Q-Q diagnostic
-#   {pdf_output_dir}/{species}_summary.pdf         density + width panel
-#   {pdf_output_dir}/{species}_composition.pdf     per-hotspot structural mix
+#   {pdf_output_dir}/{species}.hotspots.pdf        key page, then per-label
+#                                                   Manhattan and Q-Q pages, the
+#                                                   karyotype, the summary and
+#                                                   the per-hotspot composition
 #   {csv_dir}/{species}.hotspots.csv               called regions + composition
 # =============================================================================
 options(warn = 1)
@@ -52,6 +51,8 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "plot2sort", "style.R"))    # palette, theme, stage PDFs
+source(file.path(.script_dir, "plot2sort", "helpers.R"))  # empty_plot, add_titles
 source(file.path(.script_dir, "utils",            "chrom_names.R"))
 source(file.path(.script_dir, "hotspot", "io.R"))
 source(file.path(.script_dir, "hotspot", "masking.R"))
@@ -214,7 +215,7 @@ for (label in names(gff_groups)) {
   merged      <- recompute_merged_pvalue(merged, fit)
   merged      <- apply_min_hits_filter(merged, opts$min_hits)
 
-  message(sprintf("    %d significant windows -> %d hotspot regions after merge & filter",
+  message(sprintf("    %d significant windows, %d hotspot regions after merge and filter",
                   nrow(significant), length(merged)))
 
   per_label_window_dfs[[label]] <- scored
@@ -312,67 +313,42 @@ emit_hotspot_manifest(
 # Phase 6. Plots
 # -----------------------------------------------------------------------------
 log_section("Phase 6: plots")
-plot_w <- as.integer(config$plots$width  %||% 15L)
-plot_h <- as.integer(config$plots$height %||% 12L)
-
-manhattan_pdf <- file.path(args$pdf_output_dir, paste0(species, "_manhattan.pdf"))
-karyotype_pdf <- file.path(args$pdf_output_dir, paste0(species, "_karyotype.pdf"))
-qq_pdf        <- file.path(args$pdf_output_dir, paste0(species, "_qq.pdf"))
-summary_pdf   <- file.path(args$pdf_output_dir, paste0(species, "_summary.pdf"))
-composition_pdf <- file.path(args$pdf_output_dir, paste0(species, "_composition.pdf"))
-
-# Manhattan: one page per label
-labels_present <- unique(all_windows_df$label)
-manhattan_pages <- lapply(labels_present, function(lbl) {
-  plot_manhattan(
-    dplyr::filter(all_windows_df, .data$label == lbl),
-    threshold = opts$pvalue_threshold,
-    title     = sprintf("Hotspot Manhattan plot - %s", species_name),
-    subtitle  = sprintf("Label: %s", lbl)
-  )
-})
-save_plots_pdf_pages(manhattan_pages, manhattan_pdf, plot_w, plot_h)
-
-# Karyotype: one page covering all hotspots
-save_plots_pdf_pages(
-  list(plot_karyotype(
-    seqlengths, all_hotspots,
-    title    = sprintf("Hotspot karyotype - %s", species_name),
-    subtitle = sprintf("%d hotspots across %d chromosomes",
-                       length(all_hotspots), length(seqlengths))
-  )),
-  karyotype_pdf, plot_w, plot_h
+use_retroseek_style()
+plot_species <- display_species(species, config$species)
+# Per label: a Manhattan page, then its Q-Q diagnostic. Only for labels the
+# model could test; a label with too few loci has no callable window, and a page
+# per such label would be a run of empty placeholders. They are named on the key
+# page instead.
+callable <- all_windows_df %>%
+  dplyr::group_by(.data$label) %>%
+  dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
+labels_present <- callable$label[callable$tested]
+untested <- sort(callable$label[!callable$tested])
+per_label_pages <- unlist(lapply(labels_present, function(lbl) {
+  windows <- dplyr::filter(all_windows_df, .data$label == lbl)
+  list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl),
+       plot_qq(windows, plot_species, lbl))
+}), recursive = FALSE)
+pages <- c(
+  per_label_pages,
+  list(plot_karyotype(seqlengths, all_hotspots, plot_species),
+       plot_summary_panel(all_hotspots, seqlengths, plot_species),
+       plot_hotspot_composition(all_hotspots, plot_species,
+                                sprintf("The %s tier, grouped by %s.", opts$input, .group_col)))
 )
-
-# Q-Q: one page per label
-qq_pages <- lapply(labels_present, function(lbl) {
-  plot_qq(
-    dplyr::filter(all_windows_df, .data$label == lbl),
-    title    = sprintf("Hotspot Q-Q diagnostic - %s", species_name),
-    subtitle = sprintf("Label: %s", lbl)
-  )
-})
-save_plots_pdf_pages(qq_pages, qq_pdf, plot_w, plot_h)
-
-# Summary panel
-save_plots_pdf_pages(
-  list(plot_summary_panel(
-    all_hotspots, seqlengths,
-    title    = sprintf("Hotspot summary - %s", species_name),
-    subtitle = sprintf("%d hotspots; threshold q < %.3g",
-                       length(all_hotspots), opts$pvalue_threshold)
-  )),
-  summary_pdf, plot_w, plot_h
-)
-
-# Composition panel (ADR-012): what each called hotspot is actually made of.
-save_plots_pdf_pages(
-  list(plot_hotspot_composition(
-    all_hotspots,
-    title    = sprintf("Hotspot composition - %s", species_name),
-    subtitle = sprintf("%s tier, grouped by %s", opts$input, .group_col)
-  )),
-  composition_pdf, plot_w, plot_h
-)
+key <- key_page(
+  sprintf("Integration hotspots in %s", plot_species),
+  paste(
+    sprintf(paste("Windows of the genome holding more %s loci than a negative binomial",
+                  "model expects, merged into hotspots (q below %s). %d hotspots were",
+                  "called. The composition page shows what each is made of."),
+            opts$input, format(opts$pvalue_threshold), length(all_hotspots)),
+    if (length(untested)) {
+      sprintf("Too few loci to test: %s.", paste(display_label(untested), collapse = ", "))
+    }),
+  colours = stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR))),
+  pages = page_titles(pages))
+save_stage_pdf(c(list(key), pages),
+               file.path(args$pdf_output_dir, paste0(species, ".hotspots.pdf")))
 
 log_section("Done")
