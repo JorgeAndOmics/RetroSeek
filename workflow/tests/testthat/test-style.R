@@ -201,3 +201,51 @@ test_that("the ramp fill scale runs from the lightest to the darkest ramp step",
   expect_equal(toupper(sc$palette(0)), toupper(seq_colours(9)[1]))
   expect_equal(toupper(sc$palette(1)), toupper(seq_colours(9)[9]))
 })
+
+test_that("a spumavirus genus keeps its shade whichever others share the plot", {
+  alone <- taxon_colours("Felispumavirus")[["Felispumavirus"]]
+  crowded <- taxon_colours(c("Bovispumavirus", "Equispumavirus", "Felispumavirus"))
+  expect_equal(crowded[["Felispumavirus"]], alone)
+})
+
+test_that("the probeset's foamy-virus label takes the spumavirus shades", {
+  expect_true(taxon_colours("Spumaretrovirus")[["Spumaretrovirus"]] %in% .SPUMA_SHADES)
+  # The subfamily itself stays a higher rank.
+  expect_equal(taxon_colours("Spumaretrovirinae")[["Spumaretrovirinae"]], .GREY_MID)
+})
+
+test_that("viruses wear shades of their genus colour, the first the genus colour itself", {
+  cols <- virus_colours(c("Mouse mammary tumor virus", "Jaagsiekte sheep retrovirus",
+                          "Feline leukemia virus", "Other (4)"),
+                        c("Betaretrovirus", "Betaretrovirus", "Gammaretrovirus", "Other"))
+  expect_equal(cols[["Jaagsiekte sheep retrovirus"]], .GENUS_COLOUR[["Betaretrovirus"]])
+  expect_false(cols[["Mouse mammary tumor virus"]] == .GENUS_COLOUR[["Betaretrovirus"]])
+  expect_equal(cols[["Feline leukemia virus"]], .GENUS_COLOUR[["Gammaretrovirus"]])
+  expect_equal(cols[["Other (4)"]], .GREY_OTHER)
+  expect_equal(anyDuplicated(unname(cols)), 0L)
+})
+
+test_that("probe colours depend only on the probe set, not the order of the data", {
+  expect_equal(probe_colours(c("POL", "GAG", "ENV", "POL")),
+               probe_colours(c("ENV", "GAG", "POL")))
+  expect_length(probe_colours(c("POL", "GAG")), 2L)
+})
+
+test_that("a virus with no lineage label is grey rather than an error", {
+  cols <- virus_colours(c("HIV", "FFV"), c(NA, "Spumaretrovirus"))
+  expect_equal(cols[["HIV"]], .GREY_OTHER)
+  expect_true(cols[["FFV"]] %in% .SPUMA_COLOUR)
+})
+
+test_that("past nine levels the palette keeps its colours and adds lighter tints", {
+  cols <- category_colours(sprintf("p%02d", 1:12))
+  expect_equal(unname(cols[1:9]), unname(.TOL_MUTED[.CATEGORY_ORDER]))
+  expect_equal(anyDuplicated(unname(cols)), 0L)
+  expect_length(intersect(cols[10:12], .TOL_MUTED), 0L)
+})
+
+test_that("within a genus the most abundant virus takes the genus colour", {
+  cols <- virus_colours(c("Mouse mammary tumor virus", "Human endogenous retrovirus K"),
+                        c("Betaretrovirus", "Betaretrovirus"), weights = c(500, 20))
+  expect_equal(cols[["Mouse mammary tumor virus"]], .GENUS_COLOUR[["Betaretrovirus"]])
+})

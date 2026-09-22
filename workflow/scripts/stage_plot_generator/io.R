@@ -1,10 +1,9 @@
 # =============================================================================
 # stage_plot_generator/io.R - stage-parquet + manifest ingest
 # =============================================================================
-# Stage-specific disk I/O. `save_plot` / `verify_required_columns` are reused
-# from plot2sort/io.R (sourced by the orchestrator). `log_section` is defined
-# in the orchestrator and resolved via lexical scope at call time - same
-# convention as plot2sort.R / ranges_analysis.R.
+# Stage-specific disk I/O. `log_section` is defined in the orchestrator and
+# resolved via lexical scope at call time - same convention as plot2sort.R /
+# ranges_analysis.R.
 
 
 # Load the three stage-dataframe parquet types from one directory. Files are
@@ -67,9 +66,9 @@ load_counts_table <- function(input_dir) {
   # Pipeline-ordered stages of the homology -> valid refinement funnel. Names
   # are counts-table `metric` keys; values are the human-readable axis labels.
   stage_keys <- c(
-    filtered_blast_hits  = "homology hits",
-    first_reduced_ranges = "first-reduced",
-    element_hits_ranges         = "ltr-flanked"
+    filtered_blast_hits  = "Quality-filtered hits",
+    first_reduced_ranges = "First reduction",
+    element_hits_ranges  = "Overlapping an LTR element"
   )
   files <- list.files(input_dir, pattern = "\\.counts\\.parquet$",
                       full.names = TRUE)

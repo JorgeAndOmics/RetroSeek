@@ -1000,29 +1000,14 @@ rule solo_ltr_detector:
 # =============================================================================
 rule plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
                                genome=species_with_hits(wildcards))
     output:
-        density_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{density_probe}_density.png'),
-                             density_probe=['main','accessory']),
-        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
-                               raincloud_probe=['main','accessory']),
-        bar_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{bar_probe}_bar.png'),
-                         bar_probe=['full', 'main','accessory']),
-        virus_bar_plot=os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'virus_by_species_bar.png'),
-        sankey_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
-                            sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
-        balloon_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{balloon_probe}_balloon.png'),
-                             balloon_probe=['main','accessory']),
-        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{qc_probe}_query_coverage.png'),
-                                    qc_probe=['main','accessory']),
-        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
-                             hm_probe=['main','accessory']),
-        waffle_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
-                            wf_probe=['main','accessory'])
+        pdf = os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'], 'homology.pdf')
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1030,7 +1015,8 @@ rule plot_generator_setup:
         '''
         Rscript scripts/plot2sort.R \
         --input {params.ranges_analysis_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 
@@ -1042,7 +1028,7 @@ rule plot_generator:
 
 # Middle-stage plots (homology + LTRharvest/LTRdigest integration). Mirrors
 # plot_generator_setup: aggregate rule consuming the per-genome stage
-# dataframes, emitting a fixed panel of PNGs into PLOT_DIR.
+# dataframes, writing one stage PDF.
 rule stage_plot_generator_setup:
     input:
         homology_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),
@@ -1060,30 +1046,13 @@ rule stage_plot_generator_setup:
         probe_domain_overlap=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.probe_domain_overlap.parquet'),
                          genome=species_with_hits(wildcards)),
         reduction_coverage=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
-                         genome=species_with_hits(wildcards))
+                         genome=species_with_hits(wildcards)),
+        species_tree = rules.species_tree_layout.output.tips
     output:
-        stage_plots=expand(os.path.join(defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],'{stage_plot}.png'),
-                           stage_plot=['homology_ltr_concordance',
-                                       'probe_yield_funnel',
-                                       'ltr_structural_components',
-                                       'retrotransposon_domain_composition',
-                                       'refinement_funnel_per_genome',
-                                       'refinement_funnel_aggregate',
-                                       'multiplicity_m1_by_tier',
-                                       'multiplicity_m2_global',
-                                       'provirus_overlap_degree',
-                                       'provirus_reciprocal_overlap',
-                                       'provirus_reduction_fold',
-                                       'provirus_coverage_before_after',
-                                       'ltr_distance_to_retro',
-                                       'ltr_position_within_provirus',
-                                       'ltr_feature_breakdown',
-                                       'ltr_strand_concordance',
-                                       'ltr_probe_domain_overlap',
-                                       'ltr_retro_length_vs_hits'])
+        pdf = os.path.join(defaults.PATH_DICT['INTEGRATION_PLOT_DIR'], 'integration.pdf')
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1091,7 +1060,8 @@ rule stage_plot_generator_setup:
         '''
         Rscript scripts/stage_plot_generator.R \
         --input {params.ranges_analysis_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 

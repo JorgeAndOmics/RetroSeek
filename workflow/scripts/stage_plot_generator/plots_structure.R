@@ -3,17 +3,15 @@
 # =============================================================================
 # Builders characterising the LTRdigest retrotransposon calls themselves: how
 # structurally complete they are (flanking LTRs / Pfam domains / TSD / PPT) and
-# which probe-domain combinations they carry.
+# which domain combinations they carry.
 
 
-# Faceted bar panel: retrotransposon counts per structural component. Replaces
-# a former 0-3 composite "completeness score" - under default LTRharvest config
-# `has_both_ltrs` and `has_tsd` are ~constant (LTRharvest only emits 2-LTR,
-# TSD-flanked elements), so summing them into a score added no discrimination.
-# Each component is shown on its own facet instead; the genuinely-varying
-# signals (`n_domains_total`, `has_ppt`) carry the
-# information, and the near-constant ones are reported honestly as rates in the
-# subtitle rather than dressed up as a score.
+# One small multiple per structural component. Replaces a former 0-3 composite
+# "completeness score": under default LTRharvest config `has_both_ltrs` and
+# `has_tsd` are ~constant (LTRharvest only emits 2-LTR, TSD-flanked elements), so
+# summing them into a score added no discrimination. The genuinely varying
+# signals (`n_domains_total`, `has_ppt`) carry the information, and the
+# near-constant ones are reported as rates in the subtitle.
 ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
                                           warning_caption = NULL) {
   if (nrow(ltr_df) == 0L) return(empty_plot())
@@ -23,11 +21,11 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
     b <- pmin(as.integer(x), 4L)
     ifelse(b == 4L, "4+", as.character(b))
   }
-  yesno <- function(x) ifelse(x, "yes", "no")
+  yesno <- function(x) ifelse(x, "Yes", "No")
 
   components <- c(
-    "Flanking LTRs (n)", "Pfam domains, total (n)",
-    "Polypurine tract (PPT)", "Target-site duplication (TSD)"
+    "Flanking LTRs", "Pfam domains",
+    "Polypurine tract", "Target-site duplication"
   )
   d <- dplyr::bind_rows(
     tibble::tibble(component = components[1], category = bucket(ltr_df$n_flanking_ltrs)),
@@ -37,67 +35,66 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
   ) %>%
     dplyr::count(component, category, name = "count") %>%
     dplyr::mutate(
-      category  = factor(category,
-                          levels = c("0", "1", "2", "3", "4+", "no", "yes")),
+      category  = factor(category, levels = c("0", "1", "2", "3", "4+", "No", "Yes")),
       component = factor(component, levels = components)
     )
 
-  both_rate <- mean(ltr_df$has_both_ltrs)
-  tsd_rate  <- mean(ltr_df$has_tsd)
-  ppt_rate  <- mean(ltr_df$has_ppt)
-
-  p <- ggplot(d, aes(x = category, y = count, fill = component)) +
-    geom_col(colour = "black", linewidth = 0.2) +
-    facet_wrap(~ component, scales = "free_x", ncol = 3) +
-    scale_fill_brewer(palette = "YlGnBu") +
-    theme_minimal() +
-    labs(x = "Per-retrotransposon value", y = "Retrotransposons") +
-    theme(text = element_text(face = "bold"), legend.position = "none")
+  p <- ggplot(d, aes(x = category, y = count)) +
+    geom_col(fill = .DATA_COLOUR, width = 0.7) +
+    facet_wrap(~ component, scales = "free_x", nrow = 1) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    labs(x = NULL, y = "Retrotransposons") +
+    theme(panel.grid.major.x = element_blank())
   add_titles(
     p,
-    title    = "LTR structural components",
+    title    = "What each LTR retrotransposon carries",
     subtitle = sprintf(
-      paste0("Both flanking LTRs %.0f%% - TSD %.0f%% - PPT %.0f%% - ",
-             "the first two are ~constant under default LTRharvest config"),
-      100 * both_rate, 100 * tsd_rate, 100 * ppt_rate),
+      paste("Both flanking LTRs in %.0f%%, a target-site duplication in %.0f%%, a",
+            "polypurine tract in %.0f%%. The first two are near constant under the",
+            "default LTRharvest settings."),
+      100 * mean(ltr_df$has_both_ltrs), 100 * mean(ltr_df$has_tsd),
+      100 * mean(ltr_df$has_ppt)),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
 }
 
 
-# Bar: which Pfam domain combinations occur across retrotransposons, by raw
-# name. Unclassified on purpose: what a domain means is decided once, in the
-# scan, at locus grain (ADR-016). The
-# long tail of rare combinations is folded into a single "Other (k)" stratum
-# via collapse_long_tail (shared with plot2sort).
+# Which Pfam domain combinations occur across retrotransposons, by raw name.
+# Unclassified on purpose: what a domain means is decided once, in the scan, at
+# locus grain (ADR-016). The long tail of rare combinations is folded into one
+# "Other (k)" bar via collapse_long_tail (shared with plot2sort).
 domain_composition_plot <- function(ltr_df, subset_label = NULL,
                                     top_n = 20L, warning_caption = NULL) {
   if (nrow(ltr_df) == 0L) return(empty_plot())
   d <- ltr_df %>%
     dplyr::mutate(element_domains = dplyr::if_else(is.na(element_domains),
-                                                 "(no domains)", element_domains)) %>%
+                                                 "No domains", element_domains)) %>%
     dplyr::count(element_domains, name = "count") %>%
     collapse_long_tail("element_domains", top_n = top_n, weight = "count") %>%
     dplyr::group_by(element_domains) %>%
     dplyr::summarise(count = sum(count), .groups = "drop")
   ordered <- order_by_count(d, "element_domains", weight = "count")
-  d <- d %>% dplyr::mutate(element_domains = factor(element_domains, levels = ordered))
+  # Largest on top, "Other" at the bottom whatever its size.
+  ordered <- rev(c(ordered[!grepl("^Other", ordered)], ordered[grepl("^Other", ordered)]))
+  d <- d %>% dplyr::mutate(element_domains = factor(element_domains, levels = ordered),
+                           other = grepl("^Other", element_domains))
 
-  p <- ggplot(d, aes(x = element_domains, y = count, fill = count)) +
-    geom_col(colour = "black", linewidth = 0.2) +
-    scale_fill_gradient(low = "#fff7ec", high = "#7f0000", trans = "sqrt") +
-    theme_minimal() +
-    labs(x = "Domain combination", y = "Retrotransposons", fill = "Count") +
-    theme(text = element_text(face = "bold"),
-          axis.text.x = element_text(angle = 45, hjust = 1))
-  out <- add_titles(
+  p <- ggplot(d, aes(x = element_domains, y = count, fill = other)) +
+    geom_col(width = 0.7, show.legend = FALSE) +
+    coord_flip() +
+    # Combinations can list a dozen domains: wrap them so the bars keep their room.
+    scale_x_discrete(labels = function(x) stringr::str_wrap(x, 60)) +
+    scale_fill_manual(values = c(`FALSE` = .DATA_COLOUR, `TRUE` = .GREY_OTHER)) +
+    scale_y_continuous(labels = scales::label_comma(), n.breaks = 4) +
+    labs(x = NULL, y = "Retrotransposons") +
+    theme(panel.grid.major.y = element_blank())
+  add_titles(
     p,
-    title    = "Retrotransposon probe-domain composition",
-    subtitle = "Distinct sets of probe-assigned Pfam domains per retrotransposon",
+    title    = "Pfam domain combinations",
+    subtitle = sprintf("The %d most common sets of Pfam domains per retrotransposon, the rest pooled.",
+                       top_n),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
-  attr(out, "intended_dims") <- auto_dims(length(ordered), axis = "x")
-  out
 }

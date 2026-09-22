@@ -104,6 +104,14 @@ div_colours <- function(n) {
   Deltaretrovirus   = .TOL_MUTED[["cyan"]]
 )
 .SPUMA_SHADES <- c("#7A6A58", "#9C8B77", "#BCAE9C", "#D8CEC1")
+# A fixed shade per spumavirus name, so a genus keeps its shade whichever others
+# share a plot. "Spumaretrovirus" is the probeset's label for the whole group, so
+# it takes the darkest shade; the ICTV genera follow. An unlisted name ending in
+# "spumavirus" falls back to the lightest shade.
+.SPUMA_COLOUR <- stats::setNames(
+  grDevices::colorRampPalette(.SPUMA_SHADES)(6),
+  c("Spumaretrovirus", "Simiispumavirus", "Felispumavirus", "Equispumavirus",
+    "Bovispumavirus", "Prosimiispumavirus"))
 
 # ERV classes (Jern/Blomberg) are defined by the genus they resemble, so each
 # wears that genus's colour: Class I gamma-like, II beta-like, III spumaviral.
@@ -114,21 +122,46 @@ div_colours <- function(n) {
 )
 
 # Fixed colours for any set of taxon names, in any plot. Orthoretrovirus genera
-# get their own colour; spumavirus genera (names ending "spumavirus") get the
-# stone shades in alphabetical order, so the assignment never depends on which
-# plot is drawing them; everything else (higher ranks, unresolved, Other) is grey.
+# get their own colour, spumaviruses their fixed shade; everything else (higher
+# ranks, unresolved, Other) is grey. The colour of a name never depends on which
+# other names share the plot.
 taxon_colours <- function(taxa) {
   taxa <- unique(as.character(taxa))
   out <- stats::setNames(rep(.GREY_OTHER, length(taxa)), taxa)
   hit <- taxa %in% names(.GENUS_COLOUR)
   out[hit] <- .GENUS_COLOUR[taxa[hit]]
-  spuma <- sort(taxa[grepl("spumavirus$", taxa, ignore.case = TRUE)])
-  if (length(spuma)) {
-    shades <- grDevices::colorRampPalette(.SPUMA_SHADES)(max(length(spuma), 4L))
-    out[spuma] <- shades[seq_along(spuma)]
-  }
+  spuma <- grepl("spumavirus$", taxa, ignore.case = TRUE)
+  out[spuma] <- .SPUMA_SHADES[[length(.SPUMA_SHADES)]]
+  known <- taxa %in% names(.SPUMA_COLOUR)
+  out[known] <- .SPUMA_COLOUR[taxa[known]]
   higher <- taxa %in% c("Orthoretrovirinae", "Spumaretrovirinae", "Retroviridae")
   out[higher] <- .GREY_MID
+  out
+}
+
+# Colours for viruses (the probeset's species-level names): shades of their
+# genus colour, lightening from the genus colour itself, so a virus reads as a
+# member of its genus in any figure. `genus` and `weights` (range counts) are
+# aligned with `virus`; within a genus the most abundant virus takes the genus
+# colour itself (alphabetical when no weights). Compute once per stage, over all
+# its viruses, so a virus keeps its shade on every page. "Other" stays grey.
+virus_colours <- function(virus, genus, weights = NULL) {
+  genus <- as.character(genus)
+  genus[is.na(genus) | !nzchar(genus)] <- "Not resolved"   # grey, like any non-taxon
+  if (is.null(weights)) weights <- rep(0, length(virus))
+  totals <- stats::aggregate(list(n = weights),
+                             list(virus = as.character(virus), genus = genus), sum)
+  totals <- totals[!duplicated(totals$virus), , drop = FALSE]
+  out <- stats::setNames(rep(.GREY_OTHER, nrow(totals)), totals$virus)
+  base <- taxon_colours(totals$genus)
+  for (g in unique(totals$genus)) {
+    members <- totals[totals$genus == g, , drop = FALSE]
+    members <- members$virus[order(-members$n, members$virus)]
+    # One step more than needed, so the lightest virus is never white.
+    ramp <- grDevices::colorRampPalette(c(base[[g]], .PAPER))(length(members) + 1L)
+    out[members] <- toupper(ramp[seq_along(members)])
+  }
+  out[grepl("^Other", names(out))] <- .GREY_OTHER
   out
 }
 
@@ -172,18 +205,31 @@ scale_fill_ramp <- function(...) {
 
 # Colours for an open-ended categorical variable with no fixed meaning (probes,
 # methods, families). The tier colours come last, so a plot with up to six
-# levels never seems to be talking about tiers. Beyond nine levels the palette
-# is interpolated, which a long-tail collapse should normally prevent.
+# levels never seems to be talking about tiers. Past nine levels the nine stay
+# as they are and the extra levels take lighter tints of them, which keeps the
+# first nine crisp rather than interpolating every colour into mud. A long-tail
+# collapse should normally keep a plot well below that.
 .CATEGORY_ORDER <- c("cyan", "sand", "purple", "olive", "green", "wine",
                      "rose", "indigo", "teal")
 category_colours <- function(levels) {
   levels <- unique(as.character(levels))
   n <- length(levels)
   palette <- unname(.TOL_MUTED[.CATEGORY_ORDER])
-  cols <- if (n <= length(palette)) palette[seq_len(n)]
-          else grDevices::colorRampPalette(palette)(n)
+  tint <- function(hex, k) grDevices::colorRampPalette(c(hex, .PAPER))(4)[k]
+  extra <- max(0L, n - length(palette))
+  tints <- vapply(seq_len(extra), function(i) {
+    tint(palette[(i - 1L) %% length(palette) + 1L], 2L + (i - 1L) %/% length(palette))
+  }, character(1))
+  cols <- c(palette, tints)[seq_len(n)]
   cols[grepl("^Other", levels)] <- .GREY_OTHER
   stats::setNames(cols, levels)
+}
+
+# Colours for probes (genes): category colours over the sorted probe set, so a
+# probe keeps its colour on every page drawn from the same set. Pass the whole
+# stage's probes, not one page's subset, to keep them fixed across the stage.
+probe_colours <- function(probes) {
+  category_colours(sort(unique(as.character(probes))))
 }
 
 # ---------------------------------------------------------------------------

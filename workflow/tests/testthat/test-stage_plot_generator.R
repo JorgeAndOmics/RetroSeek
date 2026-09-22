@@ -2,7 +2,7 @@
 #
 # The 8 middle-stage plot builders. Each must return a ggplot for valid input
 # and fall through to empty_plot() (still a ggplot) for empty input. Shared
-# helpers (theme, add_titles, auto_dims, ...) are reused from plot2sort.
+# helpers (theme, add_titles, species order, ...) are reused from plot2sort.
 
 suppressMessages({
   library(testthat)
@@ -11,12 +11,12 @@ suppressMessages({
   library(tidyr)
   library(tibble)
   library(scales)
-  library(ggsci)
 })
 
 .scripts <- file.path("..", "..", "scripts")
 source(file.path(.scripts, "plot2sort", "style.R"))
 source(file.path(.scripts, "plot2sort", "helpers.R"))
+source(file.path(.scripts, "plot2sort", "tree_axis.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_concordance.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_structure.R"))
 source(file.path(.scripts, "stage_plot_generator", "plots_funnel.R"))
@@ -113,10 +113,18 @@ test_that("every stage builder falls through to a ggplot for empty input", {
   expect_true(is_gg(multiplicity_m2_plot(e_reduced)))
 })
 
-test_that("auto-scaled stage builders set an intended_dims attribute", {
-  expect_false(is.null(attr(concordance_plot(.fake_hits_df()), "intended_dims")))
-  expect_false(is.null(attr(probe_yield_plot(.fake_hits_df()), "intended_dims")))
-  expect_false(is.null(attr(domain_composition_plot(.fake_ltr_df()), "intended_dims")))
+test_that("probe-axis pages put probes on rows, never tilted on the x axis", {
+  for (p in list(concordance_plot(.fake_hits_df()), probe_yield_plot(.fake_hits_df()),
+                 domain_composition_plot(.fake_ltr_df()))) {
+    expect_s3_class(p$coordinates, "CoordFlip")
+  }
+})
+
+test_that("the per-genome funnel follows the configured species order", {
+  counts <- .fake_counts_df()
+  order <- rev(sort(unique(counts$genome)))
+  p <- refinement_funnel_plot(counts, ctx = list(species_order = order))
+  expect_equal(levels(p$data$genome), order)
 })
 
 test_that("warning_caption is accepted and still yields a ggplot", {

@@ -152,15 +152,17 @@ test_that("bar_plot returns empty placeholder on zero-row input", {
   expect_equal(p$labels$title, "No data")
 })
 
-test_that("bar_plot reorders species levels by total count descending", {
+test_that("bar_plot puts hosts on rows in the configured order, not by count", {
   df <- tibble::tibble(
     species = c("S1", "S2", "S3", "S2"),
     label   = c("L1", "L1", "L1", "L2"),
     count   = c(  5,    3,    1,    4)
   )
-  # Totals: S2 = 7, S1 = 5, S3 = 1
-  p <- bar_plot(df)
-  expect_equal(levels(p$data$species), c("S2", "S1", "S3"))
+  ctx <- list(species_order = c("S3", "S1", "S2"))
+  p <- bar_plot(df, ctx = ctx)
+  # Bottom row first, so the first configured host is on top.
+  expect_equal(p$scales$get_scales("x")$limits, c("S2", "S1", "S3"))
+  expect_s3_class(p$coordinates, "CoordFlip")
 })
 
 
@@ -177,6 +179,7 @@ test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
   df <- tibble::tibble(
     species = rep("S1", 4),
     virus   = c("HIV", "MLV", "BLV", "FFV"),
+    label   = c("Lentivirus", "Gammaretrovirus", "Deltaretrovirus", "Spumaretrovirus"),
     count   = c(  40,    30,    20,   10)
   )
   p <- bar_virus_plot(df, top_n = 2L)   # keep HIV, MLV; fold BLV+FFV -> "Other (2)"
@@ -196,19 +199,19 @@ test_that("balloon plot returns empty placeholder on zero-row input", {
   expect_equal(p$labels$title, "No data")
 })
 
-test_that("balloon plot species y-axis ordered by total contribution", {
+test_that("balloon plot hosts are rows in the configured order", {
   df <- tibble::tibble(
     species      = c("S1", "S2", "S3"),
     virus        = c("HIV","HTLV","FFV"),
     probe        = c("POL","POL","POL"),
-    label        = c("Lentivirus","Deltaretro","Spumavirus"),
+    label        = c("Lentivirus","Deltaretrovirus","Spumaretrovirus"),
     abbreviation = c("HIV","HTLV","FFV"),
     count        = c(  10,    50,    1)
   )
-  # Counts descending: S2 (50), S1 (10), S3 (1).
-  # Y axis uses rev(...) so the largest sits at the top -> levels c(S3, S1, S2).
-  p <- balloon_virus_species_plot(df)
-  expect_equal(levels(p$data$species), c("S3", "S1", "S2"))
+  p <- balloon_virus_species_plot(df, ctx = list(species_order = c("S1", "S2", "S3")))
+  expect_equal(p$scales$get_scales("y")$limits, c("S3", "S2", "S1"))
+  # Colour is the virus's lineage.
+  expect_equal(rlang::as_label(p$mapping$colour), "label")
 })
 
 
@@ -254,9 +257,10 @@ test_that("sankey_species_probe_plot empty-input guard fires on 0 rows", {
   expect_equal(p$labels$title, "No data")
 })
 
-test_that("sankey_species_probe_plot orders species axis by count descending", {
-  p <- sankey_species_probe_plot(.sankey_input())
-  expect_equal(levels(p$data$species), c("S1", "S2", "S3", "S4", "S5"))
+test_that("sankey_species_probe_plot stacks hosts in the configured order", {
+  ctx <- list(species_order = c("S5", "S4", "S3", "S2", "S1"))
+  p <- sankey_species_probe_plot(.sankey_input(), ctx = ctx)
+  expect_equal(levels(p$data$species), c("S5", "S4", "S3", "S2", "S1"))
 })
 
 test_that("sankey_species_probe_plot orders probe axis by count descending", {
@@ -285,15 +289,21 @@ test_that("sankey_label_probe_plot orders both axes by count", {
   expect_equal(levels(p$data$probe), c("POL", "GAG", "ENV"))
 })
 
-test_that("sankey_species_label_plot orders both axes by count", {
+test_that("sankey_species_label_plot orders hosts by config and lineages by count", {
   df <- tibble::tibble(
     species = c("S_big","S_med","S_small"),
     label   = c("L_alpha","L_alpha","L_beta"),
     count   = c( 100,    50,    1)
   )
-  p <- sankey_species_label_plot(df)
-  expect_equal(levels(p$data$species), c("S_big", "S_med", "S_small"))
+  ctx <- list(species_order = c("S_small", "S_med", "S_big"))
+  p <- sankey_species_label_plot(df, ctx = ctx)
+  expect_equal(levels(p$data$species), c("S_small", "S_med", "S_big"))
   expect_equal(levels(p$data$label),   c("L_alpha", "L_beta"))
+})
+
+test_that("alluvial flows are coloured by probe or lineage, never by host", {
+  p <- sankey_species_probe_plot(.sankey_input())
+  expect_equal(rlang::as_label(p$layers[[1]]$mapping$fill), "probe")
 })
 
 
@@ -335,13 +345,12 @@ test_that("heatmap_probe_species_plot empty-input guard fires on 0 rows", {
   expect_equal(p$labels$title, "No data")
 })
 
-test_that("heatmap reorders both axes by marginal count", {
+test_that("heatmap puts hosts on rows in config order and probes by count", {
   df <- .fake_plot_df()
-  p  <- heatmap_probe_species_plot(df)
-  # Species totals (main+accessory): S1 = 4, S2 = 2, S3 = 1
+  p  <- heatmap_probe_species_plot(df, ctx = list(species_order = c("S3", "S2", "S1")))
   # Probe totals: POL = 4, GAG = 1, ENV = 1, VIF = 1 (ties -> alphabetic)
-  expect_equal(levels(p$data$species), c("S1", "S2", "S3"))
   expect_equal(levels(p$data$probe)[1], "POL")
+  expect_equal(p$scales$get_scales("y")$limits, c("S1", "S2", "S3"))
 })
 
 test_that("heatmap fills missing probexspecies cells with zero", {
@@ -366,7 +375,7 @@ test_that("waffle_virus_plot returns ggplot at unit_hits = 1", {
   skip_if_not_installed("waffle")
   p <- waffle_virus_plot(.fake_plot_df(), unit_hits = 1L)
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title,   "Hits per virus")
+  expect_equal(p$labels$title,   "Ranges per virus")
   expect_equal(p$labels$caption, "1 square = 1 hit")
 })
 
@@ -421,9 +430,9 @@ test_that("add_titles pins the paper background", {
 
 test_that("query_coverage_plot threads subset_label into title", {
   p <- query_coverage_plot(.fake_plot_df(), subset_label = "Accessory")
-  expect_equal(p$labels$title, "Probe query coverage density")
+  expect_equal(p$labels$title, "How much of each probe the hits cover")
   expect_match(p$labels$subtitle, "^Accessory\\. ")
-  expect_match(p$labels$subtitle, "alignment length / probe length")
+  expect_match(p$labels$subtitle, "Alignment length over probe length")
 })
 
 
@@ -454,20 +463,6 @@ test_that("auto_dims clamps at the cap", {
   d <- auto_dims(1000, axis = "x", base_w = 15, base_h = 12,
                  per_stratum = 0.18, cap = 60)
   expect_equal(d$w, 60)
-})
-
-
-# ----------------------------- intended_dims attribute --------------------
-
-test_that("species-axis builders attach an intended_dims attribute", {
-  df <- .fake_plot_df() %>% group_count()
-  p_bar <- bar_plot(df)
-  p_bal <- balloon_virus_species_plot(df)
-  p_hm  <- heatmap_probe_species_plot(.fake_plot_df())
-  expect_true(is.list(attr(p_bar, "intended_dims")))
-  expect_true(is.list(attr(p_bal, "intended_dims")))
-  expect_true(is.list(attr(p_hm,  "intended_dims")))
-  expect_true(all(c("w", "h") %in% names(attr(p_bar, "intended_dims"))))
 })
 
 

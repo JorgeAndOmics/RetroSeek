@@ -262,18 +262,27 @@ def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> No
     assert "erv_like_plot_generator" in text
 
 
-def test_new_provirus_plots_and_tables_declared(project_root: Path) -> None:
-    """The new overlap / LTR-interaction provirus plots + their tables exist."""
+def test_stage_pdfs_declared(project_root: Path) -> None:
+    """Every plotting stage declares its one stage PDF (docs/visual_style.md).
+
+    Declared, not left to params: an undeclared figure is never rebuilt when
+    stale and a half-finished run looks complete.
+    """
     text = _read_snakefile(project_root)
-    for plot in (
-        "provirus_overlap_degree",
-        "provirus_reduction_fold",
-        "provirus_coverage_before_after",
-        "ltr_distance_to_retro",
-        "ltr_probe_domain_overlap",
-        "ltr_retro_length_vs_hits",
+    for pdf in (
+        "'homology.pdf'",
+        "'integration.pdf'",
+        "'taxonomy.pdf'",
+        "'structure.pdf'",
+        "'loss.pdf'",
+        "'all_species.solo_ltr.pdf'",
     ):
-        assert plot in text, f"stage plot {plot!r} missing from Snakefile"
+        assert pdf in text, f"stage PDF {pdf} not declared in the Snakefile"
+
+
+def test_provirus_tables_declared(project_root: Path) -> None:
+    """The overlap / LTR-interaction tables behind the integration pages exist."""
+    text = _read_snakefile(project_root)
     for table in (
         "provirus_overlap",
         "ltr_interaction",
