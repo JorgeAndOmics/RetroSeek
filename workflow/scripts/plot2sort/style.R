@@ -230,8 +230,20 @@ theme_retroseek <- function(base_size = 11) {
       legend.title  = ggplot2::element_text(size = base_size - 1.5, colour = .INK_SOFT),
       legend.text   = ggplot2::element_text(size = base_size - 1.5),
       plot.background = ggplot2::element_rect(fill = .PAPER, colour = NA),
-      plot.margin   = ggplot2::margin(14, 18, 12, 14)
+      plot.margin   = ggplot2::margin(14, 30, 12, 14)
     )
+}
+
+# The same theme on a blank canvas, for pages with no data axes: trees, sankeys.
+# Titles, legend and paper stay the house ones.
+theme_retroseek_blank <- function(base_size = 11) {
+  theme_retroseek(base_size) +
+    ggplot2::theme(axis.text = ggplot2::element_blank(),
+                   axis.title = ggplot2::element_blank(),
+                   axis.ticks = ggplot2::element_blank(),
+                   # The child, not `panel.grid`: theme_retroseek sets the child,
+                   # and a set child outranks a blank parent.
+                   panel.grid.major = ggplot2::element_blank())
 }
 
 # Make every plot built in this R session use the theme and font unless a builder
@@ -275,42 +287,42 @@ save_stage_pdf <- function(pages, path, width = .PAGE_WIDTH, height = .PAGE_HEIG
 #   colours      named character vector: label -> colour (may be empty)
 #   pages        character vector of page titles, in order
 key_page <- function(title, description, colours = character(0), pages = character(0)) {
-  wrap <- function(x, width = 95) paste(strwrap(x, width), collapse = "\n")
+  # The description sits in the subtitle slot, so the theme lays it out above
+  # the panel however long it is; the two blocks below start at the panel top.
   p <- ggplot2::ggplot() +
-    ggplot2::annotate("text", x = 0, y = 1, label = wrap(description), hjust = 0,
-                      vjust = 1, size = 4.2, colour = .INK, family = .FONT,
-                      lineheight = 1.2) +
     ggplot2::scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-    ggplot2::scale_y_continuous(limits = c(-1, 1.02), expand = c(0, 0)) +
-    ggplot2::labs(title = title) +
+    ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+    ggplot2::labs(title = title,
+                  subtitle = paste(strwrap(description, 100), collapse = "\n")) +
     ggplot2::theme_void(base_family = .FONT) +
     ggplot2::theme(
       plot.title.position = "plot",
       plot.title = ggplot2::element_text(face = "bold", size = 18, hjust = 0,
-                                         margin = ggplot2::margin(b = 14)),
+                                         margin = ggplot2::margin(b = 12)),
+      plot.subtitle = ggplot2::element_text(size = 12, colour = .INK, hjust = 0,
+                                            lineheight = 1.2,
+                                            margin = ggplot2::margin(b = 28)),
       plot.background = ggplot2::element_rect(fill = .PAPER, colour = NA),
       plot.margin = ggplot2::margin(28, 28, 24, 28)
     )
-  y <- 0.62
+  heading <- function(x, label) {
+    ggplot2::annotate("text", x = x, y = 1, label = label, hjust = 0, vjust = 1,
+                      size = 4.4, fontface = "bold", family = .FONT, colour = .INK)
+  }
   if (length(colours)) {
-    p <- p + ggplot2::annotate("text", x = 0, y = y, label = "Colours", hjust = 0,
-                               size = 4.4, fontface = "bold", family = .FONT, colour = .INK)
-    ys <- y - 0.09 * seq_along(colours)
-    p <- p +
-      ggplot2::annotate("rect", xmin = 0, xmax = 0.025, ymin = ys - 0.03, ymax = ys + 0.03,
-                        fill = unname(colours)) +
+    ys <- 1 - 0.07 * seq_along(colours) - 0.02
+    p <- p + heading(0, "Colours") +
+      ggplot2::annotate("rect", xmin = 0, xmax = 0.025, ymin = ys - 0.022,
+                        ymax = ys + 0.022, fill = unname(colours)) +
       ggplot2::annotate("text", x = 0.035, y = ys, label = names(colours), hjust = 0,
                         size = 4, family = .FONT, colour = .INK)
-    y <- min(ys) - 0.12
   }
   if (length(pages)) {
-    p <- p + ggplot2::annotate("text", x = if (length(colours)) 0.5 else 0,
-                               y = 0.62, label = "Pages", hjust = 0, size = 4.4,
-                               fontface = "bold", family = .FONT, colour = .INK)
+    x <- if (length(colours)) 0.5 else 0
     listing <- paste(sprintf("%2d. %s", seq_along(pages) + 1L, pages), collapse = "\n")
-    p <- p + ggplot2::annotate("text", x = if (length(colours)) 0.5 else 0, y = 0.55,
-                               label = listing, hjust = 0, vjust = 1, size = 3.8,
-                               family = .FONT, colour = .INK_SOFT, lineheight = 1.25)
+    p <- p + heading(x, "Pages") +
+      ggplot2::annotate("text", x = x, y = 0.93, label = listing, hjust = 0, vjust = 1,
+                        size = 3.8, family = .FONT, colour = .INK_SOFT, lineheight = 1.3)
   }
   p
 }

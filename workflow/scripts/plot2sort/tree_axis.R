@@ -79,7 +79,7 @@ compose_with_tree <- function(tree, panel, widths = c(1.1, 3)) {
   patchwork::wrap_plots(tree, panel, widths = widths) +
     patchwork::plot_annotation(
       title = title, subtitle = subtitle,
-      theme = theme_retroseek() + theme(plot.margin = margin(14, 18, 12, 14))
+      theme = theme_retroseek()
     )
 }
 

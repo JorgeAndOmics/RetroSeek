@@ -122,3 +122,13 @@ test_that("taxon legends run most abundant first, leftovers last", {
                      c(10, 99, 20, 50))
   expect_equal(lv, c("Gammaretrovirus", "Betaretrovirus", "Unassigned at genus", "Other"))
 })
+
+test_that("the blank theme really removes grid lines and axes", {
+  p <- ggplot2::ggplot(data.frame(x = 1:2, y = 1:2), ggplot2::aes(x, y)) +
+    ggplot2::geom_point() + theme_retroseek_blank()
+  th <- ggplot2::calc_element("panel.grid.major.x", ggplot2::theme_get() + p$theme)
+  expect_s3_class(th, "element_blank")
+  expect_s3_class(ggplot2::calc_element("axis.text.x", p$theme), "element_blank")
+  # Titles keep the house style.
+  expect_equal(p$theme$plot.title$face, "bold")
+})

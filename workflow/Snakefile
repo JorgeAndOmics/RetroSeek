@@ -940,13 +940,15 @@ rule solo_plot_summary:
         candidates = lambda wildcards: expand(
             os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
             genome=species_with_hits(wildcards)
-        )
+        ),
+        species_tree = rules.species_tree_layout.output.tips
     output:
         pdf    = os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], 'all_species.solo_ltr.pdf'),
         report = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'solo_report.csv')
     params:
-        table_dir   = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
-        config_yaml = defaults.CONFIG_FILE
+        table_dir        = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
+        config_yaml      = defaults.CONFIG_FILE,
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR']
     threads: 1
     shell:
         '''
@@ -954,7 +956,8 @@ rule solo_plot_summary:
             --table_dir {params.table_dir:q} \
             --config {params.config_yaml:q} \
             --out_pdf {output.pdf:q} \
-            --report {output.report:q}
+            --report {output.report:q} \
+            --species_tree_dir {params.species_tree_dir:q}
         '''
 
 
