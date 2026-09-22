@@ -199,14 +199,6 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
             "under plots/classification/solo_ltr/."
         ),
     )
-    parser.add_argument(
-        "--solo-ltr-detection",
-        action="store_true",
-        help="Solo-LTR detection via LTR_retriever; retroviral-only pre-filter "
-        "via element_hits_ranges; multi-label probe-label propagation; emits "
-        "solo_ltr/{genome}.gff3 + solo_intact_ratio/{genome}.csv + "
-        "solo_intact_ratio/all_species.csv.",
-    )
 
     parser.add_argument(
         "--placement-trees",
@@ -371,14 +363,6 @@ def cli_entry() -> None:  # noqa: PLR0912, PLR0915
         if args.pair_detection:
             run_snakemake_rule(
                 "pair_detector",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.solo_ltr_detection:
-            run_snakemake_rule(
-                "solo_ltr_detector",
                 num_cores=defaults.NUM_CORES,
                 display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
                 snakemake_flags=unknown,

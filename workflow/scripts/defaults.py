@@ -160,10 +160,6 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["PROBE_PAIRS_PARQUET_DIR"],
     PATH_DICT["PROBE_PAIRS_CSV_DIR"],
 ) = table_dirs("probe_pairs")
-(
-    PATH_DICT["SOLO_INTACT_PARQUET_DIR"],
-    PATH_DICT["SOLO_INTACT_CSV_DIR"],
-) = table_dirs("solo_intact_ratio")
 # Native solo-LTR detection (ADR-017): per-genome solo calls, the full candidate
 # set with its class, and the funnel counts. Named _native while the
 # LTR_retriever route still occupies the plain solo_ltr names; it takes them over
@@ -214,8 +210,10 @@ PATH_DICT["COPHYLOGENY_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "cophyloge
 # Run manifest - provenance metadata (generator, timestamp, input md5s,
 # resolved parameters, seed), not a table; lives directly under results/.
 PATH_DICT["MANIFEST_DIR"] = (PATH_DICT["RESULTS_DIR"] / "manifest").resolve()
-# LTRharvest screen-format (.scn) intermediate - consumed by LTR_retriever.
-# Lives under /data (not /results) because it's a working format, not an output.
+# LTRharvest screen-format (.scn) intermediate. Its only consumer, LTR_retriever,
+# is gone (ADR-017), but ltr_harvester still DECLARES {genome}.scn as an output:
+# removing it would change that rule's signature and re-fire a 24-hour stage for
+# no gain. Lives under /data because it is a working format, not an output.
 PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # Solo-LTR bait: the LTR arms of ERV-bearing elements as BED + FASTA, and the
 # gzipped blastn hit table they produce. Working formats under /data for the same
@@ -224,7 +222,6 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # re-running blastn; gzip makes that affordable.
 PATH_DICT["SOLO_BAIT_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_bait").resolve()
 PATH_DICT["SOLO_BLAST_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_blast").resolve()
-# LTR_RETRIEVER_DIR is defined below, after TRACK_DIR is set up.
 
 # === Results - Plots ===
 # Layout mirrors the pipeline stages so the filesystem is self-documenting:
@@ -362,8 +359,6 @@ PATH_DICT["LTRHARVEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrharvest").resolve()
 PATH_DICT["LTRDIGEST_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltrdigest").resolve()
 # LTR_retriever output directory (intact-ERV filtered list, solo-LTR list,
 # consensus library - all the files LTR_retriever emits per genome).
-PATH_DICT["LTR_RETRIEVER_DIR"] = (PATH_DICT["TRACK_DIR"] / "ltr_retriever").resolve()
-PATH_DICT["SOLO_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "solo_ltr").resolve()
 PATH_DICT["FLANKING_LTR_DIR"] = (PATH_DICT["TRACK_DIR"] / "flanking_ltr").resolve()
 
 # === Logs & Workflow ===

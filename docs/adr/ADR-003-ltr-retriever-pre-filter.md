@@ -1,5 +1,13 @@
 # ADR-003: Retroviral-only pre-filter for LTR_retriever
 
+> **Superseded by [ADR-017](ADR-017-native-solo-ltr-detection.md) (2026-09-22).**
+> The LTR_retriever route it describes has been archived: its scripts, rules,
+> config and environment pins were removed, and solo LTRs are now detected
+> natively from the LTR arms of ERV-bearing elements. This record is kept because
+> the reasoning and the measurements behind it remain the honest history of how
+> that conclusion was reached. The implementation is preserved on the
+> `origin/solo-ltr-v1-archive` branch.
+
 - **Status**: Accepted
 - **Date**: 2026-04-24
 - **Deciders**: Jorge González García

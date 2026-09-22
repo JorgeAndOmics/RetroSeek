@@ -129,39 +129,6 @@ applied as a sort of the reduction input: `bitscore` desc -> `query_coverage`
 desc -> `identity` desc -> `evalue` asc -> genomic position -> `label` name. This
 makes `best` reproducible across R / plyranges versions.
 
-#### `parameters.solo_ltr_aggregation`
-
-Separate block for solo-LTR probe-label propagation (produced by the LTR_retriever workstream).
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `solo_ltr_aggregation.probe` | strategy | `list` | Strategy for propagating probe labels from contributing ERVs to solo LTRs. |
-| `solo_ltr_aggregation.best_tiebreaker` | `consensus_members` \| `bitscore` \| `identity` | `consensus_members` | Column used when strategy is `best`. `consensus_members` = number of ERVs that seeded the consensus family. |
-
-#### Choosing a strategy
-
-- **Default (`best`)** - recommended for `virus`/`label`. One deterministic "dominant" value per merged range based on alignment strength; clean single-value GFF3/parquet output and statistically meaningful plots.
-- **`list`** - pick this if downstream code needs the full contributor set. Note: inflates plot row counts (entry explosion) - the plot scripts warn when `virus`/`label` use `list`.
-- **`concatenate`** - pick this if your downstream tooling expects semicolon-delimited strings (e.g., grep-based inspection, legacy scripts). Same plot caveat as `list`.
-- **`majority`** - pick this if you trust hit counts more than hit strength.
-- **`strict`** - pick this when you want to flag ambiguity explicitly; useful for high-confidence result tables.
-- **`first`** - mostly for testing/comparison; rarely the right production choice.
-
-## `ltr_retriever`
-
-Solo-LTR post-processing of LTRharvest output. See [`docs/solo_ltr.md`](solo_ltr.md) for the full mechanism (how LTR_retriever works end-to-end, what "family" means, how the pre-filter + label-propagation couplings with RetroSeek work, and the biology of solo LTRs) and [ADR-003](adr/ADR-003-ltr-retriever-pre-filter.md) for the pre-filter decision rationale.
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `substitution_rate` | number >= 0 | `1.3e-8` | bp substitutions per site per year used by LTR_retriever for age estimation. Mammals: `1.3e-8`; plants: `7e-9`. Does not affect solo-LTR detection sensitivity - only age annotations. |
-| `min_ltr_similarity` | number 0-100 | `91` | LTR pair similarity floor (percent) for LTR_retriever's intact-ERV filter (`-miniden` flag). |
-| `threads_per_genome` | int >= 1 | `4` | CPU threads per-genome LTR_retriever invocation. |
-| `noanno` | bool | `true` | Skip LTR_retriever's internal TE-library annotation (`-noanno` flag). RetroSeek has its own probe-based classification. |
-| `source_scn` | str (`retroviral` \| `full`) | `retroviral` | **Coupling A toggle.** Picks which SCN feeds LTR_retriever. `retroviral` (default) uses the prefilter-restricted SCN - rows overlapping `element_hits/{genome}.gff3` - guaranteeing retroviral-only consensus families. `full` uses the unfiltered LTRharvest passthrough, useful for debugging or non-retroviral exploration. The prefilter rule always materialises both SCN files in `data/ltr_scn/` regardless of this setting. |
-| `nearest_erv_max_distance` | int >= 0 | `10000` | Bp window for the solo-LTR -> valid-ERV **nearest-ERV fallback** in Coupling B's label-propagation. Only used when the primary consensus-family path yields no labels for a given solo LTR. |
-
-Related: `parameters.solo_ltr_aggregation` (already documented above under the `parameters` section) controls the strategy for summarising probe labels inherited from multiple contributing ERVs.
-
 ## `solo_ltr`
 
 Native solo-LTR detection (ADR-017). A solo LTR is the single LTR left behind when a provirus's two LTRs recombine homologously and excise everything between them; each one marks an ancestral integration whose provirus is gone. The detector uses the LTR arms of ERV-bearing elements as `blastn` bait and then subtracts the hits that are something else: hits overlapping an intact LTRharvest element, and hits sitting close to an orphan locus (a monoLTR beside surviving coding sequence, so the provirus is damaged rather than excised). See [ADR-017](adr/ADR-017-native-solo-ltr-detection.md) for the method, its calibration against a length-matched random-window null, and what it deliberately gives up.
@@ -184,6 +151,7 @@ Every threshold the method depends on is here, and the scripts take them as requ
 | `solo_ltr.calibration_lengths` | list of int >= 0 | `[0, 300, 400, 500]` | Length thresholds swept by the per-genome calibration plot. |
 | `solo_ltr.calibration_identities` | list of number 0-100 | `[70, 80, 85, 90, 95, 97, 99]` | Identity thresholds swept by the same plot. |
 | `solo_ltr.tree.enable` | bool | `true` | Build the LTR phylogeny for this stage. |
+| `solo_ltr.tree.n_element_tips` | int >= 0 | `300` | Elements sampled as flanking-arm tips, both arms of each kept. Capped because the clustering statistic compares against class abundance and saturates when one class dominates: using every arm made the Mus tree 96.5% flanking and collapsed its enrichment to 1.03x. |
 | `solo_ltr.tree.n_solo_tips` | int >= 0 | `200` | Solos sampled as tree tips. A tree over every solo would be neither computable nor readable, so the sample is seeded and reported. |
 | `solo_ltr.tree.n_mono_tips` | int >= 0 | `200` | MonoLTR-at-orphan candidates sampled as tree tips. |
 | `solo_ltr.tree.permutations` | int >= 0 | `20` | Label permutations for the same-class-sister null, which is what makes "solos cluster with solos" a measurement rather than an impression. |

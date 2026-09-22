@@ -24,17 +24,16 @@ REPRESENTATIVE_KEYS = [
     "aggregation.virus",
     "placement_genes",
     "hotspot.input",
-    "source_scn",
+    "solo_ltr.orphan_pad",
     "seed",
 ]
 
-# The 13 top-level config sections, all of which the overview must list.
+# The top-level config sections, all of which the overview must list.
 TOP_LEVEL_SECTIONS = [
     "blast",
     "genome_tools",
     "hotspot",
     "parameters",
-    "ltr_retriever",
     "logging",
     "plots",
     "execution",

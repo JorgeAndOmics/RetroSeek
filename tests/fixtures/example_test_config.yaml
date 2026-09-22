@@ -67,17 +67,7 @@ parameters:
     best_tiebreaker: "bitscore"
     concat_separator: "; "
     strict_marker: "ambiguous"
-  solo_ltr_aggregation:
-    probe: "list"
-    best_tiebreaker: "consensus_members"
 
-ltr_retriever:
-  substitution_rate: 1.3e-8
-  min_ltr_similarity: 91
-  threads_per_genome: 4
-  noanno: true
-  source_scn: retroviral
-  nearest_erv_max_distance: 10000
 
 # Native solo-LTR detection (ADR-017). A solo LTR is what a provirus leaves
 # behind when its two LTRs recombine and excise everything between them. The
@@ -113,6 +103,12 @@ solo_ltr:
   calibration_identities: [70, 80, 85, 90, 95, 97, 99]
   tree:
     enable: true
+    # Elements sampled as flanking-arm tips; both arms of a chosen element are
+    # kept, which is what preserves the tree's positive control. Capped because
+    # the clustering statistic compares against class abundance and saturates
+    # when one class dominates: taking every arm made the Mus tree 96.5%
+    # flanking, pushed the null to 0.94 and collapsed the enrichment to 1.03x.
+    n_element_tips: 300
     # Tips are all bait arms plus a sample of the other two classes, because a
     # tree over every solo would be neither computable nor readable.
     n_solo_tips: 200

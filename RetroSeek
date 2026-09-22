@@ -120,13 +120,6 @@ if __name__ == '__main__':
              'flanks or monoLTRs beside an orphan, then annotate what remains with '
              'taxonomy, build the evidence tree and render the figure panel.'
     )
-    parser.add_argument(
-        '--solo-ltr-detection',
-        action='store_true',
-        help='Run LTR_retriever over LTRharvest output (pre-filtered by valid_ranges), '
-             'annotate the resulting solo LTRs with probe labels from RetroSeek, and '
-             'compute per-family solo/intact ratios.'
-    )
 
     parser.add_argument(
         '--placement-trees',
@@ -236,8 +229,6 @@ if __name__ == '__main__':
     if args.pair_detection:
         main_cmd.append('--pair-detection')
 
-    if args.solo_ltr_detection:
-        main_cmd.append('--solo-ltr-detection')
     if args.solo_ltr_native:
         main_cmd.append('--solo-ltr-native')
 

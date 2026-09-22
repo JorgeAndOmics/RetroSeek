@@ -568,173 +568,11 @@ rule ranges_analysis:
                                genome=species_with_hits(wildcards))
 
 
-# ----------------------------- LTR_retriever chain ---------------------------
-# Pre-filter LTRharvest SCN by RetroSeek's retroviral-confirmed ERV set
-# (element_hits/{genome}.gff3) - Coupling A. Then hand the filtered SCN to
-# LTR_retriever to discover solo LTRs via BLAST-back of the consensus library
-# derived from the retained intact ERVs. See docs/solo_ltr.md for full
-# mechanism and the LTR_retriever stages.
 # =============================================================================
-# 5. SOLO-LTR WORKSTREAM - LTR_retriever
-#    prefilter LTRharvest SCN to retroviral elements, run LTR_retriever, and
-#    integrate solo vs intact LTRs (solo/intact ratio). See docs/solo_ltr.md.
+# 5. SOLO-LTR WORKSTREAM
+#    Solo LTRs from the LTR arms of ERV-bearing elements, by subtraction.
+#    See docs/solo_ltr.md and ADR-017.
 # =============================================================================
-rule ltr_retriever_prefilter_setup:
-    input:
-        scn          = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],     '{genome}.scn'),
-        des          = os.path.join(defaults.PATH_DICT['SPECIES_DB'],      '{genome}', '{genome}.des'),
-        element_hits = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3')
-    output:
-        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
-        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn')
-    log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever_prefilter', '{genome}.log')
-    threads: 1
-    shell:
-        '''
-        PYTHONPATH=scripts python scripts/solo_ltr/ltr_retriever_prefilter.py \
-            --scn {input.scn:q} \
-            --des {input.des:q} \
-            --element-hits {input.element_hits:q} \
-            --output-retroviral {output.retroviral_scn:q} \
-            --output-full {output.full_scn:q} \
-            2> {log:q}
-        '''
-
-
-rule ltr_retriever_prefilter:
-    input:
-        retroviral_scn = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_retroviral.scn'),
-            genome=species_with_hits(wildcards)
-        ),
-        full_scn = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'], '{genome}_full.scn'),
-            genome=species_with_hits(wildcards)
-        )
-
-
-# Invoke LTR_retriever itself. It writes multiple output files into its working
-# directory; we declare the three we consume downstream (.pass.list.gff3,
-# .nmtf.pass.list, .LTRlib.fa). Other LTR_retriever outputs appear alongside
-# them and are considered working files.
-rule ltr_retriever_setup:
-    input:
-        genome_fa      = os.path.join(defaults.PATH_DICT['SPECIES_DB'],     '{genome}.fa'),
-        retroviral_scn = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_retroviral.scn'),
-        full_scn       = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}_full.scn')
-    output:
-        pass_list_gff3 = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
-        nmtf_pass_list = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
-        ltr_library    = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa')
-    log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'ltr_retriever', '{genome}.log')
-    params:
-        out_dir           = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}'),
-        source_scn_mode   = config['ltr_retriever'].get('source_scn', 'retroviral'),
-        substitution_rate = config['ltr_retriever'].get('substitution_rate', 1.3e-8),
-        min_similarity    = config['ltr_retriever'].get('min_ltr_similarity', 91),
-        noanno_flag       = '--noanno' if config['ltr_retriever'].get('noanno', True) else ''
-    threads: lambda wildcards: config['ltr_retriever'].get('threads_per_genome', 4)
-    shell:
-        '''
-        PYTHONPATH=scripts python scripts/solo_ltr/run_ltr_retriever.py \
-            --genome-fa {input.genome_fa:q} \
-            --retroviral-scn {input.retroviral_scn:q} \
-            --full-scn {input.full_scn:q} \
-            --source-scn-mode {params.source_scn_mode} \
-            --workdir {params.out_dir:q} \
-            --genome-name {wildcards.genome:q} \
-            --substitution-rate {params.substitution_rate} \
-            --min-similarity {params.min_similarity} \
-            --threads {threads} \
-            {params.noanno_flag} \
-            --log-file {log:q}
-        '''
-
-
-rule ltr_retriever:
-    input:
-        pass_gff3 = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.pass.list.gff3'),
-            genome=species_with_hits(wildcards)
-        ),
-        nmtf      = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
-            genome=species_with_hits(wildcards)
-        ),
-        lib       = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
-            genome=species_with_hits(wildcards)
-        )
-
-
-# Integrate LTR_retriever output with RetroSeek's element_hits track (Coupling B).
-# Emits the final annotated solo-LTR GFF3 + per-genome solo/intact ratio CSV.
-rule solo_ltr_integrator_setup:
-    input:
-        nmtf         = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.nmtf.pass.list'),
-        ltr_library  = os.path.join(defaults.PATH_DICT['LTR_RETRIEVER_DIR'], '{genome}', '{genome}.LTRlib.fa'),
-        element_hits = os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],   '{genome}.gff3')
-    output:
-        solo_ltr_gff3 = os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'],            '{genome}.gff3'),
-        ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'],     '{genome}.csv'),
-        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], '{genome}.parquet')
-    params:
-        nearest_distance = config['ltr_retriever'].get('nearest_erv_max_distance', 10000)
-    threads: 1
-    shell:
-        '''
-        PYTHONPATH=scripts python scripts/solo_ltr/solo_ltr_integrator.py \
-            --nmtf-pass-list {input.nmtf:q} \
-            --ltr-library {input.ltr_library:q} \
-            --element-hits {input.element_hits:q} \
-            --genome {wildcards.genome:q} \
-            --output-gff3 {output.solo_ltr_gff3:q} \
-            --output-ratio-csv {output.ratio_csv:q} \
-            --output-ratio-parquet {output.ratio_parquet:q} \
-            --nearest-erv-max-distance {params.nearest_distance}
-        '''
-
-
-# Aggregate per-genome ratio CSVs into all_species.csv via an inline pandas
-# concat. Tiny helper - not worth its own script.
-rule solo_intact_ratio_aggregate:
-    input:
-        per_genome = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], '{genome}.parquet'),
-            genome=species_with_hits(wildcards)
-        )
-    output:
-        all_species_csv = os.path.join(defaults.PATH_DICT['SOLO_INTACT_CSV_DIR'], 'all_species.csv'),
-        all_species_parquet = os.path.join(defaults.PATH_DICT['SOLO_INTACT_PARQUET_DIR'], 'all_species.parquet')
-    threads: 1
-    run:
-        import pandas as pd
-        frames = [pd.read_parquet(p) for p in input.per_genome]
-        if frames:
-            combined = pd.concat(frames, ignore_index=True)
-        else:
-            combined = pd.DataFrame(
-                columns=['species', 'probe_family', 'label_mode',
-                         'intact_count', 'solo_count', 'total_integrations',
-                         'solo_to_intact_ratio', 'solo_fraction']
-            )
-        combined.to_csv(output.all_species_csv, index=False)
-        combined.to_parquet(output.all_species_parquet, index=False)
-
-
-# Top-level aggregate - the CLI target. Demands every per-genome GFF3 + the
-# aggregate CSV, triggering the whole LTR_retriever chain transitively.
-rule solo_ltr_detector:
-    input:
-        solo_gff3 = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_LTR_DIR'], '{genome}.gff3'),
-            genome=species_with_hits(wildcards)
-        ),
-        all_species = rules.solo_intact_ratio_aggregate.output.all_species_csv
-
-
 # ------------------------ Native solo detection (ADR-017) --------------------
 # Solo LTRs without LTR_retriever. The LTR arms of ERV-bearing elements are
 # blastn bait; every hit is a copy of a known-retroviral LTR, so no classifier is
@@ -946,6 +784,7 @@ rule solo_tree_setup:
     params:
         prefix       = lambda wildcards: os.path.join(
             defaults.PATH_DICT['SOLO_TREE_DIR'], wildcards.genome),
+        n_element_tips = _SOLO_TREE['n_element_tips'],
         n_solo_tips  = _SOLO_TREE['n_solo_tips'],
         n_mono_tips  = _SOLO_TREE['n_mono_tips'],
         permutations = _SOLO_TREE['permutations'],
@@ -962,6 +801,7 @@ rule solo_tree_setup:
             --bait-bed {input.bait:q} \
             --candidates-csv {input.candidates:q} \
             --out-bed {output.tips_bed:q} \
+            --n-element-tips {params.n_element_tips} \
             --n-solo-tips {params.n_solo_tips} \
             --n-mono-tips {params.n_mono_tips} \
             --seed {params.seed} \
