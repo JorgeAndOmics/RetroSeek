@@ -139,16 +139,12 @@ color_bold_bg_schema:
 
 plots_schema:
   segment_panel: enum('full', 'curated', 'none', required=False)
-  dpi: int(min=1)
-  width: int(min=1)
-  height: int(min=1)
   bitscore_x_scale: str(matches='^(linear|log10)$', required=False)
   sankey_top_n: any(int(min=1), null(), required=False)
   sankey_other_label: str(required=False)
   waffle_unit_hits: any(int(min=1), null(), required=False)
   circle_plot_bitscore_threshold: num(min=0)
   per_stratum: num(min=0, required=False)
-  max_dim: num(min=1, required=False)
 
 execution_schema:
   num_cores: int(min=1)

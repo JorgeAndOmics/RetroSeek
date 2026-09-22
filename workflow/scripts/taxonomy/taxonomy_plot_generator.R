@@ -57,8 +57,7 @@ source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation - same idiom as the other plot generators (save_plot
-# calls log_section, so it must exist in the global env at call time).
+# Pipeline instrumentation - same idiom as the other plot generators.
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {

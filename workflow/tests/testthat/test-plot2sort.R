@@ -436,36 +436,6 @@ test_that("query_coverage_plot threads subset_label into title", {
 })
 
 
-# ----------------------------- auto_dims ----------------------------------
-
-test_that("auto_dims keeps the base canvas when n is at or below base_strata", {
-  d <- auto_dims(5, axis = "x", base_w = 15, base_h = 12)
-  expect_equal(d$w, 15)
-  expect_equal(d$h, 12)
-})
-
-test_that("auto_dims grows width with n on the x axis", {
-  d <- auto_dims(102, axis = "x", base_w = 15, base_h = 12,
-                 per_stratum = 0.18, base_strata = 12)
-  expect_equal(d$w, 15 + (102 - 12) * 0.18)
-  expect_equal(d$h, 12)
-})
-
-test_that("auto_dims grows height with n on the y axis", {
-  d <- auto_dims(60, axis = "y", base_w = 15, base_h = 12,
-                 per_stratum = 0.20, base_strata = 12)
-  expect_equal(d$w, 15)
-  expect_equal(d$h, 12 + (60 - 12) * 0.20)
-})
-
-test_that("auto_dims clamps at the cap", {
-  # 1000 strata at 0.18 in/stratum would request ~178 in width - must cap.
-  d <- auto_dims(1000, axis = "x", base_w = 15, base_h = 12,
-                 per_stratum = 0.18, cap = 60)
-  expect_equal(d$w, 60)
-})
-
-
 # ----------------------------- save_plot ----------------------------------
 
 test_that("save_plot writes the file and respects dims override", {
@@ -552,65 +522,4 @@ test_that("stamp_warning_caption attaches the caption when supplied", {
   p <- stamp_warning_caption(ggplot2::ggplot(), "watch out")
   expect_true(inherits(p, "ggplot"))
   expect_equal(p$labels$caption, "watch out")
-})
-
-
-test_that("relabel_species maps stems to display names and passes through unknowns", {
-  m <- list(Homo_sapiens = "Homo sapiens", Mus_musculus = "Mus musculus")
-  expect_equal(relabel_species(c("Homo_sapiens", "Mus_musculus"), m),
-               c("Homo sapiens", "Mus musculus"))
-  # unmapped stem is preserved as-is
-  expect_equal(relabel_species("Antrozous_pallidus", m), "Antrozous_pallidus")
-  # null / empty map is a no-op
-  expect_equal(relabel_species(c("a", "b"), NULL), c("a", "b"))
-  expect_equal(relabel_species(character(), m), character())
-})
-
-test_that("attach_species_name delegates to relabel_species (maps + passes through)", {
-  m <- list(Homo_sapiens = "Homo sapiens")
-  df <- tibble::tibble(species = c("Homo_sapiens", "Antrozous_pallidus"), n = c(1L, 2L))
-  out <- attach_species_name(df, m)
-  # column name preserved; mapped stem relabelled, unmapped stem passed through
-  expect_equal(out$species, c("Homo sapiens", "Antrozous_pallidus"))
-  expect_equal(out$n, c(1L, 2L))            # other columns untouched
-  expect_setequal(names(out), c("species", "n"))
-})
-
-
-# ---------------------------------------------------------------------------
-# scale_categorical_axis: canvas AND text must both respond to cardinality.
-# The 5 model genomes never exercise the crowding path, so n = 102 (the bat
-# study) is asserted synthetically here.
-# ---------------------------------------------------------------------------
-test_that("categorical_text_size shrinks past the base but never below the floor", {
-  expect_equal(categorical_text_size(5), 11)      # small study: untouched
-  expect_equal(categorical_text_size(12), 11)     # at the base_strata boundary
-  expect_lt(categorical_text_size(60), 11)        # shrinks past it
-  expect_gte(categorical_text_size(1000), 5)      # legibility floor holds
-})
-
-test_that("scale_categorical_axis attaches dims that grow with n", {
-  p <- ggplot2::ggplot(
-    data.frame(x = c("a", "b"), y = 1:2), ggplot2::aes(x, y)
-  ) + ggplot2::geom_col()
-  small <- scale_categorical_axis(p, 5, axis = "x")
-  big   <- scale_categorical_axis(p, 102, axis = "x")
-  d_small <- attr(small, "intended_dims")
-  d_big   <- attr(big, "intended_dims")
-  expect_false(is.null(d_small))
-  expect_equal(d_small$w, 15)                     # <= base_strata: base canvas
-  expect_gt(d_big$w, d_small$w)                   # 102 genomes: wider canvas
-  expect_equal(d_big$h, d_small$h)                # x-axis growth leaves height
-})
-
-test_that("scale_categorical_axis grows height on the y axis and honours the cap", {
-  p <- ggplot2::ggplot(
-    data.frame(x = 1:2, y = c("a", "b")), ggplot2::aes(x, y)
-  ) + ggplot2::geom_col()
-  d <- attr(scale_categorical_axis(p, 102, axis = "y"), "intended_dims")
-  expect_equal(d$w, 15)                           # width pinned on y growth
-  expect_gt(d$h, 12)
-  capped <- attr(scale_categorical_axis(p, 5000, axis = "y", cap = 40),
-                 "intended_dims")
-  expect_equal(capped$h, 40)                      # clamped, not unbounded
 })

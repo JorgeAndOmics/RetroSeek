@@ -364,7 +364,7 @@ main <- function() {
 }
 
 
-# Source shared plotting helpers (empty_plot, add_titles, save_plot, log_section).
+# Source shared plotting helpers (style, empty_plot, add_titles, species order).
 # Placed after the function defs so testthat can source this file without a plot
 # environment; main() only runs under Rscript.
 .resolve_script_dir <- function() {

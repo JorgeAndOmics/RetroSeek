@@ -54,7 +54,7 @@ source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation (save_plot calls log_section, so define it first).
+# Pipeline instrumentation.
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {

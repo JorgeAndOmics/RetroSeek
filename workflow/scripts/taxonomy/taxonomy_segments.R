@@ -182,7 +182,7 @@ segments_main <- function() {
   if (!"segment" %in% names(catalog)) {
     # Catalog predates ADR-011 (or segment_rank is unset): emit empty
     # deliverables so the DAG completes and the cause is visible in the log.
-    log_section("catalog has no `segment` column - nothing to split")
+    log_section("catalog has no `segment` column, so nothing to split")
     catalog$segment <- character(nrow(catalog))
   }
   log_section(sprintf("Segmenting %d catalog loci by %s", nrow(catalog), seg_rank))

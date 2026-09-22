@@ -148,9 +148,6 @@ logging:
     thread: { color: 'green' }
 
 plots:
-  dpi: 100
-  width: 10
-  height: 8
   bitscore_x_scale: linear
   sankey_top_n: null
   sankey_other_label: 'Other'
