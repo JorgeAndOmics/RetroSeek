@@ -61,6 +61,9 @@ the rules. The system is described for people in [visual_style.md](../visual_sty
   - The per-plot PNGs are gone, so a single figure for a slide is now a page to
     export rather than a file to copy.
   - All pages of a stage share one page height, the tallest any page needs.
+  - Sets with no fixed meaning (13 probes, LTR families) borrow the palette's
+    hues, which can coincide with a genus colour on another page; their legend
+    disambiguates. Nine colour-blind-safe colours cannot cover every set.
 - Neutral:
   - The config keys that sized PNG canvases (`plots.dpi`, `width`, `height`,
     `max_dim`) are removed; `plots.per_stratum` now grows the page height past

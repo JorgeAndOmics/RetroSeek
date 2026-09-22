@@ -9,8 +9,11 @@ rows); plotting code asks those two files instead of deciding for itself.
 ## Four rules
 
 1. **One colour, one meaning.** A recurring concept (an evidence tier, a solo-LTR
-   fate, a viral genus) has exactly one colour in every figure, and no colour
-   stands for two concepts. Plotting code never writes a colour value.
+   fate, a viral genus) has exactly one colour in every figure, and no two fixed
+   meanings share a colour. Plotting code never writes a colour value. Sets
+   with no fixed meaning (probes, methods, LTR families) borrow palette hues,
+   always with a legend on the page: nine colour-blind-safe colours cannot give
+   every open-ended set its own.
 2. **Colour-blind safe.** The categorical palette is Paul Tol's "muted" set. Every
    pair stays distinguishable under deuteranopia, protanopia and tritanopia
    (minimum CIELAB distance 15.8; the Futurama palette it replaced fell to 4.7).
@@ -65,7 +68,9 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
 - **Open-ended categories** with no fixed meaning (probes, methods, LTR
   families) take the palette in an order that leaves the tier colours for last.
   Past nine levels the nine keep their colours and extra levels take lighter
-  tints. Within a stage, a probe keeps one colour on every page.
+  tints. Within a stage, a probe keeps one colour on every page. These borrowed
+  hues can coincide with a genus colour on another page, so they always come
+  with a legend.
 - **Flows** in alluvial plots are coloured by the axis that carries a meaning
   (probe or lineage), never by host: hosts have no colour of their own.
 
