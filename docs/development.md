@@ -61,6 +61,7 @@ Three layers:
 
 - **Python**: ruff (lint + format), mypy strict, Google-style docstrings. Configured in [`pyproject.toml`](../pyproject.toml). Target version 3.10.
 - **R**: tidyverse style via `styler`, lint via `lintr`. Both installed in the env.
+- **Figures**: every plot follows the house style in [`visual_style.md`](visual_style.md): colours, theme, words and output from `workflow/scripts/plot2sort/style.R`, species on rows through `plot2sort/tree_axis.R`, one PDF per stage. `tests/unit/test_visual_style.py` fails on a stray colour, a foreign palette or a dash used as punctuation.
 - **Bash**: POSIX-compatible where possible; `shellcheck` if available.
 
 ## Configuration data hygiene

@@ -17,7 +17,7 @@
 # Outputs:
 #   - loss_analysis.{parquet,csv}      - the per-genome, per-stage funnel.
 #   - <genome>.novel_candidates.csv    - no-blastx-hit loci (per genome).
-#   - loss_funnel.png                  - stacked per-stage attrition plot.
+#   - loss.pdf                         - a key page and five loss pages.
 #
 # `testthat` sources this file; the `if (sys.nframe() == 0L) main()` guard keeps
 # the CLI block from firing during sourcing.
@@ -27,7 +27,6 @@ suppressMessages({
   library(arrow)
   library(tidyverse)
   library(yaml)
-  library(ggsci)
 })
 
 
@@ -46,17 +45,17 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 .STAGE_SPEC <- tibble::tribble(
   ~metric,                ~stage_order, ~branch,          ~parent,                 ~label,
-  "raw_blast_hits",        1L,          "main",           NA_character_,           "raw tBLASTn hits",
-  "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "quality-filtered",
-  "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "first reduction",
-  "element_hits_ranges",          4L,          "main",           "first_reduced_ranges",  "ltr-flanked (LTR-overlapping)",
-  "global_reduced_ranges", 5L,          "orphan",         "first_reduced_ranges",  "global reduction",
-  "orphans",               6L,          "orphan",         "global_reduced_ranges", "non-LTR orphan hits",
-  "orphans_total",         7L,          "orphan",         "orphans",               "orphan loci (clustered)",
-  "orphans_recovered",     8L,          "orphan",         "orphans_total",         "orphans recovered",
-  "loci_total",            9L,          "classification", "element_hits_ranges",          "ltr-flanked loci (grouped)",
-  "loci_classified",      10L,          "classification", "loci_total",            "loci classified",
-  "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "loci w/ no blastx hit"
+  "raw_blast_hits",        1L,          "main",           NA_character_,           "Raw tBLASTn hits",
+  "filtered_blast_hits",   2L,          "main",           "raw_blast_hits",        "Quality-filtered hits",
+  "first_reduced_ranges",  3L,          "main",           "filtered_blast_hits",   "First reduction",
+  "element_hits_ranges",          4L,          "main",           "first_reduced_ranges",  "Overlapping an LTR element",
+  "global_reduced_ranges", 5L,          "orphan",         "first_reduced_ranges",  "Global reduction",
+  "orphans",               6L,          "orphan",         "global_reduced_ranges", "Orphan hits",
+  "orphans_total",         7L,          "orphan",         "orphans",               "Orphan loci",
+  "orphans_recovered",     8L,          "orphan",         "orphans_total",         "Orphans recovered",
+  "loci_total",            9L,          "classification", "element_hits_ranges",          "LTR-flanked loci",
+  "loci_classified",      10L,          "classification", "loci_total",            "Loci classified",
+  "loci_no_blastx_hit",   11L,          "classification", "loci_total",            "Loci with no blastx hit"
 )
 
 
@@ -158,115 +157,136 @@ novel_burden_table <- function(funnel) {
 }
 
 
-# Stacked per-stage attrition plot - value by ordered stage, faceted by genome,
-# coloured by branch. empty_plot is reused from plot2sort/helpers.R.
-loss_funnel_plot <- function(funnel) {
-  if (nrow(funnel) == 0L) return(empty_plot("no counts to plot"))
-  d <- funnel %>%
-    dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
-  p <- ggplot(d, aes(x = .data$label, y = .data$value, fill = .data$branch)) +
-    geom_col() +
-    facet_wrap(~ .data$genome, scales = "free_y") +
-    scale_fill_npg() +
-    labs(x = NULL, y = "ranges / loci", fill = "stage") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  add_titles(p, "Pipeline loss funnel",
-             "Surviving ranges/loci per stage (incl. recovered orphans)")
+# ----------------------------------------------------------------------------
+# The loss pages. Genomes follow the canonical species order (host tree, else
+# config): as rows where genome is an axis, as small multiples in that order
+# where each genome gets its own funnel. The two branches wear the tier colours
+# they lead to: the main chain ends in LTR-flanked loci, the other in orphans.
+# ----------------------------------------------------------------------------
+# A function, not a constant: this file is sourced without style.R by the table
+# tests, and the colours only exist once style.R is loaded.
+.branch_colours <- function() {
+  c(main           = .TIER_COLOUR[["ltr-flanked"]],
+    orphan         = .TIER_COLOUR[["orphan"]],
+    classification = .GREY_MID)
+}
+.BRANCH_LABELS <- c(main = "Main chain, to LTR-flanked loci",
+                    orphan = "Orphan branch",
+                    classification = "Classification of loci")
+
+# Genomes as a factor in canonical order, first on top (small multiples read
+# from the top left).
+.genome_factor <- function(genome, ctx) {
+  factor(genome, levels = rev(species_order(genome, ctx$species_tree, ctx$species_order)))
 }
 
+# Surviving ranges or loci per stage, one small multiple per genome, stages as
+# rows in pipeline order.
+loss_funnel_plot <- function(funnel, ctx = NULL) {
+  if (nrow(funnel) == 0L) return(empty_plot("No counts to plot"))
+  d <- funnel %>%
+    dplyr::mutate(label = forcats::fct_rev(forcats::fct_reorder(.data$label, .data$stage_order)),
+                  genome = .genome_factor(.data$genome, ctx))
+  p <- ggplot(d, aes(x = .data$value, y = .data$label, fill = .data$branch)) +
+    geom_col(width = 0.7) +
+    facet_wrap(~ .data$genome, scales = "free_x") +
+    scale_fill_manual(values = .branch_colours(), labels = .BRANCH_LABELS,
+                      breaks = names(.BRANCH_LABELS)) +
+    scale_x_continuous(labels = scales::label_comma()) +
+    labs(x = "Ranges or loci", y = NULL, fill = NULL) +
+    theme(panel.grid.major.y = element_blank(),
+          strip.text = element_text(face = "bold.italic"))
+  add_titles(p, "What survives each step",
+             "Ranges and loci left after every step of the pipeline, recovered orphans included.")
+}
 
-# Per-step retention heatmap: genome x stage, fill = fraction of the prior stage
-# surviving. Restricted to the genuine attrition/reduction steps (the LTR-flanked
-# spine + the orphan branch) - the classification tier is grouping/quality,
-# not retention, so it is excluded to keep one consistent semantic on the scale.
-# Every cell is now a true subset/reduction ratio, so all are <= 100%.
-step_retention_plot <- function(funnel) {
+# Per-step retention: genome by step, the fraction of the previous stage that
+# survives. Only true reduction steps (the main chain and the orphan branch);
+# classification groups loci rather than removing them, so it would put a second
+# meaning on the scale.
+step_retention_plot <- function(funnel, ctx = NULL) {
   d <- funnel %>%
     dplyr::filter(.data$branch %in% c("main", "orphan"), !is.na(.data$step_retained))
-  if (nrow(d) == 0L) return(empty_plot("no step-retention data"))
+  if (nrow(d) == 0L) return(empty_plot("No step retention data"))
   d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
+  d$ink <- ink_on_ramp(d$step_retained)
   p <- ggplot(d, aes(x = .data$label, y = .data$genome, fill = .data$step_retained)) +
-    geom_tile(colour = "white") +
-    geom_text(aes(label = sprintf("%.0f%%", 100 * .data$step_retained)), size = 2.8) +
-    scale_fill_gradient2(low = "#D73027", mid = "#FEE08B", high = "#1A9850",
-                         midpoint = 0.5, limits = c(0, 1), labels = scales::percent) +
-    labs(x = NULL, y = NULL, fill = "step\nretained") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  add_titles(p, "Per-step retention",
-             "Fraction of the prior stage surviving each attrition/reduction step")
+    geom_tile(colour = .PAPER, linewidth = 0.6) +
+    geom_text(aes(label = scales::percent(.data$step_retained, accuracy = 1),
+                  colour = .data$ink), size = 3.2, family = .FONT) +
+    scale_colour_identity() +
+    scale_fill_ramp(limits = c(0, 1), labels = scales::percent, name = "Retained") +
+    scale_x_discrete(labels = function(x) stringr::str_wrap(x, 14)) +
+    labs(x = NULL, y = NULL) +
+    theme(panel.grid = element_blank())
+  p <- add_titles(p, "How much each step keeps",
+                  "The share of the previous stage that survives each reduction step.")
+  on_rows(p, d$genome, ctx, axis = "y")
 }
 
-
-# Orphan recovery yield: per genome, the clustered orphan LOCI vs the subset that
-# earned a taxonomic call (recovered), with the recovered fraction annotated.
-# Both counts are in loci units (post-clustering) so the yield is a clean gate.
-orphan_recovery_plot <- function(funnel) {
+# Orphan recovery: clustered orphan loci per genome, and the share that earned a
+# lineage call. Both in loci, so the share is a clean gate.
+orphan_recovery_plot <- function(funnel, ctx = NULL) {
   d <- funnel %>% dplyr::filter(.data$metric %in% c("orphans_total", "orphans_recovered"))
-  if (nrow(d) == 0L) return(empty_plot("no orphans"))
-  bars <- d %>% dplyr::mutate(metric = factor(
-    .data$metric, levels = c("orphans_total", "orphans_recovered"),
-    labels = c("orphan loci", "recovered")))
-  fr <- d %>%
+  if (nrow(d) == 0L) return(empty_plot("No orphans"))
+  wide <- d %>%
     dplyr::select("genome", "metric", "value") %>%
     tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
-    dplyr::mutate(frac = dplyr::if_else(
-      dplyr::coalesce(.data$orphans_total, 0) > 0,
-      dplyr::coalesce(.data$orphans_recovered, 0) / .data$orphans_total, 0))
-  p <- ggplot(bars, aes(x = .data$genome, y = .data$value, fill = .data$metric)) +
-    geom_col(position = position_dodge(width = 0.8)) +
-    geom_text(data = fr, inherit.aes = FALSE,
-              aes(x = .data$genome, y = .data$orphans_recovered,
-                  label = scales::percent(.data$frac, accuracy = 1)),
-              vjust = -0.4, size = 2.8) +
-    scale_fill_manual(values = c(`orphan loci` = "#9E9E9E", recovered = "#1A9850")) +
-    labs(x = NULL, y = "orphan loci", fill = NULL) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Orphan recovery",
-             "Clustered orphan loci recovered as classified loci")
+    dplyr::mutate(
+      orphans_total = dplyr::coalesce(.data$orphans_total, 0),
+      orphans_recovered = dplyr::coalesce(.data$orphans_recovered, 0),
+      share = dplyr::if_else(.data$orphans_total > 0,
+                             .data$orphans_recovered / .data$orphans_total, 0))
+  p <- ggplot(wide, aes(x = .data$genome)) +
+    geom_col(aes(y = .data$orphans_total), fill = .GREY_OTHER, width = 0.7) +
+    geom_col(aes(y = .data$orphans_recovered), fill = .TIER_COLOUR[["orphan"]], width = 0.7) +
+    geom_text(aes(y = .data$orphans_total,
+                  label = sprintf("%s recovered", scales::percent(.data$share, accuracy = 1))),
+              hjust = -0.1, size = 3.2, family = .FONT) +
+    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, 0.2))) +
+    labs(x = NULL, y = "Orphan loci")
+  p <- add_titles(p, "Orphans recovered",
+                  "Clustered orphan loci (grey) and those that earned a lineage call (teal).")
+  on_rows(p, wide$genome, ctx)
 }
 
-
-# Novel-candidate burden: per-genome SHARE of loci with zero blastx homology
-# (candidate novel retroviruses). Plotted as a fraction (not a raw count) so a
-# single novel locus among thousands reads as ~0 rather than filling the panel;
-# the absolute count is kept on the bar label. The y-axis is the per-locus
-# novelty RATE, which also exposes which genome is relatively more novel-rich.
-novel_burden_plot <- function(funnel) {
+# Novel-candidate burden: the share of loci per genome with no blastx homology
+# (candidate novel retroviruses). A share rather than a count, so one novel
+# locus among thousands reads as close to zero; the count is on the label.
+novel_burden_plot <- function(funnel, ctx = NULL) {
   bt <- novel_burden_table(funnel)
-  if (nrow(bt) == 0L) return(empty_plot("no loci"))
+  if (nrow(bt) == 0L) return(empty_plot("No loci"))
   p <- ggplot(bt, aes(x = .data$genome, y = .data$frac)) +
-    geom_col(fill = "#762A83") +
-    geom_text(aes(label = sprintf("n=%d (%.2f%%)", as.integer(.data$n_novel),
+    geom_col(fill = .DATA_COLOUR, width = 0.7) +
+    geom_text(aes(label = sprintf("%s loci (%.2f%%)", scales::comma(.data$n_novel),
                                   100 * .data$frac)),
-              vjust = -0.4, size = 2.8) +
-    scale_y_continuous(labels = scales::percent,
-                       expand = expansion(mult = c(0, 0.18))) +
-    labs(x = NULL, y = "share of loci with no blastx hit") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "Novel-candidate burden",
-             "LTR-flanked loci with zero blastx homology (label = count; bar = share of all loci)")
+              hjust = -0.1, size = 3.2, family = .FONT) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.25))) +
+    labs(x = NULL, y = "Share of loci with no blastx hit")
+  p <- add_titles(p, "Candidate novel retroviruses",
+                  "LTR-flanked loci with no blastx homology at all, as a share of each genome's loci.")
+  on_rows(p, bt$genome, ctx)
 }
 
-
-# Loss waterfall: the main-chain survival counts per genome, ordered by stage,
-# with the absolute count on each bar. Cleaner single-genome funnel than the
-# all-branch overview in loss_funnel.png.
-loss_waterfall_plot <- function(funnel) {
+# The main chain alone, one small multiple per genome, with each count printed:
+# a cleaner single-genome funnel than the all-branch overview.
+loss_waterfall_plot <- function(funnel, ctx = NULL) {
   d <- funnel %>% dplyr::filter(.data$branch == "main")
-  if (nrow(d) == 0L) return(empty_plot("no funnel"))
-  d <- d %>% dplyr::mutate(label = forcats::fct_reorder(.data$label, .data$stage_order))
-  p <- ggplot(d, aes(x = .data$label, y = .data$value)) +
-    geom_col(fill = "#4575B4") +
-    geom_text(aes(label = .data$value), vjust = -0.3, size = 2.6) +
-    facet_wrap(~ .data$genome, scales = "free_y") +
-    labs(x = NULL, y = "surviving ranges / loci") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  add_titles(p, "Loss waterfall", "Surviving ranges along the main chain (per genome)")
+  if (nrow(d) == 0L) return(empty_plot("No funnel"))
+  d <- d %>%
+    dplyr::mutate(label = forcats::fct_rev(forcats::fct_reorder(.data$label, .data$stage_order)),
+                  genome = .genome_factor(.data$genome, ctx))
+  p <- ggplot(d, aes(x = .data$value, y = .data$label)) +
+    geom_col(fill = .branch_colours()[["main"]], width = 0.7) +
+    geom_text(aes(label = scales::comma(.data$value)), hjust = -0.1, size = 3,
+              family = .FONT) +
+    facet_wrap(~ .data$genome, scales = "free_x") +
+    scale_x_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, 0.3))) +
+    labs(x = "Surviving ranges or loci", y = NULL) +
+    theme(panel.grid.major.y = element_blank(),
+          strip.text = element_text(face = "bold.italic"))
+  add_titles(p, "The main chain, step by step",
+             "Surviving ranges along the chain that ends in LTR-flanked loci, per genome.")
 }
 
 
@@ -286,16 +306,15 @@ main <- function() {
   parser$add_argument("--out_parquet", required = TRUE)
   parser$add_argument("--out_csv", required = TRUE)
   parser$add_argument("--novel_dir", required = TRUE)
-  parser$add_argument("--plot_dir", required = TRUE)
+  parser$add_argument("--out_pdf", required = TRUE,
+                      help = "The stage PDF: a key page, then the loss pages.")
   parser$add_argument("--config", required = TRUE)
+  parser$add_argument("--species_tree_dir", default = "",
+                      help = "species_tree_layout.py output: the host tree coordinates")
   args <- parser$parse_args()
 
+  use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
-  plot_dpi    <- cfg$plots$dpi    %||% 300
-  plot_height <- cfg$plots$height %||% 12
-  plot_width  <- cfg$plots$width  %||% 15
-  per_stratum <- cfg$plots$per_stratum %||% 0.18
-  max_dim     <- cfg$plots$max_dim     %||% 60
 
   log_section("Loading stage counts (ranges + classification + orphans)")
   counts_long <- dplyr::bind_rows(
@@ -322,37 +341,30 @@ main <- function() {
   }
   log_section(sprintf("Wrote novel candidates for %d genomes", length(loci_files)))
 
-  # Relabel genome stems to config display names for the PLOTS only; the written
-  # table + novel-candidate files keep the stem key for downstream joins.
+  # Readable species names for the PAGES only; the written table and the
+  # novel-candidate files keep the stem key for downstream joins.
   funnel_disp <- funnel
-  funnel_disp$genome <- relabel_species(funnel_disp$genome, cfg$species)
-
-  # `n_x`/`n_y` = genome count on that axis; supplying it scales the canvas AND
-  # the tick text so a 102-genome funnel stays readable. step_retention puts
-  # genomes on y (a heatmap row each); the bar panels put them on x. The faceted
-  # panels grow with the facet count, so they scale on x too.
-  n_genomes <- length(unique(funnel_disp$genome))
-  emit <- function(name, plot, n_x = NULL, n_y = NULL) {
-    if (!is.null(n_x) || !is.null(n_y)) {
-      plot <- scale_categorical_axis(plot,
-                                     if (is.null(n_x)) n_y else n_x,
-                                     axis = if (is.null(n_x)) "y" else "x",
-                                     base_w = plot_width, base_h = plot_height,
-                                     per_stratum = per_stratum, cap = max_dim)
-    }
-    save_plot(name, plot, args$plot_dir, dims = attr(plot, "intended_dims"),
-              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-  }
-  emit("loss_funnel.png",      loss_funnel_plot(funnel_disp),     n_x = n_genomes)
-  emit("step_retention.png",   step_retention_plot(funnel_disp),  n_y = n_genomes)
-  emit("orphan_recovery.png",  orphan_recovery_plot(funnel_disp), n_x = n_genomes)
-  emit("novel_burden.png",     novel_burden_plot(funnel_disp),    n_x = n_genomes)
-  emit("loss_waterfall.png",   loss_waterfall_plot(funnel_disp),  n_x = n_genomes)
+  funnel_disp$genome <- display_species(funnel_disp$genome, cfg$species)
+  ctx <- panel_ctx(cfg, args$species_tree_dir %||% "")
+  pages <- list(loss_funnel_plot(funnel_disp, ctx), loss_waterfall_plot(funnel_disp, ctx),
+                step_retention_plot(funnel_disp, ctx), orphan_recovery_plot(funnel_disp, ctx),
+                novel_burden_plot(funnel_disp, ctx))
+  key <- key_page(
+    "Where candidates are lost",
+    paste("Every step from raw tBLASTn hits to classified ERV loci, with how many",
+          "ranges survive each one, for the main chain that ends in LTR-flanked",
+          "loci and for the orphan branch. Also the loci with no blastx homology,",
+          "exported as candidate novel retroviruses."),
+    colours = stats::setNames(unname(.branch_colours()), .BRANCH_LABELS[names(.branch_colours())]),
+    pages = page_titles(pages))
+  n_rows <- max(length(ctx$species_order), length(unique(funnel_disp$genome)))
+  save_stage_pdf(c(list(key), pages), args$out_pdf,
+                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
   log_section("Done")
 }
 
 
-# Source shared plotting helpers (empty_plot, add_titles, save_plot, log_section).
+# Source shared plotting helpers (style, empty_plot, add_titles, species order).
 # Placed after the function defs so testthat can source this file without a plot
 # environment; main() only runs under Rscript.
 .resolve_script_dir <- function() {
@@ -370,8 +382,9 @@ main <- function() {
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
+  source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
-  source(file.path(.script_dir, "..", "plot2sort", "io.R"))
+  source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
   .t0 <- Sys.time()
   log_section <- function(name) {
     elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))

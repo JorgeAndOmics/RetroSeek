@@ -8,17 +8,17 @@ a family, and nothing inside it is split further.
 Why 0.2 by default. It is the transposable-element convention: the 80-80-80 rule
 (Wicker et al. 2007) groups sequences sharing at least 80% identity into one family,
 and 0.2 substitutions per site is that boundary. Maximum-likelihood distances run
-higher than raw mismatch, so the cut is slightly stricter than 80% identity. It is
-also where the family counts stop tracking the cut (measured 2026-09-22 on the model
-5: between 0.2 and 0.5 the counts level off, while below 0.1 the tree shatters into
-pairs and the number of "no-intact families" becomes an artefact of that shattering).
+higher than raw mismatch, so the cut is slightly stricter than 80% identity. On the
+pre-2026-09-23 trees it was also where family counts stopped tracking the cut; that
+has not been re-measured on the corrected trees.
 
-Each family gets a kind, which is the biological point:
+Each family gets a kind:
 
-    no_intact    has solos and no flanking arm: an LTR family with no intact copy
-                 for LTRharvest to find. Its members are solos, and often monoLTRs
-                 too (damaged proviruses, also missed by LTRharvest). These are
-                 the families the solo detector reaches and nothing else did.
+    no_intact    has solos and no sampled flanking arm. Since every sampled
+                 solo's seed element is on the tree, this now arises only where
+                 the tree has separated a solo from its seed: a diagnostic of
+                 tree error, not a family without intact copies (every solo is
+                 >= 95% identical to an intact element; see docs/solo_ltr.md).
     with_intact  has solos and at least one flanking arm
     no_solo      no solos at all
 
@@ -151,9 +151,9 @@ def solo_only_tree(tree: Any) -> Any | None:
 def showcase(families: list[Family], per_kind: int) -> list[Family]:
     """The largest families of each solo-bearing kind, by solo count.
 
-    Showing both kinds side by side is the point: a no_intact family next to a
-    with_intact one is the contrast between a family that survives only as solos
-    and damaged copies, and one that still has an intact element.
+    Kept from the first design, which read no_intact families as families
+    surviving only as solos; since the 2026-09-23 strand fix they flag tree error
+    instead, and these pages await a redesign (backlog 9).
     """
     chosen = []
     for kind in (NO_INTACT, WITH_INTACT):

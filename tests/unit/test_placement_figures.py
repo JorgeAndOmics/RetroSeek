@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import placement_figures
 import pytest
 from placement_figures import (
     count_placements,
@@ -189,3 +190,27 @@ def test_route_heat_tree_outputs_is_safe_when_nothing_was_written(
     (plots / "Toyus.orphan.POL.tree.svg").write_text("<svg/>")
     route_heat_tree_outputs(plots, tmp_path / "trees", "Toyus.orphan.POL")
     assert (plots / "Toyus.orphan.POL.tree.svg").is_file()
+
+
+def test_heat_tree_is_drawn_on_house_colours(tmp_path: Path) -> None:
+    """The heat-tree runs from the house mid grey (no mass) to indigo."""
+    cmd = heat_tree_cmd(tmp_path / "x.jplace", tmp_path / "out", "s")
+    colours = cmd[cmd.index("--color-list") + 1]
+    assert colours == ",".join(placement_figures.RAMP)
+
+
+def test_house_colours_mirror_style_r() -> None:
+    """style.R is the single source of truth; this script's copies must match it."""
+    style = (
+        Path(__file__).resolve().parents[2]
+        / "workflow"
+        / "scripts"
+        / "plot2sort"
+        / "style.R"
+    ).read_text()
+    assert f'.PAPER       <- "{placement_figures.PAPER}"' in style
+    assert f'.INK         <- "{placement_figures.INK}"' in style
+    assert f'.INK_SOFT    <- "{placement_figures.INK_SOFT}"' in style
+    grey, dark = placement_figures.RAMP
+    assert f'.GREY_MID    <- "{grey}"' in style
+    assert f'indigo = "{dark}"' in style

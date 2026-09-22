@@ -98,6 +98,31 @@ def test_the_null_is_reproducible_for_a_given_seed(tmp_path: Path) -> None:
     assert first["same_class_sister_null_mean"] == second["same_class_sister_null_mean"]
 
 
+# ---- the seed control ----
+# A solo tip names the element whose arm caught it at >= 95% identity. On a correct
+# tree the solo sits beside that arm; on the mixed-strand tree half sat 0.2 to 3.6
+# substitutions/site away.
+
+
+def test_a_solo_beside_its_seed_passes_the_seed_control(tmp_path: Path) -> None:
+    newick = (
+        "((SOLO__c_5__a_e1:0.01,FLANK__a_e1_L:0.01):0.02,"
+        "(FLANK__a_e1_R:0.01,SOLO__c_9__b_e2:1.5):0.02,FLANK__b_e2_L:0.02);"
+    )
+    summary = tree_stats.summarise(_tree(newick, tmp_path), permutations=2, seed=1)
+    assert summary["solos_with_seed_on_tree"] == 2
+    # One solo 0.02 from its seed, the other 1.5 + 0.02 + 0.02 = 1.54: half pass.
+    assert summary["solos_near_seed_fraction"] == 0.5
+    assert summary["seed_distance_median"] == pytest.approx(0.78)
+
+
+def test_solos_without_a_seed_on_the_tree_are_not_counted(tmp_path: Path) -> None:
+    newick = "((SOLO__c_5__z_e9,FLANK__a_e1_L),FLANK__a_e1_R);"
+    summary = tree_stats.summarise(_tree(newick, tmp_path), permutations=2, seed=1)
+    assert summary["solos_with_seed_on_tree"] == 0
+    assert summary["solos_near_seed_fraction"] == ""
+
+
 # ---- census and adjacency ----
 
 

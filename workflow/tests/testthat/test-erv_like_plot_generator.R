@@ -54,13 +54,13 @@ test_that("structural builders return ggplots", {
 # Every builder falls back to the labelled placeholder on zero-row input.
 test_that("builders fall back to empty_plot on zero-row input", {
   el <- .empty_loci()
-  expect_match(completeness_plot(el)$labels$title, "no loci")
-  expect_match(canonical_order_plot(el)$labels$title, "no loci")
-  expect_match(gene_combinations_plot(el)$labels$title, "no loci")
-  expect_match(length_distribution_plot(el)$labels$title, "no loci")
-  expect_match(n_main_genes_plot(el)$labels$title, "no loci")
-  expect_match(composition_heatmap_plot(el)$labels$title, "no taxon-resolved loci")
-  expect_match(structure_class_plot(el)$labels$title, "no loci")
+  expect_match(completeness_plot(el)$labels$title, "No loci")
+  expect_match(canonical_order_plot(el)$labels$title, "No loci")
+  expect_match(gene_combinations_plot(el)$labels$title, "No loci")
+  expect_match(length_distribution_plot(el)$labels$title, "No loci")
+  expect_match(n_main_genes_plot(el)$labels$title, "No loci")
+  expect_match(composition_heatmap_plot(el)$labels$title, "No taxon-resolved loci")
+  expect_match(structure_class_plot(el)$labels$title, "No loci")
 })
 
 # load_taxon_loci coerces the classifier's string-typed structural columns.
@@ -89,17 +89,31 @@ test_that("load_taxon_loci coerces structural columns + derives span_bp", {
 
 
 # ---------------------------------------------------------------------------
-# Species labels must be canonicalized to the config `species:` display names.
-# Regression guard: this generator derives `species` from the parquet filename
-# (the genome stem), so without relabel_species() every structural plot showed
-# `mus_musculus` instead of `Mus musculus`.
+# Species labels must be the readable config `species:` names. Regression guard:
+# this generator derives `species` from the parquet filename (the genome stem),
+# so without the conversion every structural page showed `mus_musculus`.
 # ---------------------------------------------------------------------------
-test_that("erv_like species stems are relabelled to config display names", {
+test_that("erv_like species stems become readable names", {
   species_map <- list(mus_musculus = "Mus musculus",
                       HLmyoMyo6    = "Myotis myotis")
   stems <- c("mus_musculus", "HLmyoMyo6", "not_in_config")
   expect_equal(
-    relabel_species(stems, species_map),
-    c("Mus musculus", "Myotis myotis", "not_in_config")   # unmapped passes through
+    display_species(stems, species_map),
+    c("Mus musculus", "Myotis myotis", "not in config")   # unmapped: stem, spaced
   )
+})
+
+test_that("per-host pages follow the configured species order", {
+  ctx <- list(species_order = c("Species_B", "Species_A"))
+  p <- structure_class_plot(.loci(), ctx)
+  expect_equal(p$scales$get_scales("x")$limits, c("Species_A", "Species_B"))
+  hist <- completeness_plot(.loci(), ctx)
+  expect_equal(levels(hist$data$species), c("Species_B", "Species_A"))
+})
+
+test_that("rare gene combinations are pooled into one Other bar", {
+  loci <- tibble::tibble(genes_present = c(rep("GAG,POL", 3), sprintf("G%02d", 1:40)))
+  p <- gene_combinations_plot(loci)
+  expect_equal(nrow(p$data), 31L)
+  expect_true("Other (11 combinations)" %in% as.character(p$data$genes_present))
 })

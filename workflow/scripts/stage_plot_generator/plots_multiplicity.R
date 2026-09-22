@@ -4,21 +4,15 @@
 # How many primitive sequences collapse into each reduced locus:
 #   M1  raw threshold-passing tBLASTn hits per first-reduced (gr_virus) locus
 #       - the `n_hits` column, plottable stratified by tier because
-#       candidate / valid are nested subsets of the original tier.
+#       candidate is a nested subset of the original tier.
 #   M2  per-virus (gr_virus) loci per globally-reduced (gr_global) locus
 #       - the `n_loci` column on the reduced dataframe.
-# Both metrics span a wide range, so the count axis is log10.
-
-.TIER_FILL <- c(original = "#7570b3", candidate = "#d95f02", domain_selected = "#1b9e77")
 
 
-# Overlaid frequency bars of M1 (n_hits) for the original / candidate / valid
-# tiers. n_hits is a small-integer count (typically single digits), so a
-# discrete frequency bar chart is the honest geom - a binned histogram on a
-# log axis would scatter ~4 values into mostly-empty bins. Tiers are nested
-# subsets, so the bars are drawn overlaid (position identity); if the valid-
-# tier bars sit right of the original-tier ones, evidence depth predicts
-# survival through refinement.
+# M1 (n_hits) for the original tier and the LTR-overlapping candidates, side by
+# side. n_hits is a small integer, so a bar per value is the honest geom. Shown
+# as shares within each tier so the tiers' different sizes do not swamp the
+# comparison: if candidates sit further right, evidence depth predicts survival.
 multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
                                  warning_caption = NULL) {
   if (nrow(hits_df) == 0L) return(empty_plot())
@@ -28,42 +22,47 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
       dplyr::transmute(n_hits, tier = "candidate")
   ) %>%
     dplyr::mutate(tier = factor(tier, levels = c("original", "candidate"))) %>%
-    dplyr::count(tier, n_hits, name = "loci")
+    dplyr::count(tier, n_hits, name = "loci") %>%
+    dplyr::group_by(tier) %>%
+    dplyr::mutate(share = loci / sum(loci)) %>%
+    dplyr::ungroup()
 
-  p <- ggplot(tiers, aes(x = n_hits, y = loci, fill = tier)) +
-    geom_col(position = "identity", alpha = 0.55, colour = NA) +
-    scale_x_continuous(breaks = scales::breaks_pretty()) +
-    scale_y_continuous(labels = scales::label_comma()) +
-    scale_fill_manual(values = .TIER_FILL) +
-    theme_minimal() +
-    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Loci", fill = "Tier") +
-    theme(text = element_text(face = "bold"))
+  p <- ggplot(tiers, aes(x = n_hits, y = share, fill = tier)) +
+    geom_col(position = position_dodge(width = 0.8, preserve = "single"), width = 0.75) +
+    # A tick per value while there are few, so the first bar (1 hit) is labelled.
+    scale_x_continuous(breaks = function(lim) {
+      if (diff(lim) <= 12) seq(ceiling(lim[1]), floor(lim[2])) else scales::breaks_pretty()(lim)
+    }) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(values = c(original = .GREY_MID,
+                                 candidate = .TIER_COLOUR[["ltr-flanked"]]),
+                      labels = c(original = "Every first-reduced locus",
+                                 candidate = "Overlapping an LTR element")) +
+    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Share of the tier's loci", fill = NULL) +
+    theme(panel.grid.major.x = element_blank())
   add_titles(
     p,
-    title    = "Pre-reduction multiplicity (M1) by tier",
-    subtitle = "Raw hits collapsed per first-reduced locus; tiers are nested subsets",
+    title    = "Hits merged into each locus (M1)",
+    subtitle = "Raw hits collapsed into each first-reduced locus, for all loci and for the LTR-overlapping ones.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
 }
 
 
-# Histogram of M2 (n_loci) - per-virus loci collapsed into each per-probe
-# global locus by reduce_global.
+# M2 (n_loci): per-virus loci collapsed into each per-probe global locus.
 multiplicity_m2_plot <- function(reduced_df, subset_label = NULL,
                                  warning_caption = NULL) {
   if (nrow(reduced_df) == 0L) return(empty_plot())
   p <- ggplot(reduced_df, aes(x = n_loci)) +
-    geom_histogram(bins = 40, fill = "#386cb0", colour = NA, alpha = 0.85) +
+    geom_histogram(bins = 40, fill = .DATA_COLOUR, colour = NA) +
     scale_x_log10(labels = scales::label_comma()) +
-    theme_minimal() +
-    labs(x = "First-reduced loci per global locus (M2, log10)",
-         y = "Global loci") +
-    theme(text = element_text(face = "bold"))
+    scale_y_continuous(labels = scales::label_comma()) +
+    labs(x = "First-reduced loci per global locus (M2, log scale)", y = "Global loci")
   add_titles(
     p,
-    title    = "Global-reduction multiplicity (M2)",
-    subtitle = "Per-virus loci collapsed into each per-probe global locus",
+    title    = "Loci merged by the global reduction (M2)",
+    subtitle = "Per-virus loci collapsed into each per-probe global locus.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

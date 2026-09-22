@@ -148,6 +148,7 @@ Every threshold the method depends on is here, and the scripts take them as requ
 | `solo_ltr.blast_task` | str (`blastn` \| `megablast` \| `dc-megablast` \| `blastn-short`) | `dc-megablast` | `blastn -task`. Discontiguous megablast is the sensitive-but-affordable setting for diverged nucleotide matches. |
 | `solo_ltr.blast_evalue` | number >= 0 | `1.0e-5` | `blastn -evalue`. Generous on purpose: the acceptance criteria above do the real filtering, not the E-value. |
 | `solo_ltr.max_target_seqs` | int >= 1 | `5000` | `blastn -max_target_seqs`. High because one LTR family can have thousands of genomic copies and truncating the hit list would silently lose solos. |
+| `solo_ltr.blast_threads` | int >= 1 or `null` | `null` | Threads per solo-LTR `blastn` job. `null` gives each job every core, so genomes are searched one at a time. With many genomes, set it to a fraction of the cores (for example 4 on a 64-core machine) so several genomes run in parallel; `blastn` scales poorly past a few threads. Results do not depend on it. |
 | `solo_ltr.calibration_lengths` | list of int >= 0 | `[0, 300, 400, 500]` | Length thresholds swept by the per-genome calibration plot. |
 | `solo_ltr.calibration_identities` | list of number 0-100 | `[70, 80, 85, 90, 95, 97, 99]` | Identity thresholds swept by the same plot. |
 | `solo_ltr.tree.enable` | bool | `true` | Build the LTR phylogeny for this stage. |
@@ -195,17 +196,13 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `segment_panel` | `full` \| `curated` \| `none` | `full` | How many figures `--segment` renders per taxonomic segment, into `results/plots/classification/segments/by_<rank>/<segment>/`. `full` renders every panel plot that carries within-segment signal (28). Three of the 31 panel plots are excluded automatically because they are degenerate for a single segment: `erv_class_composition` (ERV class is a function of genus, so it is constant within one), and `taxon_confidence_tree` / `taxon_tier_tree` (they draw the taxonomy cladogram, which collapses to a single tip). `curated` renders the 3-plot legacy subset - `taxon_composition`, `confidence_gradient`, `structure_class_composition`. `none` writes the per-segment tables and skips the figures. Cost scales as (segments x plots) and every per-species axis grows with genome count, so `curated` is the escape hatch for a large study. **Strict enum.** |
-| `dpi` | int >= 1 | `300` | Output resolution. |
-| `width` | int >= 1 | `15` | Plot width in inches. |
-| `height` | int >= 1 | `12` | Plot height in inches. |
+| `segment_panel` | `full` \| `curated` \| `none` | `full` | How many pages `--segment` draws in each segment's PDF, `results/plots/classification/segments/by_<rank>/<segment>.pdf`. `full` draws every taxonomy and structure page that carries within-segment signal (27). Three of the 30 are excluded automatically because they are degenerate for a single segment: `erv_class_composition` (ERV class is a function of genus, so it is constant within one), and `taxon_confidence_tree` / `taxon_tier_tree` (they draw the taxonomy cladogram, which collapses to a single tip). `curated` draws the 3-page legacy subset: `taxon_composition`, `confidence_gradient`, `structure_class_composition`. `none` writes the per-segment tables and skips the figures. Cost scales as segments x pages and every page has a row per genome, so `curated` is the escape hatch for a large study. **Strict enum.** |
 | `bitscore_x_scale` | str (`linear` \| `log10`) | `linear` | X-axis scale on density / raincloud bitscore plots. Use `log10` when the long-tail of low-bitscore hits crushes the lower modes. |
 | `sankey_top_n` | int >= 1 or `null` | `null` | Long-tail handling for Sankey plots. `null` (default) shows every stratum. Set to a positive integer N to keep the top N strata per axis and fold the rest into a single labelled `Other (k)` stratum recording how many strata were collapsed. |
 | `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
 | `waffle_unit_hits` | int >= 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` -> "1 square = 10 ranges"). |
 | `circle_plot_bitscore_threshold` | number >= 0 | `0` | Bit-score cutoff for circle-plot display. The circle-plot stage is currently broken (see README). |
-| `per_stratum` | number >= 0 | `0.18` | Inches of canvas added per category past the base canvas on per-species panels. `width`/`height` size a small study; beyond that the canvas grows by this much per extra genome so labels keep their room. Raise it if ticks still crowd at your genome count; `0` disables growth (fixed canvas). |
-| `max_dim` | number >= 1 | `60` | Hard ceiling in inches for a grown canvas. At 300 dpi, 60 in ~ 18,000 px - the practical PNG limit. Panels that would exceed it are clamped rather than failing to render. |
+| `per_stratum` | number >= 0 | `0.18` | Inches added to a stage PDF's page height per genome past 20, so each genome's row keeps its room in a large study (pages are A4 landscape otherwise; see [visual_style.md](visual_style.md)). `0` keeps every page A4. |
 
 ## `execution`
 

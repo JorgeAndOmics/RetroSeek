@@ -60,6 +60,15 @@ logger = logging.getLogger(__name__)
 GAPPA = "gappa"  # resolved from PATH (the RetroSeek conda env)
 VALID_MASS_NORM = ("absolute", "relative")
 
+# The house colours this script needs (docs/visual_style.md). plot2sort/style.R
+# is the single source of truth; these mirror it, and
+# test_house_colours_mirror_style_r fails if the two drift apart.
+PAPER, INK, INK_SOFT = "#FFFFFF", "#222222", "#5A5A5A"
+# Mid grey to indigo: a branch with no placement mass must still be visible, or
+# the tree loses its shape, so the ramp starts at the house mid grey rather than
+# the near-white light end of the R figures' ramp.
+RAMP = ("#BBBBBB", "#332288")
+
 
 def count_placements(jplace: Path) -> int:
     """Number of placed queries in a jplace file; 0 if absent or unreadable.
@@ -117,6 +126,9 @@ def heat_tree_cmd(
         *_base_cmd("heat-tree", jplace, out_dir, stem),
         "--mass-norm",
         mass_norm,
+        # House colours: no mass in mid grey, the heaviest branches in indigo.
+        "--color-list",
+        ",".join(RAMP),
         "--write-svg-tree",
         "--write-newick-tree",
         "--write-nexus-tree",
@@ -143,11 +155,13 @@ def write_empty_state_svg(path: Path, stem: str, reason: str) -> None:
     path.write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="140" '
         'viewBox="0 0 640 140">\n'
-        '  <rect width="640" height="140" fill="#ffffff"/>\n'
-        '  <text x="320" y="62" text-anchor="middle" font-family="sans-serif" '
-        f'font-size="15" fill="#333333">{stem}</text>\n'
-        '  <text x="320" y="90" text-anchor="middle" font-family="sans-serif" '
-        f'font-size="13" fill="#777777">{reason}</text>\n'
+        f'  <rect width="640" height="140" fill="{PAPER}"/>\n'
+        '  <text x="320" y="62" text-anchor="middle" '
+        'font-family="IBM Plex Sans, sans-serif" '
+        f'font-size="15" font-weight="bold" fill="{INK}">{stem}</text>\n'
+        '  <text x="320" y="90" text-anchor="middle" '
+        'font-family="IBM Plex Sans, sans-serif" '
+        f'font-size="13" fill="{INK_SOFT}">{reason}</text>\n'
         "</svg>\n"
     )
 

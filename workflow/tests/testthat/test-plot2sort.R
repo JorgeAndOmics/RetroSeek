@@ -111,13 +111,13 @@ test_that("empty_plot returns a ggplot with the requested title", {
   expect_equal(p$labels$title, "nothing here")
 })
 
-test_that("empty_plot forces a white plot.background", {
-  # Same reason as add_titles: theme_void()'s default transparent background
-  # composes as black in some viewers and hides the diagnostic title text.
+test_that("empty_plot paints the house paper colour", {
+  # theme_void()'s default transparent background composes as black in some
+  # viewers and would hide the placeholder text.
   p <- empty_plot("placeholder")
   bg <- p$theme$plot.background
   expect_s3_class(bg, "element_rect")
-  expect_equal(bg$fill, "white")
+  expect_equal(bg$fill, .PAPER)
 })
 
 
@@ -149,18 +149,20 @@ test_that("bar_plot returns empty placeholder on zero-row input", {
                                label   = character(0),
                                count   = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
-test_that("bar_plot reorders species levels by total count descending", {
+test_that("bar_plot puts hosts on rows in the configured order, not by count", {
   df <- tibble::tibble(
     species = c("S1", "S2", "S3", "S2"),
     label   = c("L1", "L1", "L1", "L2"),
     count   = c(  5,    3,    1,    4)
   )
-  # Totals: S2 = 7, S1 = 5, S3 = 1
-  p <- bar_plot(df)
-  expect_equal(levels(p$data$species), c("S2", "S1", "S3"))
+  ctx <- list(species_order = c("S3", "S1", "S2"))
+  p <- bar_plot(df, ctx = ctx)
+  # Bottom row first, so the first configured host is on top.
+  expect_equal(p$scales$get_scales("x")$limits, c("S2", "S1", "S3"))
+  expect_s3_class(p$coordinates, "CoordFlip")
 })
 
 
@@ -170,13 +172,14 @@ test_that("bar_virus_plot returns empty placeholder on zero-row input", {
   p <- bar_virus_plot(tibble::tibble(species = character(0), virus = character(0),
                                      count = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
   df <- tibble::tibble(
     species = rep("S1", 4),
     virus   = c("HIV", "MLV", "BLV", "FFV"),
+    label   = c("Lentivirus", "Gammaretrovirus", "Deltaretrovirus", "Spumaretrovirus"),
     count   = c(  40,    30,    20,   10)
   )
   p <- bar_virus_plot(df, top_n = 2L)   # keep HIV, MLV; fold BLV+FFV -> "Other (2)"
@@ -193,22 +196,22 @@ test_that("balloon plot returns empty placeholder on zero-row input", {
     species = character(0), virus = character(0), probe = character(0),
     label = character(0), abbreviation = character(0), count = integer(0)))
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
-test_that("balloon plot species y-axis ordered by total contribution", {
+test_that("balloon plot hosts are rows in the configured order", {
   df <- tibble::tibble(
     species      = c("S1", "S2", "S3"),
     virus        = c("HIV","HTLV","FFV"),
     probe        = c("POL","POL","POL"),
-    label        = c("Lentivirus","Deltaretro","Spumavirus"),
+    label        = c("Lentivirus","Deltaretrovirus","Spumaretrovirus"),
     abbreviation = c("HIV","HTLV","FFV"),
     count        = c(  10,    50,    1)
   )
-  # Counts descending: S2 (50), S1 (10), S3 (1).
-  # Y axis uses rev(...) so the largest sits at the top -> levels c(S3, S1, S2).
-  p <- balloon_virus_species_plot(df)
-  expect_equal(levels(p$data$species), c("S3", "S1", "S2"))
+  p <- balloon_virus_species_plot(df, ctx = list(species_order = c("S1", "S2", "S3")))
+  expect_equal(p$scales$get_scales("y")$limits, c("S3", "S2", "S1"))
+  # Colour is the virus's lineage.
+  expect_equal(rlang::as_label(p$mapping$colour), "label")
 })
 
 
@@ -217,7 +220,7 @@ test_that("balloon plot species y-axis ordered by total contribution", {
 test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   p <- density_bitscore_plot(.fake_plot_df()[0, ], q1 = 0, median = 0, q3 = 0)
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
@@ -229,7 +232,7 @@ test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
 test_that("raincloud_bitscore_plot empty-input guard fires on 0 rows", {
   p <- raincloud_bitscore_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", {
@@ -251,12 +254,13 @@ test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", 
 test_that("sankey_species_probe_plot empty-input guard fires on 0 rows", {
   p <- sankey_species_probe_plot(.sankey_input()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
-test_that("sankey_species_probe_plot orders species axis by count descending", {
-  p <- sankey_species_probe_plot(.sankey_input())
-  expect_equal(levels(p$data$species), c("S1", "S2", "S3", "S4", "S5"))
+test_that("sankey_species_probe_plot stacks hosts in the configured order", {
+  ctx <- list(species_order = c("S5", "S4", "S3", "S2", "S1"))
+  p <- sankey_species_probe_plot(.sankey_input(), ctx = ctx)
+  expect_equal(levels(p$data$species), c("S5", "S4", "S3", "S2", "S1"))
 })
 
 test_that("sankey_species_probe_plot orders probe axis by count descending", {
@@ -285,15 +289,21 @@ test_that("sankey_label_probe_plot orders both axes by count", {
   expect_equal(levels(p$data$probe), c("POL", "GAG", "ENV"))
 })
 
-test_that("sankey_species_label_plot orders both axes by count", {
+test_that("sankey_species_label_plot orders hosts by config and lineages by count", {
   df <- tibble::tibble(
     species = c("S_big","S_med","S_small"),
     label   = c("L_alpha","L_alpha","L_beta"),
     count   = c( 100,    50,    1)
   )
-  p <- sankey_species_label_plot(df)
-  expect_equal(levels(p$data$species), c("S_big", "S_med", "S_small"))
+  ctx <- list(species_order = c("S_small", "S_med", "S_big"))
+  p <- sankey_species_label_plot(df, ctx = ctx)
+  expect_equal(levels(p$data$species), c("S_small", "S_med", "S_big"))
   expect_equal(levels(p$data$label),   c("L_alpha", "L_beta"))
+})
+
+test_that("alluvial flows are coloured by probe or lineage, never by host", {
+  p <- sankey_species_probe_plot(.sankey_input())
+  expect_equal(rlang::as_label(p$layers[[1]]$mapping$fill), "probe")
 })
 
 
@@ -302,7 +312,7 @@ test_that("sankey_species_label_plot orders both axes by count", {
 test_that("query_coverage_plot empty-input guard fires on 0 rows", {
   p <- query_coverage_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("query_coverage_plot returns placeholder when column missing", {
@@ -332,16 +342,15 @@ test_that("query_coverage_plot returns placeholder when column is all NA", {
 test_that("heatmap_probe_species_plot empty-input guard fires on 0 rows", {
   p <- heatmap_probe_species_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
-test_that("heatmap reorders both axes by marginal count", {
+test_that("heatmap puts hosts on rows in config order and probes by count", {
   df <- .fake_plot_df()
-  p  <- heatmap_probe_species_plot(df)
-  # Species totals (main+accessory): S1 = 4, S2 = 2, S3 = 1
+  p  <- heatmap_probe_species_plot(df, ctx = list(species_order = c("S3", "S2", "S1")))
   # Probe totals: POL = 4, GAG = 1, ENV = 1, VIF = 1 (ties -> alphabetic)
-  expect_equal(levels(p$data$species), c("S1", "S2", "S3"))
   expect_equal(levels(p$data$probe)[1], "POL")
+  expect_equal(p$scales$get_scales("y")$limits, c("S1", "S2", "S3"))
 })
 
 test_that("heatmap fills missing probexspecies cells with zero", {
@@ -359,14 +368,14 @@ test_that("waffle_virus_plot empty-input guard fires on 0 rows", {
   skip_if_not_installed("waffle")
   p <- waffle_virus_plot(.fake_plot_df()[0, ])
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title, "no data")
+  expect_equal(p$labels$title, "No data")
 })
 
 test_that("waffle_virus_plot returns ggplot at unit_hits = 1", {
   skip_if_not_installed("waffle")
   p <- waffle_virus_plot(.fake_plot_df(), unit_hits = 1L)
   expect_s3_class(p, "ggplot")
-  expect_equal(p$labels$title,   "Hits per virus")
+  expect_equal(p$labels$title,   "Ranges per virus")
   expect_equal(p$labels$caption, "1 square = 1 hit")
 })
 
@@ -391,11 +400,13 @@ test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap"
 
 # ------------------------- title / subtitle injection ---------------------
 
-test_that("add_titles prepends subset_label when supplied", {
+test_that("add_titles leads the subtitle with subset_label, never a dash in the title", {
+  # House style: titles stay identical across subsets; what the page is about
+  # leads the subtitle instead of being glued to the title with " - ".
   p <- ggplot2::ggplot()
   q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
-  expect_equal(q$labels$title,    "Main - Foo")
-  expect_equal(q$labels$subtitle, "Bar")
+  expect_equal(q$labels$title,    "Foo")
+  expect_equal(q$labels$subtitle, "Main. Bar")
 })
 
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
@@ -406,7 +417,7 @@ test_that("add_titles leaves title untouched when subset_label is NULL or empty"
   expect_equal(q2$labels$title, "Foo")
 })
 
-test_that("add_titles forces a white plot.background", {
+test_that("add_titles pins the paper background", {
   # theme_void() makes plot.background transparent, which renders as black in
   # some viewers and hides the title. add_titles must pin the background to
   # white regardless of the underlying theme.
@@ -414,57 +425,14 @@ test_that("add_titles forces a white plot.background", {
   q <- add_titles(p, "T", "S")
   bg <- q$theme$plot.background
   expect_s3_class(bg, "element_rect")
-  expect_equal(bg$fill, "white")
+  expect_equal(bg$fill, .PAPER)
 })
 
 test_that("query_coverage_plot threads subset_label into title", {
   p <- query_coverage_plot(.fake_plot_df(), subset_label = "Accessory")
-  expect_equal(p$labels$title, "Accessory - Probe query coverage density")
-  expect_match(p$labels$subtitle, "alignment length / probe length")
-})
-
-
-# ----------------------------- auto_dims ----------------------------------
-
-test_that("auto_dims keeps the base canvas when n is at or below base_strata", {
-  d <- auto_dims(5, axis = "x", base_w = 15, base_h = 12)
-  expect_equal(d$w, 15)
-  expect_equal(d$h, 12)
-})
-
-test_that("auto_dims grows width with n on the x axis", {
-  d <- auto_dims(102, axis = "x", base_w = 15, base_h = 12,
-                 per_stratum = 0.18, base_strata = 12)
-  expect_equal(d$w, 15 + (102 - 12) * 0.18)
-  expect_equal(d$h, 12)
-})
-
-test_that("auto_dims grows height with n on the y axis", {
-  d <- auto_dims(60, axis = "y", base_w = 15, base_h = 12,
-                 per_stratum = 0.20, base_strata = 12)
-  expect_equal(d$w, 15)
-  expect_equal(d$h, 12 + (60 - 12) * 0.20)
-})
-
-test_that("auto_dims clamps at the cap", {
-  # 1000 strata at 0.18 in/stratum would request ~178 in width - must cap.
-  d <- auto_dims(1000, axis = "x", base_w = 15, base_h = 12,
-                 per_stratum = 0.18, cap = 60)
-  expect_equal(d$w, 60)
-})
-
-
-# ----------------------------- intended_dims attribute --------------------
-
-test_that("species-axis builders attach an intended_dims attribute", {
-  df <- .fake_plot_df() %>% group_count()
-  p_bar <- bar_plot(df)
-  p_bal <- balloon_virus_species_plot(df)
-  p_hm  <- heatmap_probe_species_plot(.fake_plot_df())
-  expect_true(is.list(attr(p_bar, "intended_dims")))
-  expect_true(is.list(attr(p_bal, "intended_dims")))
-  expect_true(is.list(attr(p_hm,  "intended_dims")))
-  expect_true(all(c("w", "h") %in% names(attr(p_bar, "intended_dims"))))
+  expect_equal(p$labels$title, "How much of each probe the hits cover")
+  expect_match(p$labels$subtitle, "^Accessory\\. ")
+  expect_match(p$labels$subtitle, "Alignment length over probe length")
 })
 
 
@@ -554,65 +522,4 @@ test_that("stamp_warning_caption attaches the caption when supplied", {
   p <- stamp_warning_caption(ggplot2::ggplot(), "watch out")
   expect_true(inherits(p, "ggplot"))
   expect_equal(p$labels$caption, "watch out")
-})
-
-
-test_that("relabel_species maps stems to display names and passes through unknowns", {
-  m <- list(Homo_sapiens = "Homo sapiens", Mus_musculus = "Mus musculus")
-  expect_equal(relabel_species(c("Homo_sapiens", "Mus_musculus"), m),
-               c("Homo sapiens", "Mus musculus"))
-  # unmapped stem is preserved as-is
-  expect_equal(relabel_species("Antrozous_pallidus", m), "Antrozous_pallidus")
-  # null / empty map is a no-op
-  expect_equal(relabel_species(c("a", "b"), NULL), c("a", "b"))
-  expect_equal(relabel_species(character(), m), character())
-})
-
-test_that("attach_species_name delegates to relabel_species (maps + passes through)", {
-  m <- list(Homo_sapiens = "Homo sapiens")
-  df <- tibble::tibble(species = c("Homo_sapiens", "Antrozous_pallidus"), n = c(1L, 2L))
-  out <- attach_species_name(df, m)
-  # column name preserved; mapped stem relabelled, unmapped stem passed through
-  expect_equal(out$species, c("Homo sapiens", "Antrozous_pallidus"))
-  expect_equal(out$n, c(1L, 2L))            # other columns untouched
-  expect_setequal(names(out), c("species", "n"))
-})
-
-
-# ---------------------------------------------------------------------------
-# scale_categorical_axis: canvas AND text must both respond to cardinality.
-# The 5 model genomes never exercise the crowding path, so n = 102 (the bat
-# study) is asserted synthetically here.
-# ---------------------------------------------------------------------------
-test_that("categorical_text_size shrinks past the base but never below the floor", {
-  expect_equal(categorical_text_size(5), 11)      # small study: untouched
-  expect_equal(categorical_text_size(12), 11)     # at the base_strata boundary
-  expect_lt(categorical_text_size(60), 11)        # shrinks past it
-  expect_gte(categorical_text_size(1000), 5)      # legibility floor holds
-})
-
-test_that("scale_categorical_axis attaches dims that grow with n", {
-  p <- ggplot2::ggplot(
-    data.frame(x = c("a", "b"), y = 1:2), ggplot2::aes(x, y)
-  ) + ggplot2::geom_col()
-  small <- scale_categorical_axis(p, 5, axis = "x")
-  big   <- scale_categorical_axis(p, 102, axis = "x")
-  d_small <- attr(small, "intended_dims")
-  d_big   <- attr(big, "intended_dims")
-  expect_false(is.null(d_small))
-  expect_equal(d_small$w, 15)                     # <= base_strata: base canvas
-  expect_gt(d_big$w, d_small$w)                   # 102 genomes: wider canvas
-  expect_equal(d_big$h, d_small$h)                # x-axis growth leaves height
-})
-
-test_that("scale_categorical_axis grows height on the y axis and honours the cap", {
-  p <- ggplot2::ggplot(
-    data.frame(x = 1:2, y = c("a", "b")), ggplot2::aes(x, y)
-  ) + ggplot2::geom_col()
-  d <- attr(scale_categorical_axis(p, 102, axis = "y"), "intended_dims")
-  expect_equal(d$w, 15)                           # width pinned on y growth
-  expect_gt(d$h, 12)
-  capped <- attr(scale_categorical_axis(p, 5000, axis = "y", cap = 40),
-                 "intended_dims")
-  expect_equal(capped$h, 40)                      # clamped, not unbounded
 })

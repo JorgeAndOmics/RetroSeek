@@ -80,6 +80,38 @@ configfile: defaults.CONFIG_FILE
 #    download genomes, normalise FASTA extensions, fetch Pfam, build BLAST dbs
 #    and the GenomeTools suffix-array index.
 # =============================================================================
+# The host species tree, laid out once from the config and the user's Newick
+# (input.species_tree). Every figure puts genomes on rows in this order, so it is
+# built before anything plots. Needs no pipeline output, only config, so it never
+# waits on classification. With no tree configured it writes header-only files,
+# which the plots read as "no tree" and fall back to config order.
+_SPECIES_TREE_NWK = (config.get('input', {}) or {}).get('species_tree', '') or ''
+
+
+rule species_tree_layout:
+    input:
+        newick = [_SPECIES_TREE_NWK] if _SPECIES_TREE_NWK else []
+    output:
+        tips     = os.path.join(defaults.PATH_DICT['SPECIES_TREE_DIR'], 'species.tree_tips.csv'),
+        segments = os.path.join(defaults.PATH_DICT['SPECIES_TREE_DIR'], 'species.tree_segments.csv')
+    params:
+        out_dir     = defaults.PATH_DICT['SPECIES_TREE_DIR'],
+        config_yaml = defaults.CONFIG_FILE,
+        genomes     = ' '.join(SPECIES),
+        newick_arg  = f"--species-tree {_SPECIES_TREE_NWK}" if _SPECIES_TREE_NWK else ''
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'species_tree_layout', 'species_tree_layout.log')
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/taxonomy python scripts/taxonomy/species_tree_layout.py \
+            --config {params.config_yaml:q} \
+            --genomes {params.genomes} \
+            {params.newick_arg} \
+            --out-dir {params.out_dir:q} \
+            2> {log:q}
+        '''
+
+
 rule genome_downloader_setup:
     output:
         species=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
@@ -637,8 +669,11 @@ rule solo_blaster_setup:
         max_target_seqs = _SOLO['max_target_seqs']
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_blaster', '{genome}.log')
+    # solo_ltr.blast_threads, or every core when unset. blastn scales poorly past a
+    # few threads, so on a large genome set a few threads per job, several genomes
+    # at a time, finishes far sooner than all cores on one genome after another.
     threads:
-        workflow.cores
+        _SOLO.get('blast_threads') or workflow.cores
     shell:
         '''
         blastn -task {params.task} \
@@ -790,6 +825,13 @@ rule solo_tree_setup:
         fast         = '-fast' if _SOLO_TREE['fast'] else ''
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree', '{genome}.log')
+    # Tips are extracted as they lie on the + strand, but an LTR can sit on either
+    # strand, so MAFFT orients every sequence to the others before aligning
+    # (--adjustdirectionaccurately; it marks a flipped sequence with a `_R_` name
+    # prefix, stripped so tip names stay what tree_stats.py parses). Without it,
+    # about half the solos entered the alignment reverse-complemented and the tree
+    # put them 0.2 to 3.6 substitutions/site from the arm they match at >= 95%
+    # identity (2026-09-22). The seed control in tree_summary.csv guards this.
     # One thread per tree, on purpose: IQ-TREE is only reproducible single-threaded.
     # With -seed fixed, two 8-thread runs on the same alignment still wrote
     # different trees, while two 1-thread runs were byte-identical (tested
@@ -809,7 +851,11 @@ rule solo_tree_setup:
         Rscript scripts/taxonomy/extract_region_fasta.R \
             --genome {input.genome:q} --bed {output.tips_bed:q} --out {output.tips_fna:q} \
             2>> {log:q}
-        mafft --auto --thread {threads} --quiet {output.tips_fna:q} > {output.alignment:q} 2>> {log:q}
+        mafft --auto --adjustdirectionaccurately --thread {threads} --quiet \
+            {output.tips_fna:q} > {output.alignment:q}.raw 2>> {log:q}
+        echo "mafft reoriented $(grep -c '^>_R_' {output.alignment:q}.raw || true) sequences" >> {log:q}
+        sed 's/^>_R_/>/' {output.alignment:q}.raw > {output.alignment:q}
+        rm {output.alignment:q}.raw
         iqtree -s {output.alignment:q} -m {params.model} {params.fast} \
             -nt {threads} -seed {params.seed} -pre {params.prefix:q} -quiet -redo >> {log:q} 2>&1
         PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/tree_stats.py \
@@ -908,13 +954,15 @@ rule solo_plot_summary:
         candidates = lambda wildcards: expand(
             os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
             genome=species_with_hits(wildcards)
-        )
+        ),
+        species_tree = rules.species_tree_layout.output.tips
     output:
         pdf    = os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], 'all_species.solo_ltr.pdf'),
         report = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'solo_report.csv')
     params:
-        table_dir   = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
-        config_yaml = defaults.CONFIG_FILE
+        table_dir        = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
+        config_yaml      = defaults.CONFIG_FILE,
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR']
     threads: 1
     shell:
         '''
@@ -922,7 +970,8 @@ rule solo_plot_summary:
             --table_dir {params.table_dir:q} \
             --config {params.config_yaml:q} \
             --out_pdf {output.pdf:q} \
-            --report {output.report:q}
+            --report {output.report:q} \
+            --species_tree_dir {params.species_tree_dir:q}
         '''
 
 
@@ -965,29 +1014,14 @@ rule solo_ltr_detector:
 # =============================================================================
 rule plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         final_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.final_loci.parquet'),
                                genome=species_with_hits(wildcards))
     output:
-        density_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{density_probe}_density.png'),
-                             density_probe=['main','accessory']),
-        raincloud_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{raincloud_probe}_raincloud.png'),
-                               raincloud_probe=['main','accessory']),
-        bar_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{bar_probe}_bar.png'),
-                         bar_probe=['full', 'main','accessory']),
-        virus_bar_plot=os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'virus_by_species_bar.png'),
-        sankey_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{sankey_probe}_sankey_{plot_type}.png'),
-                            sankey_probe=['main','accessory'], plot_type=['a', 'b', 'c']),
-        balloon_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{balloon_probe}_balloon.png'),
-                             balloon_probe=['main','accessory']),
-        query_coverage_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{qc_probe}_query_coverage.png'),
-                                    qc_probe=['main','accessory']),
-        heatmap_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{hm_probe}_heatmap_probe_species.png'),
-                             hm_probe=['main','accessory']),
-        waffle_plots=expand(os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],'{wf_probe}_waffle_virus.png'),
-                            wf_probe=['main','accessory'])
+        pdf = os.path.join(defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'], 'homology.pdf')
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['HOMOLOGY_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -995,7 +1029,8 @@ rule plot_generator_setup:
         '''
         Rscript scripts/plot2sort.R \
         --input {params.ranges_analysis_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 
@@ -1007,7 +1042,7 @@ rule plot_generator:
 
 # Middle-stage plots (homology + LTRharvest/LTRdigest integration). Mirrors
 # plot_generator_setup: aggregate rule consuming the per-genome stage
-# dataframes, emitting a fixed panel of PNGs into PLOT_DIR.
+# dataframes, writing one stage PDF.
 rule stage_plot_generator_setup:
     input:
         homology_loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.homology_loci.parquet'),
@@ -1025,30 +1060,13 @@ rule stage_plot_generator_setup:
         probe_domain_overlap=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.probe_domain_overlap.parquet'),
                          genome=species_with_hits(wildcards)),
         reduction_coverage=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],'{genome}.reduction_coverage.parquet'),
-                         genome=species_with_hits(wildcards))
+                         genome=species_with_hits(wildcards)),
+        species_tree = rules.species_tree_layout.output.tips
     output:
-        stage_plots=expand(os.path.join(defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],'{stage_plot}.png'),
-                           stage_plot=['homology_ltr_concordance',
-                                       'probe_yield_funnel',
-                                       'ltr_structural_components',
-                                       'retrotransposon_domain_composition',
-                                       'refinement_funnel_per_genome',
-                                       'refinement_funnel_aggregate',
-                                       'multiplicity_m1_by_tier',
-                                       'multiplicity_m2_global',
-                                       'provirus_overlap_degree',
-                                       'provirus_reciprocal_overlap',
-                                       'provirus_reduction_fold',
-                                       'provirus_coverage_before_after',
-                                       'ltr_distance_to_retro',
-                                       'ltr_position_within_provirus',
-                                       'ltr_feature_breakdown',
-                                       'ltr_strand_concordance',
-                                       'ltr_probe_domain_overlap',
-                                       'ltr_retro_length_vs_hits'])
+        pdf = os.path.join(defaults.PATH_DICT['INTEGRATION_PLOT_DIR'], 'integration.pdf')
     params:
         ranges_analysis_parquet_dir=defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['INTEGRATION_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1056,7 +1074,8 @@ rule stage_plot_generator_setup:
         '''
         Rscript scripts/stage_plot_generator.R \
         --input {params.ranges_analysis_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 
@@ -1066,28 +1085,20 @@ rule stage_plot_generator:
         plots=rules.stage_plot_generator_setup.output
 
 
-# ERV-like candidate panel. Consumes the per-genome erv_like_loci + erv_like_members
-# tables (plus counts, for the dropped-non-canonical tally) and emits a fixed panel
-# of PNGs into results/plots/erv-like/.
-# ERV-like structural panel - views of the taxon-founded ERV assembly (the
-# taxonomy_classify loci table): completeness, canonical order, gene
-# combinations, length, marker count, taxon x gene composition.
+# ERV structural panel: views of the taxon-founded ERV assembly (the
+# taxonomy_classify loci table), as one stage PDF: structural class,
+# completeness, gene count, gene combinations, gene order, length, and
+# lineage by gene.
 rule erv_like_plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         loci=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],'{genome}.loci.parquet'),
                           genome=species_with_hits(wildcards))
     output:
-        structure_plots=expand(os.path.join(defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],'{structure_plot}.png'),
-                               structure_plot=['completeness',
-                                               'canonical_order',
-                                               'gene_combinations',
-                                               'length_distribution',
-                                               'n_main_genes',
-                                               'composition_heatmap',
-                                               'structure_class'])
+        pdf = os.path.join(defaults.PATH_DICT['STRUCTURE_PLOT_DIR'], 'structure.pdf')
     params:
         taxonomy_parquet_dir=defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
-        plot_dir=defaults.PATH_DICT['STRUCTURE_PLOT_DIR'],
+        species_tree_dir=defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1095,7 +1106,8 @@ rule erv_like_plot_generator_setup:
         '''
         Rscript scripts/taxonomy/erv_like_plot_generator.R \
         --input {params.taxonomy_parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 
@@ -1177,11 +1189,7 @@ rule hotspot_detector_setup:
         hotspot_regions=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.hotspots.csv'),
         hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_manifest=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.manifest.yaml'),
-        hotspot_manhattan_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'),
-        hotspot_karyotype_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'),
-        hotspot_qq_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'),
-        hotspot_summary_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'),
-        hotspot_composition_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_composition.pdf'),
+        hotspot_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}.hotspots.pdf'),
         hotspot_track=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'),
         hotspot_bed=os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.bed')
     params:
@@ -1207,10 +1215,7 @@ rule hotspot_detector_setup:
 rule hotspot_detector:
     input:
         hotspot_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
-        hotspot_manhattan_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_manhattan.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_karyotype_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_karyotype.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_qq_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_qq.pdf'), genome=species_with_hits(wildcards)),
-        hotspot_summary_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}_summary.pdf'), genome=species_with_hits(wildcards)),
+        hotspot_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}.hotspots.pdf'), genome=species_with_hits(wildcards)),
         hotspot_track=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=species_with_hits(wildcards))
 
 
@@ -1539,9 +1544,8 @@ rule taxonomy_orphans:
 # from the loci tables (so plots and tables are concordant by construction).
 # =============================================================================
 # 8b. TAXONOMY TREE LAYOUT - flat coordinates for the tree-attached panels
-#     Builds the taxon cladogram from the reference taxonomy hierarchy and, when
-#     the user pinned one, prunes their host-species Newick to the study's
-#     species. Emits x/y CSVs so the R panels draw trees without an R tree
+#     Builds the taxon cladogram from the reference taxonomy hierarchy (the host
+#     species tree is laid out earlier, by species_tree_layout). Emits x/y CSVs so the R panels draw trees without an R tree
 #     library (Bio.Phylo does the work; biopython is already a dependency).
 #     Reads the per-genome loci/orphan parquets - NOT catalog.csv, which is an
 #     OUTPUT of the plot stage, so depending on it here would cycle.
@@ -1553,14 +1557,12 @@ rule taxonomy_tree_layout_setup:
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                                            genome=species_with_hits(wildcards))
     output:
-        coords = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'], '{tree}.tree_{part}.csv'),
-                        tree=['taxon', 'species'], part=['segments', 'tips'])
+        coords = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'], 'taxon.tree_{part}.csv'),
+                        part=['segments', 'tips'])
     params:
         parquet_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         out_dir      = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
-        taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv'),
-        config_yaml  = defaults.CONFIG_FILE,
-        species_tree = (config.get('input', {}) or {}).get('species_tree', '') or ''
+        taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv')
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'taxonomy_tree_layout', 'tree_layout.log')
     shell:
@@ -1571,8 +1573,6 @@ rule taxonomy_tree_layout_setup:
         --parquet-dir {params.parquet_dir:q} \
         --taxonomy-tsv {params.taxonomy_tsv:q} \
         --out-dir {params.out_dir:q} \
-        --config {params.config_yaml:q} \
-        $( [ -n "{params.species_tree}" ] && echo --species-tree "{params.species_tree}" ) \
         2> {log:q}
         '''
 
@@ -1584,43 +1584,20 @@ rule taxonomy_tree_layout:
 
 rule taxonomy_plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                                         genome=species_with_hits(wildcards)),
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                                              genome=species_with_hits(wildcards)),
         trees = rules.taxonomy_tree_layout_setup.output.coords
     output:
-        plots = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], '{tax_plot}.png'),
-                       tax_plot=['taxon_composition',
-                                 'rank_resolution',
-                                 'method_mix',
-                                 'erv_class_composition',
-                                 'mosaic_alluvial',
-                                 'confidence',
-                                 'evidence_depth',
-                                 'confidence_density',
-                                 'confidence_vs_evidence',
-                                 'structure_by_tier',
-                                 'source_yield',
-                                 'taxon_by_source',
-                                 'domain_tier_composition',
-                                 'structure_class_composition',
-                                 'mosaic_burden',
-                                 'mosaic_taxon_pairs',
-                                 'mosaic_gene_discordance',
-                                 'mosaic_composition_by_species',
-                                 'confidence_count',
-                                 'confidence_gradient',
-                                 'taxon_confidence_tree',
-                                 'species_confidence_tree',
-                                 'species_composition_tree',
-                                 'taxon_tier_tree']),
+        pdf = os.path.join(defaults.PATH_DICT['TAXONOMY_PLOT_DIR'], 'taxonomy.pdf'),
         report = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'classification_report.csv'),
         catalog = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'catalog.csv')
     params:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
-        plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1628,9 +1605,10 @@ rule taxonomy_plot_generator_setup:
         '''
         Rscript scripts/taxonomy/taxonomy_plot_generator.R \
         --input {params.parquet_dir:q} \
-        --output {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
         --config {params.config_yaml:q} \
         --tree_dir {params.tree_dir:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --report_csv {output.report:q} \
         --catalog_csv {output.catalog:q}
         '''
@@ -1656,7 +1634,7 @@ rule taxonomy_plot_generator:
 # =============================================================================
 # The per-segment tables and figures are declared as DIRECTORY outputs rather
 # than left to params. Previously only segment_summary.csv was declared, so the
-# N per-segment CSVs and the 28N PNGs were invisible to the DAG: never rebuilt
+# N per-segment CSVs and the per-segment figures were invisible to the DAG: never rebuilt
 # when stale, never cleaned up after a failure, and a half-finished run looked
 # complete. They are directories rather than a file list because the segment
 # names are only known at runtime (they come from the distinct `segment` values
@@ -1664,6 +1642,7 @@ rule taxonomy_plot_generator:
 # checkpoint would add machinery without adding anything.
 rule taxonomy_segments_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         catalog = rules.taxonomy_plot_generator_setup.output.catalog
     output:
         summary  = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv'),
@@ -1673,6 +1652,7 @@ rule taxonomy_segments_setup:
         out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
         plot_dir    = defaults.PATH_DICT['SEGMENTS_PLOT_DIR'],
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     shell:
         '''
@@ -1681,6 +1661,7 @@ rule taxonomy_segments_setup:
         --output {params.out_dir:q} \
         --plots {params.plot_dir:q} \
         --tree_dir {params.tree_dir:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q} \
         --summary_csv {output.summary:q}
         '''
@@ -1828,22 +1809,18 @@ rule loss_analysis_setup:
         loci = lambda wildcards: (
             expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                    genome=species_with_hits(wildcards))
-            if _CLASSIFICATION.get('enable', True) else [])
+            if _CLASSIFICATION.get('enable', True) else []),
+        species_tree = rules.species_tree_layout.output.tips
     output:
         table_parquet = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_PARQUET_DIR'], 'loss_analysis.parquet'),
         table_csv     = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_CSV_DIR'], 'loss_analysis.csv'),
-        plots         = expand(os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], '{loss_plot}.png'),
-                               loss_plot=['loss_funnel',
-                                          'step_retention',
-                                          'orphan_recovery',
-                                          'novel_burden',
-                                          'loss_waterfall'])
+        pdf           = os.path.join(defaults.PATH_DICT['LOSS_PLOT_DIR'], 'loss.pdf')
     params:
         ranges_counts_dir = defaults.PATH_DICT['RANGES_ANALYSIS_TABLES_CSV_DIR'],
         class_counts_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'],
         loci_dir          = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         novel_dir         = os.path.join(defaults.PATH_DICT['LOSS_ANALYSIS_CSV_DIR'], 'novel_candidates'),
-        plot_dir          = defaults.PATH_DICT['LOSS_PLOT_DIR'],
+        species_tree_dir  = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml       = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1856,7 +1833,8 @@ rule loss_analysis_setup:
         --out_parquet {output.table_parquet:q} \
         --out_csv {output.table_csv:q} \
         --novel_dir {params.novel_dir:q} \
-        --plot_dir {params.plot_dir:q} \
+        --out_pdf {output.pdf:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q}
         '''
 

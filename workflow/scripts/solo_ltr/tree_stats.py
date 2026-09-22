@@ -3,10 +3,12 @@
 Three numbers, each answering a question a reader would otherwise have to take on
 trust.
 
-**The positive control.** An element's two LTR arms were identical the day it
-inserted, so on a correct tree they must be sister tips. The fraction recovered as
-sisters says whether the tree carries real signal at all. It is a control we get for
-free, because both arms are already on the tree as bait.
+**The arm control.** An element's two LTR arms were identical the day it inserted,
+so they tend to come out as sister tips. The fraction recovered as sisters says
+whether the tree carries signal, but it is blurred wherever a family burst produced
+many near-identical copies: an arm's sister is then as likely another element's arm
+(about 61% on the model 5). It is also blind to strand errors, since an element's
+two arms always share a strand.
 
 **Do the classes cluster?** For each tip, does its sister group contain at least one
 tip of its own class? Compared against a null built by permuting the class labels
@@ -14,10 +16,19 @@ over the fixed topology, which is what turns "solos seem to group together" into
 measurement. Without the null the statistic is meaningless, because a tree with any
 structure at all will show some clustering.
 
+**The seed control.** Every solo was caught by one bait arm at >= 95% identity, its
+seed, so on a correct tree a solo sits within about 0.05 substitutions/site of its
+seed's arms. The fraction within `SEED_CONTROL_DISTANCE` is the sharpest check the
+tree gets: it exposed the mixed-strand alignment of 2026-09 (half the solos sat 0.2
+to 3.6 away), which the arm control could not see, since an element's two arms
+always share a strand.
+
 **Who sits next to whom.** The class-by-class adjacency, as enrichment over what
-class abundance alone predicts. This is where the substantive claim lives: solos
-enriched beside other solos and depleted beside flanking arms means there are LTR
-families surviving only as solos, with no intact copy for LTRharvest to find.
+class abundance alone predicts. Solos enriched beside other solos says the fates are
+not spread evenly over LTR families: some families hold many solos per intact
+element. It cannot mean families surviving ONLY as solos: every solo matches its
+seed, an intact ERV-bearing element, at >= 95% identity, so none is without an
+intact relative in the genome.
 
 The tree itself is exploratory: `-fast`, no bootstrap, and a sample of the solos. It
 is evidence that the classes are real, never an input to classification.
@@ -40,6 +51,11 @@ from Bio import Phylo
 # sits between the prefix and the final arm letter.
 ARM_PATTERN = re.compile(r"^FLANK__(.+)_(L|R)$")
 CLASSES = ("FLANK", "SOLO", "MONO")
+
+# A solo within this many substitutions/site of its seed's nearer arm passes the
+# seed control. 95% identity is about 0.05; twice that absorbs alignment and
+# model noise, and is still far below the 0.2 family cut.
+SEED_CONTROL_DISTANCE = 0.1
 
 
 def tip_class(name: str) -> str:
@@ -79,6 +95,27 @@ def arm_sisterhood(tree: Any, parents: dict[Any, Any]) -> tuple[int, int]:
     both = [arms for arms in by_element.values() if len(arms) == 2]
     sisters = sum(1 for a, b in both if parents.get(a) is parents.get(b))
     return len(both), sisters
+
+
+def seed_distances(tree: Any) -> list[float]:
+    """Tree distance from each solo to the nearer arm of its seed, where on the tree.
+
+    Solo tips are named SOLO__{locus}__{seed}, the seed key matching the element
+    part of the seed's FLANK__{seed}_{L|R} arm names. Solos without a seed on the
+    tree (or from before seeds were named) are skipped.
+    """
+    arms: dict[str, list[Any]] = defaultdict(list)
+    for tip in tree.get_terminals():
+        match = ARM_PATTERN.match(tip.name or "")
+        if match:
+            arms[match.group(1)].append(tip)
+    distances = []
+    for tip in tree.get_terminals():
+        parts = (tip.name or "").split("__")
+        if parts[0] != "SOLO" or len(parts) < 3 or parts[2] not in arms:
+            continue
+        distances.append(min(tree.distance(tip, arm) for arm in arms[parts[2]]))
+    return distances
 
 
 def same_class_sister_fraction(
@@ -196,6 +233,7 @@ def summarise(treefile: Path, permutations: int, seed: int) -> dict[str, Any]:
     null_sd = statistics.pstdev(null) if len(null) > 1 else 0.0
 
     census = Counter(labels.values())
+    to_seed = seed_distances(tree)
     return {
         "n_tips": len(tips),
         "n_flank": census["FLANK"],
@@ -204,6 +242,13 @@ def summarise(treefile: Path, permutations: int, seed: int) -> dict[str, Any]:
         "elements_with_both_arms": both_arms,
         "arms_recovered_as_sisters": sisters,
         "arm_sisterhood_fraction": round(sisters / both_arms, 4) if both_arms else "",
+        "solos_with_seed_on_tree": len(to_seed),
+        "solos_near_seed_fraction": (
+            round(sum(d <= SEED_CONTROL_DISTANCE for d in to_seed) / len(to_seed), 4)
+            if to_seed
+            else ""
+        ),
+        "seed_distance_median": round(statistics.median(to_seed), 4) if to_seed else "",
         "same_class_sister_observed": round(observed, 4),
         "same_class_sister_null_mean": round(null_mean, 4),
         "same_class_sister_null_sd": round(null_sd, 4),
@@ -267,6 +312,9 @@ def main(argv: list[str] | None = None) -> int:
         f"control: arms recovered as sisters "
         f"{summary['arms_recovered_as_sisters']}/{summary['elements_with_both_arms']} "
         f"({summary['arm_sisterhood_fraction']})"
+        f"; seed control: {summary['solos_near_seed_fraction']} of "
+        f"{summary['solos_with_seed_on_tree']} solos within {SEED_CONTROL_DISTANCE} "
+        f"of their seed"
     )
     print(
         f"clustering: observed {summary['same_class_sister_observed']} vs null "

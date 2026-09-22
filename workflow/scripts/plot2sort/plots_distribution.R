@@ -1,40 +1,38 @@
 # =============================================================================
-# plot2sort/plots_distribution.R - density-family builders
+# plot2sort/plots_distribution.R - distributions over a continuous measure
 # =============================================================================
-# Probe-keyed distributions over a continuous variable. None of these scale
-# with species count - the x-axis is bitscore (density / raincloud) or
-# query_coverage in [0, 1], and the fill is probe (~3 levels). Fixed canvas.
+# Probe-keyed distributions of bitscore and query coverage. The x axis is the
+# measure, so none of these grows with the species count. `colours` is the
+# stage's probe palette (probe_colours() over every probe), so a probe keeps its
+# colour on the main and the accessory pages alike.
 
 
+# Density of the strongest HSP bitscore per merged range, by probe, with the
+# quartiles marked.
 density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
-                                  subset_label = NULL) {
+                                  subset_label = NULL, colours = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
-  manual_colours <- futurama_unlimited_palette(3, length(unique(data$probe)))
+  if (is.null(colours)) colours <- probe_colours(data$probe)
 
   # Pin max_bitscore eagerly so ggplot2's later scale build doesn't force it
   # in a deferred-evaluation context where it can mis-resolve.
   max_bs <- max(data$max_bitscore, na.rm = TRUE)
+  quartiles <- tibble::tibble(x = c(q1, median, q3), label = c("Q1", "Median", "Q3"))
 
   # Unweighted density over max_bitscore - see commit history for the prior
   # weighted version. If per-range identity needs visual emphasis, prefer a
   # separate plot rather than a weight aesthetic.
   p <- ggplot(data, aes(x = max_bitscore, fill = probe, colour = probe)) +
-    geom_density(alpha = 0.4, adjust = 3) +
-    scale_fill_manual(values = manual_colours) +
-    scale_color_manual(values = manual_colours) +
-    geom_vline(xintercept = c(q1, median, q3),
-               linetype = "dashed", linewidth = 0.2) +
-    annotate("text", x = q1 + 20,     y = 1e-4, label = "Q1") +
-    annotate("text", x = median + 20, y = 1e-4, label = "Q2") +
-    annotate("text", x = q3 + 20,     y = 1e-4, label = "Q3") +
-    labs(x = "HSP Bitscore (max per range)", y = "Density") +
-    theme_minimal() +
-    theme(
-      text         = element_text(face = "bold"),
-      axis.title.x = element_text(size = 15, margin = margin(b = 15)),
-      axis.title.y = element_text(size = 15, margin = margin(l = 10)),
-      axis.text    = element_text(size = 12)
-    )
+    geom_density(alpha = 0.35, adjust = 3) +
+    geom_vline(data = quartiles, aes(xintercept = .data$x),
+               linetype = "dashed", linewidth = 0.3, colour = .INK_SOFT) +
+    geom_text(data = quartiles, aes(x = .data$x, y = Inf, label = .data$label),
+              inherit.aes = FALSE, vjust = 1.5, hjust = -0.1, size = 3.2,
+              colour = .INK_SOFT, family = .FONT) +
+    scale_fill_manual(values = colours) +
+    scale_colour_manual(values = colours) +
+    labs(x = "Strongest HSP bitscore per range", y = "Density",
+         fill = "Probe", colour = "Probe")
   p <- if (identical(x_scale, "log10")) {
     p + scale_x_log10()
   } else {
@@ -42,37 +40,33 @@ density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
   }
   add_titles(p,
              title    = "Bitscore density",
-             subtitle = paste0("Distribution of the strongest HSP bitscore per merged range, by probe ",
-                               "(dashed lines: Q1 / median / Q3)"),
+             subtitle = paste("The strongest HSP bitscore of each merged range, by probe.",
+                              "Dashed lines: the quartiles."),
              subset_label = subset_label)
 }
 
 
+# Bitscore per probe as a raincloud: a half density, a box and the ranges as dots.
 raincloud_bitscore_plot <- function(data, x_scale = "linear",
-                                    subset_label = NULL) {
+                                    subset_label = NULL, colours = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
-  manual_colours <- futurama_unlimited_palette(3, length(unique(data$probe)))
+  if (is.null(colours)) colours <- probe_colours(data$probe)
 
-  p <- ggplot(data, aes(y = probe, x = max_bitscore,
-                        fill = probe, color = probe)) +
+  p <- ggplot(data, aes(y = probe, x = max_bitscore, fill = probe, colour = probe)) +
     ggdist::stat_halfeye(adjust = 0.5, justification = 0,
                          alpha = 0.5, .width = c(0.5, 0.95)) +
-    geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.7) +
+    geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.7, colour = .INK_SOFT) +
     ggdist::stat_dots(side = "right", dotsize = 0.1,
                       alpha = 0.01, binwidth = 0.2) +
-    scale_fill_manual(values = manual_colours) +
-    scale_color_manual(values = manual_colours) +
-    theme_minimal() +
-    labs(x = "HSP Bitscore (max per range)", y = "Probe") +
-    theme(
-      text       = element_text(face = "bold"),
-      axis.title = element_text(size = 12),
-      axis.text  = element_text(size = 11)
-    )
+    scale_fill_manual(values = colours, guide = "none") +
+    scale_colour_manual(values = colours, guide = "none") +
+    labs(x = "Strongest HSP bitscore per range", y = NULL) +
+    theme(axis.text.y = element_text(face = "italic"),
+          panel.grid.major.y = element_blank())
   p <- if (identical(x_scale, "log10")) p + scale_x_log10() else p
   add_titles(p,
-             title    = "Bitscore distribution per probe",
-             subtitle = "Halfeye + boxplot + dot strip of the max HSP bitscore per merged range",
+             title    = "Bitscore per probe",
+             subtitle = "The strongest HSP bitscore of each merged range: density, box and ranges.",
              subset_label = subset_label)
 }
 
@@ -80,7 +74,7 @@ raincloud_bitscore_plot <- function(data, x_scale = "linear",
 # Distribution of `query_coverage` per probe - reveals under-aligned probes
 # whose hits cover only a fraction of the probe sequence (candidates for pHMM
 # follow-up). Input: per-range tibble (one row = one merged range).
-query_coverage_plot <- function(data, subset_label = NULL) {
+query_coverage_plot <- function(data, subset_label = NULL, colours = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
   if (!"query_coverage" %in% colnames(data)) {
     return(empty_plot("query_coverage column missing"))
@@ -88,24 +82,18 @@ query_coverage_plot <- function(data, subset_label = NULL) {
   if (all(is.na(data$query_coverage))) {
     return(empty_plot("query_coverage all NA"))
   }
-  manual_colours <- futurama_unlimited_palette(3, length(unique(data$probe)))
+  if (is.null(colours)) colours <- probe_colours(data$probe)
 
   p <- ggplot(data, aes(x = query_coverage, fill = probe, colour = probe)) +
-    geom_density(alpha = 0.4, adjust = 1.5) +
-    scale_fill_manual(values = manual_colours) +
-    scale_color_manual(values = manual_colours) +
-    labs(x = "Query coverage (alignment length / probe length)",
-         y = "Density") +
-    theme_minimal() +
-    theme(
-      text         = element_text(face = "bold"),
-      axis.title.x = element_text(size = 15, margin = margin(b = 15)),
-      axis.title.y = element_text(size = 15, margin = margin(l = 10)),
-      axis.text    = element_text(size = 12)
-    )
+    geom_density(alpha = 0.35, adjust = 1.5) +
+    scale_fill_manual(values = colours) +
+    scale_colour_manual(values = colours) +
+    scale_x_continuous(labels = scales::percent) +
+    labs(x = "Share of the probe covered by the alignment", y = "Density",
+         fill = "Probe", colour = "Probe")
   add_titles(p,
-             title    = "Probe query coverage density",
-             subtitle = paste0("Per-range alignment length / probe length, by probe ",
-                               "(1.0 = full-length probe coverage)"),
+             title    = "How much of each probe the hits cover",
+             subtitle = paste("Alignment length over probe length, per range and probe.",
+                              "100% is a full-length match."),
              subset_label = subset_label)
 }

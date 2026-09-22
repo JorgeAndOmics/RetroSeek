@@ -39,7 +39,7 @@ verify_required_columns <- function(df, required_cols, source_label = "input") {
   missing <- setdiff(required_cols, colnames(df))
   if (length(missing) > 0L) {
     stop(sprintf(
-      "plot2sort: %s missing required column(s): %s. Rebuild ranges_analysis outputs - the plot dataframe contract may have changed.",
+      "plot2sort: %s missing required column(s): %s. Rebuild ranges_analysis outputs: the plot dataframe contract may have changed.",
       source_label, paste(missing, collapse = ", ")
     ))
   }
@@ -47,19 +47,10 @@ verify_required_columns <- function(df, required_cols, source_label = "input") {
 }
 
 
-# Replace the per-row `species` accession/stem with the readable species name
-# from the YAML config map. Dataframe-level convenience over relabel_species()
-# (the single mapping primitive in helpers.R) - keeps the column name `species`;
-# stems absent from the map pass through unchanged (no silent NA labels).
-attach_species_name <- function(df, species_map) {
-  df$species <- relabel_species(df$species, species_map)
-  df
-}
-
-
-# Write a ggplot to disk and log the action. `dims` (a list with $w + $h)
-# overrides the config defaults per call; this is how the auto-scaled
-# species-axis plots ask for a wider canvas at large N.
+# Write one ggplot to an image file and log the action. Only the README demo
+# figures use it (PNG, for GitHub); every pipeline stage writes a multi-page PDF
+# through save_stage_pdf() in style.R. `dims` (a list with $w + $h) overrides
+# the base canvas per call.
 save_plot <- function(name, plot, output_dir,
                       dims = NULL, base_w, base_h, dpi) {
   w <- if (!is.null(dims) && !is.null(dims$w)) dims$w else base_w

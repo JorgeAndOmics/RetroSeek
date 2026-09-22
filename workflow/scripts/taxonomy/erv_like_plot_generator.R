@@ -12,17 +12,14 @@
 # canonical provirus object (the taxon loci table), viewed two ways - the
 # taxonomic panel (taxonomy_plot_generator.R) and this structural panel.
 #
-# Plots (results/plots/classification/structure/ - the 'structure' panel):
-#   1. completeness        - fraction of main genes present per locus.
-#   2. canonical_order     - canonical vs rearranged main-gene order.
-#   3. gene_combinations   - frequency of each gene set (e.g. GAG,POL).
-#   4. length_distribution - locus span (bp).
-#   5. n_main_genes        - number of main genes per locus.
-#   6. composition_heatmap - taxon x gene (which genes each taxon keeps).
-#   7. structure_class     - discrete full / partial / gene per species.
+# Output is ONE PDF (results/plots/classification/structure/structure.pdf): a key
+# page, then one page per structure_panel_registry() entry: structural class,
+# completeness, gene count, gene combinations, gene order, element length, and
+# the lineage by gene heatmap. Pages follow the house style (plot2sort/style.R,
+# docs/visual_style.md): hosts on rows beside the host tree, readable names.
 #
-# Shared infrastructure (empty_plot, add_titles, save_plot) is reused from
-# plot2sort/*.R. `testthat` and demo_figures.R source this file for its builders;
+# Shared infrastructure (style.R, helpers.R, tree_axis.R) is reused from
+# plot2sort/. `testthat` and demo_figures.R source this file for its builders;
 # the `if (sys.nframe() == 0L) main()` guard keeps the CLI block dormant then.
 
 suppressMessages({
@@ -30,7 +27,6 @@ suppressMessages({
   library(arrow)
   library(tidyverse)
   library(yaml)
-  library(ggsci)
 })
 
 
@@ -52,12 +48,13 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
-source(file.path(.script_dir, "..", "plot2sort", "io.R"))       # save_plot
+source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation (save_plot calls log_section, so define it first).
+# Pipeline instrumentation.
 # ----------------------------------------------------------------------------
 .t0 <- Sys.time()
 log_section <- function(name) {
@@ -109,155 +106,173 @@ add_structure_companions <- function(df) {
 
 
 # ----------------------------------------------------------------------------
-# Plot builders. Each takes the loci frame and returns a ggplot (or empty_plot()
-# when there is nothing to show). Defined at top level so demo_figures.R and the
-# tests can reuse them.
-# ----------------------------------------------------------------------------
-
-# Fraction of main genes present per locus (0..1), as a per-species histogram.
-# ----------------------------------------------------------------------------
-# Structure panel registry - same contract as panel_registry() in
+# Structure panel registry: same contract as panel_registry() in
 # taxonomy_plot_generator.R, kept here so this file owns its own builders. Both
-# main() below and taxonomy_segments.R iterate it, so the two panels cannot
-# drift apart. See that file for the field meanings.
+# main() below and taxonomy_segments.R render it, so the two panels cannot
+# drift apart. See that file for the field meanings. Registry order is page
+# order in structure.pdf.
 #
 # All seven read only columns catalog.csv already carries, so the per-segment
 # panel can drive them from the catalog slice directly. All are meaningful for
 # a single segment: gene content and completeness vary within a genus (measured
 # 2026-08-18: genes_present 31 distinct values per segment, n_main_genes 3.1).
+# ----------------------------------------------------------------------------
 structure_panel_registry <- function() {
   list(
-    list(file = "completeness.png", build = function(d, ctx) completeness_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "canonical_order.png", build = function(d, ctx) canonical_order_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "gene_combinations.png", build = function(d, ctx) gene_combinations_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "length_distribution.png", build = function(d, ctx) length_distribution_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "n_main_genes.png", build = function(d, ctx) n_main_genes_plot(d), data = "loci", n_x = NULL, axis = "x", segment = TRUE),
-    list(file = "composition_heatmap.png", build = function(d, ctx) composition_heatmap_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE),
-    list(file = "structure_class.png", build = function(d, ctx) structure_class_plot(d), data = "loci", n_x = "species", axis = "x", segment = TRUE)
+    list(name = "structure_class", build = function(d, ctx) structure_class_plot(d, ctx), data = "loci", segment = TRUE),
+    list(name = "completeness", build = function(d, ctx) completeness_plot(d, ctx), data = "loci", segment = TRUE),
+    list(name = "n_main_genes", build = function(d, ctx) n_main_genes_plot(d), data = "loci", segment = TRUE),
+    list(name = "gene_combinations", build = function(d, ctx) gene_combinations_plot(d), data = "loci", segment = TRUE),
+    list(name = "canonical_order", build = function(d, ctx) canonical_order_plot(d, ctx), data = "loci", segment = TRUE),
+    list(name = "length_distribution", build = function(d, ctx) length_distribution_plot(d, ctx), data = "loci", segment = TRUE),
+    list(name = "composition_heatmap", build = function(d, ctx) composition_heatmap_plot(d), data = "loci", segment = TRUE)
   )
 }
 
 
-completeness_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no loci"))
-  d <- loci %>% filter(!is.na(.data$completeness))
-  if (nrow(d) == 0L) return(empty_plot("no loci"))
-  p <- ggplot(d, aes(x = .data$completeness, fill = .data$species)) +
-    geom_histogram(bins = 20, colour = NA, alpha = 0.85, position = "stack") +
-    scale_fill_manual(values = igv_unlimited_palette(length(unique(d$species)))) +
-    labs(x = "main-gene completeness (fraction present)", y = "loci", fill = "species") +
-    theme_bw()
-  add_titles(p, "ERV-like completeness",
-             "Fraction of main genes present per LTR-element locus")
-}
+# ----------------------------------------------------------------------------
+# Plot builders. Each takes the loci frame (and the panel ctx where species are
+# rows) and returns a page, or empty_plot() when there is nothing to show.
+# Defined at top level so demo_figures.R and the tests can reuse them.
+# ----------------------------------------------------------------------------
 
-# Canonical vs rearranged main-gene order, counts per species.
-canonical_order_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no loci"))
-  d <- loci %>%
-    mutate(order = ifelse(.data$canonical_order, "canonical", "rearranged")) %>%
-    count(.data$species, .data$order, name = "n")
-  p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
-    geom_col(position = "fill") +
-    scale_fill_manual(values = c(canonical = "#1b9e77", rearranged = "#d95f02")) +
-    scale_y_continuous(labels = scales::percent) +
-    labs(x = NULL, y = "fraction of loci", fill = "gene order") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "ERV-like canonical gene order",
-             "Main genes in main_probes order vs rearranged")
-}
-
-# Discrete structural class (full / partial / gene), counts per species. The
-# categorical companion to the continuous completeness histogram: it commits each
-# locus to one catalogue class (ADR-009). Levels declared in full + drop = FALSE
-# so an absent class keeps its slot.
+# Discrete structural class (full / partial / gene) per host: each locus
+# committed to one catalogue class (ADR-009). Levels declared in full with
+# drop = FALSE so an absent class keeps its slot.
 .STRUCTURE_LEVELS <- c("full", "partial", "gene")
-.STRUCTURE_FILL   <- c(full = "#1b9e77", partial = "#d95f02", gene = "#7570b3")
-structure_class_plot <- function(loci) {
+structure_class_plot <- function(loci, ctx = NULL) {
   if (nrow(loci) == 0L || !"structure_class" %in% names(loci)) {
-    return(empty_plot("no loci"))
+    return(empty_plot("No loci"))
   }
   d <- loci %>%
     mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS)) %>%
     count(.data$species, .data$structure_class, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
-    geom_col(position = "fill") +
-    scale_fill_manual(values = .STRUCTURE_FILL, drop = FALSE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label, drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = NULL, y = "fraction of loci", fill = "structure") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  add_titles(p, "ERV-like structural class",
-             "Full / partial / gene per species (completeness >= structure_full_min = full)")
+    labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
+  p <- add_titles(p, "Structural class per host",
+                  paste("Full: every main gene present. Partial: some. Single gene:",
+                        "one main gene only."))
+  on_rows(p, d$species, ctx)
 }
 
-# Frequency of each gene combination present (e.g. "GAG,POL", "POL").
-gene_combinations_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no loci"))
-  d <- loci %>% filter(nzchar(.data$genes_present))
-  if (nrow(d) == 0L) return(empty_plot("no loci"))
-  counts <- d %>% count(.data$genes_present, name = "n") %>% arrange(desc(.data$n))
-  counts <- counts %>%
-    mutate(genes_present = factor(.data$genes_present, levels = rev(.data$genes_present)))
-  p <- ggplot(counts, aes(x = .data$genes_present, y = .data$n)) +
-    geom_col(fill = "#386cb0", colour = "black", linewidth = 0.2) +
-    coord_flip() +
-    scale_y_continuous(labels = scales::label_comma()) +
-    labs(x = "genes present", y = "loci") +
-    theme_bw()
-  add_titles(p, "ERV-like gene combinations",
-             "Which main/diagnostic genes co-occur per locus")
+# Fraction of main genes present per locus, one row of small multiples per host.
+completeness_plot <- function(loci, ctx = NULL) {
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
+  d <- loci %>% filter(!is.na(.data$completeness))
+  if (nrow(d) == 0L) return(empty_plot("No loci"))
+  p <- ggplot(d, aes(x = .data$completeness)) +
+    geom_histogram(bins = 20, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
+    scale_x_continuous(labels = scales::percent) +
+    labs(x = "Main genes present", y = "Loci")
+  p <- add_titles(p, "How complete the elements are",
+                  "The share of main genes present in each LTR-flanked locus, per host.")
+  species_facets(p, ctx)
 }
 
-# Locus span (bp) distribution, per species.
-length_distribution_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no loci"))
-  d <- loci %>% filter(!is.na(.data$span_bp), .data$span_bp > 0)
-  if (nrow(d) == 0L) return(empty_plot("no loci"))
-  p <- ggplot(d, aes(x = .data$span_bp, fill = .data$species)) +
-    geom_histogram(bins = 40, colour = NA, alpha = 0.85, position = "stack") +
-    scale_x_continuous(labels = scales::label_comma()) +
-    scale_fill_manual(values = igv_unlimited_palette(length(unique(d$species)))) +
-    labs(x = "locus span (bp)", y = "loci", fill = "species") +
-    theme_bw()
-  add_titles(p, "ERV-like length distribution",
-             "Genomic span of each LTR-element locus")
-}
-
-# Number of main genes per locus (small-integer bar).
+# Number of main genes per locus.
 n_main_genes_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no loci"))
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
   d <- loci %>% filter(!is.na(.data$n_main_genes))
-  if (nrow(d) == 0L) return(empty_plot("no loci"))
+  if (nrow(d) == 0L) return(empty_plot("No loci"))
   counts <- d %>% count(.data$n_main_genes, name = "n")
   p <- ggplot(counts, aes(x = factor(.data$n_main_genes), y = .data$n)) +
-    geom_col(fill = "#386cb0", colour = "black", linewidth = 0.2) +
+    geom_col(fill = .DATA_COLOUR, width = 0.65) +
     scale_y_continuous(labels = scales::label_comma()) +
-    labs(x = "main genes per locus", y = "loci") +
-    theme_bw()
-  add_titles(p, "ERV-like main-gene count",
-             "Number of main genes recovered per LTR-element locus")
+    labs(x = "Main genes per locus", y = "Loci") +
+    theme(panel.grid.major.x = element_blank())
+  add_titles(p, "Main genes per element",
+             "The number of main genes recovered in each LTR-flanked locus.")
 }
 
-# Taxon x gene composition heatmap: how often each gene is recovered per taxon.
-# Unpacks genes_present into individual genes; counts (taxon_call, gene) pairs.
+# Frequency of each gene combination present (e.g. "GAG,POL", "POL"). A genome
+# set yields hundreds of rare combinations, so the most common ones get a bar
+# each and the rest are pooled into one grey "Other" bar.
+.TOP_COMBINATIONS <- 30L
+gene_combinations_plot <- function(loci) {
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
+  d <- loci %>% filter(nzchar(.data$genes_present))
+  if (nrow(d) == 0L) return(empty_plot("No loci"))
+  counts <- d %>% count(.data$genes_present, name = "n") %>% arrange(desc(.data$n))
+  if (nrow(counts) > .TOP_COMBINATIONS) {
+    rest <- counts[-seq_len(.TOP_COMBINATIONS), ]
+    counts <- bind_rows(
+      counts[seq_len(.TOP_COMBINATIONS), ],
+      tibble(genes_present = sprintf("Other (%d combinations)", nrow(rest)),
+             n = sum(rest$n)))
+  }
+  counts <- counts %>%
+    mutate(genes_present = factor(.data$genes_present, levels = rev(.data$genes_present)),
+           other = grepl("^Other", .data$genes_present))
+  p <- ggplot(counts, aes(x = .data$genes_present, y = .data$n, fill = .data$other)) +
+    geom_col(width = 0.7, show.legend = FALSE) +
+    coord_flip() +
+    scale_fill_manual(values = c(`FALSE` = .DATA_COLOUR, `TRUE` = .GREY_OTHER)) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    labs(x = NULL, y = "Loci") +
+    # Gene symbols take italics.
+    theme(axis.text.y = element_text(face = "italic"),
+          panel.grid.major.y = element_blank())
+  add_titles(p, "Which genes occur together",
+             sprintf(paste("The %d most common combinations of main and diagnostic genes",
+                           "found in one locus; the rest pooled."), .TOP_COMBINATIONS))
+}
+
+# Canonical versus rearranged main-gene order, per host.
+canonical_order_plot <- function(loci, ctx = NULL) {
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
+  d <- loci %>%
+    mutate(order = ifelse(.data$canonical_order, "canonical", "rearranged")) %>%
+    count(.data$species, .data$order, name = "n")
+  p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    scale_fill_manual(values = c(canonical = .GREY_MID, rearranged = .DATA_COLOUR),
+                      labels = display_label) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
+  p <- add_titles(p, "Gene order",
+                  "Main genes in the configured order along the element, or rearranged.")
+  on_rows(p, d$species, ctx)
+}
+
+# Locus span, one row of small multiples per host.
+length_distribution_plot <- function(loci, ctx = NULL) {
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
+  d <- loci %>% filter(!is.na(.data$span_bp), .data$span_bp > 0)
+  if (nrow(d) == 0L) return(empty_plot("No loci"))
+  p <- ggplot(d, aes(x = .data$span_bp)) +
+    geom_histogram(bins = 40, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
+    scale_x_continuous(labels = scales::label_comma()) +
+    labs(x = "Locus span (bp)", y = "Loci")
+  p <- add_titles(p, "Element length",
+                  "The genomic span of each LTR-flanked locus, per host.")
+  species_facets(p, ctx)
+}
+
+# Lineage by gene: how often each gene is recovered per lineage.
 composition_heatmap_plot <- function(loci) {
-  if (nrow(loci) == 0L) return(empty_plot("no taxon-resolved loci"))
+  if (nrow(loci) == 0L) return(empty_plot("No taxon-resolved loci"))
   d <- loci %>% filter(.data$resolved == "True", nzchar(.data$genes_present))
-  if (nrow(d) == 0L) return(empty_plot("no taxon-resolved loci"))
+  if (nrow(d) == 0L) return(empty_plot("No taxon-resolved loci"))
   long <- d %>%
     separate_rows("genes_present", sep = ",") %>%
     filter(nzchar(.data$genes_present)) %>%
     count(.data$taxon_call, gene = .data$genes_present, name = "n")
+  long$ink <- ink_on_ramp(long$n, trans = log10)
   p <- ggplot(long, aes(x = .data$gene, y = .data$taxon_call, fill = .data$n)) +
-    geom_tile(colour = "white") +
-    geom_text(aes(label = .data$n), size = 3) +
-    scale_fill_viridis_c(trans = "log10") +
-    labs(x = "gene", y = "taxon", fill = "loci") +
-    theme_bw()
-  add_titles(p, "ERV-like taxon x gene composition",
-             "Genes recovered per confident taxon call")
+    geom_tile(colour = .PAPER, linewidth = 0.6) +
+    geom_text(aes(label = scales::comma(.data$n), colour = .data$ink), size = 3,
+              family = .FONT) +
+    scale_colour_identity() +
+    scale_fill_ramp(trans = "log10", labels = scales::comma, name = "Loci") +
+    scale_y_discrete(labels = taxon_labels) +
+    labs(x = NULL, y = NULL) +
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(face = "italic"))
+  add_titles(p, "Genes kept by each lineage",
+             "LTR-flanked loci with a confident call, by lineage and by gene recovered.")
 }
 
 
@@ -270,53 +285,37 @@ main <- function() {
   )
   parser$add_argument("--input", required = TRUE,
                       help = "Directory with per-genome <genome>.loci.parquet tables.")
-  parser$add_argument("--output", required = TRUE,
-                      help = "Directory to save output plots.")
+  parser$add_argument("--out_pdf", required = TRUE,
+                      help = "The stage PDF: a key page, then one page per panel entry.")
   parser$add_argument("--config", required = TRUE,
                       help = "YAML config file with plot parameters.")
+  parser$add_argument("--species_tree_dir", required = FALSE, default = "",
+                      help = "species_tree_layout.py output: the host tree coordinates")
   args <- parser$parse_args()
 
+  use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
-  plot_dpi    <- cfg$plots$dpi    %||% 300
-  plot_height <- cfg$plots$height %||% 12
-  plot_width  <- cfg$plots$width  %||% 15
-  per_stratum <- cfg$plots$per_stratum %||% 0.18
-  max_dim     <- cfg$plots$max_dim     %||% 60
-
-  dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
-  log_section(sprintf("RetroSeek structure panel - ERV structural plots (output: %s)", args$output))
+  log_section(sprintf("RetroSeek structure panel (output: %s)", args$out_pdf))
 
   loci <- load_taxon_loci(args$input)
-  # Canonicalize the genome stem to the config `species:` display name at the
-  # single load point, so every builder below plots "Mus musculus" rather than
-  # the raw stem (mus_musculus / HLmyoMyo6). Unmapped stems pass through.
-  if (nrow(loci) > 0L) loci$species <- relabel_species(loci$species, cfg$species)
+  # Readable species names (the config `species:` values) at the single load point.
+  if (nrow(loci) > 0L) loci$species <- display_species(loci$species, cfg$species)
   log_section(sprintf("Loaded %d loci across %d species",
                       nrow(loci), length(unique(loci$species))))
 
-  # `n_x` = category count on the x axis; supplying it scales the canvas AND the
-  # tick text/angle so high-genome-count studies stay readable. Omitted for the
-  # histograms, whose x axis is a continuous measure, not one tick per species.
-  n_species <- length(unique(loci$species))
-  emit <- function(name, plot, n_x = NULL) {
-    if (!is.null(n_x)) plot <- scale_categorical_axis(plot, n_x, axis = "x",
-                                                      base_w = plot_width,
-                                                      base_h = plot_height,
-                                                      per_stratum = per_stratum,
-                                                      cap = max_dim)
-    save_plot(name, plot, args$output, dims = attr(plot, "intended_dims"),
-              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-  }
-
-  # Bare filenames - the structure/ dir already names the panel (no erv_like_ prefix).
-  # Driven from the registry so this panel and the per-segment one cannot drift.
-  reg <- structure_panel_registry()
-  ctx <- list(tree_dir = "", confidence_min = 0.5)
-  for (e in reg) {
-    emit(e$file, e$build(loci, ctx), if (identical(e$n_x, "species")) n_species else NULL)
-  }
-
-  log_section(sprintf("Done - wrote %d PNGs to %s", length(reg), args$output))
+  ctx <- panel_ctx(cfg, args$species_tree_dir %||% "")
+  pages <- render_panel(structure_panel_registry(), loci, loci, ctx)
+  key <- key_page(
+    "ERV structure",
+    paste("What the LTR-flanked elements are made of: how many of their main genes",
+          "survive, in which combinations and order, and how long the elements are.",
+          "Hosts are rows in the order of the host tree."),
+    colours = stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR))),
+    pages = page_titles(pages))
+  n_rows <- max(length(ctx$species_order), length(unique(loci$species)))
+  save_stage_pdf(c(list(key), pages), args$out_pdf,
+                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
+  log_section(sprintf("Done: wrote %s (%d pages)", args$out_pdf, length(pages) + 1L))
 }
 
 

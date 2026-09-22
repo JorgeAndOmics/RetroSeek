@@ -192,6 +192,12 @@ def table_dirs(name: str) -> tuple[Path, Path]:
 # tree_layout.py so the R plot generators can draw the taxon and host-species
 # trees with geom_segment, without an R tree library.
 PATH_DICT["TAXONOMY_TREE_COORDS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "trees"
+# The host species tree's drawing coordinates, laid out early from the config and
+# the user's Newick (species_tree_layout.py) so every stage, including the ranges
+# plots that run before classification, shares one canonical species order.
+PATH_DICT["SPECIES_TREE_DIR"] = (
+    PATH_DICT["TABLE_OUTPUT_DIR"] / "species_tree"
+).resolve()
 # Per-segment deliverables (ADR-011) - the catalog split by the taxon each locus
 # rolls up to at classification.segment_rank.
 PATH_DICT["TAXONOMY_SEGMENTS_DIR"] = PATH_DICT["TAXONOMY_TABLES_CSV_DIR"] / "segments"

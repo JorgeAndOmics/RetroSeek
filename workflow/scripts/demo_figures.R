@@ -23,13 +23,18 @@
 #
 # The relabel scheme is deterministic (sorted unique value -> letter) and lives
 # in make_label_map() below - adjust the prefixes there if desired.
+#
+# The figures stay PNG (GitHub renders them inline in the README) but follow the
+# house style through the shared builders. Lineages are coloured by their genus
+# (style.R), so an anonymised "Lineage A" has no genus colour and draws grey:
+# colouring it by its real genus would give the name away, since the genus
+# colours are documented.
 
 suppressMessages({
   library(argparse)
   library(arrow)
   library(tidyverse)
   library(yaml)
-  library(ggsci)
   library(ggalluvial)
   library(ggdist)
   library(scales)
@@ -52,8 +57,10 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
+source(file.path(.script_dir, "plot2sort", "tree_axis.R"))  # species rows (builders use it)
 source(file.path(.script_dir, "plot2sort", "plots_distribution.R"))
 source(file.path(.script_dir, "plot2sort", "plots_categorical.R"))
 source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
@@ -85,7 +92,7 @@ make_label_map <- function(values, prefix) {
     stop(sprintf(
       paste0(
         "Cannot anonymise %d unique '%s' values with single-letter labels (max %d). ",
-        "Demo figures target a small, representative run - subset --input to a ",
+        "Demo figures target a small, representative run: subset --input to a ",
         "lighter cohort (a 100-category showcase plot is unreadable anyway)."
       ),
       length(u), prefix, length(LETTERS)
@@ -123,6 +130,7 @@ main <- function() {
                       help = "YAML config (read for plot parameters)")
   args <- parser$parse_args()
 
+  use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
   # Demo render: lighter canvas + dpi than production so README PNGs stay small.
   plot_dpi <- 150
@@ -137,10 +145,9 @@ main <- function() {
   dir.create(args$output, showWarnings = FALSE, recursive = TRUE)
 
   emit <- function(name, plot) {
-    dims <- attr(plot, "intended_dims")
-    plot <- stamp_tier_note(plot, "demo data - anonymised")
+    plot <- stamp_tier_note(plot, "Demo data, anonymised.")
     save_plot(name, plot, args$output,
-              dims = dims, base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
+              base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
     message("wrote ", file.path(args$output, name))
   }
 
@@ -199,7 +206,7 @@ main <- function() {
   loci <- load_taxon_loci(taxonomy_dir)
   emit("erv_like_heatmap.png", composition_heatmap_plot(loci))
 
-  message("Done - wrote 6 anonymised demo figures to ", args$output)
+  message("Done: wrote 6 anonymised demo figures to ", args$output)
 }
 
 if (sys.nframe() == 0L) main()

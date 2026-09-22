@@ -72,12 +72,12 @@ test_that("the numeric companions the reused builders expect are present", {
 
 test_that("taxon_composition_plot on a loaded catalog is not the empty placeholder", {
   # Guards the actual symptom rather than the mechanism: if this regressed,
-  # every segment's PNG would be the same "no confident taxon calls" image.
+  # every segment's page would be the same "No confident taxon calls" image.
   catalog <- load_catalog(.write_catalog(tempfile(fileext = ".csv")))
   p <- taxon_composition_plot(catalog)
 
-  expect_equal(p$labels$title, "ERV taxon composition")
-  expect_false(identical(p$labels$title, "no confident taxon calls"))
+  expect_equal(p$labels$title, "Viral lineages per host")
+  expect_false(identical(p$labels$title, "No confident taxon calls"))
 })
 
 
@@ -85,7 +85,7 @@ test_that("confidence_gradient_plot on a loaded catalog is not the empty placeho
   catalog <- load_catalog(.write_catalog(tempfile(fileext = ".csv")))
   p <- confidence_gradient_plot(catalog)
 
-  expect_equal(p$labels$title, "Confidence distribution (gradient)")
+  expect_equal(p$labels$title, "Confidence distribution per host")
 })
 
 
@@ -131,20 +131,22 @@ test_that("add_numeric_companions tolerates an empty frame", {
 
 test_that("every registry entry is well formed and uniquely named", {
   reg <- .full_registry()
-  files <- vapply(reg, function(e) e$file, character(1))
+  names_ <- vapply(reg, function(e) e$name, character(1))
 
   expect_true(length(reg) > 0L)
-  expect_equal(anyDuplicated(files), 0L)
-  expect_true(all(grepl("\\.png$", files)))
+  expect_equal(anyDuplicated(names_), 0L)
+  expect_false(any(grepl("\\.", names_)))   # page names, not file names
   expect_true(all(vapply(reg, function(e) is.function(e$build), logical(1))))
   expect_true(all(vapply(reg, function(e) is.logical(e$segment), logical(1))))
+  expect_true(all(vapply(reg, function(e) e$data %in% c("loci", "combined"),
+                         logical(1))))
 })
 
 
 test_that("the registry covers the whole published panel", {
-  # 24 taxonomy + 7 structure. If a builder is added without a registry entry
-  # it silently stops being emitted, which is the failure this pins.
-  expect_equal(length(panel_registry()), 24L)
+  # 23 taxonomy + 7 structure. If a builder is added without a registry entry
+  # it silently stops being drawn, which is the failure this pins.
+  expect_equal(length(panel_registry()), 23L)
   expect_equal(length(structure_panel_registry()), 7L)
 })
 
@@ -152,23 +154,20 @@ test_that("the registry covers the whole published panel", {
 test_that("exactly the three degenerate plots are excluded from segments", {
   reg <- .full_registry()
   excluded <- vapply(Filter(function(e) !e$segment, reg),
-                     function(e) e$file, character(1))
+                     function(e) e$name, character(1))
 
-  expect_setequal(excluded, c("erv_class_composition.png",
-                              "taxon_confidence_tree.png",
-                              "taxon_tier_tree.png"))
-  expect_equal(length(segment_panel(reg, "full")), 28L)
+  expect_setequal(excluded, c("erv_class_composition", "taxon_confidence_tree",
+                              "taxon_tier_tree"))
+  expect_equal(length(segment_panel(reg, "full")), 27L)
 })
 
 
-test_that("the species-based trees are KEPT for segments", {
-  # They answer a real per-genus question - this lineage's burden across the
-  # host phylogeny - unlike the taxonomy cladogram, which is one tip here.
-  files <- vapply(segment_panel(.full_registry(), "full"),
-                  function(e) e$file, character(1))
-
-  expect_true("species_composition_tree.png" %in% files)
-  expect_true("species_confidence_tree.png" %in% files)
+test_that("the per-host lineage page is KEPT for segments", {
+  # It answers a real per-genus question, this lineage's burden across the host
+  # phylogeny, unlike the taxonomy cladogram, which is one tip here.
+  names_ <- vapply(segment_panel(.full_registry(), "full"),
+                   function(e) e$name, character(1))
+  expect_true("lineage_composition" %in% names_)
 })
 
 
@@ -176,28 +175,22 @@ test_that("segment_panel honours the config knob", {
   reg <- .full_registry()
 
   expect_equal(length(segment_panel(reg, "none")), 0L)
-  curated <- vapply(segment_panel(reg, "curated"), function(e) e$file, character(1))
-  expect_setequal(curated, c("taxon_composition.png", "confidence_gradient.png",
-                             "structure_class_composition.png"))
+  curated <- vapply(segment_panel(reg, "curated"), function(e) e$name, character(1))
+  expect_setequal(curated, c("taxon_composition", "confidence_gradient",
+                             "structure_class_composition"))
 })
 
 
 test_that("every segment builder runs on a real catalog slice without erroring", {
   # The panel is driven from catalog.csv, so each builder must find its columns
   # there. A missing column degrades to empty_plot() rather than raising, so
-  # this asserts a ggplot comes back AND that the non-tree entries are not the
-  # placeholder (tree entries legitimately are, with no tree_dir supplied).
+  # this asserts a page comes back for every entry.
   catalog <- load_catalog(.write_catalog(tempfile(fileext = ".csv")))
   gamma <- dplyr::filter(catalog, segment == "Gammaretrovirus")
   ctx <- list(tree_dir = "", confidence_min = 0.5)
+  loci <- dplyr::filter(gamma, source == "ltr-flanked")
 
-  for (e in segment_panel(.full_registry(), "full")) {
-    d <- if (identical(e$data, "loci")) {
-      dplyr::filter(gamma, source == "ltr-flanked")
-    } else {
-      gamma
-    }
-    p <- e$build(d, ctx)
+  for (p in render_panel(segment_panel(.full_registry(), "full"), loci, gamma, ctx)) {
     expect_s3_class(p, "gg")
   }
 })
@@ -208,12 +201,12 @@ test_that("the loci/combined split is preserved", {
   # assembly); confidence and tier panels span both tiers. Losing that would
   # quietly mix orphans into plots that are meant to exclude them.
   reg <- panel_registry()
-  by_file <- setNames(reg, vapply(reg, function(e) e$file, character(1)))
+  by_name <- setNames(reg, vapply(reg, function(e) e$name, character(1)))
 
-  expect_equal(by_file[["taxon_composition.png"]]$data, "loci")
-  expect_equal(by_file[["mosaic_burden.png"]]$data, "loci")
-  expect_equal(by_file[["domain_tier_composition.png"]]$data, "loci")
-  expect_equal(by_file[["confidence.png"]]$data, "combined")
-  expect_equal(by_file[["source_yield.png"]]$data, "combined")
-  expect_equal(by_file[["structure_class_composition.png"]]$data, "combined")
+  expect_equal(by_name[["taxon_composition"]]$data, "loci")
+  expect_equal(by_name[["mosaic_burden"]]$data, "loci")
+  expect_equal(by_name[["domain_tier_composition"]]$data, "loci")
+  expect_equal(by_name[["confidence"]]$data, "combined")
+  expect_equal(by_name[["source_yield"]]$data, "combined")
+  expect_equal(by_name[["structure_class_composition"]]$data, "combined")
 })
