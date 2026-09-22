@@ -109,6 +109,14 @@ A phylogeny of 1,212 LTR sequences across all three classes (MAFFT, IQ-TREE
   for LTRharvest to find, which is evidence the method reaches genuinely new
   material rather than re-finding what we already had.
 
+> **Qualified 2026-09-22.** The claim above rested on adjacency statistics from one
+> genome. Cutting the model-5 trees into explicit LTR families (maximal clades with
+> diameter at most 0.2 substitutions per site, the 80-80-80 convention) supports it
+> in four genomes, where 20% to 33% of sampled solos fall in families with no intact
+> member, but **not in Desmodus**, the genome it was made on: there only 3 small
+> families (10 of 200 sampled solos) have no intact member, and solos otherwise
+> cluster within families that keep one. See `docs/solo_ltr.md`.
+
 Full working, with every calibration curve and both negative results, is in
 `notebooks/solo_ltr_native_method.Rmd`.
 

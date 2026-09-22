@@ -147,7 +147,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 
 | file | what it is |
 |---|---|
-| `{genome}.solo_ltr.pdf` | nine pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null. Pages 8 and 9 only when `tree.enable` |
+| `{genome}.solo_ltr.pdf` | twelve pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null, the family census, the solo-only tree, and the largest family subtrees. Pages 8 to 12 only when `tree.enable` |
 | `all_species.solo_ltr.pdf` | two pages: solo:intact per genome against the published range, and the three fates per genome |
 
 **Tables for people** (`results/tables/solo_ltr/`)
@@ -160,7 +160,10 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ratio.csv` | solo:intact per taxonomic segment |
 | `{genome}.tree_summary.csv` | the tree's positive control, clustering against its null, tip census, seed |
 | `{genome}.tree_adjacency.csv` | which fate sits beside which on the tree, as enrichment |
-| `{genome}.tree_tips.csv`, `.tree_segments.csv` | the tree's drawing coordinates, for anyone redrawing it |
+| `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |
+| `{genome}.tree_tips.csv`, `.tree_segments.csv` | the full tree's drawing coordinates, each tip with its class and family |
+| `{genome}.solo_tree_tips.csv`, `.solo_tree_segments.csv` | the solo-only tree's drawing coordinates |
+| `{genome}.family_tree_tips.csv`, `.family_tree_segments.csv` | the drawn family subtrees' coordinates |
 | `solo_report.csv` | one row per genome: solos, monoLTRs, intact flanks, intact loci, ratio |
 
 **Genome-browser track** (`results/tracks/solo_ltr/`)
@@ -174,6 +177,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | file | what it is |
 |---|---|
 | `{genome}.treefile` | the tree, Newick, for FigTree or iTOL |
+| `{genome}.solos.treefile` | the tree pruned to its solos, Newick |
 | `{genome}.tips.bed`, `.tips.fna`, `.tips.afa` | which tips were sampled, their sequences, and the alignment |
 | `{genome}.iqtree`, `.log` | IQ-TREE's report and log: model parameters, likelihood, the seed |
 | `{genome}.mldist`, `.bionj`, `.ckp.gz` | IQ-TREE byproducts (distance matrix, starting tree, checkpoint) |
@@ -189,7 +193,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `tables/solo_ltr/{genome}.*.parquet` | parquet twins of the CSV tables, for the pipeline |
 | `tables/solo_ltr/{genome}.manifest.yaml` | provenance: input md5s, every threshold used, the funnel counts |
 
-**Logs** (`logs/solo_bait_builder/`, `solo_blaster/`, `solo_finder/`, `solo_annotator/`, `solo_tree/`): one `{genome}.log` each.
+**Logs** (`logs/solo_bait_builder/`, `solo_blaster/`, `solo_finder/`, `solo_annotator/`, `solo_tree/`, `solo_tree_views/`): one `{genome}.log` each.
 
 The candidate table keeps all three fates deliberately. Evidence is recorded, not
 gated (the ADR-015 principle): distance to the nearest orphan is a column, because
@@ -275,11 +279,55 @@ beside solos two to three times more often than chance, and beside flanking arms
 five to nine times less often.
 
 The control holds in every genome, and the three fates cluster well above the null
-in every genome. Solos sit beside other solos far more often than their abundance
-predicts, and beside flanking arms far less often. Some LTR families therefore
-exist predominantly or entirely as solos, with no intact copy for LTRharvest to
-find: the method reaches genuinely new integrations rather than rediscovering
-catalogued ones.
+in every genome: solos sit beside other solos far more often than their abundance
+predicts, and beside flanking arms far less often.
+
+### Families, and the two views derived from them
+
+Clustering says solos group together; it does not say whether they group into LTR
+families that have lost every intact copy. That needs an explicit notion of a
+family, so the tree is cut into one (`tree_families.py`): a family is a maximal
+clade whose largest tip-to-tip distance is at most `tree.family_max_distance`
+(0.2 substitutions per site).
+
+0.2 is chosen for two reasons. It is the transposable-element convention, the
+80-80-80 rule's 80% identity (maximum-likelihood distances run slightly above raw
+mismatch, so the cut is a little stricter than that). And it is where the answer
+stops depending on the cut: sweeping 0.05 to 0.5 on the model 5, the counts level
+off from 0.2, while below about 0.1 the tree shatters into pairs and "families
+without an intact member" multiply as an artefact of the shattering.
+
+Each family with solos is either **with an intact member** (at least one flanking
+arm) or **with no intact member** (only solos, and often monoLTRs, which are
+damaged proviruses LTRharvest also missed). The second kind is what the detector
+reaches and nothing else did.
+
+| genome | families with solos | with no intact member | sampled solos in those families |
+|---|---|---|---|
+| Molossus molossus | 27 | 10 | 61 of 200 (31%) |
+| Mus musculus | 33 | 16 | 66 of 200 (33%) |
+| Antrozous pallidus | 22 | 11 | 58 of 200 (29%) |
+| Homo sapiens | 18 | 8 | 40 of 200 (20%) |
+| Desmodus rotundus | 22 | 3 | 10 of 200 (5%) |
+
+In four of the five genomes, a fifth to a third of sampled solos belong to LTR
+families with no intact copy left: integrations the rest of the pipeline could not
+see at all. **Desmodus is the exception.** Its solos cluster just as strongly, but
+into families that still keep an intact member; only 3 small families have none.
+So in Desmodus the method mainly adds solos to known families rather than revealing
+lost ones. That qualifies ADR-017, whose original claim rested on this genome's
+adjacency statistics alone.
+
+Even the largest families *with* an intact member are mostly solos and monoLTRs:
+in Mus the biggest (F001) is 59 solos, 40 monoLTRs and 10 intact flanks.
+
+Two views are derived from the same tree, with no new inference:
+
+- **The solo-only tree**: the evidence tree pruned to its solos, coloured by family.
+  Pruning keeps every relationship the full tree inferred among them. Also written
+  as Newick (`{genome}.solos.treefile`) for a tree viewer.
+- **Family subtrees**: the `tree.family_panels_per_kind` (3) largest families of
+  each kind, each drawn as its own small tree, side by side.
 
 ### Honest limits
 
@@ -293,8 +341,8 @@ catalogued ones.
 - **Family, not genus.** LTRs are short and fast-evolving, so an LTR tree resolves
   families but not genera. Genus comes from protein domains; a solo inherits genus
   through its seeding element.
-- **Not yet built:** a solo-only tree, and per-family subtrees showing solos beside
-  families that do and do not have an intact representative.
+- **Families depend on the cut.** A family is defined by `family_max_distance`; the
+  counts are stable from 0.2 upwards but are a choice, not a measurement.
 
 ## Running it
 

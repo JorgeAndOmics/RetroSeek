@@ -27,12 +27,16 @@
 #     7. divergence_age     - divergence from the bait exemplar, as time.
 #     8. ltr_tree           - the evidence tree itself, tips coloured by fate.
 #     9. tree_enrichment    - same-class-sister observed vs permutation null.
+#    10. family_census      - LTR families on the tree, with and without an intact
+#                             member, and what each is made of.
+#    11. solo_tree          - the tree pruned to its solos, coloured by family.
+#    12. family_subtrees    - the largest families of each kind, side by side.
 #
 #   all_species.solo_ltr.pdf:
 #     1. solo_intact_ratio  - the headline biological number, per genome.
 #     2. class_composition  - the three fates per genome.
 #
-# Pages 8 and 9 appear only when the tree stage ran (solo_ltr.tree.enable).
+# Pages 8 to 12 appear only when the tree stage ran (solo_ltr.tree.enable).
 #
 # Shared infrastructure (empty_plot, add_titles, relabel_species) is reused
 # from plot2sort/*.R. The `if (sys.nframe() == 0L) main()` guard keeps the CLI
@@ -411,6 +415,131 @@ class_composition_plot <- function(all_candidates) {
 }
 
 
+# Family kinds as tree_families.py writes them, with reader-facing labels.
+.KIND_LABELS <- c(no_intact = "no intact member", with_intact = "has an intact member")
+
+
+#' LTR families on the tree: which have an intact member, and what they hold.
+#'
+#' A family is a maximal clade within solo_ltr.tree.family_max_distance (see
+#' tree_families.py). The families that matter here are the ones containing
+#' solos; those WITHOUT an intact member are LTR families the solo detector
+#' reaches and LTRharvest could not.
+family_census_plot <- function(families, genome, top_n = 30) {
+  if (is.null(families)) return(empty_plot("no families with solos"))
+  # An unrecognised kind would otherwise render silently as NA, which is exactly
+  # how a stale family table from an older run went unnoticed once.
+  unknown <- setdiff(unique(families$kind), c(names(.KIND_LABELS), "no_solo"))
+  if (length(unknown)) {
+    stop(sprintf("unknown family kind(s) %s; regenerate the tree views",
+                 paste(unknown, collapse = ", ")))
+  }
+  d <- families[n_solo > 0]
+  if (!nrow(d)) return(empty_plot("no families with solos"))
+  n_no_intact <- sum(d$kind == "no_intact")
+  solos_no_intact <- sum(d[kind == "no_intact", n_solo])
+  subtitle <- sprintf(paste(
+    "%d families contain solos; %d of them have no intact member and hold %d of",
+    "the %d sampled solos.\nShowing the %d largest. A family is a clade of the",
+    "evidence tree whose members are all within the configured distance."),
+    nrow(d), n_no_intact, solos_no_intact, sum(d$n_solo), min(top_n, nrow(d)))
+
+  d <- d[order(-n_tips)][seq_len(min(top_n, .N))]
+  long <- melt(d, id.vars = c("family", "kind"),
+               measure.vars = c("n_solo", "n_mono", "n_flank"),
+               variable.name = "what", value.name = "n")
+  long[, fate := factor(c(n_solo = "solo", n_mono = "mono_ltr_at_orphan",
+                          n_flank = "intact_flank")[as.character(what)],
+                        levels = .FATE_LEVELS)]
+  long[, family := factor(family, levels = d$family)]
+  long[, kind := factor(.KIND_LABELS[kind], levels = .KIND_LABELS)]
+
+  p <- ggplot(long, aes(x = .data$family, y = .data$n, fill = .data$fate)) +
+    geom_col() +
+    facet_grid(~ kind, scales = "free_x", space = "free_x") +
+    scale_fill_manual(values = .FATE_FILL, labels = .FATE_LABELS, drop = FALSE) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 7),
+          legend.position = "bottom")
+  add_titles(p, title = "LTR families on the evidence tree",
+             subtitle = subtitle, subset_label = genome) +
+    labs(x = "family", y = "tips on the tree", fill = NULL)
+}
+
+
+#' The tree pruned to its solos, coloured by family.
+#'
+#' Pruning keeps the relationships the full tree inferred, so this is the same
+#' evidence with everything but the solos removed. Only the largest families get
+#' their own colour; a colour per family would be unreadable past a handful.
+solo_tree_plot <- function(tips, segs, genome, n_colours = 8) {
+  if (is.null(tips) || nrow(tips) < 3) return(empty_plot("too few solos for a tree"))
+  d <- copy(tips)
+  top <- d[, .N, by = family][order(-N)][seq_len(min(n_colours, .N)), family]
+  d[, colour := ifelse(family %in% top, family, "other")]
+  d[, colour := factor(colour, levels = c(top, "other"))]
+  palette <- c(setNames(igv_unlimited_palette(length(top)), top), other = "grey75")
+
+  p <- ggplot() +
+    { if (!is.null(segs) && nrow(segs)) {
+        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                      xend = .data$xend, yend = .data$yend),
+                     colour = "grey60", linewidth = 0.2)
+      } } +
+    geom_point(data = d, aes(x = .data$x, y = .data$y, colour = .data$colour),
+               size = 1.1) +
+    scale_colour_manual(values = palette) +
+    theme_void() +
+    theme(legend.position = "right",
+          plot.background = element_rect(fill = "white", colour = NA))
+  add_titles(p, title = "The solo-only tree",
+             subtitle = sprintf(paste(
+               "The evidence tree pruned to its %d sampled solos; the largest %d",
+               "families coloured.\nSolos sharing a colour belong to one LTR family."),
+               nrow(d), length(top)),
+             subset_label = genome) +
+    labs(colour = "family")
+}
+
+
+#' The largest families of each kind, each as its own small tree.
+#'
+#' The contrast is the point: a family with no intact member beside one that
+#' still has one. Branch lengths are kept, so a long branch is a diverged copy.
+family_subtrees_plot <- function(tips, segs, families, genome) {
+  if (is.null(tips) || !nrow(tips)) return(empty_plot("no families to show"))
+  labels <- families[, .(family, panel = sprintf(
+    "%s - %s\n%d solos, %d monoLTRs, %d intact flanks",
+    family, .KIND_LABELS[kind], n_solo, n_mono, n_flank), kind)]
+  order_ <- labels[order(kind == "with_intact", family), panel]
+  d <- merge(tips, labels, by = "family")
+  d[, fate := factor(c(FLANK = "intact_flank", SOLO = "solo",
+                       MONO = "mono_ltr_at_orphan")[class], levels = .FATE_LEVELS)]
+  d[, panel := factor(panel, levels = order_)]
+  sg <- merge(segs, labels, by = "family")
+  sg[, panel := factor(panel, levels = order_)]
+
+  p <- ggplot() +
+    geom_segment(data = sg, aes(x = .data$x, y = .data$y,
+                                xend = .data$xend, yend = .data$yend),
+                 colour = "grey55", linewidth = 0.3) +
+    geom_point(data = d, aes(x = .data$x, y = .data$y, colour = .data$fate),
+               size = 1.6) +
+    facet_wrap(~ panel, scales = "free") +
+    scale_colour_manual(values = .FATE_FILL, labels = .FATE_LABELS, drop = FALSE) +
+    theme_void() +
+    theme(legend.position = "bottom",
+          strip.text = element_text(size = 9),
+          plot.background = element_rect(fill = "white", colour = NA))
+  add_titles(p, title = "The largest LTR families, with and without an intact member",
+             subtitle = paste("Each panel is one family cut from the evidence tree.",
+                              "Families with no intact member exist in this genome",
+                              "only as solos and damaged copies."),
+             subset_label = genome) +
+    labs(colour = NULL)
+}
+
+
 # Write several plots as pages of one PDF. ggsave writes a single page, so the
 # base graphics device is used directly; print() renders both ggplots and
 # patchworks.
@@ -481,11 +610,19 @@ main <- function() {
       divergence_age_plot(candidates, genome)
     )
     if (!is.null(tree_summary)) {
+      families <- read_optional(table(genome, ".tree_families.csv"))
       plots <- c(plots, list(
         ltr_tree_plot(read_optional(table(genome, ".tree_tips.csv")),
                       read_optional(table(genome, ".tree_segments.csv")),
                       tree_summary, genome),
-        tree_enrichment_plot(tree_summary, genome)
+        tree_enrichment_plot(tree_summary, genome),
+        family_census_plot(families, genome),
+        solo_tree_plot(read_optional(table(genome, ".solo_tree_tips.csv")),
+                       read_optional(table(genome, ".solo_tree_segments.csv")),
+                       genome),
+        family_subtrees_plot(read_optional(table(genome, ".family_tree_tips.csv")),
+                             read_optional(table(genome, ".family_tree_segments.csv")),
+                             families, genome)
       ))
     }
     save_pdf_pages(plots, args$out_pdf, width, height)

@@ -109,6 +109,15 @@ solo_ltr:
     # when one class dominates: taking every arm made the Mus tree 96.5%
     # flanking, pushed the null to 0.94 and collapsed the enrichment to 1.03x.
     n_element_tips: 300
+    # LTR families are cut from the tree as maximal clades whose largest
+    # tip-to-tip distance is at most this (substitutions/site). 0.2 is the
+    # 80-80-80 transposable-element family convention (80% identity), and it is
+    # where family counts stop tracking the cut on the model 5; below ~0.1 the
+    # tree shatters into pairs and "families" become an artefact.
+    family_max_distance: 0.2
+    # How many families of each kind (no intact member / with one) get their own
+    # subtree page, largest by solo count.
+    family_panels_per_kind: 3
     # Tips are all bait arms plus a sample of the other two classes, because a
     # tree over every solo would be neither computable nor readable.
     n_solo_tips: 200

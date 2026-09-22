@@ -777,10 +777,7 @@ rule solo_tree_setup:
         alignment = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.tips.afa'),
         treefile  = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.treefile'),
         summary   = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_summary.csv'),
-        adjacency = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_adjacency.csv'),
-        # Drawing coordinates (ADR-011's bridge): Python lays the tree out, R draws it.
-        tips      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_tips.csv'),
-        segments  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_segments.csv')
+        adjacency = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_adjacency.csv')
     params:
         prefix       = lambda wildcards: os.path.join(
             defaults.PATH_DICT['SOLO_TREE_DIR'], wildcards.genome),
@@ -822,11 +819,42 @@ rule solo_tree_setup:
             --permutations {params.permutations} \
             --seed {params.seed} \
             2>> {log:q}
+        '''
+
+
+# Everything drawable, derived from the tree without a new inference: the full
+# tree's coordinates, the tree pruned to its solos, the LTR families (maximal
+# clades within solo_ltr.tree.family_max_distance) and a subtree for the largest
+# families of each kind. Its own rule so that figure work never reruns IQ-TREE.
+rule solo_tree_views_setup:
+    input:
+        treefile = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.treefile')
+    output:
+        tips            = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_tips.csv'),
+        segments        = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_segments.csv'),
+        solo_tips       = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_tree_tips.csv'),
+        solo_segments   = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_tree_segments.csv'),
+        family_tips     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.family_tree_tips.csv'),
+        family_segments = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.family_tree_segments.csv'),
+        families        = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.tree_families.csv'),
+        solo_newick     = os.path.join(defaults.PATH_DICT['SOLO_TREE_DIR'], '{genome}.solos.treefile')
+    params:
+        table_prefix = lambda wildcards: os.path.join(
+            defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], wildcards.genome),
+        max_distance = _SOLO_TREE['family_max_distance'],
+        per_kind     = _SOLO_TREE['family_panels_per_kind']
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree_views', '{genome}.log')
+    threads: 1
+    shell:
+        '''
         PYTHONPATH=scripts:scripts/solo_ltr:scripts/taxonomy python scripts/solo_ltr/solo_tree_layout.py \
-            --treefile {output.treefile:q} \
-            --out-tips-csv {output.tips:q} \
-            --out-segments-csv {output.segments:q} \
-            2>> {log:q}
+            --treefile {input.treefile:q} \
+            --table-prefix {params.table_prefix:q} \
+            --out-solo-newick {output.solo_newick:q} \
+            --family-max-distance {params.max_distance} \
+            --family-panels-per-kind {params.per_kind} \
+            2> {log:q}
         '''
 
 
@@ -844,7 +872,9 @@ def _solo_tree_tables(wildcards):
     if not _SOLO_TREE['enable']:
         return []
     return [os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], f'{wildcards.genome}.{part}.csv')
-            for part in ('tree_summary', 'tree_tips', 'tree_segments')]
+            for part in ('tree_summary', 'tree_tips', 'tree_segments', 'solo_tree_tips',
+                         'solo_tree_segments', 'family_tree_tips', 'family_tree_segments',
+                         'tree_families')]
 
 
 rule solo_plot_generator_setup:

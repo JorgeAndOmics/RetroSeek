@@ -152,6 +152,8 @@ Every threshold the method depends on is here, and the scripts take them as requ
 | `solo_ltr.calibration_identities` | list of number 0-100 | `[70, 80, 85, 90, 95, 97, 99]` | Identity thresholds swept by the same plot. |
 | `solo_ltr.tree.enable` | bool | `true` | Build the LTR phylogeny for this stage. |
 | `solo_ltr.tree.n_element_tips` | int >= 0 | `300` | Elements sampled as flanking-arm tips, both arms of each kept. Capped because the clustering statistic compares against class abundance and saturates when one class dominates: using every arm made the Mus tree 96.5% flanking and collapsed its enrichment to 1.03x. |
+| `solo_ltr.tree.family_max_distance` | number >= 0 | `0.2` | LTR families are cut from the tree as maximal clades whose largest tip-to-tip distance (substitutions/site) is at most this. 0.2 is the 80-80-80 transposable-element family convention, and where family counts stop tracking the cut on the model 5; below about 0.1 the tree shatters into pairs and the number of families without an intact member becomes an artefact. |
+| `solo_ltr.tree.family_panels_per_kind` | int >= 0 | `3` | Families of each kind (no intact member, and with one) drawn as their own subtree, largest by solo count. |
 | `solo_ltr.tree.n_solo_tips` | int >= 0 | `200` | Solos sampled as tree tips. A tree over every solo would be neither computable nor readable, so the sample is seeded and reported. |
 | `solo_ltr.tree.n_mono_tips` | int >= 0 | `200` | MonoLTR-at-orphan candidates sampled as tree tips. |
 | `solo_ltr.tree.permutations` | int >= 0 | `20` | Label permutations for the same-class-sister null, which is what makes "solos cluster with solos" a measurement rather than an impression. |

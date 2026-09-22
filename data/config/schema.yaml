@@ -79,6 +79,8 @@ solo_ltr_schema:
 solo_ltr_tree_schema:
   enable:         bool()
   n_element_tips: int(min=0)
+  family_max_distance: num(min=0)
+  family_panels_per_kind: int(min=0)
   n_solo_tips:  int(min=0)
   n_mono_tips:  int(min=0)
   permutations: int(min=0)

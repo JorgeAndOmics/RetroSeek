@@ -91,6 +91,7 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
         "solo_finder_setup",
         "solo_annotator_setup",
         "solo_tree_setup",
+        "solo_tree_views_setup",
         "solo_plot_generator_setup",
         "solo_plot_summary",
         "solo_ltr_detector",
