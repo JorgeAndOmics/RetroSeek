@@ -96,3 +96,10 @@ test_that("a species the tree cannot place drops the tree and says why", {
   expect_true(inherits(p, "ggplot"))
   expect_match(p$labels$caption, "Gallus gallus")
 })
+
+
+test_that("an unset tree directory means no tree, not an error", {
+  expect_null(read_tree_part(NULL, "species", "tips"))
+  expect_null(read_tree_part("", "species", "tips"))
+  expect_null(read_species_tree(NULL))
+})

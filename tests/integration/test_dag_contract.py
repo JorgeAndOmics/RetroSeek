@@ -37,7 +37,7 @@ def _all_rules(project_root: Path) -> set[str]:
 # ---------------------------------------------------------------------
 # Rule presence
 # ---------------------------------------------------------------------
-@pytest.mark.parametrize("rule_name", ["ltr_harvester_setup"])
+@pytest.mark.parametrize("rule_name", ["ltr_harvester_setup", "species_tree_layout"])
 def test_existing_rule_present(project_root: Path, rule_name: str) -> None:
     """Rules the rest of the workflow depends on must remain in the Snakefile."""
     rules = _all_rules(project_root)

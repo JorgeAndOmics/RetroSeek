@@ -80,6 +80,38 @@ configfile: defaults.CONFIG_FILE
 #    download genomes, normalise FASTA extensions, fetch Pfam, build BLAST dbs
 #    and the GenomeTools suffix-array index.
 # =============================================================================
+# The host species tree, laid out once from the config and the user's Newick
+# (input.species_tree). Every figure puts genomes on rows in this order, so it is
+# built before anything plots. Needs no pipeline output, only config, so it never
+# waits on classification. With no tree configured it writes header-only files,
+# which the plots read as "no tree" and fall back to config order.
+_SPECIES_TREE_NWK = (config.get('input', {}) or {}).get('species_tree', '') or ''
+
+
+rule species_tree_layout:
+    input:
+        newick = [_SPECIES_TREE_NWK] if _SPECIES_TREE_NWK else []
+    output:
+        tips     = os.path.join(defaults.PATH_DICT['SPECIES_TREE_DIR'], 'species.tree_tips.csv'),
+        segments = os.path.join(defaults.PATH_DICT['SPECIES_TREE_DIR'], 'species.tree_segments.csv')
+    params:
+        out_dir     = defaults.PATH_DICT['SPECIES_TREE_DIR'],
+        config_yaml = defaults.CONFIG_FILE,
+        genomes     = ' '.join(SPECIES),
+        newick_arg  = f"--species-tree {_SPECIES_TREE_NWK}" if _SPECIES_TREE_NWK else ''
+    log:
+        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'species_tree_layout', 'species_tree_layout.log')
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/taxonomy python scripts/taxonomy/species_tree_layout.py \
+            --config {params.config_yaml:q} \
+            --genomes {params.genomes} \
+            {params.newick_arg} \
+            --out-dir {params.out_dir:q} \
+            2> {log:q}
+        '''
+
+
 rule genome_downloader_setup:
     output:
         species=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
@@ -1553,14 +1585,12 @@ rule taxonomy_tree_layout_setup:
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
                                            genome=species_with_hits(wildcards))
     output:
-        coords = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'], '{tree}.tree_{part}.csv'),
-                        tree=['taxon', 'species'], part=['segments', 'tips'])
+        coords = expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'], 'taxon.tree_{part}.csv'),
+                        part=['segments', 'tips'])
     params:
         parquet_dir  = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         out_dir      = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
-        taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv'),
-        config_yaml  = defaults.CONFIG_FILE,
-        species_tree = (config.get('input', {}) or {}).get('species_tree', '') or ''
+        taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv')
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'taxonomy_tree_layout', 'tree_layout.log')
     shell:
@@ -1571,8 +1601,6 @@ rule taxonomy_tree_layout_setup:
         --parquet-dir {params.parquet_dir:q} \
         --taxonomy-tsv {params.taxonomy_tsv:q} \
         --out-dir {params.out_dir:q} \
-        --config {params.config_yaml:q} \
-        $( [ -n "{params.species_tree}" ] && echo --species-tree "{params.species_tree}" ) \
         2> {log:q}
         '''
 
@@ -1584,6 +1612,7 @@ rule taxonomy_tree_layout:
 
 rule taxonomy_plot_generator_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         loci = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.loci.parquet'),
                                         genome=species_with_hits(wildcards)),
         orphans = lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'], '{genome}.orphans.parquet'),
@@ -1621,6 +1650,7 @@ rule taxonomy_plot_generator_setup:
         parquet_dir = defaults.PATH_DICT['TAXONOMY_TABLES_PARQUET_DIR'],
         plot_dir    = defaults.PATH_DICT['TAXONOMY_PLOT_DIR'],
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
@@ -1631,6 +1661,7 @@ rule taxonomy_plot_generator_setup:
         --output {params.plot_dir:q} \
         --config {params.config_yaml:q} \
         --tree_dir {params.tree_dir:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --report_csv {output.report:q} \
         --catalog_csv {output.catalog:q}
         '''
@@ -1664,6 +1695,7 @@ rule taxonomy_plot_generator:
 # checkpoint would add machinery without adding anything.
 rule taxonomy_segments_setup:
     input:
+        species_tree = rules.species_tree_layout.output.tips,
         catalog = rules.taxonomy_plot_generator_setup.output.catalog
     output:
         summary  = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], 'segment_summary.csv'),
@@ -1673,6 +1705,7 @@ rule taxonomy_segments_setup:
         out_dir     = defaults.PATH_DICT['TAXONOMY_SEGMENTS_DIR'],
         plot_dir    = defaults.PATH_DICT['SEGMENTS_PLOT_DIR'],
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
     shell:
         '''
@@ -1681,6 +1714,7 @@ rule taxonomy_segments_setup:
         --output {params.out_dir:q} \
         --plots {params.plot_dir:q} \
         --tree_dir {params.tree_dir:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
         --config {params.config_yaml:q} \
         --summary_csv {output.summary:q}
         '''

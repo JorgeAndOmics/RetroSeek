@@ -17,6 +17,8 @@
 # means no tree is configured, which is a normal state, so this returns NULL for
 # the caller to handle rather than failing.
 read_tree_part <- function(dir, name, part) {
+  # No directory at all (an unset option) means no tree, same as an empty file.
+  if (is.null(dir) || length(dir) == 0L || !nzchar(dir)) return(NULL)
   f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
   if (!file.exists(f)) return(NULL)
   df <- suppressWarnings(readr::read_csv(f, show_col_types = FALSE))

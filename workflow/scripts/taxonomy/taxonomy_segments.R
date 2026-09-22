@@ -158,6 +158,8 @@ segments_main <- function() {
                       help = paste("directory for the by_<rank>/ figures.",
                                    "Defaults to --output for standalone use;",
                                    "the pipeline points it at results/plots/."))
+  parser$add_argument("--species_tree_dir", required = FALSE, default = "",
+                      help = "species_tree_layout.py output: the host tree coordinates")
   parser$add_argument("--tree_dir", required = FALSE, default = "",
                       help = paste("directory of tree-coordinate CSVs, so the",
                                    "species-tree panels can render per segment"))
@@ -215,12 +217,9 @@ segments_main <- function() {
   # something for a single segment (erv_class is constant within a genus, and
   # the taxonomy cladogram collapses to one tip).
   panel <- segment_panel(c(panel_registry(), structure_panel_registry()), panel_mode)
-  ctx <- list(tree_dir = args$tree_dir %||% "", confidence_min = conf_min)
-  # The host tree, read once for every segment: panels flagged `tree_axis` in the
-  # registry also get a `_tree.png` variant here, so the per-segment panel and the
-  # global one stay in step by construction.
-  species_tips <- read_tree_part(ctx$tree_dir, "species", "tips")
-  species_segs <- read_tree_part(ctx$tree_dir, "species", "segments")
+  ctx <- list(tree_dir = args$tree_dir %||% "",
+              species_tree_dir = args$species_tree_dir %||% "",
+              confidence_min = conf_min)
   log_section(sprintf("Panel mode '%s': %d plots per segment", panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {
     sub <- catalog %>% filter(as.character(.data$segment) == seg)

@@ -253,8 +253,8 @@ panel_registry <- function() {
     # The two taxonomy-cladogram trees are one tip for a single segment.
     list(file = "taxon_confidence_tree.png", build = function(d, ctx) taxon_confidence_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "taxa", axis = "y", segment = FALSE),
     list(file = "taxon_tier_tree.png", build = function(d, ctx) taxon_tier_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "taxa", axis = "y", segment = FALSE),
-    list(file = "species_confidence_tree.png", build = function(d, ctx) species_confidence_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE),
-    list(file = "species_composition_tree.png", build = function(d, ctx) species_composition_tree_plot(d, ctx$tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE)
+    list(file = "species_confidence_tree.png", build = function(d, ctx) species_confidence_tree_plot(d, ctx$species_tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE),
+    list(file = "species_composition_tree.png", build = function(d, ctx) species_composition_tree_plot(d, ctx$species_tree_dir), data = "combined", n_x = "species", axis = "y", segment = TRUE)
   )
 }
 
@@ -882,6 +882,8 @@ main <- function() {
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--report_csv", required = TRUE,
                       help = "Output path for the tidy classification report CSV.")
+  parser$add_argument("--species_tree_dir", required = FALSE, default = "",
+                      help = "species_tree_layout.py output: the host tree coordinates")
   parser$add_argument("--tree_dir", required = FALSE, default = "",
                       help = paste("Directory of tree coordinate CSVs from",
                                    "tree_layout.py. Absent/empty renders the",
@@ -941,10 +943,9 @@ main <- function() {
   # axis.text.y and print row indices next to it.
   tree_dir <- args$tree_dir %||% ""
   n_taxa <- length(unique(combined$taxon_call))
-  ctx <- list(tree_dir = tree_dir, confidence_min = confidence_min)
+  ctx <- list(tree_dir = tree_dir, species_tree_dir = args$species_tree_dir %||% "",
+              confidence_min = confidence_min)
   # The host tree, read once: every tree-axis variant shares it.
-  species_tips <- read_tree_part(tree_dir, "species", "tips")
-  species_segs <- read_tree_part(tree_dir, "species", "segments")
 
   for (e in panel_registry()) {
     d <- if (identical(e$data, "loci")) loci else combined

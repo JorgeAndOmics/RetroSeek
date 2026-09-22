@@ -35,7 +35,6 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
-import yaml
 from Bio import Phylo
 from Bio.Phylo.BaseTree import Clade, Tree
 
@@ -362,19 +361,6 @@ def main() -> int:
         required=True,
         help="destination for the *.tree_segments.csv / *.tree_tips.csv",
     )
-    p.add_argument(
-        "--species-tree",
-        type=Path,
-        default=None,
-        help="optional user-supplied Newick of the host species",
-    )
-    p.add_argument(
-        "--config",
-        type=Path,
-        default=None,
-        help="pipeline config YAML; its `species:` map canonicalizes genome "
-        "stems to the display names the plots use, so tree tips match the bars",
-    )
     args = p.parse_args()
 
     # --- taxon tree (always available: taxonomy.tsv ships with the reference)
@@ -386,29 +372,6 @@ def main() -> int:
     else:
         write(args.out_dir, "taxon", *layout(tree, align_tips=True))
 
-    # --- species tree (only when the user pinned one)
-    # The plot generators relabel genome stems to the config `species:` display
-    # names before plotting, so the tips must carry those same names or nothing
-    # would match (`Homo_sapiens` tip vs `Homo sapiens` bar).
-    species = _observed(args.parquet_dir, "species")
-    mapping: dict[str, str] = {}
-    if args.config and args.config.exists():
-        cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
-        mapping = cfg.get("species") or {}
-        species = sorted({str(mapping.get(s, s)) for s in species})
-    if args.species_tree and str(args.species_tree) and args.species_tree.exists():
-        # The stems are kept as aliases, not discarded: a real host tree is
-        # usually labelled with them rather than with display names.
-        stree = from_newick(
-            args.species_tree, species, aliases=build_alias_index(mapping)
-        )
-        # A user tree may carry real branch lengths; keep them (align_tips=False)
-        # unless it is a bare cladogram, where squared-off tips read better.
-        has_len = any(c.branch_length not in (None, 0) for c in stree.find_clades())
-        write(args.out_dir, "species", *layout(stree, align_tips=not has_len))
-    else:
-        logger.info("species tree: none configured (input.species_tree unset)")
-        write(args.out_dir, "species", [], [])
     return 0
 
 
