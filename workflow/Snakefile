@@ -822,6 +822,13 @@ rule solo_tree_setup:
         fast         = '-fast' if _SOLO_TREE['fast'] else ''
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree', '{genome}.log')
+    # Tips are extracted as they lie on the + strand, but an LTR can sit on either
+    # strand, so MAFFT orients every sequence to the others before aligning
+    # (--adjustdirectionaccurately; it marks a flipped sequence with a `_R_` name
+    # prefix, stripped so tip names stay what tree_stats.py parses). Without it,
+    # about half the solos entered the alignment reverse-complemented and the tree
+    # put them 0.2 to 3.6 substitutions/site from the arm they match at >= 95%
+    # identity (2026-09-22). The seed control in tree_summary.csv guards this.
     # One thread per tree, on purpose: IQ-TREE is only reproducible single-threaded.
     # With -seed fixed, two 8-thread runs on the same alignment still wrote
     # different trees, while two 1-thread runs were byte-identical (tested
@@ -841,7 +848,11 @@ rule solo_tree_setup:
         Rscript scripts/taxonomy/extract_region_fasta.R \
             --genome {input.genome:q} --bed {output.tips_bed:q} --out {output.tips_fna:q} \
             2>> {log:q}
-        mafft --auto --thread {threads} --quiet {output.tips_fna:q} > {output.alignment:q} 2>> {log:q}
+        mafft --auto --adjustdirectionaccurately --thread {threads} --quiet \
+            {output.tips_fna:q} > {output.alignment:q}.raw 2>> {log:q}
+        echo "mafft reoriented $(grep -c '^>_R_' {output.alignment:q}.raw || true) sequences" >> {log:q}
+        sed 's/^>_R_/>/' {output.alignment:q}.raw > {output.alignment:q}
+        rm {output.alignment:q}.raw
         iqtree -s {output.alignment:q} -m {params.model} {params.fast} \
             -nt {threads} -seed {params.seed} -pre {params.prefix:q} -quiet -redo >> {log:q} 2>&1
         PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/tree_stats.py \

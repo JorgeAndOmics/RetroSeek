@@ -117,6 +117,19 @@ A phylogeny of 1,212 LTR sequences across all three classes (MAFFT, IQ-TREE
 > families (10 of 200 sampled solos) have no intact member, and solos otherwise
 > cluster within families that keep one. See `docs/solo_ltr.md`.
 
+> **Withdrawn 2026-09-23.** Both the claim and its qualification rested on trees
+> built from a mixed-strand alignment: tips were extracted on the + strand and
+> aligned without orientation, so about half the solos entered reverse-complemented
+> and were placed far from the elements they match (orientation predicted the
+> misplacement exactly). The trees now orient every sequence before alignment and
+> carry a seed control, 92% to 100% of solos sitting beside the arm that caught them.
+> The fates still cluster above the permutation null in every genome (1.34x to
+> 1.50x), but there is no evidence for LTR families surviving only as solos, and
+> there cannot be from this method: every solo is at least 95% identical to the arm
+> of an intact ERV-bearing element. The method's reach is new solo INTEGRATIONS of
+> families that keep at least one intact copy, not lost families. See
+> `docs/solo_ltr.md`.
+
 Full working, with every calibration curve and both negative results, is in
 `notebooks/solo_ltr_native_method.Rmd`.
 

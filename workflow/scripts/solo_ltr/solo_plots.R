@@ -280,9 +280,8 @@ divergence_age_plot <- function(candidates, species) {
 #' The evidence tree itself, drawn from solo_tree_layout.py's coordinates.
 #'
 #' Tips are points, not labels: with around a thousand tips a label per tip is
-#' unreadable, and what the eye needs is where the colours cluster. A run of red
-#' (solo) points hanging together on one clade, with no blue (flanking) point
-#' among them, is an LTR family that survives only as solos.
+#' unreadable, and what the eye needs is where the colours cluster: solo-rich and
+#' flank-rich regions of the tree are families with different solo histories.
 ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   if (is.null(tips) || !nrow(tips)) return(empty_plot("No tree"))
   class_to_fate <- c(FLANK = "intact_flank", SOLO = "solo", MONO = "mono_ltr_at_orphan")
@@ -295,11 +294,12 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
     suppressWarnings(as.numeric(value))
   }
   subtitle <- sprintf(paste(
-    "%d tips: every LTR arm of a sample of ERV-bearing elements, plus sampled",
-    "solos and monoLTRs.\nPositive control: %.0f%% of elements recover their two",
-    "arms as sister tips. Same-class sisters %.0f%% against a %.0f%% permutation",
-    "null (%.2fx)."),
-    nrow(d), 100 * get("arm_sisterhood_fraction"),
+    "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
+    "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
+    "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
+    "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."),
+    nrow(d), 100 * get("solos_near_seed_fraction"),
+    100 * get("arm_sisterhood_fraction"),
     100 * get("same_class_sister_observed"),
     100 * get("same_class_sister_null_mean"), get("enrichment"))
 
@@ -333,6 +333,7 @@ tree_enrichment_plot <- function(summary_dt, species) {
   null_mean <- get("same_class_sister_null_mean")
   null_sd <- get("same_class_sister_null_sd")
   control <- get("arm_sisterhood_fraction")
+  seed_control <- get("solos_near_seed_fraction")
   if (is.na(observed) || is.na(null_mean)) return(empty_plot("No tree statistics"))
 
   d <- data.table(
@@ -352,11 +353,13 @@ tree_enrichment_plot <- function(summary_dt, species) {
     theme(legend.position = "none")
   add_titles(
     p,
-    title = "Do the three fates form their own clades?",
+    title = "Do the three fates cluster on the tree?",
     subtitle = sprintf(paste("Tips whose sister group shares their class, against a",
                              "null that permutes the labels on a fixed topology.",
-                             "\nPositive control: %.0f%% of elements have their two",
-                             "arms recovered as sister tips, which they must be."),
+                             "\nControls: %.0f%% of solos sit beside the arm that caught",
+                             "them; %.0f%% of elements have their two arms as sisters",
+                             "(young bursts of near-identical copies blur this one)."),
+                       100 * ifelse(is.na(seed_control), 0, seed_control),
                        100 * ifelse(is.na(control), 0, control)),
     subset_label = species
   ) + labs(x = NULL, y = "Tips with a same-class sister")
@@ -525,9 +528,9 @@ family_subtrees_plot <- function(tips, segs, families, species) {
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek_blank()
   add_titles(p, title = "The largest LTR families, with and without an intact member",
-             subtitle = paste("Each panel is one family cut from the evidence tree.",
-                              "Families with no intact member exist in this genome",
-                              "only as solos and damaged copies."),
+             subtitle = paste("Each panel is one family cut from the evidence tree. \"No",
+                              "intact member\" means none among the sampled elements:",
+                              "every solo has an intact relative at 95% identity or more."),
              subset_label = species) +
     labs(colour = NULL)
 }

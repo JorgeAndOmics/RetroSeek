@@ -3,12 +3,12 @@
 The tree answers one question the detector cannot: are the three fates of a lone
 LTR real biological classes, or an artefact of how we drew the boundaries? If solos
 were simply mis-called flanking arms they would scatter among them on an LTR
-phylogeny. If some LTR families survive only as solos, solos will form their own
-clades.
+phylogeny; if the fates are real, they cluster by LTR family, some families being
+far richer in solos than others.
 
 Tips are a seeded sample of all three classes. Flanking arms are the reference
 frame and carry the tree's positive control (an element's two arms were identical
-the day it inserted, so they must come out as sister tips), which is why they are
+the day it inserted, so they tend to come out as sister tips), which is why they are
 sampled by ELEMENT and both arms of a chosen element are kept.
 
 All three classes are capped because the clustering statistic is a comparison
@@ -23,8 +23,14 @@ Tip names encode the class as a prefix before a double underscore, which is what
 `tree_stats.py` reads back:
 
     FLANK__{seqname}_{element}_{L|R}
-    SOLO__{seqname}_{start}
+    SOLO__{seqname}_{start}__{seed seqname}_{seed element}
     MONO__{seqname}_{start}
+
+A solo also names its SEED: the element whose LTR arm caught it at >= 95% identity.
+Seeds are always sampled onto the tree, because a solo must sit beside its seed on
+a correct tree. That is the tree's sharpest control: the arm control above could
+not see the mixed-strand alignment of 2026-09 (an element's two arms share a
+strand), while half the solos sat far from their seeds.
 """
 
 from __future__ import annotations
@@ -48,15 +54,24 @@ class Tip(NamedTuple):
     start: int  # BED, 0-based
     end: int
     name: str
+    seed: str = ""  # the seeding element's ID, for solos; empty otherwise
 
 
-def bait_tips(bait_bed: Path, n_elements: int, rng: random.Random) -> list[Tip]:
+def bait_tips(
+    bait_bed: Path,
+    n_elements: int,
+    rng: random.Random,
+    required: set[str] | None = None,
+) -> list[Tip]:
     """A seeded sample of bait arms, grouped so both arms of an element travel together.
 
     Sampling by element rather than by arm is what preserves the tree's positive
     control: it only means anything for an element whose two arms are both on the
     tree. The bait name is `{seqname}|{element}|{arm}`, and `|` is replaced because
     a Newick label cannot carry it.
+
+    `required` elements (the seeds of the sampled solos) are always kept, even past
+    `n_elements`; the cap only limits the random fill around them.
     """
     by_element: dict[str, list[Tip]] = {}
     with bait_bed.open() as handle:
@@ -73,10 +88,12 @@ def bait_tips(bait_bed: Path, n_elements: int, rng: random.Random) -> list[Tip]:
                     name=f"{FLANK}__{fields[3].replace('|', '_')}",
                 )
             )
-    elements = sorted(by_element)
-    if 0 < n_elements < len(elements):
-        elements = rng.sample(elements, n_elements)
-    return [tip for element in sorted(elements) for tip in by_element[element]]
+    kept = sorted(set(required or ()) & set(by_element))
+    others = sorted(set(by_element) - set(kept))
+    room = len(others) if n_elements <= 0 else max(0, n_elements - len(kept))
+    if room < len(others):
+        others = rng.sample(others, room)
+    return [tip for element in sorted(kept + others) for tip in by_element[element]]
 
 
 def sampled_tips(
@@ -94,12 +111,20 @@ def sampled_tips(
             if row.get("fate") != fate:
                 continue
             start, end = int(row["start"]), int(row["end"])
+            name = f"{prefix}__{row['seqname']}_{start}"
+            seed = ""
+            if prefix == SOLO:
+                # bait is `{seqname}|{element}|{arm}`; the seed key drops the arm so
+                # it matches the element part of FLANK__{seqname}_{element}_{arm}.
+                seed = row["parent"]
+                name += "__" + row["bait"].rsplit("|", 1)[0].replace("|", "_")
             pool.append(
                 Tip(
                     seqname=row["seqname"],
                     start=start - 1,  # the candidate table is GFF3-style, 1-based
                     end=end,
-                    name=f"{prefix}__{row['seqname']}_{start}",
+                    name=name,
+                    seed=seed,
                 )
             )
     if n >= len(pool):
@@ -127,14 +152,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     rng = random.Random(args.seed)
-    tips = bait_tips(args.bait_bed, args.n_element_tips, rng)
+    # Solos first, so their seeds can be required on the tree.
     solos = sampled_tips(args.candidates_csv, "solo", args.n_solo_tips, rng)
     monos = sampled_tips(
         args.candidates_csv, "mono_ltr_at_orphan", args.n_mono_tips, rng
     )
+    seeds = {tip.seed for tip in solos}
+    tips = bait_tips(args.bait_bed, args.n_element_tips, rng, required=seeds)
     written = write_bed(tips + solos + monos, args.out_bed)
     print(
-        f"tree tips: {len(tips)} flanking arms from <= {args.n_element_tips} elements, "
+        f"tree tips: {len(tips)} flanking arms from <= {args.n_element_tips} elements "
+        f"({len(seeds)} of them seeds of sampled solos), "
         f"{len(solos)} solos, {len(monos)} monoLTRs-at-orphans -> {written} total"
     )
     # IQ-TREE cannot build a tree from fewer than three sequences, and it fails

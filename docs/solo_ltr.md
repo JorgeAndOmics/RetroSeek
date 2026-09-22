@@ -207,8 +207,13 @@ and a reader should be able to see that rather than have it decided for them.
 The tree answers one question the detector cannot: are the three fates of a lone
 LTR real biological classes, or artefacts of where the thresholds were drawn? If
 solos were simply mis-called flanking arms, they would scatter among flanking arms
-on an LTR phylogeny. If instead some LTR families survive only as solos, solos will
-sit together in their own clades.
+on an LTR phylogeny. If the fates are real, they cluster by LTR family, some
+families being far richer in solos than others.
+
+It cannot show LTR families that survive only as solos, and nothing here claims
+that. Every solo was caught by one bait arm at 95% identity or more, its **seed**,
+and a seed is an intact ERV-bearing element: no detected solo is without an intact
+relative in its genome.
 
 **It detects nothing and decides nothing.** A tree cannot say a sequence is a solo,
 because being a solo is about genomic context (no partner, no internal region), not
@@ -220,15 +225,19 @@ tree is evidence about the method, read by a person.
 
 One tree per genome, built by rule `solo_tree_setup` in five steps:
 
-1. **Choose the tips** (`solo_tips.py`). Up to `tree.n_element_tips` (300)
-   ERV-bearing elements are sampled, and **both** LTR arms of each chosen element
-   are kept. Up to `tree.n_solo_tips` (200) solos and `tree.n_mono_tips` (200)
-   monoLTRs-at-orphans are sampled from the candidate table. Sampling is seeded
-   (`tree.seed`). Each tip's class is written into its
-   name as a prefix: `FLANK__`, `SOLO__` or `MONO__`.
+1. **Choose the tips** (`solo_tips.py`). Up to `tree.n_solo_tips` (200) solos and
+   `tree.n_mono_tips` (200) monoLTRs-at-orphans are sampled from the candidate
+   table. Then ERV-bearing elements: the seed of every sampled solo, plus a random
+   fill up to `tree.n_element_tips` (300), with **both** LTR arms of each element
+   kept. Sampling is seeded (`tree.seed`). Each tip's class is written into its
+   name as a prefix (`FLANK__`, `SOLO__`, `MONO__`), and a solo's name also carries
+   its seed.
 2. **Extract the sequences** with `taxonomy/extract_region_fasta.R`, the same
-   extractor the bait uses.
-3. **Align** with `mafft --auto`.
+   extractor the bait uses. They come out as they lie on the + strand.
+3. **Align** with `mafft --auto --adjustdirectionaccurately`, which turns every
+   sequence to the orientation of the others first (about half of them: an LTR can
+   sit on either strand). MAFFT marks a turned sequence with an `_R_` prefix, which
+   is stripped so tip names stay parseable.
 4. **Infer** with `iqtree -m GTR+G -fast -seed` (`tree.model`, `tree.fast`,
    `tree.seed`): maximum likelihood, two search iterations, no bootstrap. **Single
    threaded on purpose**: with the seed fixed, two 8-thread runs still wrote
@@ -244,15 +253,27 @@ One tree per genome, built by rule `solo_tree_setup` in five steps:
 is a comparison against class abundance, and it saturates when one class dominates.
 An earlier version took every bait arm, which made the Mus musculus tree 96.5%
 flanking arms: the permutation null rose to 0.94 and the enrichment collapsed to
-1.03x, a number that measured tip composition rather than biology. Sampling by
-element keeps the classes comparable and keeps the positive control intact, since
-that control needs both arms of an element on the tree.
+1.03x, a number that measured tip composition rather than biology.
+
+**Why the orientation step matters.** Until 2026-09-22 the alignment ran without
+it. About half the solos then entered the alignment reverse-complemented, and the
+tree put them 0.2 to 3.6 substitutions per site from the arm they match at 95% or
+more; orientation predicted the misplacement exactly (Desmodus: all 99 reversed
+solos far from their seed, all 101 others beside it). The statistics, families and
+conclusions drawn from those trees were withdrawn. The seed control below exists so
+that a failure of this kind shows up in the summary.
 
 ### What it measures
 
-**The positive control, for free.** An element's two arms were identical the day it
-inserted, so on a correct tree they must be sister tips. The fraction recovered as
-sisters says whether the tree carries real signal at all.
+**The seed control.** A solo sits within about 0.05 substitutions per site of its
+seed's arm, so on a correct tree nearly every solo is within 0.1 of it. This is the
+sharpest check the tree gets.
+
+**The arm control.** An element's two arms were identical the day it inserted, so
+they tend to come out as sister tips. The rate is blurred wherever a family burst
+left many near-identical copies (an arm's sister is then as likely another
+element's arm), and it cannot see strand errors, since both arms of an element
+share a strand.
 
 **Same-class sisters against a permutation null.** For every tip: does its sister
 group contain at least one tip of its own class? The observed fraction is compared
@@ -260,66 +281,42 @@ with the same fraction after the class labels are shuffled `tree.permutations`
 times over the fixed topology. Without that null the number means nothing, because
 any structured tree shows some clustering.
 
-**Who sits beside whom.** Class-by-class adjacency as enrichment over what class
-abundance alone predicts. This is where the substantive claim lives.
+Results on the model 5, rebuilt 2026-09-23:
 
-Results on the model 5:
+| genome | seed control | arm control | same-class observed | null | enrichment |
+|---|---|---|---|---|---|
+| Antrozous pallidus | 99% | 61% | 79% | 58% | 1.36x |
+| Desmodus rotundus | 100% | 64% | 82% | 56% | 1.48x |
+| Homo sapiens | 97% | 62% | 83% | 56% | 1.50x |
+| Molossus molossus | 99% | 62% | 79% | 56% | 1.39x |
+| Mus musculus | 92% | 60% | 77% | 57% | 1.34x |
 
-| genome | arm control | same-class observed | null | enrichment | solo beside solo | solo beside flank |
-|---|---|---|---|---|---|---|
-| Antrozous pallidus | 76% | 84% | 57% | 1.47x | 2.42x | 0.12x |
-| Desmodus rotundus | 72% | 85% | 56% | 1.52x | 2.52x | 0.19x |
-| Homo sapiens | 72% | 89% | 55% | 1.60x | 3.41x | 0.15x |
-| Molossus molossus | 74% | 81% | 57% | 1.43x | 2.34x | 0.20x |
-| Mus musculus | 74% | 85% | 56% | 1.52x | 2.60x | 0.20x |
-
-The last two columns are the adjacency enrichment: how often a solo's sister is a
-solo, or a flanking arm, relative to what class abundance alone predicts. Solos sit
-beside solos two to three times more often than chance, and beside flanking arms
-five to nine times less often.
-
-The control holds in every genome, and the three fates cluster well above the null
-in every genome: solos sit beside other solos far more often than their abundance
-predicts, and beside flanking arms far less often.
+The fates cluster well above the null in every genome: solos, monoLTRs and flanking
+arms are not spread evenly across LTR families. The class-by-class adjacency table
+(`tree_adjacency.csv`) counts every leaf of a tip's sister group, so a bushy tree
+lets a few large sister groups dominate it (Mus); read it with that in mind.
 
 ### Families, and the two views derived from them
 
-Clustering says solos group together; it does not say whether they group into LTR
-families that have lost every intact copy. That needs an explicit notion of a
-family, so the tree is cut into one (`tree_families.py`): a family is a maximal
-clade whose largest tip-to-tip distance is at most `tree.family_max_distance`
-(0.2 substitutions per site).
+The tree is cut into LTR families (`tree_families.py`): a family is a maximal clade
+whose largest tip-to-tip distance is at most `tree.family_max_distance` (0.2
+substitutions per site). 0.2 is the transposable-element convention, the 80-80-80
+rule's 80% identity, and it was where family counts stopped depending on the cut (measured before the orientation fix, to be re-checked).
 
-0.2 is chosen for two reasons. It is the transposable-element convention, the
-80-80-80 rule's 80% identity (maximum-likelihood distances run slightly above raw
-mismatch, so the cut is a little stricter than that). And it is where the answer
-stops depending on the cut: sweeping 0.05 to 0.5 on the model 5, the counts level
-off from 0.2, while below about 0.1 the tree shatters into pairs and "families
-without an intact member" multiply as an artefact of the shattering.
+Each family with solos is either **with an intact member** (at least one sampled
+flanking arm) or **with no intact member**. Because every solo's seed is on the
+tree, a family with no intact member can only arise where the tree separates a
+solo from its seed: after the rebuild that is 0 solos in Antrozous, 1 in Desmodus
+and Molossus, 15 in Homo and 16 in Mus, matching the solos that miss the seed
+control. The label is kept as a diagnostic, not as a finding.
 
-Each family with solos is either **with an intact member** (at least one flanking
-arm) or **with no intact member** (only solos, and often monoLTRs, which are
-damaged proviruses LTRharvest also missed). The second kind is what the detector
-reaches and nothing else did.
-
-| genome | families with solos | with no intact member | sampled solos in those families |
-|---|---|---|---|
-| Molossus molossus | 27 | 10 | 61 of 200 (31%) |
-| Mus musculus | 33 | 16 | 66 of 200 (33%) |
-| Antrozous pallidus | 22 | 11 | 58 of 200 (29%) |
-| Homo sapiens | 18 | 8 | 40 of 200 (20%) |
-| Desmodus rotundus | 22 | 3 | 10 of 200 (5%) |
-
-In four of the five genomes, a fifth to a third of sampled solos belong to LTR
-families with no intact copy left: integrations the rest of the pipeline could not
-see at all. **Desmodus is the exception.** Its solos cluster just as strongly, but
-into families that still keep an intact member; only 3 small families have none.
-So in Desmodus the method mainly adds solos to known families rather than revealing
-lost ones. That qualifies ADR-017, whose original claim rested on this genome's
-adjacency statistics alone.
-
-Even the largest families *with* an intact member are mostly solos and monoLTRs:
-in Mus the biggest (F001) is 59 solos, 40 monoLTRs and 10 intact flanks.
+| genome | families with solos | with no intact member |
+|---|---|---|
+| Antrozous pallidus | 13 | 0 |
+| Desmodus rotundus | 16 | 1 (1 solo) |
+| Homo sapiens | 29 | 13 (15 solos) |
+| Molossus molossus | 15 | 1 (1 solo) |
+| Mus musculus | 43 | 13 (16 solos) |
 
 Two views are derived from the same tree, with no new inference:
 
@@ -341,8 +338,9 @@ Two views are derived from the same tree, with no new inference:
 - **Family, not genus.** LTRs are short and fast-evolving, so an LTR tree resolves
   families but not genera. Genus comes from protein domains; a solo inherits genus
   through its seeding element.
-- **Families depend on the cut.** A family is defined by `family_max_distance`; the
-  counts are stable from 0.2 upwards but are a choice, not a measurement.
+- **Families depend on the cut.** A family is defined by `family_max_distance`, a
+  choice rather than a measurement. Its stability from 0.2 upwards was measured on
+  the pre-2026-09-22 trees and has not yet been re-measured on the corrected ones.
 
 ## Running it
 
