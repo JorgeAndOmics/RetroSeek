@@ -374,3 +374,10 @@ def test_curated_erv_class_committed(project_root: Path) -> None:
     erv_class = project_root / "data" / "config" / "erv_class.tsv"
     assert erv_class.exists()
     assert "erv_class" in erv_class.read_text()
+
+
+def test_solo_blaster_threads_are_configurable(project_root: Path) -> None:
+    """A 102-genome run needs several blastn jobs side by side (2026-09-23)."""
+    text = _read_snakefile(project_root)
+    block = text.split("rule solo_blaster_setup:", 1)[1].split("\nrule ", 1)[0]
+    assert "_SOLO.get('blast_threads') or workflow.cores" in block

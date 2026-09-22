@@ -148,6 +148,7 @@ Every threshold the method depends on is here, and the scripts take them as requ
 | `solo_ltr.blast_task` | str (`blastn` \| `megablast` \| `dc-megablast` \| `blastn-short`) | `dc-megablast` | `blastn -task`. Discontiguous megablast is the sensitive-but-affordable setting for diverged nucleotide matches. |
 | `solo_ltr.blast_evalue` | number >= 0 | `1.0e-5` | `blastn -evalue`. Generous on purpose: the acceptance criteria above do the real filtering, not the E-value. |
 | `solo_ltr.max_target_seqs` | int >= 1 | `5000` | `blastn -max_target_seqs`. High because one LTR family can have thousands of genomic copies and truncating the hit list would silently lose solos. |
+| `solo_ltr.blast_threads` | int >= 1 or `null` | `null` | Threads per solo-LTR `blastn` job. `null` gives each job every core, so genomes are searched one at a time. With many genomes, set it to a fraction of the cores (for example 4 on a 64-core machine) so several genomes run in parallel; `blastn` scales poorly past a few threads. Results do not depend on it. |
 | `solo_ltr.calibration_lengths` | list of int >= 0 | `[0, 300, 400, 500]` | Length thresholds swept by the per-genome calibration plot. |
 | `solo_ltr.calibration_identities` | list of number 0-100 | `[70, 80, 85, 90, 95, 97, 99]` | Identity thresholds swept by the same plot. |
 | `solo_ltr.tree.enable` | bool | `true` | Build the LTR phylogeny for this stage. |

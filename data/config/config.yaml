@@ -94,6 +94,10 @@ solo_ltr:
   blast_task: dc-megablast
   blast_evalue: 1.0e-5
   max_target_seqs: 5000
+  # Threads per blastn job. null gives each job every core, so genomes run one at
+  # a time. On a large genome set, a smaller number lets several genomes run side
+  # by side, which blastn uses far better than many threads on one genome.
+  blast_threads: null
   # Grid for the per-genome calibration plot, which shows how the solo/intact
   # ratio responds to the two thresholds that matter.
   calibration_lengths: [0, 300, 400, 500]

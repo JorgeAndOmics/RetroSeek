@@ -72,6 +72,7 @@ solo_ltr_schema:
   blast_task:            str(matches='^(blastn|megablast|dc-megablast|blastn-short)$')
   blast_evalue:          num(min=0)
   max_target_seqs:       int(min=1)
+  blast_threads:         any(int(min=1), null(), required=False)
   calibration_lengths:   list(int(min=0))
   calibration_identities: list(num(min=0, max=100))
   tree:                  include('solo_ltr_tree_schema', required=False)

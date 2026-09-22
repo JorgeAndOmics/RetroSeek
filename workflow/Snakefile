@@ -669,8 +669,11 @@ rule solo_blaster_setup:
         max_target_seqs = _SOLO['max_target_seqs']
     log:
         os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_blaster', '{genome}.log')
+    # solo_ltr.blast_threads, or every core when unset. blastn scales poorly past a
+    # few threads, so on a large genome set a few threads per job, several genomes
+    # at a time, finishes far sooner than all cores on one genome after another.
     threads:
-        workflow.cores
+        _SOLO.get('blast_threads') or workflow.cores
     shell:
         '''
         blastn -task {params.task} \
