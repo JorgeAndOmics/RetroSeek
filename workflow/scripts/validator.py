@@ -4,7 +4,8 @@
 
 import logging
 import os
-import subprocess
+import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -14,9 +15,21 @@ import yamale
 from Bio import Entrez, SeqIO
 
 import defaults
+import stages
 from colored_logging import colored_logging
 
+# The Pfam check reuses the subset builder's own accession logic, so the preflight
+# and the rule cannot disagree about what "missing" means.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "domains"))
+from subset_pfam import missing_accessions, missing_message, wanted_accessions
+
 logger = logging.getLogger(__name__)
+
+# Stages whose inputs come from NCBI: the slow probe check and the API-key prompt
+# only serve these.
+NCBI_STAGES = ("--download-genomes", "--probe-extractor", "--build-reference")
+# Stages that read the curated Pfam subset: the preflight checks the library first.
+PFAM_STAGES = ("--domain-scan", "--classify")
 
 # -----------------------------
 # YAML VALIDATION
@@ -156,45 +169,57 @@ def fasta_validator(fasta_file: str) -> bool:
 
 
 # -----------------------------
-# TOOL AVAILABILITY CHECK
+# PREFLIGHT: FAST CHECKS THAT ALWAYS RUN
 # -----------------------------
 
 
-def validate_programs() -> bool:
+def missing_tools(tools: list[str]) -> list[str]:
+    """The executables in `tools` that are not on PATH."""
+    return [tool for tool in tools if shutil.which(tool) is None]
+
+
+def pfam_problem(hmm_path: Path, classes_tsv: Path) -> str | None:
+    """Why the Pfam library cannot serve the curated table, or None if it can.
+
+    A library that is not there yet is not a problem: the pinned release will be
+    downloaded (and the heavy-rule guard asks for --download-hmm first).
     """
-    Validates required external programs are available in the system path.
+    if not hmm_path.exists():
+        return None
+    missing = missing_accessions(hmm_path, wanted_accessions(classes_tsv))
+    return missing_message(missing, hmm_path) if missing else None
 
-    Returns
-    -------
-    bool
-        True if all required programs are available, False otherwise.
+
+def preflight(chosen: list[stages.Stage]) -> bool:
+    """Checks that take seconds and save hours; `-skp` does not skip them.
+
+    The config against its schema, the tools the chosen stages call, and, for
+    stages that read the curated Pfam subset, the Pfam library itself.
     """
+    ok = yaml_validator(
+        yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
+        yaml_file=defaults.CONFIG_FILE,
+    )
 
-    def check_version(cmd: str, version_cmd: str) -> bool:
-        try:
-            subprocess.run(
-                [cmd, version_cmd],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
-
-    checks = {
-        "BLAST+": check_version("tblastn", "-version"),
-        "Genometools": check_version("gt", "--version"),
-        "Datasets": check_version("datasets", "--version"),
-    }
-
-    for tool, status in checks.items():
-        log_fn = logging.info if status else logging.warning
-        log_fn(
-            f"{tool} {'is installed.' if status else 'not found. Please install it.'}"
+    absent = missing_tools(stages.tools(chosen))
+    if absent:
+        logger.error(
+            f"Not installed: {', '.join(absent)}. Activate the RetroSeek conda "
+            "environment, or add them with `make env-update`."
         )
+        ok = False
 
-    return all(checks.values())
+    if any(stage.flag in PFAM_STAGES for stage in chosen):
+        logger.info("Checking the Pfam library against the curated table...")
+        problem = pfam_problem(
+            Path(defaults.PATH_DICT["HMM_PROFILE_DIR"]) / "Pfam-A.hmm",
+            Path(defaults.PFAM_DOMAIN_CLASSES),
+        )
+        if problem:
+            logger.error(problem)
+            ok = False
+
+    return ok
 
 
 # -----------------------------
@@ -259,14 +284,17 @@ def validate_ncbi_key() -> None:
 # -----------------------------
 
 
-def main_validator(fasta_files: list[str] | None) -> bool:
+def main_validator(fasta_files: list[str] | None, chosen: list[stages.Stage]) -> bool:
     """
-    Orchestrates validation for YAML, CSV, FASTA, external tools, and API key.
+    The slow checks `-skp` skips: NCBI lookups of every probe accession and the
+    API-key prompt (only for stages that talk to NCBI), and the genome FASTAs.
 
     Parameters
     ----------
     fasta_files : list of str or None
         List of FASTA file paths to validate.
+    chosen : list of Stage
+        The stages about to run.
 
     Returns
     -------
@@ -274,13 +302,13 @@ def main_validator(fasta_files: list[str] | None) -> bool:
         True if all checks pass, False otherwise.
     """
     logger.debug("Starting input validation process...")
+    uses_ncbi = any(stage.flag in NCBI_STAGES for stage in chosen)
 
-    yaml_ok = yaml_validator(
-        yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
-        yaml_file=defaults.CONFIG_FILE,
+    csv_ok = (
+        csv_validator(csv_file=defaults.config["input"]["probe_csv"])
+        if uses_ncbi
+        else True
     )
-
-    csv_ok = csv_validator(csv_file=defaults.config["input"]["probe_csv"])
 
     if not defaults.USE_SPECIES_DICT and fasta_files:
         fasta_results = [fasta_validator(f) for f in fasta_files]
@@ -288,11 +316,10 @@ def main_validator(fasta_files: list[str] | None) -> bool:
     else:
         fasta_ok = True
 
-    programs_ok = validate_programs()
+    if uses_ncbi:
+        validate_ncbi_key()
 
-    validate_ncbi_key()
-
-    return all([yaml_ok, csv_ok, fasta_ok, programs_ok])
+    return all([csv_ok, fasta_ok])
 
 
 # -----------------------------
@@ -341,12 +368,16 @@ def green_light(all_valid: bool) -> bool:
 # -----------------------------
 
 
-def validation_run(fasta_files: list[str] | None = None) -> bool:
+def validation_run(
+    chosen: list[stages.Stage], fasta_files: list[str] | None = None
+) -> bool:
     """
-    CLI entrypoint to trigger validation routines and prompt user to continue.
+    The slow, skippable validation, then the confirmation prompt.
 
     Parameters
     ----------
+    chosen : list of Stage
+        The stages about to run.
     fasta_files : list of str, optional
         List of FASTA file paths to validate.
 
@@ -357,7 +388,6 @@ def validation_run(fasta_files: list[str] | None = None) -> bool:
     """
     colored_logging(log_file_name="validator.log")
 
-    fasta_files_list = fasta_files or []
-    all_valid = main_validator(fasta_files=fasta_files_list)
+    all_valid = main_validator(fasta_files=fasta_files or [], chosen=chosen)
 
     return green_light(all_valid=all_valid)

@@ -17,8 +17,11 @@ env-update: ## Update the conda/mamba env in place
 	mamba env update -f $(ENV_FILE) -n $(ENV_NAME) --prune || conda env update -f $(ENV_FILE) -n $(ENV_NAME) --prune
 
 # -- taxonomic-classification reference (build-once) ------
-reference: ## Build the genus-classification reference (Entrez fetch + placement trees)
-	snakemake --configfile data/config/config.yaml --cores 4 taxonomy_reference_trees
+# Through the launcher: its rules run scripts relative to workflow/, which a bare
+# snakemake from the repo root cannot find. Pick the config with CONFIG=...
+CONFIG ?= data/config/config.yaml
+reference: ## Build the genus-classification reference (CONFIG=path/to/config.yaml)
+	./RetroSeek --build-reference --configfile $(CONFIG)
 
 # -- linting / formatting / typing -----------------------
 lint: ## Run ruff lint on Python sources

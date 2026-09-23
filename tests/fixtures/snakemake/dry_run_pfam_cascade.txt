@@ -1,0 +1,55 @@
+Building DAG of jobs...
+Updating checkpoint dependencies.
+Job stats:
+job                              count
+-----------------------------  -------
+pfam_hmm_downloader                  1
+ltr_digester_setup                   5
+pfam_release_recorder                1
+pfam_subset_builder                  1
+ranges_analysis_setup                5
+domain_scanner_setup                 5
+taxonomy_classify_setup              5
+taxonomy_orphans_setup               5
+loss_analysis_setup                  1
+taxonomy_classify                    1
+taxonomy_orphans                     1
+taxonomy_tree_layout_setup           1
+loss_analysis                        1
+taxonomy_plot_generator_setup        1
+taxonomy_plot_generator              1
+total                               35
+
+
+[Wed Sep 23 14:48:28 2026]
+rule pfam_hmm_downloader:
+    output: /data/accessory/hmm_profiles/md5sum.txt, /data/accessory/hmm_profiles/Pfam-A.hmm
+    jobid: 19
+    reason: Params have changed since last execution: Union of exclusive params before and now across all output: before: 'https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz','https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums' now: 'https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/md5_checksums','https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam-A.hmm.gz'
+    threads: 16
+    resources: tmpdir=/tmp
+[Wed Sep 23 14:48:28 2026]
+rule ltr_digester_setup:
+    input: /data/study/results/tracks/ltrharvest/Desmodus_rotundus_sorted.gff3, /data/accessory/hmm_profiles/md5sum.txt, /data/accessory/hmm_profiles/Pfam-A.hmm, /data/genomes/Desmodus_rotundus.fa, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.des, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.esq, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.lcp, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.llv, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.md5, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.prj, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.sds, /data/genomes/Desmodus_rotundus/Desmodus_rotundus.suf
+    output: /data/study/results/tracks/ltrdigest/Desmodus_rotundus.gff3
+    jobid: 50
+    reason: Input files updated by another job: /data/accessory/hmm_profiles/Pfam-A.hmm, /data/accessory/hmm_profiles/md5sum.txt
+    wildcards: genome=Desmodus_rotundus
+    resources: tmpdir=/tmp
+[Wed Sep 23 14:48:28 2026]
+Reasons:
+    (check individual jobs above for details)
+    input files updated by another job:
+        domain_scanner_setup, loss_analysis, loss_analysis_setup, ltr_digester_setup, pfam_release_recorder, pfam_subset_builder, ranges_analysis_setup, taxonomy_classify, taxonomy_classify_setup, taxonomy_orphans, taxonomy_orphans_setup, taxonomy_plot_generator, taxonomy_plot_generator_setup, taxonomy_tree_layout_setup
+    output files have to be generated:
+        pfam_release_recorder
+    params have changed since last execution:
+        pfam_hmm_downloader
+Some jobs were triggered by provenance information, see 'reason' section in the rule displays above.
+If you prefer that only modification time is used to determine whether a job shall be executed, use the command line option '--rerun-triggers mtime' (also see --help).
+If you are sure that a change for a certain output file (say, <outfile>) won't change the result (e.g. because you just changed the formatting of a script or environment definition), you can also wipe its metadata to skip such a trigger via 'snakemake --cleanup-metadata <outfile>'.
+Rules with provenance triggered jobs: pfam_hmm_downloader
+
+19 jobs have missing provenance/metadata so that it in part cannot be used to trigger re-runs.
+Rules with missing metadata: full_genome_blaster_setup genome_fasta_normalizer_setup ltr_harvester_setup probe_extractor taxonomy_reference taxonomy_reference_trees_setup
+This was a dry-run (flag -n). The order of jobs does not reflect the order of execution.
