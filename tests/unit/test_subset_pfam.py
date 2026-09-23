@@ -95,6 +95,33 @@ def test_missing_accession_fails_loudly(hmm_file: Path, tmp_path: Path) -> None:
         subset_pfam.subset_pfam(hmm_file, bad, out)
 
 
+def test_missing_accession_message_says_why_and_how_to_fix(
+    hmm_file: Path, tmp_path: Path
+) -> None:
+    """The bare list of accessions once left a user deleting files by hand.
+
+    The message must name the likely cause (an older Pfam release) and the command
+    that fixes it.
+    """
+    bad = tmp_path / "bad.tsv"
+    bad.write_text("pfam_acc\tpfam_name\tclass\nPF99999\tnope\tother\n")
+    with pytest.raises(SystemExit) as caught:
+        subset_pfam.subset_pfam(hmm_file, bad, tmp_path / "subset.hmm")
+    message = str(caught.value)
+    assert "older Pfam release" in message
+    assert "input.pfam_release" in message
+    assert "--download-hmm" in message
+
+
+def test_missing_accessions_lists_what_the_library_lacks(hmm_file: Path) -> None:
+    wanted = {"PF00665", "PF99999", "PF88888"}
+    assert subset_pfam.missing_accessions(hmm_file, wanted) == ["PF88888", "PF99999"]
+
+
+def test_missing_accessions_is_empty_when_all_are_present(hmm_file: Path) -> None:
+    assert subset_pfam.missing_accessions(hmm_file, {"PF00665", "PF00078"}) == []
+
+
 def test_empty_table_is_an_error_not_an_empty_library(
     hmm_file: Path, tmp_path: Path
 ) -> None:

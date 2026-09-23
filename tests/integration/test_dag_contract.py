@@ -154,6 +154,51 @@ def test_classification_consumes_the_domain_scan(project_root: Path) -> None:
     assert text.count("--domains-scanned") == 2
 
 
+def _rule_block(project_root: Path, start: str, end: str) -> str:
+    text = (project_root / "workflow" / "Snakefile").read_text(encoding="utf-8")
+    return text[text.index(start) : text.index(end)]
+
+
+def test_pfam_download_is_pinned_to_a_release(project_root: Path) -> None:
+    """`current_release` changes under our feet: an older download once lacked 6
+    accessions of the curated table and stopped the domain scan (ADR-019)."""
+    downloader = _rule_block(
+        project_root, "rule pfam_hmm_downloader:", "rule pfam_release_recorder:"
+    )
+    assert "Pfam/current_release" not in downloader
+    assert "releases/Pfam" in downloader
+
+
+def test_pfam_downloader_outputs_are_unchanged(project_root: Path) -> None:
+    """A new output would rerun the downloader, and a new Pfam-A.hmm makes every
+    LTRdigest output stale (about a day per genome)."""
+    downloader = _rule_block(
+        project_root, "rule pfam_hmm_downloader:", "rule pfam_release_recorder:"
+    )
+    outputs = downloader[downloader.index("output:") : downloader.index("params:")]
+    assert outputs.count("os.path.join") == 2
+    assert "'md5sum.txt'" in outputs
+    assert "'Pfam-A.hmm'" in outputs
+
+
+def test_pfam_release_record_never_feeds_ltrdigest(project_root: Path) -> None:
+    digester = _rule_block(
+        project_root, "rule ltr_digester_setup:", "rule ltr_digester:"
+    )
+    assert "pfam_release_recorder" not in digester
+    assert "Pfam.version" not in digester
+
+
+def test_pfam_release_record_is_made_with_the_domain_scan(project_root: Path) -> None:
+    """The record rides on the aggregate rules only, so adding it reruns nothing."""
+    scanner = _rule_block(
+        project_root,
+        "rule domain_scanner:",
+        "# ----------------------------- Taxonomic",
+    )
+    assert "pfam_release_recorder" in scanner
+
+
 def test_retired_domain_regex_config_is_gone(project_root: Path) -> None:
     """`config.domains` and `parameters.hit_domain_mode` were retired by ADR-015;
     a reintroduced block would silently resurrect the name-regex labelling."""

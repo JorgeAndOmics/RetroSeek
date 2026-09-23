@@ -161,6 +161,9 @@ input_schema:
   # Curated Pfam domain class table. Optional: defaults to
   # data/config/pfam_domain_classes.tsv.
   pfam_domain_classes: str(required=False)
+  # Pfam release to download and record (ADR-019), e.g. '38.2'. Optional:
+  # defaults to 38.2, the release the curated class table was checked against.
+  pfam_release: str(matches='^[0-9]+\.[0-9]+$', required=False)
 
 display_schema:
   display_snakemake_info: bool()

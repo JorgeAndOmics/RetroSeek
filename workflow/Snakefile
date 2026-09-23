@@ -170,8 +170,12 @@ rule pfam_hmm_downloader:
         hmm=os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Pfam-A.hmm')
     params:
         hmm_profile_dir=defaults.PATH_DICT['HMM_PROFILE_DIR'],
-        url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz',
-        md5_url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/md5_checksums'
+        # Pinned (ADR-019): `current_release` once handed a server a library that
+        # lacked 6 curated accessions. The outputs stay exactly as they were: a
+        # new output here would rerun this rule, and a new Pfam-A.hmm makes every
+        # LTRdigest output stale.
+        url=f'https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam{defaults.PFAM_RELEASE}/Pfam-A.hmm.gz',
+        md5_url=f'https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam{defaults.PFAM_RELEASE}/md5_checksums'
     threads:
         workflow.cores
     shell:
@@ -183,6 +187,24 @@ rule pfam_hmm_downloader:
         echo "MD5 checksum for HMM profile is correct. Decompressing..." && \
         gunzip -d -f -v -k {params.hmm_profile_dir:q}/Pfam-A.hmm.gz
         """
+
+
+# Which Pfam release the domain scan used (ADR-019). Pfam-A.hmm carries no release
+# number, so this record is the only trace. It hangs off the aggregate targets
+# (domain_scanner, taxonomy_classify) and nothing consumes it, so adding it
+# reruns nothing; above all it is never an input of LTRdigest.
+rule pfam_release_recorder:
+    input:
+        md5 = rules.pfam_hmm_downloader.output.md5
+    output:
+        version = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam.version')
+    params:
+        release = defaults.PFAM_RELEASE
+    shell:
+        '''
+        PYTHONPATH=scripts python scripts/domains/pfam_release.py \
+            --release {params.release:q} --local-md5 {input.md5:q} --out {output.version:q}
+        '''
 
 
 # Curated subset of Pfam-A, plus the name->accession map needed to interpret
@@ -1292,7 +1314,8 @@ rule domain_scanner:
     input:
         domain_tables = lambda wildcards: expand(
             os.path.join(defaults.PATH_DICT['DOMAIN_TABLES_PARQUET_DIR'], '{genome}.domains.parquet'),
-            genome=species_with_hits(wildcards))
+            genome=species_with_hits(wildcards)),
+        pfam_release = rules.pfam_release_recorder.output.version
 
 
 # ----------------------------- Taxonomic classification ----------------------
@@ -1458,7 +1481,9 @@ rule taxonomy_classify:
         placements = lambda wildcards: (
             expand(os.path.join(defaults.PATH_DICT['PLACEMENT_DIR'], '{genome}.ltr-flanked.{gene}.jplace'),
                    genome=species_with_hits(wildcards), gene=_PLACEMENT_GENES)
-            if _CLASSIFICATION.get('enable', True) else [])
+            if _CLASSIFICATION.get('enable', True) else []),
+        # Which Pfam release the domain evidence came from (ADR-019).
+        pfam_release = rules.pfam_release_recorder.output.version
 
 
 # Orphans tier - recover non-LTR-associated orphans by running the SAME

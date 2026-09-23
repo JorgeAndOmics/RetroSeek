@@ -221,6 +221,7 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 |---|---|---|---|
 | `probe_csv` | string | - | **Required.** Path to the probe metadata CSV; relative paths resolve against the repo root. Columns expected: `Label, Name, Abbreviation, Probe, Accession`. |
 | `species_tree` | str | `''` (none) | Path to a Newick file of the host-species phylogeny (ADR-011). Used to order and annotate the species panels; empty means no species tree and those plots render an explanatory placeholder instead. Tip labels are matched to the `species:` display names, ignoring case and `_` vs space, and any species not found in the tree (or tip not found in the study) is reported in the log rather than silently dropped. Pin the file in your repo/data dir for reproducibility - e.g. a dated TimeTree export. |
+| `pfam_release` | string | `'38.2'` | Pfam release that `--download-hmm` fetches and the domain scan records in `Pfam.version` (ADR-019). The curated class table was checked against 38.2; an older library lacks some of its families and stops the domain scan with a message naming them. Changing it is a deliberate act: see ADR-019, "Moving to a newer release". |
 
 ## `display`
 
