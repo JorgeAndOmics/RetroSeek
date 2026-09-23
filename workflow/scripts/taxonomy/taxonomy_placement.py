@@ -20,13 +20,12 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any
 
 import taxonomy_lca as tlca
 from Bio import SeqIO
+
+from external import run_tool
 
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 EPA_NG = "epa-ng"
@@ -40,20 +39,6 @@ _JPLACE_FIELDS = [
     "distal_length",
     "pendant_length",
 ]
-
-
-def _run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]:
-    res = subprocess.run(
-        cmd,
-        stdout=stdout or subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"placement command failed: {' '.join(cmd[:3])}...")
-    return res
 
 
 def _read_model(iqtree_file: Path, default: str = "LG+F+G4") -> str:
@@ -95,7 +80,7 @@ def _align_queries(
         for qid, seq in queries.items():
             fh.write(f">{qid}\n{seq}\n")
     combined = workdir / "combined.afa"
-    _run(
+    run_tool(
         [MAFFT, "--add", str(q_faa), "--keeplength", "--anysymbol", str(ref_afa)],
         stdout=combined.open("w", encoding="utf-8"),
     )
@@ -170,7 +155,7 @@ def place(
     q_aln = _align_queries(queries, ref_afa, workdir)
     if q_aln is None:  # all queries were all-gap -> nothing to place
         return {}
-    _run(
+    run_tool(
         [
             EPA_NG,
             "--redo",
@@ -187,7 +172,7 @@ def place(
         ]
     )
     jplace = workdir / "epa_result.jplace"
-    _run(
+    run_tool(
         [
             GAPPA,
             "examine",

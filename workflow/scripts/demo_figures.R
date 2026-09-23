@@ -57,6 +57,7 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
@@ -67,17 +68,6 @@ source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
 # The erv-like structural panel now reads the genus-founded loci table; reuse its
 # loader + composition-heatmap builder (the file's main() stays dormant when sourced).
 source(file.path(.script_dir, "taxonomy", "erv_like_plot_generator.R"))
-
-
-# ----------------------------------------------------------------------------
-# Instrumentation - io.R helpers call log_section(), so define it (as the
-# production orchestrators do) before any loader runs.
-# ----------------------------------------------------------------------------
-.t0 <- Sys.time()
-log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-  message(sprintf("[%6.2fs] > %s", elapsed, name))
-}
 
 
 # ----------------------------------------------------------------------------
@@ -128,7 +118,10 @@ main <- function() {
                       help = "Output directory for the demo PNGs")
   parser$add_argument("--config", default = "data/config/config.yaml",
                       help = "YAML config (read for plot parameters)")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "demo_figures")
 
   use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
@@ -148,7 +141,6 @@ main <- function() {
     plot <- stamp_tier_note(plot, "Demo data, anonymised.")
     save_plot(name, plot, args$output,
               base_w = plot_width, base_h = plot_height, dpi = plot_dpi)
-    message("wrote ", file.path(args$output, name))
   }
 
   # ---- Load + anonymise -----------------------------------------------------
@@ -206,7 +198,7 @@ main <- function() {
   loci <- load_taxon_loci(taxonomy_dir)
   emit("erv_like_heatmap.png", composition_heatmap_plot(loci))
 
-  message("Done: wrote 6 anonymised demo figures to ", args$output)
+  log_ok("wrote 6 anonymised demo figures to %s", args$output)
 }
 
-if (sys.nframe() == 0L) main()
+if (sys.nframe() == 0L) run_main(main)

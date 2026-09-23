@@ -52,14 +52,10 @@ suppressMessages({
   library(yaml)
 })
 
-# Two one-line helpers every R stage script in this project defines for itself
+# A one-line helper every R stage script in this project defines for itself
 # rather than importing, following the existing convention (see hotspot_detector.R
 # and taxonomy_segments.R).
 `%||%` <- function(x, y) if (is.null(x)) y else x
-
-log_section <- function(name) {
-  message(sprintf("[solo_plots] %s", name))
-}
 
 
 # The three fates, as solo_finder writes them. Their colours and words come from
@@ -291,7 +287,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   get <- function(key) {
     value <- summary_dt[metric == key, value][1]
     if (length(value) == 0 || is.na(value)) return(NA_real_)
-    suppressWarnings(as.numeric(value))
+    suppressWarnings(as.numeric(value))  # blank metric (no seeds on the tree) -> NA
   }
   subtitle <- sprintf(paste(
     "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
@@ -327,7 +323,7 @@ tree_enrichment_plot <- function(summary_dt, species) {
   get <- function(key) {
     value <- summary_dt[metric == key, value][1]
     if (length(value) == 0 || is.na(value)) return(NA_real_)
-    suppressWarnings(as.numeric(value))
+    suppressWarnings(as.numeric(value))  # blank metric (no seeds on the tree) -> NA
   }
   observed <- get("same_class_sister_observed")
   null_mean <- get("same_class_sister_null_mean")
@@ -564,6 +560,7 @@ read_optional <- function(path) {
 #   (no --genome)   write the all-species PDF and the summary report
 main <- function() {
   script_dir <- .resolve_script_dir()
+  source(file.path(script_dir, "..", "utils", "log.R"))  # the line contract (ADR-021)
   source(file.path(script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(script_dir, "..", "plot2sort", "io.R"))
@@ -580,8 +577,16 @@ main <- function() {
                       help = "Summary mode only: where to write the report CSV.")
   parser$add_argument("--species_tree_dir", default = "",
                       help = "Summary mode: the host tree coordinates (species_tree_layout.py).")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, if (is.null(args$genome)) "solo_plot_summary" else "solo_plot_generator")
+  run_main(function() draw(args))
+}
 
+
+# The work of one run: a genome's PDF (--genome) or the all-species summary.
+draw <- function(args) {
   cfg <- yaml::read_yaml(args$config)
   solo <- cfg$solo_ltr
   species_map <- cfg$species
@@ -629,7 +634,7 @@ main <- function() {
             "and the LTR families cut from it."),
       colours = .fate_key(), pages = page_titles(plots))
     save_stage_pdf(c(list(key), plots), args$out_pdf)
-    log_section(sprintf("wrote %s (%d pages)", args$out_pdf, length(plots) + 1L))
+    log_ok("wrote %s, %d pages", basename(args$out_pdf), length(plots) + 1L)
     return(invisible(NULL))
   }
 
@@ -669,8 +674,8 @@ main <- function() {
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(nrow(report)))
   fwrite(report, args$report)
-  log_section(sprintf("wrote %s and %s (%d genomes)", args$out_pdf, args$report,
-                      nrow(report)))
+  log_ok("wrote %s and %s, %d genomes", basename(args$out_pdf), basename(args$report),
+         nrow(report))
 }
 
 

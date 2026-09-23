@@ -36,7 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "workflow" / "scripts"
 # Stage scripts now live in per-stage subdirs (e.g. taxonomy/); the scripts still
 # cross-import by bare name, so both the package root (shared infra: defaults,
-# colored_logging, ...) and each stage dir tests import from must be on sys.path.
+# log, ...) and each stage dir tests import from must be on sys.path.
 _STAGE_DIRS = ("taxonomy", "solo_ltr", "blast_search", "domains")
 for _p in (SCRIPTS_DIR, *(SCRIPTS_DIR / d for d in _STAGE_DIRS)):
     if str(_p) not in sys.path:
@@ -56,8 +56,6 @@ def _build_defaults_stub() -> types.ModuleType:
     stub.E_VALUE = 1e-3
     stub.ACCESSION_ID_REGEX = r"[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}"
     stub.PROBE_MIN_LENGTH: dict[str, int] = {}
-    stub.LEVEL_STYLES: dict[str, dict] = {}
-    stub.FIELD_STYLES: dict[str, dict] = {}
     stub.PATH_DICT: dict[str, Path] = {
         "TMP_DIR": Path("/tmp/retroseek-test-tmp"),
         "LOG_DIR": Path("/tmp/retroseek-test-logs"),
@@ -73,9 +71,7 @@ def _build_defaults_stub() -> types.ModuleType:
     stub.MAX_RETRIEVAL_ATTEMPTS = 2
     stub.MAX_THREADPOOL_WORKERS = 1
     stub.ENTREZ_EMAIL = "test@example.com"
-    stub.DISPLAY_SNAKEMAKE_INFO = False
-    stub.DISPLAY_REQUESTS_WARNING = False
-    stub.DISPLAY_OPERATION_INFO = False
+    stub.VERBOSITY = "normal"
     stub.PROBE_CSV = Path("/tmp/retroseek-test-probes.csv")
     stub.SPECIES_DICT: dict[str, str] = {}
     stub.SPECIES: list[str] = []

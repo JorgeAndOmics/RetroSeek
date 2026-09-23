@@ -90,7 +90,6 @@ module = [
     "dill.*",
     "yaml",
     "yamale.*",
-    "coloredlogs.*",
     "tqdm.*",
     "snakemake.*",
 ]

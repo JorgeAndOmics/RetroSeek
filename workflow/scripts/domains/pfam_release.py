@@ -29,9 +29,13 @@ from __future__ import annotations
 
 import argparse
 import gzip
-import sys
+import logging
 import urllib.request
 from pathlib import Path
+
+from log import OK, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 PFAM_RELEASES = "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases"
 HMM_ARCHIVE = "Pfam-A.hmm.gz"
@@ -78,15 +82,7 @@ def _fetch(url: str) -> bytes:
     return data
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Record the Pfam release in use.")
-    parser.add_argument("--release", required=True, help="pinned release, e.g. 38.2")
-    parser.add_argument(
-        "--local-md5", type=Path, required=True, help="md5sum.txt from the downloader"
-    )
-    parser.add_argument("--out", type=Path, required=True, help="record to write")
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace) -> None:
     base = release_url(args.release)
     version_text = gzip.decompress(_fetch(f"{base}/Pfam.version.gz")).decode()
     release_md5_text = _fetch(f"{base}/md5_checksums").decode()
@@ -96,14 +92,26 @@ def main() -> None:
         args.release, version_text, local_md5_text, release_md5_text
     )
     args.out.write_text(text, encoding="utf-8")
-    if not matches:
-        print(
-            f"WARNING: the local {HMM_ARCHIVE} is not Pfam {args.release}, the "
-            "release in input.pfam_release. Domain calls will come from another "
-            "release. Fix: ./RetroSeek --download-hmm --forcerun pfam_hmm_downloader",
-            file=sys.stderr,
+    if matches:
+        logger.log(OK, "Pfam %s recorded, local download matches", args.release)
+    else:
+        logger.warning(
+            "the local %s is not Pfam %s (input.pfam_release), so domain calls come "
+            "from another release. Fix: ./RetroSeek --download-hmm --forcerun "
+            "pfam_hmm_downloader",
+            HMM_ARCHIVE,
+            args.release,
         )
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Record the Pfam release in use.")
+    parser.add_argument("--release", required=True, help="pinned release, e.g. 38.2")
+    parser.add_argument(
+        "--local-md5", type=Path, required=True, help="md5sum.txt from the downloader"
+    )
+    parser.add_argument("--out", type=Path, required=True, help="record to write")
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
+    cli = parser.parse_args()
+    job_logging(cli.log, "pfam_release_recorder")
+    run_main(lambda: main(cli))

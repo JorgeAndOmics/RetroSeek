@@ -239,7 +239,7 @@ annotate_hotspot_composition <- function(merged_gr, loci, group_col = "segment")
   source_col      <- col_of("source")
   taxon           <- col_of(group_col)
   conf <- if ("confidence" %in% colnames(mc)) {
-    suppressWarnings(as.numeric(mc$confidence[locus_i]))
+    suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: blank -> NA
   } else {
     NULL
   }

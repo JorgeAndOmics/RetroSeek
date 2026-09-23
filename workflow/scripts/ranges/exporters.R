@@ -107,7 +107,7 @@ write_table <- function(df, parquet_path = NULL, csv_path = NULL) {
 # back to "unknown" when not in a git working tree (e.g. installed packages).
 resolve_generator_version <- function() {
   ver <- tryCatch(
-    suppressWarnings(system2("git", c("rev-parse", "--short", "HEAD"),
+    suppressWarnings(system2("git", c("rev-parse", "--short", "HEAD"),  # not a git tree: expected
                              stdout = TRUE, stderr = FALSE)),
     error = function(e) character(0)
   )

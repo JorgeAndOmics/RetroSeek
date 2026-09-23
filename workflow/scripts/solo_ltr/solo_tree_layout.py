@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,10 @@ import tree_families
 from Bio import Phylo
 from tree_layout import layout
 from tree_stats import tip_class
+
+from log import OK, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 
 def _write(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None:
@@ -142,14 +147,16 @@ def write_views(
     return families
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--treefile", type=Path, required=True)
     parser.add_argument("--table-prefix", type=Path, required=True)
     parser.add_argument("--out-solo-newick", type=Path, required=True)
     parser.add_argument("--family-max-distance", type=float, required=True)
     parser.add_argument("--family-panels-per-kind", type=int, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "solo_tree_views")
 
     families = write_views(
         args.treefile,
@@ -161,13 +168,20 @@ def main(argv: list[str] | None = None) -> int:
     no_intact = [f for f in families if f.kind == tree_families.NO_INTACT]
     with_intact = [f for f in families if f.kind == tree_families.WITH_INTACT]
     total_solos = sum(f.n_solo for f in families)
-    print(
-        f"families at diameter <= {args.family_max_distance}: {len(families)}; "
-        f"{len(no_intact)} without an intact member, holding {sum(f.n_solo for f in no_intact)} of "
-        f"{total_solos} sampled solos, {len(with_intact)} with an intact member"
+    logger.info(
+        "%d without an intact member, holding %d of %d sampled solos; %d with one",
+        len(no_intact),
+        sum(f.n_solo for f in no_intact),
+        total_solos,
+        len(with_intact),
     )
-    return 0
+    logger.log(
+        OK,
+        "%d LTR families at diameter up to %s",
+        len(families),
+        args.family_max_distance,
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

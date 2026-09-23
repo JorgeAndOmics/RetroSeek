@@ -91,7 +91,7 @@ def test_missing_accession_fails_loudly(hmm_file: Path, tmp_path: Path) -> None:
     bad = tmp_path / "bad.tsv"
     bad.write_text("pfam_acc\tpfam_name\tclass\nPF99999\tnope\tother\n")
     out = tmp_path / "subset.hmm"
-    with pytest.raises(SystemExit, match="PF99999"):
+    with pytest.raises(subset_pfam.PipelineError, match="PF99999"):
         subset_pfam.subset_pfam(hmm_file, bad, out)
 
 
@@ -105,7 +105,7 @@ def test_missing_accession_message_says_why_and_how_to_fix(
     """
     bad = tmp_path / "bad.tsv"
     bad.write_text("pfam_acc\tpfam_name\tclass\nPF99999\tnope\tother\n")
-    with pytest.raises(SystemExit) as caught:
+    with pytest.raises(subset_pfam.PipelineError) as caught:
         subset_pfam.subset_pfam(hmm_file, bad, tmp_path / "subset.hmm")
     message = str(caught.value)
     assert "older Pfam release" in message
@@ -128,7 +128,7 @@ def test_empty_table_is_an_error_not_an_empty_library(
     empty = tmp_path / "empty.tsv"
     empty.write_text("pfam_acc\tpfam_name\tclass\n")
     out = tmp_path / "subset.hmm"
-    with pytest.raises(SystemExit, match="no accessions"):
+    with pytest.raises(subset_pfam.PipelineError, match="no accessions"):
         subset_pfam.subset_pfam(hmm_file, empty, out)
 
 

@@ -62,7 +62,7 @@ STAGES: tuple[Stage, ...] = (
         ("genome_downloader",),
         "Download the genomes listed under `species:` (skips files already present).",
         heavy=("genome_downloader_setup", "genome_downloader"),
-        tools=("datasets", "jq", "pv"),
+        tools=("datasets", "jq", "unzip"),
     ),
     Stage(
         "--download-hmm",
@@ -126,7 +126,10 @@ STAGES: tuple[Stage, ...] = (
         "Discovery",
         ("blast_pkl2parquet",),
         "Search every probe against every genome with tBLASTn.",
-        heavy=("full_genome_blaster_setup", "full_genome_blaster"),
+        # blast_pkl2parquet is the checkpoint that decides which genomes have
+        # hits. Until it has run, Snakemake cannot list the jobs after it, so a
+        # rerun would hide heavy jobs from the guard: it is guarded like one.
+        heavy=("full_genome_blaster_setup", "full_genome_blaster", "blast_pkl2parquet"),
         tools=("tblastn",),
     ),
     # --- Analysis
@@ -275,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--stop-on-error",
         action="store_true",
         help="Stop at the first failed job. By default the other jobs finish.",
+    )
+    options.add_argument(
+        "--verbosity",
+        choices=("quiet", "normal", "verbose"),
+        default=None,
+        help="How much the terminal shows for this run (overrides display.verbosity).",
     )
     options.add_argument(
         "--config-help",

@@ -188,10 +188,6 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 | `segment_rank` | str | `genus` | Taxonomic rank each `taxon_call` is rolled up to for the by-segment stage (ADR-011). Any NCBI rank (`genus`, `subfamily`, `family`, ...) - the roll-up walks the reference `taxonomy.tsv` hierarchy, so no taxon name is ever hard-coded and the pipeline stays rank-agnostic. A locus whose call is *coarser* than this rank (e.g. `Retroviridae` when segmenting by genus) becomes `unassigned_at_<rank>` rather than being given precision its evidence does not support. |
 | `reference_taxa` | list of str | `[]` | The **classification axis** (ADR-008): the taxa - at **any** rank (genus `Lentivirus`, family `Bornaviridae`, ...) - the reference is built at and that a locus can resolve to as a first-class `taxon_call`. Empty or absent derives the axis from the distinct probeset `Label` values, so `Label` seeds the classifier; setting an explicit list decouples the classifier from the probeset. Changing it requires rebuilding the reference (`make reference`). |
 
-## `logging`
-
-`level_styles` and `field_styles` are passed through to `coloredlogs`. See `coloredlogs.install()` documentation for accepted style dicts. Keys: `color`, `bold`, `background`.
-
 ## `plots`
 
 | Key | Type | Default | Meaning |
@@ -225,13 +221,18 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 
 ## `display`
 
-Toggle verbosity flags used by logging and UI code.
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `verbosity` | `quiet` \| `normal` \| `verbose` | `normal` | How much the terminal shows during a run (ADR-021). `quiet`: the banner, the progress bar, errors and the closing summary. `normal`: also one headline line per finished job and every warning. `verbose`: also every message of every job and Snakemake's own output. Job logs (`LOG_DIR/<step>/<genome>.log`) and the run log (`LOG_DIR/runs/<time>.log`) are always complete. `./RetroSeek --verbosity ...` overrides it for one run. **Strict enum.** |
 
-| Key | Type | Default |
-|---|---|---|
-| `display_snakemake_info` | bool | `false` |
-| `display_requests_warning` | bool | `false` |
-| `display_operation_info` | bool | `true` |
+Colour follows the terminal: it is off when the output is not a terminal, and
+the standard `NO_COLOR=1` / `FORCE_COLOR=1` environment variables turn it off or
+on. Log files never contain colour codes.
+
+**Retired keys** (a config that still has them stops at launch, naming the
+replacement): `display.display_snakemake_info`, `display.display_operation_info`
+and `display.display_requests_warning` became `display.verbosity`; the `logging:`
+block (colour styles) is gone, the colours are fixed.
 
 ## `root`
 

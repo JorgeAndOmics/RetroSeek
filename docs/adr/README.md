@@ -29,6 +29,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 018   | [One visual system for every figure, one PDF per stage](ADR-018-one-visual-system.md) | Accepted |
 | 019   | [Pin the Pfam release and record it](ADR-019-pinned-pfam-release.md) | Accepted |
 | 020   | [One stage table, one workflow per run, and a guard on the heavy searches](ADR-020-one-stage-table-one-workflow.md) | Accepted |
+| 021   | [One console convention, drawn by the launcher](ADR-021-one-console-convention.md) | Accepted |
 
 ## When to write a new ADR
 

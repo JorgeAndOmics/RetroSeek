@@ -1,7 +1,6 @@
 # =============================================================================
-# 0. Suppress Warnings and Load Libraries
+# 0. Load Libraries
 # =============================================================================
-options(warn = -1)
 suppressMessages({
   library(yaml)
   library(argparse)
@@ -21,6 +20,7 @@ suppressMessages({
   "."
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "species_segmenter", "segment.R"))
 
 # =============================================================================
@@ -43,7 +43,10 @@ parser$add_argument(
   )
 )
 
+parser$add_argument("--log", default = NULL,
+                    help = "job log file; the Snakemake log: path")
 args <- parser$parse_args()
+log_job(args$log, "species_segmenter")
 
 # Write a data frame as both Parquet (pipeline-internal, data/tables/) and CSV
 # (user-facing, results/tables/), under the matching per-table subdirectory.
@@ -52,57 +55,67 @@ write_both <- function(df, name) {
   utils::write.csv(df, file.path(args$csv_dir, paste0(name, ".csv")), row.names = FALSE)
 }
 
-# =============================================================================
-# 2. Load Input File and Config
-# =============================================================================
-data <- arrow::read_parquet(args$input_file)
-config <- yaml::read_yaml(args$config_file)
+# main(): sections 2 to 5, run through run_main() so warnings are logged and
+# every ending is recorded the same way (ADR-021).
+main <- function(args) {
+  # =============================================================================
+  # 2. Load Input File and Config
+  # =============================================================================
+  data <- arrow::read_parquet(args$input_file)
+  config <- yaml::read_yaml(args$config_file)
 
-# Store probe names from config
-main_probe_names <- config$parameters$main_probes
+  # Store probe names from config
+  main_probe_names <- config$parameters$main_probes
 
-# =============================================================================
-# 3. Write Main & Accessory Parquet Outputs (partition once)
-# =============================================================================
-segments <- segment_by_probe(data, main_probe_names)
+  # =============================================================================
+  # 3. Write Main & Accessory Parquet Outputs (partition once)
+  # =============================================================================
+  segments <- segment_by_probe(data, main_probe_names)
 
-message("Writing full main and accessory tables.")
-write_both(segments$main, "all_main")
-write_both(segments$accessory, "all_accessory")
+  log_info("writing full main and accessory tables")
+  write_both(segments$main, "all_main")
+  write_both(segments$accessory, "all_accessory")
 
-# =============================================================================
-# 4. Split by Species and Write Per-Species Files
-# =============================================================================
-species_list <- data %>%
-  group_by(species) %>%
-  group_split(.keep = TRUE)
+  # =============================================================================
+  # 4. Split by Species and Write Per-Species Files
+  # =============================================================================
+  species_list <- data %>%
+    group_by(species) %>%
+    group_split(.keep = TRUE)
 
-# Write species-specific files by extracting name directly from each group
-written <- character(0)
-for (i in seq_along(species_list)) {
-  sp <- unique(species_list[[i]]$species)
-  message(paste("Writing hits for species:", sp))
-  write_both(species_list[[i]], sp)
-  written <- c(written, sp)
-}
-
-# =============================================================================
-# 5. Ensure every configured species has a parquet file (empty if no hits)
-# =============================================================================
-# The B1 checkpoint-based DAG expects species_segmenter_setup to produce a
-# {genome}.parquet for every SPECIES passed from the Snakefile - not just
-# the species that happened to produce BLAST hits. Downstream aggregates
-# consume only the subset with hits (via species_with_hits(wildcards) at
-# runtime) but the per-genome rule outputs must exist for Snakemake to
-# resolve the dependency graph.
-all_species <- parse_species_list(args$species)
-missing_species <- species_to_backfill(all_species, written)
-if (length(missing_species) > 0L) {
-  # Use the same schema as the input so readers don't need to branch on
-  # missing-column edge cases. Zero-row slice preserves all column types.
-  empty_df <- data[0L, , drop = FALSE]
-  for (sp in missing_species) {
-    message(paste("Writing empty table for species (no hits):", sp))
-    write_both(empty_df, sp)
+  # Write species-specific files by extracting name directly from each group
+  written <- character(0)
+  for (i in seq_along(species_list)) {
+    sp <- unique(species_list[[i]]$species)
+    log_info("writing hits for species: %s", sp)
+    write_both(species_list[[i]], sp)
+    written <- c(written, sp)
   }
+
+  # =============================================================================
+  # 5. Ensure every configured species has a parquet file (empty if no hits)
+  # =============================================================================
+  # The B1 checkpoint-based DAG expects species_segmenter_setup to produce a
+  # {genome}.parquet for every SPECIES passed from the Snakefile - not just
+  # the species that happened to produce BLAST hits. Downstream aggregates
+  # consume only the subset with hits (via species_with_hits(wildcards) at
+  # runtime) but the per-genome rule outputs must exist for Snakemake to
+  # resolve the dependency graph.
+  all_species <- parse_species_list(args$species)
+  missing_species <- species_to_backfill(all_species, written)
+  if (length(missing_species) > 0L) {
+    # Use the same schema as the input so readers don't need to branch on
+    # missing-column edge cases. Zero-row slice preserves all column types.
+    empty_df <- data[0L, , drop = FALSE]
+    for (sp in missing_species) {
+      log_info("writing empty table for species (no hits): %s", sp)
+      write_both(empty_df, sp)
+    }
+  }
+
+  log_ok("%s hits split over %s genomes (%s without hits)",
+         format(nrow(data), big.mark = ","), format(length(all_species), big.mark = ","),
+         format(length(missing_species), big.mark = ","))
 }
+
+run_main(function() main(args))

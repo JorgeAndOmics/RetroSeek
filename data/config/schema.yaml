@@ -5,7 +5,6 @@ parameters: include('parameters_schema')
 solo_ltr: include('solo_ltr_schema', required=False)
 placement: include('placement_schema', required=False)
 classification: include('classification_schema', required=False)
-logging: include('logging_schema')
 plots: include('plots_schema')
 execution: include('execution_schema')
 input: include('input_schema')
@@ -105,39 +104,6 @@ classification_schema:
   reference_taxa:  list(str(), required=False)
 
 
-logging_schema:
-  level_styles: include('level_styles_schema')
-  field_styles: include('field_styles_schema')
-
-level_styles_schema:
-  debug: include('color_only_schema')
-  info: include('color_bold_schema')
-  warning: include('color_only_schema')
-  error: include('color_bold_schema')
-  critical: include('color_bold_bg_schema')
-
-field_styles_schema:
-  asctime: include('color_only_schema')
-  hostname: include('color_only_schema')
-  levelname: include('color_only_schema')
-  name: include('color_only_schema')
-  programname: include('color_only_schema')
-  username: include('color_only_schema')
-  process: include('color_only_schema')
-  thread: include('color_only_schema')
-
-color_only_schema:
-  color: str()
-
-color_bold_schema:
-  color: str()
-  bold: str()
-
-color_bold_bg_schema:
-  color: str()
-  bold: str()
-  background: str()
-
 plots_schema:
   segment_panel: enum('full', 'curated', 'none', required=False)
   bitscore_x_scale: str(matches='^(linear|log10)$', required=False)
@@ -166,9 +132,8 @@ input_schema:
   pfam_release: str(matches='^[0-9]+\.[0-9]+$', required=False)
 
 display_schema:
-  display_snakemake_info: bool()
-  display_requests_warning: bool()
-  display_operation_info: bool()
+  # How much the terminal shows during a run (ADR-021). Job logs are always full.
+  verbosity: enum('quiet', 'normal', 'verbose', required=False)
 
 root_schema:
   db_root_folder: str()

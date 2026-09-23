@@ -33,15 +33,13 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any
 
 import taxonomy_lca as tlca
 from Bio import SeqIO
 
-from colored_logging import colored_logging
+from external import run_tool
+from log import OK, PipelineError, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +47,6 @@ MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 IQTREE = "iqtree"
 RAXML = "raxml-ng"
 HMMBUILD = "hmmbuild"
-
-
-def run(cmd: list[str], stdout: Any = None) -> subprocess.CompletedProcess[str]:
-    res = subprocess.run(
-        cmd,
-        stdout=stdout or subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"command failed: {' '.join(cmd[:3])}...")
-    return res
 
 
 def gene_subset(
@@ -82,7 +66,10 @@ def gene_subset(
                 out.write(f">{acc}\n{rec.seq!s}\n")
                 n += 1
     if n < 4:
-        raise SystemExit(f"only {n} {gene} references - too few to build a tree")
+        raise PipelineError(
+            f"only {n} {gene} reference proteins, too few to build a tree",
+            hint="widen classification.reference_taxa or drop the gene from placement_genes",
+        )
     return wanted
 
 
@@ -117,7 +104,7 @@ def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
             fh.write(f"{acc}\t{lineage}\n")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Build a per-gene placement tree package")
     p.add_argument("gene", help="marker gene, e.g. POL or GAG")
     p.add_argument(
@@ -133,9 +120,10 @@ def main(argv: list[str] | None = None) -> int:
         help="RNG seed for IQ-TREE + raxml-ng (reproducible trees); from parameters.seed",
     )
     p.add_argument("--threads", type=int, default=2, help="tree-building threads")
+    p.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     a = p.parse_args(argv)
     gene = a.gene.upper()
-    colored_logging(log_file_name=f"taxonomy_build_tree_{gene}.txt")
+    job_logging(a.log, "taxonomy_reference_trees")
     ref_dir = a.ref_dir
     trees = ref_dir / "trees"
     trees.mkdir(parents=True, exist_ok=True)
@@ -150,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     afa = trees / f"{gene}.afa"
-    run(
+    run_tool(
         [MAFFT, "--maxiterate", "1000", "--localpair", "--anysymbol", str(gene_faa)],
         stdout=afa.open("w", encoding="utf-8"),
     )
@@ -159,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     prefix = trees / gene
     # fixed standard protein model (LG+F+G4) - skips slow ModelFinder; gives the topology.
     # -seed makes the search reproducible (UFBoot resampling + NNI tie-breaks).
-    run(
+    run_tool(
         [
             IQTREE,
             "-s",
@@ -182,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     # raxml-ng appends ".raxml.<suffix>" to --prefix, so prefix=<gene> -> <gene>.raxml.bestModel
     # --redo overwrites stale <gene>.raxml.* from a prior build; without it raxml-ng aborts
     # on any rebuild ("file already exists"), unlike the idempotent iqtree (-redo) call.
-    run(
+    run_tool(
         [
             RAXML,
             "--evaluate",
@@ -203,11 +191,10 @@ def main(argv: list[str] | None = None) -> int:
             str(a.threads),
         ]
     )
-    run([HMMBUILD, "--amino", str(trees / f"{gene}.hmm"), str(afa)])
+    run_tool([HMMBUILD, "--amino", str(trees / f"{gene}.hmm"), str(afa)])
     taxon_map(acc_taxon, trees / f"{gene}.taxon.tsv")
-    logger.info("[%s] tree package written -> %s/%s.*", gene, trees, gene)
-    return 0
+    logger.log(OK, "%s tree package written to %s", gene, trees)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

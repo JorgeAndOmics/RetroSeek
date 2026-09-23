@@ -38,6 +38,8 @@ import pyarrow.parquet as pq
 from Bio import Phylo
 from Bio.Phylo.BaseTree import Clade, Tree
 
+from log import OK, PipelineError, job_logging, run_main
+
 logger = logging.getLogger(__name__)
 
 # Written even when a tree is unavailable, so the Snakemake DAG stays stable and
@@ -222,9 +224,9 @@ def from_newick(
             ", ".join(unmatched_species[:10]),
         )
     if not matched:
-        raise SystemExit(
-            f"species tree {newick} shares no tip with the study's species. "
-            "Check that tip labels match the config `species:` display names."
+        raise PipelineError(
+            f"species tree {newick} shares no tip with the study's species",
+            hint="make its tip labels match the config `species:` display names",
         )
 
     for leaf in list(tree.get_terminals()):
@@ -340,8 +342,7 @@ def _observed(parquet_dir: Path, column: str) -> list[str]:
     return sorted(seen)
 
 
-def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--parquet-dir",
@@ -361,7 +362,9 @@ def main() -> int:
         required=True,
         help="destination for the *.tree_segments.csv / *.tree_tips.csv",
     )
+    p.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = p.parse_args()
+    job_logging(args.log, "taxonomy_tree_layout")
 
     # --- taxon tree (always available: taxonomy.tsv ships with the reference)
     taxa = _observed(args.parquet_dir, "taxon_call")
@@ -371,9 +374,8 @@ def main() -> int:
         write(args.out_dir, "taxon", [], [])
     else:
         write(args.out_dir, "taxon", *layout(tree, align_tips=True))
-
-    return 0
+        logger.log(OK, "taxon tree: %d taxa laid out", len(taxa))
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

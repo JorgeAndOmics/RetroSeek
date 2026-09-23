@@ -14,6 +14,8 @@ import pytest
 import tree_layout as tl
 from Bio import Phylo
 
+from log import PipelineError
+
 
 @pytest.fixture
 def taxonomy_tsv(tmp_path):
@@ -85,7 +87,7 @@ class TestFromNewick:
         assert "Myotis myotis" in caplog.text
 
     def test_zero_overlap_fails_loudly(self, newick):
-        with pytest.raises(SystemExit, match="shares no tip"):
+        with pytest.raises(PipelineError, match="shares no tip"):
             tl.from_newick(newick, ["Gallus gallus"])
 
 

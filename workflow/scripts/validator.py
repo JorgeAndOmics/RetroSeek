@@ -16,7 +16,6 @@ from Bio import Entrez, SeqIO
 
 import defaults
 import stages
-from colored_logging import colored_logging
 
 # The Pfam check reuses the subset builder's own accession logic, so the preflight
 # and the rule cannot disagree about what "missing" means.
@@ -34,6 +33,41 @@ PFAM_STAGES = ("--domain-scan", "--classify")
 # -----------------------------
 # YAML VALIDATION
 # -----------------------------
+
+# Keys that older configs carry, and what replaced them. The strict schema rejects
+# them anyway; this turns "unexpected key" into something a user can act on.
+RETIRED_KEYS: dict[tuple[str, ...], str] = {
+    (
+        "display",
+        "display_snakemake_info",
+    ): "display.verbosity (quiet | normal | verbose)",
+    (
+        "display",
+        "display_operation_info",
+    ): "display.verbosity: verbose shows the detail",
+    ("display", "display_requests_warning"): (
+        "display.verbosity: retries show at verbose, a failed fetch is always an error"
+    ),
+    ("logging",): "nothing: the terminal colours are fixed now (ADR-021)",
+}
+
+
+def retired_key_messages(config: dict[str, object]) -> list[str]:
+    """One message per retired key present in `config`, naming its replacement."""
+    messages = []
+    for path, replacement in RETIRED_KEYS.items():
+        node: object = config
+        for key in path:
+            node = node.get(key) if isinstance(node, dict) and key in node else None
+            if node is None:
+                break
+        if node is not None:
+            dotted = ".".join(path)
+            messages.append(
+                f"Config key `{dotted}` was retired; delete it. Replaced by: "
+                f"{replacement}. See docs/configuration.md."
+            )
+    return messages
 
 
 def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
@@ -55,6 +89,11 @@ def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
     try:
         schema = yamale.make_schema(yaml_schema)
         data = yamale.make_data(yaml_file)
+        retired = retired_key_messages(data[0][0])
+        for message in retired:
+            logger.error(message)
+        if retired:
+            return False
         yamale.validate(schema, data)
         logger.info("YAML configuration file is valid.")
         return True
@@ -190,6 +229,11 @@ def pfam_problem(hmm_path: Path, classes_tsv: Path) -> str | None:
     return missing_message(missing, hmm_path) if missing else None
 
 
+def uses_pfam(chosen: list[stages.Stage]) -> bool:
+    """Whether any chosen stage reads the curated Pfam subset."""
+    return any(stage.flag in PFAM_STAGES for stage in chosen)
+
+
 def preflight(chosen: list[stages.Stage]) -> bool:
     """Checks that take seconds and save hours; `-skp` does not skip them.
 
@@ -201,7 +245,7 @@ def preflight(chosen: list[stages.Stage]) -> bool:
         yaml_file=defaults.CONFIG_FILE,
     )
 
-    absent = missing_tools(stages.tools(chosen))
+    absent = missing_tools(["snakemake", *stages.tools(chosen)])
     if absent:
         logger.error(
             f"Not installed: {', '.join(absent)}. Activate the RetroSeek conda "
@@ -209,7 +253,7 @@ def preflight(chosen: list[stages.Stage]) -> bool:
         )
         ok = False
 
-    if any(stage.flag in PFAM_STAGES for stage in chosen):
+    if uses_pfam(chosen):
         logger.info("Checking the Pfam library against the curated table...")
         problem = pfam_problem(
             Path(defaults.PATH_DICT["HMM_PROFILE_DIR"]) / "Pfam-A.hmm",
@@ -342,12 +386,12 @@ def green_light(all_valid: bool) -> bool:
         True if user wants to proceed, False otherwise.
     """
     if not all_valid:
-        logger.warning(
-            f"Settings validation failed. Check logs at {defaults.PATH_DICT['LOG_DIR']}."
+        logger.error(
+            "Validation failed; the reasons are listed above. Nothing was run."
         )
         return False
 
-    logger.info("All systems green, ready to rock.")
+    logger.info("Validation passed.")
     time.sleep(0.1)
 
     proceed = ask("Proceed [Y/n]: ", default="Y")
@@ -386,8 +430,6 @@ def validation_run(
     bool
         True if user confirms execution after passing validation, False otherwise.
     """
-    colored_logging(log_file_name="validator.log")
-
     all_valid = main_validator(fasta_files=fasta_files or [], chosen=chosen)
 
     return green_light(all_valid=all_valid)

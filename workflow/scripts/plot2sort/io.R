@@ -1,9 +1,8 @@
 # =============================================================================
 # plot2sort/io.R - config + parquet ingest + logged ggsave
 # =============================================================================
-# Anything that reads from / writes to disk lives here. Logging hooks
-# (`log_section`) are defined in the orchestrator and resolved via R's lexical
-# scope at call time - same convention as `ranges_analysis.R`.
+# Anything that reads from / writes to disk lives here. The logging functions
+# (log_section, log_info) come from utils/log.R, which the entry script sources.
 
 
 # Discover every {genome}.final_loci.parquet under `input_dir` and concatenate
@@ -21,8 +20,7 @@ load_plot_dataframes <- function(input_dir) {
                       length(parquet_files), input_dir))
   frames <- purrr::map(parquet_files, function(path) {
     df <- arrow::read_parquet(path)
-    log_section(sprintf("  %-40s  %d rows",
-                        basename(path), nrow(df)))
+    log_info("%-40s  %d rows", basename(path), nrow(df))
     df
   })
   out <- dplyr::bind_rows(frames)
@@ -62,7 +60,6 @@ save_plot <- function(name, plot, output_dir,
     height   = h,
     dpi      = dpi
   )
-  log_section(sprintf("  wrote %-44s  (%5.1f x %5.1f in, %d dpi)",
-                      name, w, h, dpi))
+  log_info("wrote %-44s  (%5.1f x %5.1f in, %d dpi)", name, w, h, dpi)
   invisible(file.path(output_dir, name))
 }

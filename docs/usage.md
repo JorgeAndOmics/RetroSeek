@@ -106,6 +106,31 @@ to put species in tree order.
 
 The command exits non-zero whenever a check, the guard or a job failed.
 
+### Reading a run
+
+The screen opens with a banner (commit, config, genomes, cores, stages, the run
+log's path), then the checks, then the run: one line per finished job (`OK`), every
+warning and error, and a progress bar. It closes with a summary:
+
+```
+status    failed (exit 1)
+time      7h41m
+warnings  12   (all of them: logs/runs/2026-09-23_220114.warnings.txt)
+  solo_finder: N baits under N bp (9)
+  hotspot_detector: no windows passed (3)
+failed    1
+  taxonomy_classify Myotis_lucifugus: blastx failed with exit code 2. Fix: its error output is in the job log
+    log: logs/taxonomy_classify/Myotis_lucifugus.log
+run log   logs/runs/2026-09-23_220114.log
+Fix the cause, then rerun the same command: finished work is kept.
+```
+
+How much the screen shows is `display.verbosity` (`quiet`, `normal`, `verbose`),
+or `--verbosity` for one run. Nothing is lost at any setting: every job keeps its
+own log, `LOG_DIR/<step>/<genome>.log`, and the run log keeps everything the run
+printed. The line format, the levels and the colours are described in
+[console_style.md](console_style.md).
+
 ### Snakemake options
 
 Any other option goes to Snakemake unchanged, after the launcher's own:
@@ -164,14 +189,13 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 - **`solo_ltr`** - native solo-LTR detection (ADR-017): the acceptance thresholds (`min_bait_length`, `min_hit_length`, `min_identity`, the coverage window), the monoLTR-at-orphan distance (`orphan_pad`), the blastn settings, and a `tree:` subblock for the evidence phylogeny. Every value the method depends on lives here; the scripts carry no defaults of their own. See [`docs/configuration.md`](configuration.md#solo_ltr) and [`docs/solo_ltr.md`](solo_ltr.md).
 - **`placement`** - colour scale for the published heat-trees: `mass_norm` (`absolute` | `relative`).
 - **`classification`** - per-locus ERV taxon calls, rank-agnostic since ADR-008 (`reference_taxa` sets the axis, `segment_rank` the roll-up): `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
-- **`logging`** - colour styles for console logging.
 - **`plots`** - segment page selection, axis scales, Sankey and waffle settings, page growth per genome (`per_stratum`).
 - **`execution`** - parallelism and API politeness:
   - `num_cores`, `max_threadpool_workers`.
   - `retrieval_time_lag` (Entrez delay), `max_retrieval_attempts` (retries).
   - `entrez_email` - **required** (NCBI ToS).
 - **`input`** - `probe_csv` (path to your probe metadata CSV; relative paths resolve against the repo root), `species_tree`, `pfam_domain_classes` and `pfam_release`.
-- **`display`** - verbosity toggles.
+- **`display`** - `verbosity` (`quiet` | `normal` | `verbose`): how much the terminal shows.
 - **`root`** - base directories for DB, data, results, logs.
 - **`species`** - map of genome ID -> scientific name.
 

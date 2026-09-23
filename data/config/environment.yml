@@ -57,7 +57,9 @@ dependencies:
   - pandera
   - dill
   - tqdm
-  - coloredlogs
+  # rich draws the launcher's screen (console.py only; ADR-021). Snakemake pulls it
+  # in already; named here because the launcher imports it directly.
+  - rich
   - pyyaml
   - yamale
 

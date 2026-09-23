@@ -22,15 +22,15 @@ ERV class (I/II/III) is NOT emitted here: it is a curated biological grouping
 
 from __future__ import annotations
 
+import argparse
 import csv
 import logging
-import sys
 import time
 from pathlib import Path
 
 from Bio import Entrez
 
-from colored_logging import colored_logging
+from log import OK, PipelineError, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -73,28 +73,32 @@ def build(taxa: list[str], email: str) -> tuple[dict[str, str | None], dict[str,
     return parent, rank
 
 
-def main(argv: list[str]) -> int:
-    ref_csv = (
-        Path(argv[1])
-        if len(argv) > 1
-        else Path("data/taxonomy_dev/reference/retro_reference.csv")
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Build taxonomy.tsv from NCBI Taxonomy."
     )
-    email = argv[2] if len(argv) > 2 else "retroseek@example.org"
-    out = ref_csv.parent / "taxonomy.tsv"
-    colored_logging(log_file_name="taxonomy_build_hierarchy.txt")
+    parser.add_argument(
+        "ref_csv", type=Path, help="retro_reference.csv of the reference"
+    )
+    parser.add_argument("email", help="NCBI Entrez contact email")
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
+    args = parser.parse_args(argv)
+    job_logging(args.log, "taxonomy_reference")
+    out = args.ref_csv.parent / "taxonomy.tsv"
 
-    taxa = taxa_from_reference(ref_csv)
-    parent, rank = build(taxa, email)
+    taxa = taxa_from_reference(args.ref_csv)
+    parent, rank = build(taxa, args.email)
     if not parent:
-        logger.error("no taxonomy resolved")
-        return 1
+        raise PipelineError(
+            "no taxon of the reference resolved in NCBI Taxonomy",
+            hint="check the network and execution.entrez_email, then rerun",
+        )
     with out.open("w", encoding="utf-8") as fh:
         fh.write("name\tparent\trank\n")
         for name, par in parent.items():
             fh.write(f"{name}\t{par or ''}\t{rank.get(name, 'no rank')}\n")
-    logger.info("wrote %d taxonomy nodes -> %s", len(parent), out)
-    return 0
+    logger.log(OK, "%s taxonomy nodes", f"{len(parent):,}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv))
+    run_main(main)

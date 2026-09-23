@@ -1,9 +1,8 @@
 # =============================================================================
 # stage_plot_generator/io.R - stage-parquet + manifest ingest
 # =============================================================================
-# Stage-specific disk I/O. `log_section` is defined in the orchestrator and
-# resolved via lexical scope at call time - same convention as plot2sort.R /
-# ranges_analysis.R.
+# Stage-specific disk I/O. The logging functions (log_section, log_info) come
+# from utils/log.R, which the entry script sources.
 
 
 # Load the three stage-dataframe parquet types from one directory. Files are
@@ -17,7 +16,7 @@ load_stage_dataframes <- function(input_dir) {
     pattern <- sprintf("\\.%s\\.parquet$", table)
     files <- list.files(input_dir, pattern = pattern, full.names = TRUE)
     if (length(files) == 0L) {
-      log_section(sprintf("  (no *.%s.parquet found in %s)", table, input_dir))
+      log_info("no *.%s.parquet found in %s", table, input_dir)
       return(tibble::tibble())
     }
     frames <- purrr::map(files, function(path) {
@@ -25,7 +24,7 @@ load_stage_dataframes <- function(input_dir) {
       genome <- sub(sprintf("\\.%s$", table), "",
                     tools::file_path_sans_ext(basename(path)))
       df$genome <- genome
-      log_section(sprintf("  %-44s  %d rows", basename(path), nrow(df)))
+      log_info("%-44s  %d rows", basename(path), nrow(df))
       df
     })
     dplyr::bind_rows(frames)
@@ -73,7 +72,7 @@ load_counts_table <- function(input_dir) {
   files <- list.files(input_dir, pattern = "\\.counts\\.parquet$",
                       full.names = TRUE)
   if (length(files) == 0L) {
-    log_section(sprintf("  (no *.counts.parquet found in %s)", input_dir))
+    log_info("no *.counts.parquet found in %s", input_dir)
     return(tibble::tibble(
       genome = character(0),
       stage  = factor(character(0), levels = unname(stage_keys)),

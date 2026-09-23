@@ -34,7 +34,6 @@ TOP_LEVEL_SECTIONS = [
     "genome_tools",
     "hotspot",
     "parameters",
-    "logging",
     "plots",
     "execution",
     "input",

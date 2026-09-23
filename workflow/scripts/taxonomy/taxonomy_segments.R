@@ -168,7 +168,10 @@ segments_main <- function() {
   parser$add_argument("--config", required = TRUE, help = "YAML config")
   parser$add_argument("--summary_csv", required = TRUE,
                       help = "per-segment summary CSV")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "taxonomy_segments")
 
   cfg <- yaml::read_yaml(args$config)
   `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -239,25 +242,25 @@ segments_main <- function() {
     save_stage_pdf(c(list(key), pages), file.path(plot_root, paste0(stem, ".pdf")),
                    height = height)
   }
-  log_section(sprintf("Done: wrote %d segment tables to %s and PDFs to %s",
-                      nrow(summary_tbl), root, plot_root))
+  log_info("wrote %d segment tables to %s and PDFs to %s",
+           nrow(summary_tbl), root, plot_root)
+  log_ok("%s loci in %s segments by %s", format(nrow(catalog), big.mark = ","),
+         format(nrow(summary_tbl), big.mark = ","), seg_rank)
 }
 
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
+  source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
   source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
-  .t0 <- Sys.time()
-  log_section <- function(name) {
-    elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-    message(sprintf("[%6.2fs] > %s", elapsed, name))
-  }
   # Reuse the taxonomy panel's builders rather than duplicating them. This also
   # pulls in its `main`, hence the distinct name above.
   source(file.path(.script_dir, "taxonomy_plot_generator.R"))
   # Also needed for structure_panel_registry(); CLI-guarded the same way.
   source(file.path(.script_dir, "erv_like_plot_generator.R"))
-  segments_main()
+  # Everything is sourced before log_job() runs inside segments_main(): sourcing
+  # log.R again (the two generators do) would reset its state.
+  run_main(segments_main)
 }

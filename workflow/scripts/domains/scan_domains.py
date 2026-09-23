@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "taxonomy"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from taxonomy_classify_loci import build_loci, parse_valid_full
 
-from colored_logging import colored_logging
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +293,9 @@ def _run_loci(args: argparse.Namespace) -> None:
     # The scanned-locus roster is what makes "no domains" distinguishable from
     # "never looked"; without it the old ambiguity returns.
     args.out_scanned.write_text("\n".join(sorted(scanned)) + "\n", encoding="utf-8")
-    logger.info("wrote %d domain hits over %d scanned loci", len(out), len(scanned))
+    logger.log(
+        OK, "%s domain hits over %s scanned loci", f"{len(out):,}", f"{len(scanned):,}"
+    )
 
 
 def main() -> None:
@@ -309,10 +311,10 @@ def main() -> None:
     parser.add_argument("--valid-gff3", type=Path, required=True)
     parser.add_argument("--orphan-gff3", type=Path, required=True)
     parser.add_argument("--out-scanned", type=Path, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args()
-    colored_logging(log_file_name=f"domain_scan_{args.genome.stem}.txt")
-
-    _run_loci(args)
+    job_logging(args.log, "domain_scanner")
+    run_main(lambda: _run_loci(args))
 
 
 if __name__ == "__main__":

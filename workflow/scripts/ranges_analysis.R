@@ -39,6 +39,7 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "range_aggregation_strategies.R"))
 source(file.path(.script_dir, "ranges", "io.R"))
 source(file.path(.script_dir, "ranges", "granges_build.R"))
@@ -81,210 +82,219 @@ parser$add_argument("--ranges_analysis_parquet_dir", required = TRUE)
 parser$add_argument("--ranges_analysis_csv_dir",     required = TRUE)
 parser$add_argument("--genome",                      required = TRUE)
 parser$add_argument("--manifest",                 required = FALSE)
+parser$add_argument("--log", default = NULL,
+                    help = "job log file; the Snakemake log: path")
 args <- parser$parse_args()
+log_job(args$log, "ranges_analysis")
 
 
 # ----------------------------------------------------------------------------
-# Pipeline instrumentation
+# Pipeline counts (written as the per-genome counts table in Phase 8)
 # ----------------------------------------------------------------------------
-.t0 <- Sys.time()
-log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-  message(sprintf("[%6.2fs] > %s", elapsed, name))
-}
 .counts <- list()
 record_count <- function(key, value) { .counts[[key]] <<- value }
 
-message(paste0("Processing ranges for ",
-               tools::file_path_sans_ext(basename(args$blast)), "..."))
-
 
 # ----------------------------------------------------------------------------
-# Phase 1. Load inputs
+# main(): the eight phases. Run through run_main() so warnings are logged and
+# every ending is recorded the same way (ADR-021).
 # ----------------------------------------------------------------------------
-log_section("Phase 1: loading config, FASTA, BLAST parquet, LTRdigest, probes")
-config        <- read_config(args$config)
-opts          <- read_pipeline_options(config)
-chrom_lengths <- load_chrom_lengths(args$fasta)
-blast_df      <- load_blast_parquet(args$blast)
-ltr_data      <- load_ltrdigest_gff3(args$ltrdigest)
-probes        <- load_probes(args$probes)
-probe_lengths <- load_probe_lengths(args$probe_dict)
-record_count("raw_blast_hits",       nrow(blast_df))
-record_count("ltrdigest_features",   length(ltr_data))
+main <- function(args) {
+  log_info("processing ranges for %s", tools::file_path_sans_ext(basename(args$blast)))
 
 
-# ----------------------------------------------------------------------------
-# Phase 2. Build the BLAST GRanges + filter
-# ----------------------------------------------------------------------------
-log_section("Phase 2: building BLAST GRanges and applying filters")
-gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
-.pre_n <- length(gr)
-gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
-gr <- attach_min_gapwidth(gr, opts$probe_min_length)
-record_count("filtered_blast_hits",  length(gr))
-message(sprintf("   %d of %d hits kept", length(gr), .pre_n))
+  # ----------------------------------------------------------------------------
+  # Phase 1. Load inputs
+  # ----------------------------------------------------------------------------
+  log_section("Phase 1: loading config, FASTA, BLAST parquet, LTRdigest, probes")
+  config        <- read_config(args$config)
+  opts          <- read_pipeline_options(config)
+  chrom_lengths <- load_chrom_lengths(args$fasta)
+  blast_df      <- load_blast_parquet(args$blast)
+  ltr_data      <- load_ltrdigest_gff3(args$ltrdigest)
+  probes        <- load_probes(args$probes)
+  probe_lengths <- load_probe_lengths(args$probe_dict)
+  record_count("raw_blast_hits",       nrow(blast_df))
+  record_count("ltrdigest_features",   length(ltr_data))
 
 
-# ----------------------------------------------------------------------------
-# Phase 3. First reduction (per probe x virus | label)
-# ----------------------------------------------------------------------------
-log_section("Phase 3: first reduction (per probe x virus|label)")
-gr_virus <- reduce_first(gr, opts$merge_option, opts)
-gr_virus <- attach_probe_id(gr_virus)
-record_count("first_reduced_ranges", length(gr_virus))
+  # ----------------------------------------------------------------------------
+  # Phase 2. Build the BLAST GRanges + filter
+  # ----------------------------------------------------------------------------
+  log_section("Phase 2: building BLAST GRanges and applying filters")
+  gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
+  .pre_n <- length(gr)
+  gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
+  gr <- attach_min_gapwidth(gr, opts$probe_min_length)
+  record_count("filtered_blast_hits",  length(gr))
+  log_info("%d of %d hits kept", length(gr), .pre_n)
 
 
-# ----------------------------------------------------------------------------
-# Phase 4. Global reduction (per probe across groupings)
-# ----------------------------------------------------------------------------
-log_section("Phase 4: global reduction (per probe across groupings)")
-gr_global <- reduce_global(gr_virus, opts)
-gr_global <- attach_probe_id(gr_global)
-record_count("global_reduced_ranges", length(gr_global))
+  # ----------------------------------------------------------------------------
+  # Phase 3. First reduction (per probe x virus | label)
+  # ----------------------------------------------------------------------------
+  log_section("Phase 3: first reduction (per probe x virus|label)")
+  gr_virus <- reduce_first(gr, opts$merge_option, opts)
+  gr_virus <- attach_probe_id(gr_virus)
+  record_count("first_reduced_ranges", length(gr_virus))
 
 
-# ----------------------------------------------------------------------------
-# Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
-# ----------------------------------------------------------------------------
-log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
-retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
-# LTRdigest's protein domains, UNCLASSIFIED. The curated table is applied once,
-# in the domain scan, on accessions and at locus grain (ADR-016). Here they are
-# only counted, which is what LTRdigest can honestly report about an element.
-all_domains       <- extract_all_domains(ltr_data)
-flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
-record_count("retrotransposons",      length(retrotransposons))
-record_count("all_domains",           length(all_domains))
-record_count("flanking_ltrs",         length(flanking_ltrs))
+  # ----------------------------------------------------------------------------
+  # Phase 4. Global reduction (per probe across groupings)
+  # ----------------------------------------------------------------------------
+  log_section("Phase 4: global reduction (per probe across groupings)")
+  gr_global <- reduce_global(gr_virus, opts)
+  gr_global <- attach_probe_id(gr_global)
+  record_count("global_reduced_ranges", length(gr_global))
 
 
-# ----------------------------------------------------------------------------
-# Phase 6. LTR-flanked (valid) hits
-# ----------------------------------------------------------------------------
-# The former "candidate" tier is gone (ADR-016). It was `find_candidate_hits`
-# output, and "valid" was the same rows with a `Parent` attached: identical
-# counts in every genome (Homo 36,348 = 36,348; Mus 153,248 = 153,248), two GFF3
-# tracks holding the same features, and two funnel bars of the same height. Once
-# ADR-009 stopped valid from filtering anything, the distinction had no content.
-log_section("Phase 6: annotating ltr-flanked (valid) hits")
-element_hits         <- annotate_ltr_flanked_hits(
-  find_candidate_hits(gr_virus,  retrotransposons), retrotransposons)
-element_hits_reduced <- annotate_ltr_flanked_hits(
-  find_candidate_hits(gr_global, retrotransposons), retrotransposons)
-record_count("element_hits_ranges",               length(element_hits))
-record_count("element_hits_ranges_reduced",       length(element_hits_reduced))
-
-# Non-LTR-associated orphans: the complement of the candidate set on the
-# globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
-# orphans). Recovered into the orphan tier and classified by their own
-# sequence. Counted here so the loss funnel sees what falls outside every LTR.
-orphan_hits <- find_orphan_hits(gr_global, retrotransposons)
-# Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
-# classifier assembles them like proviruses - one non-overlapping orphan locus
-# per overlap cluster (ADR-010). Capped at the widest real provirus in this
-# genome (ground truth): clusters wider than that are flagged `oversized`, kept.
-# `orphans` counts the hits; `orphan_clusters` the loci (the grouping the funnel
-# bridges); `orphans_oversized` the flagged loci.
-max_provirus_len <- if (length(retrotransposons) > 0L)
-  max(BiocGenerics::width(retrotransposons)) else Inf
-orphan_hits <- cluster_orphan_hits(orphan_hits, max_provirus_len)
-record_count("orphans",                    length(orphan_hits))
-.orphan_parent    <- as.character(S4Vectors::mcols(orphan_hits)$Parent)
-.orphan_oversized <- as.character(S4Vectors::mcols(orphan_hits)$oversized)
-record_count("orphan_clusters",    length(unique(.orphan_parent)))
-record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
-
-# NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
-# view of the genus-classified loci produced by the taxonomy_classify stage
-# (grouped by LTR element, labelled by genus call). See taxonomy_classify_loci.py
-# and the erv-like plot panel (erv_like_plot_generator.R reads the genus loci).
+  # ----------------------------------------------------------------------------
+  # Phase 5. LTRdigest processing (retros + domains + flanking LTRs)
+  # ----------------------------------------------------------------------------
+  log_section("Phase 5: extracting retrotransposons, domains, flanking LTRs")
+  retrotransposons  <- extract_retrotransposons(ltr_data, resize_bp = opts$ltr_resize)
+  # LTRdigest's protein domains, UNCLASSIFIED. The curated table is applied once,
+  # in the domain scan, on accessions and at locus grain (ADR-016). Here they are
+  # only counted, which is what LTRdigest can honestly report about an element.
+  all_domains       <- extract_all_domains(ltr_data)
+  flanking_ltrs     <- extract_flanking_ltrs(ltr_data)
+  record_count("retrotransposons",      length(retrotransposons))
+  record_count("all_domains",           length(all_domains))
+  record_count("flanking_ltrs",         length(flanking_ltrs))
 
 
-# ----------------------------------------------------------------------------
-# Phase 7. Plot dataframe + probe-category tagging
-# ----------------------------------------------------------------------------
-log_section("Phase 7: plot dataframe + probe_category tagging")
-# Plot dataframe is built from the valid-reduced tier (the final, LTR-integrated
-# output) rather than gr_virus (the homology-only original tier). The middle
-# stage is visualised separately by stage_plot_generator.R.
-plot_df <- build_plot_dataframe(
-  element_hits_reduced, probes$df_sum, opts$main_probes,
-  opts$agg_virus, opts$agg_concat_separator
-)
-gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
-gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
-element_hits             <- attach_probe_category(element_hits,           opts$main_probes, opts$agg_concat_separator)
-element_hits_reduced     <- attach_probe_category(element_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
-orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
+  # ----------------------------------------------------------------------------
+  # Phase 6. LTR-flanked (valid) hits
+  # ----------------------------------------------------------------------------
+  # The former "candidate" tier is gone (ADR-016). It was `find_candidate_hits`
+  # output, and "valid" was the same rows with a `Parent` attached: identical
+  # counts in every genome (Homo 36,348 = 36,348; Mus 153,248 = 153,248), two GFF3
+  # tracks holding the same features, and two funnel bars of the same height. Once
+  # ADR-009 stopped valid from filtering anything, the distinction had no content.
+  log_section("Phase 6: annotating ltr-flanked (valid) hits")
+  element_hits         <- annotate_ltr_flanked_hits(
+    find_candidate_hits(gr_virus,  retrotransposons), retrotransposons)
+  element_hits_reduced <- annotate_ltr_flanked_hits(
+    find_candidate_hits(gr_global, retrotransposons), retrotransposons)
+  record_count("element_hits_ranges",               length(element_hits))
+  record_count("element_hits_ranges_reduced",       length(element_hits_reduced))
+
+  # Non-LTR-associated orphans: the complement of the candidate set on the
+  # globally-reduced hits (reduced, to avoid emitting redundant near-duplicate
+  # orphans). Recovered into the orphan tier and classified by their own
+  # sequence. Counted here so the loss funnel sees what falls outside every LTR.
+  orphan_hits <- find_orphan_hits(gr_global, retrotransposons)
+  # Cluster orphan hits by OVERLAP into single loci (synthetic Parent) so the
+  # classifier assembles them like proviruses - one non-overlapping orphan locus
+  # per overlap cluster (ADR-010). Capped at the widest real provirus in this
+  # genome (ground truth): clusters wider than that are flagged `oversized`, kept.
+  # `orphans` counts the hits; `orphan_clusters` the loci (the grouping the funnel
+  # bridges); `orphans_oversized` the flagged loci.
+  max_provirus_len <- if (length(retrotransposons) > 0L)
+    max(BiocGenerics::width(retrotransposons)) else Inf
+  orphan_hits <- cluster_orphan_hits(orphan_hits, max_provirus_len)
+  record_count("orphans",                    length(orphan_hits))
+  .orphan_parent    <- as.character(S4Vectors::mcols(orphan_hits)$Parent)
+  .orphan_oversized <- as.character(S4Vectors::mcols(orphan_hits)$oversized)
+  record_count("orphan_clusters",    length(unique(.orphan_parent)))
+  record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
+
+  # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
+  # view of the genus-classified loci produced by the taxonomy_classify stage
+  # (grouped by LTR element, labelled by genus call). See taxonomy_classify_loci.py
+  # and the erv-like plot panel (erv_like_plot_generator.R reads the genus loci).
 
 
-# ----------------------------------------------------------------------------
-# Phase 8. Export tracks + tables + manifest
-# ----------------------------------------------------------------------------
-log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
-gen_ver <- resolve_generator_version()
+  # ----------------------------------------------------------------------------
+  # Phase 7. Plot dataframe + probe-category tagging
+  # ----------------------------------------------------------------------------
+  log_section("Phase 7: plot dataframe + probe_category tagging")
+  # Plot dataframe is built from the valid-reduced tier (the final, LTR-integrated
+  # output) rather than gr_virus (the homology-only original tier). The middle
+  # stage is visualised separately by stage_plot_generator.R.
+  plot_df <- build_plot_dataframe(
+    element_hits_reduced, probes$df_sum, opts$main_probes,
+    opts$agg_virus, opts$agg_concat_separator
+  )
+  gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
+  gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
+  element_hits             <- attach_probe_category(element_hits,           opts$main_probes, opts$agg_concat_separator)
+  element_hits_reduced     <- attach_probe_category(element_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
+  orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
 
-# Original tier: unreduced GFF3 only. The reduced exports were retired (only
-# valid keeps a reduced track); gr_global is still computed above because
-# element_hits_reduced and the reduction_multiplicity table depend on it.
-track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 
-# Orphan tier: orphan hits exported with the same probe=/label= GFF3
-# attributes as the valid track PLUS a synthetic Parent= from proximity
-# clustering (cluster_orphan_hits) - so the classifier's build_loci groups them
-# into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
-track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
+  # ----------------------------------------------------------------------------
+  # Phase 8. Export tracks + tables + manifest
+  # ----------------------------------------------------------------------------
+  log_section("Phase 8: exporting tracks, BED6, tables (parquet + csv), manifest")
+  gen_ver <- resolve_generator_version()
 
-track_exporter(element_hits,             args$element_hits_ranges,             gen_ver)
-track_exporter(element_hits_reduced,     args$element_hits_ranges_reduced,     gen_ver)
-bed_exporter(  element_hits_reduced,     sub("\\.gff3$", ".bed", args$element_hits_ranges_reduced))
+  # Original tier: unreduced GFF3 only. The reduced exports were retired (only
+  # valid keeps a reduced track); gr_global is still computed above because
+  # element_hits_reduced and the reduction_multiplicity table depend on it.
+  track_exporter(gr_virus,               args$original_ranges,          gen_ver)
 
-track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
+  # Orphan tier: orphan hits exported with the same probe=/label= GFF3
+  # attributes as the valid track PLUS a synthetic Parent= from proximity
+  # clustering (cluster_orphan_hits) - so the classifier's build_loci groups them
+  # into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
+  track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
 
-overlap_matrix_exporter(gr_virus, element_hits,
-                        args$overlap_matrix_parquet, args$overlap_matrix_csv)
+  track_exporter(element_hits,             args$element_hits_ranges,             gen_ver)
+  track_exporter(element_hits_reduced,     args$element_hits_ranges_reduced,     gen_ver)
+  bed_exporter(  element_hits_reduced,     sub("\\.gff3$", ".bed", args$element_hits_ranges_reduced))
 
-# Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
-# + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
-.table_path <- function(table, ext) {
-  dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
-         else                  args$ranges_analysis_csv_dir
-  file.path(dir, sprintf("%s.%s.%s", args$genome, table, ext))
+  track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
+
+  overlap_matrix_exporter(gr_virus, element_hits,
+                          args$overlap_matrix_parquet, args$overlap_matrix_csv)
+
+  # Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
+  # + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
+  .table_path <- function(table, ext) {
+    dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
+           else                  args$ranges_analysis_csv_dir
+    file.path(dir, sprintf("%s.%s.%s", args$genome, table, ext))
+  }
+  write_one <- function(table, df) {
+    write_table(df, .table_path(table, "parquet"), .table_path(table, "csv"))
+  }
+
+  write_one("final_loci", plot_df)
+  write_one("homology_loci",
+            build_stage_hits_df(gr_virus, retrotransposons, element_hits))
+  write_one("ltr_structure",
+            build_stage_ltr_df(retrotransposons, flanking_ltrs, all_domains,
+                               ltr_data, gr_virus))
+  write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
+  # Genomic counts as their own long-form table - the run manifest no longer
+  # carries genomic data, and the refinement-funnel plots read this.
+  write_one("counts", tibble::tibble(
+    metric = names(.counts),
+    value  = as.integer(unlist(.counts, use.names = FALSE))
+  ))
+  # Provirus overlap / LTR-interaction tables - feed the new provirus plots.
+  write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
+  write_one("ltr_interaction",
+            build_stage_ltr_interaction_df(gr_virus, retrotransposons, all_domains))
+  write_one("probe_domain_overlap",
+            build_stage_probe_domain_df(gr_virus, all_domains))
+  # Pre/post-reduction total range length (bp) - numeric (not in the integer
+  # counts table, to avoid overflow on large genomes).
+  write_one("reduction_coverage", tibble::tibble(
+    metric = c("total_bp_unreduced", "total_bp_reduced"),
+    value  = c(sum(BiocGenerics::width(gr_virus)),
+               sum(BiocGenerics::width(gr_global)))
+  ))
+
+  if (!is.null(args$manifest)) {
+    emit_manifest(args, gen_ver, opts, args$manifest)
+  }
+
+  log_ok("%s element hits, %s orphan loci, from %s filtered hits",
+         format(length(element_hits), big.mark = ","),
+         format(.counts[["orphan_clusters"]], big.mark = ","),
+         format(.counts[["filtered_blast_hits"]], big.mark = ","))
 }
-write_one <- function(table, df) {
-  write_table(df, .table_path(table, "parquet"), .table_path(table, "csv"))
-}
 
-write_one("final_loci", plot_df)
-write_one("homology_loci",
-          build_stage_hits_df(gr_virus, retrotransposons, element_hits))
-write_one("ltr_structure",
-          build_stage_ltr_df(retrotransposons, flanking_ltrs, all_domains,
-                             ltr_data, gr_virus))
-write_one("reduction_multiplicity", build_stage_reduced_df(gr_global))
-# Genomic counts as their own long-form table - the run manifest no longer
-# carries genomic data, and the refinement-funnel plots read this.
-write_one("counts", tibble::tibble(
-  metric = names(.counts),
-  value  = as.integer(unlist(.counts, use.names = FALSE))
-))
-# Provirus overlap / LTR-interaction tables - feed the new provirus plots.
-write_one("provirus_overlap", build_stage_overlap_df(gr_virus))
-write_one("ltr_interaction",
-          build_stage_ltr_interaction_df(gr_virus, retrotransposons, all_domains))
-write_one("probe_domain_overlap",
-          build_stage_probe_domain_df(gr_virus, all_domains))
-# Pre/post-reduction total range length (bp) - numeric (not in the integer
-# counts table, to avoid overflow on large genomes).
-write_one("reduction_coverage", tibble::tibble(
-  metric = c("total_bp_unreduced", "total_bp_reduced"),
-  value  = c(sum(BiocGenerics::width(gr_virus)),
-             sum(BiocGenerics::width(gr_global)))
-))
-
-if (!is.null(args$manifest)) {
-  emit_manifest(args, gen_ver, opts, args$manifest)
-}
-
-log_section("Done")
+run_main(function() main(args))

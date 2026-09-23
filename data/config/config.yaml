@@ -170,23 +170,6 @@ classification:
   # the classifier from the probeset (e.g. ['Lentivirus', 'Gammaretrovirus']).
   reference_taxa: []
 
-logging:
-  level_styles:
-    debug: { color: 'white' }
-    info: { color: 'cyan', bold: 'yes' }
-    warning: { color: 'yellow' }
-    error: { color: 'red', bold: 'yes' }
-    critical: { color: 'black', bold: 'yes', background: 'red' }
-  field_styles:
-    asctime: { color: 'green' }
-    hostname: { color: 'green' }
-    levelname: { color: 'green' }
-    name: { color: 'green' }
-    programname: { color: 'green' }
-    username: { color: 'green' }
-    process: { color: 'green' }
-    thread: { color: 'green' }
-
 plots:
   # How many pages the --segment stage draws in each segment's PDF:
   #   full     every page that means something for a single segment (27).
@@ -228,9 +211,12 @@ input:
   pfam_release: '38.2'
 
 display:
-  display_snakemake_info: false
-  display_requests_warning: false
-  display_operation_info: true
+  # How much the terminal shows during a run. Job logs are always complete.
+  #   quiet    banner, progress bar, errors, summary
+  #   normal   + one line per finished job + every warning
+  #   verbose  + every message from every job, and Snakemake's own output
+  # `./RetroSeek --verbosity verbose ...` overrides it for one run.
+  verbosity: normal
 
 root:
   db_root_folder: 'data/species'

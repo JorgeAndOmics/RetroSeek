@@ -50,10 +50,6 @@ E_VALUE = config["blast"]["e_value"]
 ACCESSION_ID_REGEX = r"[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}"
 PROBE_MIN_LENGTH = config["parameters"]["probe_min_length"]
 
-# Logging
-LEVEL_STYLES = config["logging"]["level_styles"]
-FIELD_STYLES = config["logging"]["field_styles"]
-
 # Anchor relative paths against the repo root so a fresh-clone run
 # from any working directory still resolves the same way.
 # `parents[2]` walks: defaults.py -> scripts -> workflow -> repo root.
@@ -385,12 +381,9 @@ MAX_RETRIEVAL_ATTEMPTS = config["execution"].get("max_retrieval_attempts", 3)
 MAX_THREADPOOL_WORKERS = config["execution"].get("max_threadpool_workers", 1)
 ENTREZ_EMAIL = config["execution"].get("entrez_email", "")
 
-# Display
-DISPLAY_SNAKEMAKE_INFO: bool = config["display"].get("display_snakemake_info", False)
-DISPLAY_REQUESTS_WARNING: bool = config["display"].get(
-    "display_requests_warning", False
-)
-DISPLAY_OPERATION_INFO: bool = config["display"].get("display_operation_info", False)
+# Display: how much the terminal shows (ADR-021). The launcher passes it to every
+# job as RETROSEEK_VERBOSITY; log.py and log.R read it from there.
+VERBOSITY: str = (config.get("display") or {}).get("verbosity", "normal")
 
 # INPUT
 PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/_input/probes.csv")

@@ -56,6 +56,8 @@ def test_heavy_rules_exist_and_match_the_protected_list(project_root: Path) -> N
         "ltr_digester",
         "full_genome_blaster_setup",
         "full_genome_blaster",
+        # The checkpoint: a rerun hides every job after it from the guard.
+        "blast_pkl2parquet",
     } == stages.HEAVY_RULES
     owners = [rule for s in stages.STAGES for rule in s.heavy]
     assert len(owners) == len(set(owners))
@@ -138,3 +140,13 @@ def test_allowed_heavy_comes_only_from_requested_stages() -> None:
 def test_config_help_is_absent_unless_asked(flag: str) -> None:
     args, _ = stages.build_parser().parse_known_args(["--classify"])
     assert not hasattr(args, flag.lstrip("-").replace("-", "_"))
+
+
+def test_verbosity_overrides_are_limited_to_the_three_levels() -> None:
+    parser = stages.build_parser()
+    args, _ = parser.parse_known_args(["--classify", "--verbosity", "verbose"])
+    assert args.verbosity == "verbose"
+    args, _ = parser.parse_known_args(["--classify"])
+    assert args.verbosity is None  # the config decides
+    with pytest.raises(SystemExit):
+        parser.parse_known_args(["--classify", "--verbosity", "loud"])

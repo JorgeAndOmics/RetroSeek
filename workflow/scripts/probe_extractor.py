@@ -7,7 +7,7 @@ corresponding sequences from an online database (e.g., NCBI GenBank), and serial
 the resulting data as pickled Python objects.
 
 Modules:
-    - `colored_logging`: Custom logging with color-coded console/file output.
+    - `log`: the console line contract and job log (ADR-021).
     - `RetroSeek_class`: Contains the `RetroSeek` class representing a probe with metadata.
     - `seq_utils`: Provides functions for online sequence retrieval.
     - `utils`: Contains general-purpose utilities (e.g., string generator, pickling).
@@ -34,6 +34,7 @@ Usage:
 # Imports and Logging Setup
 # =============================================================================
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -41,8 +42,10 @@ import pandas as pd
 import defaults
 import seq_utils
 import utils
-from colored_logging import colored_logging
+from log import OK, PipelineError, job_logging, run_main
 from RetroSeeker_class import RetroSeeker
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -89,10 +92,8 @@ def table_parser(input_csv_file: str | Path) -> dict[str, RetroSeeker]:
 # =============================================================================
 # 2. Main Execution: Extraction and Serialization
 # =============================================================================
-if __name__ == "__main__":
-    # Initialize colored logging and write to log
-    colored_logging(log_file_name="probe_extractor.txt")
-
+def main() -> None:
+    """Fetch every probe named in the probe CSV and pickle them."""
     # Parse probe metadata from table
     probe_dict: dict[str, RetroSeeker] = table_parser(input_csv_file=defaults.PROBE_CSV)
 
@@ -100,9 +101,27 @@ if __name__ == "__main__":
     probe_extraction: dict[str, RetroSeeker] | None = seq_utils.gb_executor(
         object_dict=probe_dict,
         online_database="protein",
-        display_full_info=defaults.DISPLAY_OPERATION_INFO,
-        display_warning=defaults.DISPLAY_REQUESTS_WARNING,
     )
+
+    if not probe_extraction:
+        raise PipelineError(
+            "no probe could be fetched from NCBI",
+            hint="check the network, execution.entrez_email and the probe CSV accessions",
+        )
+    # A probe without its record would be skipped by every later search, so the
+    # study would quietly lose it. Stop before anything is written instead.
+    unfetched = [
+        f"{probe.accession} ({probe.probe})"
+        for probe in probe_extraction.values()
+        if not probe.genbank
+    ]
+    if unfetched:
+        raise PipelineError(
+            f"{len(unfetched)} of {len(probe_extraction)} probes could not be fetched "
+            f"from NCBI: {', '.join(unfetched[:10])}",
+            hint="check these accessions in the probe CSV; if NCBI was only busy, "
+            "run --probe-extractor again",
+        )
 
     # Save extracted probes to serialized file
     utils.pickler(
@@ -110,3 +129,14 @@ if __name__ == "__main__":
         output_directory_path=defaults.PATH_DICT["PICKLE_DIR"],
         output_file_name="probe_dict.pkl",
     )
+    logger.log(OK, "%s probes fetched", f"{len(probe_extraction):,}")
+
+
+if __name__ == "__main__":
+    # The rule is a heavy one and must stay byte-identical, so it passes no log
+    # path; the job log follows the LOG_DIR/<step>/all.log layout anyway.
+    job_logging(
+        Path(defaults.PATH_DICT["LOG_DIR"]) / "probe_extractor" / "all.log",
+        "probe_extractor",
+    )
+    run_main(main)

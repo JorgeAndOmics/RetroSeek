@@ -225,3 +225,40 @@ class TestPreflight:
         fake = stages.Stage("--x", "Analysis", ("r",), "x", tools=("sh",))
         with patch.object(v, "yaml_validator", return_value=True):
             assert v.preflight([fake]) is True
+
+
+class TestRetiredKeys:
+    """A config written for an older RetroSeek must say what replaced each key.
+
+    The schema alone would only say "unexpected key", leaving the user to guess.
+    """
+
+    def test_retired_display_switches_name_their_replacement(self) -> None:
+        import validator as v
+
+        config = {"display": {"display_snakemake_info": True, "verbosity": "normal"}}
+        messages = v.retired_key_messages(config)
+        assert len(messages) == 1
+        assert "display.display_snakemake_info" in messages[0]
+        assert "display.verbosity" in messages[0]
+
+    def test_retired_logging_block_is_named(self) -> None:
+        import validator as v
+
+        messages = v.retired_key_messages({"logging": {"level_styles": {}}})
+        assert len(messages) == 1
+        assert "logging" in messages[0]
+
+    def test_a_current_config_has_no_retired_keys(self) -> None:
+        import validator as v
+
+        assert v.retired_key_messages({"display": {"verbosity": "quiet"}}) == []
+
+    def test_a_retired_key_set_to_false_still_counts(self) -> None:
+        """The template shipped `display_snakemake_info: false`."""
+        import validator as v
+
+        assert (
+            len(v.retired_key_messages({"display": {"display_snakemake_info": False}}))
+            == 1
+        )

@@ -14,6 +14,8 @@ from pathlib import Path
 import bait_builder
 import pytest
 
+from log import PipelineError
+
 # Two elements, four arms. Element 1 hosts an ERV locus, element 2 does not.
 # Element 1's right arm is deliberately short, to be dropped by the length filter.
 _GFF3 = """\
@@ -56,7 +58,7 @@ def test_a_missing_parent_column_is_an_error_not_an_empty_set(tmp_path: Path) ->
     """Silently returning no bait would look like "this genome has no ERVs"."""
     p = tmp_path / "no_parent.csv"
     p.write_text("id,seqname,start,end\nL0,chr1,1,2\n")
-    with pytest.raises(SystemExit, match="parent"):
+    with pytest.raises(PipelineError, match="parent"):
         bait_builder.erv_bearing_parents(p)
 
 

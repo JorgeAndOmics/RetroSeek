@@ -30,6 +30,8 @@ from pathlib import Path
 import yaml
 from tree_layout import build_alias_index, from_newick, layout, write
 
+from log import OK, job_logging, run_main
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,8 +41,7 @@ def display_name(stem: str, species_map: dict[str, str]) -> str:
     return str(value) if value else stem.replace("_", " ")
 
 
-def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument(
@@ -51,7 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--species-tree", type=Path, default=None)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "species_tree_layout")
 
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
     species_map = {str(k): str(v) for k, v in (cfg.get("species") or {}).items()}
@@ -67,12 +70,11 @@ def main(argv: list[str] | None = None) -> int:
         has_lengths = any(c.branch_length not in (None, 0) for c in clades)
         write(args.out_dir, "species", *layout(tree, align_tips=not has_lengths))
         n_tips = tree.count_terminals()  # type: ignore[no-untyped-call]
-        logger.info("species tree: %d tips laid out", n_tips)
+        logger.log(OK, "species tree: %d tips laid out", n_tips)
     else:
-        logger.info("species tree: none configured, species will follow config order")
+        logger.log(OK, "no species tree configured; species follow the config order")
         write(args.out_dir, "species", [], [])
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

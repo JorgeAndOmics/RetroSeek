@@ -9,7 +9,7 @@ as both CSV and Parquet files.
 Modules:
     - `utils`: Utility functions.
     - `defaults`: project-wide constants such as thread count and directory paths.
-    - `colored_logging`: for structured logging.
+    - `log`: the console line contract and job log (ADR-021).
     - `argparse`, `pandas`, `os`, `tqdm`, `concurrent.futures`: for CLI, tabular processing, I/O, and parallelism.
 
 Main Workflow:
@@ -46,7 +46,7 @@ from tqdm import tqdm
 
 import defaults
 import utils
-from colored_logging import colored_logging
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -149,36 +149,8 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
 # =============================================================================
 # 2. Main Execution Block
 # =============================================================================
-if __name__ == "__main__":
-    # Initialize logging
-    colored_logging(log_file_name="obj2dict.txt")
-
-    # -------------------------------------------------------------------------
-    # 2.1 Argument Parsing
-    # -------------------------------------------------------------------------
-    parser = argparse.ArgumentParser(
-        description="Converts serialized probe Objects into a tabular DataFrame."
-    )
-    parser.add_argument(
-        "--files",
-        type=str,
-        nargs="+",
-        required=True,
-        help="One or more pickle files to load from PICKLE_DIR.",
-    )
-    parser.add_argument(
-        "--csv_path",
-        type=str,
-        required=True,
-        help="Full path for the user-facing CSV output.",
-    )
-    parser.add_argument(
-        "--parquet_path",
-        type=str,
-        required=True,
-        help="Full path for the pipeline-internal Parquet output.",
-    )
-    args = parser.parse_args()
+def main(args: argparse.Namespace) -> None:
+    """Load the pickled objects and write them as one CSV and one Parquet table."""
 
     # -------------------------------------------------------------------------
     # 2.2 Load Object Dictionaries from Pickles
@@ -212,7 +184,9 @@ if __name__ == "__main__":
 
         results: list[dict[str, Any]] = []
         with (
-            tqdm(total=len(objects), desc=f"Processing {species}") as pbar,
+            tqdm(
+                total=len(objects), desc=f"Processing {species}", disable=None
+            ) as pbar,
             ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor,
         ):
             futures = [
@@ -243,3 +217,42 @@ if __name__ == "__main__":
 
     df.to_parquet(args.parquet_path, index=False)
     logger.info(f"Parquet saved to: {args.parquet_path}")
+    logger.log(
+        OK,
+        "%s objects from %s species tabulated",
+        f"{len(df):,}",
+        len(species_dataframes),
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Converts serialized probe Objects into a tabular DataFrame."
+    )
+    parser.add_argument(
+        "--files",
+        type=str,
+        nargs="+",
+        required=True,
+        help="One or more pickle files to load from PICKLE_DIR.",
+    )
+    parser.add_argument(
+        "--csv_path",
+        type=str,
+        required=True,
+        help="Full path for the user-facing CSV output.",
+    )
+    parser.add_argument(
+        "--parquet_path",
+        type=str,
+        required=True,
+        help="Full path for the pipeline-internal Parquet output.",
+    )
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
+    args = parser.parse_args()
+    # Its two rules (probe_extractor, and the blast_pkl2parquet checkpoint) must
+    # stay byte-identical, so neither passes --log: rerunning either would wake
+    # heavy work. The log follows the usual layout under the script's name.
+    job_log = args.log or Path(defaults.PATH_DICT["LOG_DIR"]) / "obj2dict" / "all.log"
+    job_logging(job_log, "obj2dict")
+    run_main(lambda: main(args))

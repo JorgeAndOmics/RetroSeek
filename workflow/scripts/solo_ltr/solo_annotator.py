@@ -80,12 +80,13 @@ from __future__ import annotations
 import argparse
 import logging
 import re
-import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
+
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -477,7 +478,7 @@ def write_solo_table(
 # ---------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -503,9 +504,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-ratio-parquet", type=Path, required=True)
     parser.add_argument("--group-by", choices=VALID_GROUP_BY, default="segment")
     parser.add_argument("--nearest-locus-max-distance", type=int, default=10000)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    job_logging(args.log, "solo_annotator")
 
     loci = parse_loci_csv(args.loci_csv)
     solos = parse_solo_list(args.solo_list)
@@ -514,22 +515,11 @@ def main(argv: list[str] | None = None) -> int:
     by_source = dict.fromkeys(("library", "nearest_locus", "none"), 0)
     for solo in solos:
         by_source[solo.label_source] += 1
-    logger.info(
-        "%s: %d solo LTR(s) against %d LTR-flanked loci "
-        "(taxon from library: %d, nearest locus: %d, unassigned: %d)",
-        args.genome,
-        len(solos),
-        len(loci),
-        by_source["library"],
-        by_source["nearest_locus"],
-        by_source["none"],
-    )
     if loci and not solos:
         logger.warning(
-            "%s produced zero solo LTRs despite %d LTR-flanked loci. On a real "
-            "mammalian genome solo LTRs normally outnumber intact proviruses, so "
-            "check the RepeatMasker annotation in the LTR_retriever log.",
-            args.genome,
+            "no solo LTR despite %d LTR-flanked loci; in mammals solos normally "
+            "outnumber intact proviruses. Check this genome's solo funnel "
+            "(tables/solo_ltr/<genome>.funnel.csv) for the step that lost them",
             len(loci),
         )
 
@@ -544,8 +534,16 @@ def main(argv: list[str] | None = None) -> int:
     args.output_ratio_parquet.parent.mkdir(parents=True, exist_ok=True)
     ratio.to_csv(args.output_ratio_csv, index=False)
     ratio.to_parquet(args.output_ratio_parquet, index=False)
-    return 0
+    logger.log(
+        OK,
+        "%s solo LTRs annotated (taxon from library %s, nearest locus %s, "
+        "unassigned %s)",
+        f"{len(solos):,}",
+        f"{by_source['library']:,}",
+        f"{by_source['nearest_locus']:,}",
+        f"{by_source['none']:,}",
+    )
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    run_main(main)

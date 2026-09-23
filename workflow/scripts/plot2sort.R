@@ -56,6 +56,7 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
@@ -63,16 +64,6 @@ source(file.path(.script_dir, "plot2sort", "tree_axis.R"))  # species rows, host
 source(file.path(.script_dir, "plot2sort", "plots_distribution.R"))
 source(file.path(.script_dir, "plot2sort", "plots_categorical.R"))
 source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
-
-
-# ----------------------------------------------------------------------------
-# Pipeline instrumentation - same idiom as ranges_analysis.R / hotspot_detector.R
-# ----------------------------------------------------------------------------
-.t0 <- Sys.time()
-log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-  message(sprintf("[%6.2fs] > %s", elapsed, name))
-}
 
 
 # ----------------------------------------------------------------------------
@@ -90,7 +81,10 @@ main <- function() {
                       help = "YAML config file with plot parameters")
   parser$add_argument("--species_tree_dir", default = "",
                       help = "species_tree_layout.py output: the host tree coordinates")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "plot_generator")
 
   use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
@@ -104,10 +98,7 @@ main <- function() {
   # plot counts are inflated by entry explosion. Log it once and stamp every
   # page so the caveat travels with it.
   warn_caption <- aggregation_warning(cfg)
-  if (!is.null(warn_caption)) {
-    warning(warn_caption, call. = FALSE)
-    log_section(paste0("  ", warn_caption))
-  }
+  if (!is.null(warn_caption)) warning(warn_caption, call. = FALSE)
 
   # ---------- Phase 1: load + validate ---------------------------------------
   all.full <- load_plot_dataframes(args$input)
@@ -197,7 +188,8 @@ main <- function() {
   n_rows <- max(length(ctx$species_order), length(unique(all.full$species)))
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
-  log_section(sprintf("Done: wrote %s (%d pages)", args$out_pdf, length(pages) + 1L))
+  log_ok("wrote %s, %s pages", basename(args$out_pdf),
+         format(length(pages) + 1L, big.mark = ","))
 }
 
 
@@ -206,5 +198,5 @@ main <- function() {
 # ----------------------------------------------------------------------------
 # Only invoke main() under `Rscript plot2sort.R ...`. testthat sources this file
 # inside test functions where sys.nframe() > 0, so unit tests get the helpers
-# and builders without firing the CLI.
-if (sys.nframe() == 0L) main()
+# and builders without firing the CLI. run_main() logs the ending (ADR-021).
+if (sys.nframe() == 0L) run_main(main)

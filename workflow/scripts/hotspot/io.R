@@ -149,8 +149,8 @@ load_catalog_loci <- function(catalog_path, genome, species_map = NULL,
   gr <- GenomicRanges::GRanges(
     seqnames = as.character(df$seqname),
     ranges   = IRanges::IRanges(
-      start = suppressWarnings(as.integer(df$start)),
-      end   = suppressWarnings(as.integer(df$end))
+      start = as.integer(df$start),
+      end   = as.integer(df$end)
     ),
     strand   = ifelse(as.character(df$strand) %in% c("+", "-"), df$strand, "*")
   )

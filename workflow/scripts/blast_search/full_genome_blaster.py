@@ -9,7 +9,7 @@ Modules:
     - `seq_utils`: Provides functions for executing sequence-related tasks.
     - `utils`: Contains helper functions.
     - `defaults`: Stores constant paths and parsed configuration values.
-    - `colored_logging`: Enables structured, configurable, color-coded logging output.
+    - `log`: the console line contract and job log (ADR-021).
 
 Main Workflow:
     1. Load pre-extracted probe dictionary from pickle.
@@ -29,38 +29,23 @@ Usage:
 # Imports and Logging Setup
 # =============================================================================
 import argparse
+import logging
+from pathlib import Path
 
 import defaults
 import seq_utils
 import utils
-from colored_logging import colored_logging
+from log import OK, job_logging, run_main
 from RetroSeeker_class import RetroSeeker
+
+logger = logging.getLogger(__name__)
+
 
 # =============================================================================
 # 1. Main Execution Block
 # =============================================================================
-if __name__ == "__main__":
-    # Initialize logging
-    colored_logging(log_file_name="full_genome_blaster.txt")
-
-    # -------------------------------------------------------------------------
-    # 1.1 Argument Parsing
-    # -------------------------------------------------------------------------
-    parser = argparse.ArgumentParser(description="Performs tBLASTn on a genome.")
-    parser.add_argument(
-        "--genome",
-        type=str,
-        required=True,
-        help="The name of the genome to perform tBLASTn on.",
-    )
-    parser.add_argument(
-        "--num_threads",
-        type=int,
-        default=defaults.MAX_THREADPOOL_WORKERS,
-        help="The number of threads to use for tBLASTn (default from config).",
-    )
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace) -> None:
+    """The work of one run; see the module docstring."""
     genome: str = args.genome
     num_threads: int = args.num_threads
 
@@ -81,7 +66,6 @@ if __name__ == "__main__":
         genome=genome,
         input_database_path=defaults.PATH_DICT["SPECIES_DB"],
         num_threads=num_threads,
-        display_full_info=False,
     )
 
     # -------------------------------------------------------------------------
@@ -99,3 +83,33 @@ if __name__ == "__main__":
         output_directory_path=defaults.PATH_DICT["TBLASTN_PICKLE_DIR"],
         output_file_name=f"{genome}.pkl",
     )
+    logger.log(OK, "%s tBLASTn hits", f"{len(tblastn_results):,}")
+
+
+if __name__ == "__main__":
+    # -------------------------------------------------------------------------
+    # 1.1 Argument Parsing
+    # -------------------------------------------------------------------------
+    parser = argparse.ArgumentParser(description="Performs tBLASTn on a genome.")
+    parser.add_argument(
+        "--genome",
+        type=str,
+        required=True,
+        help="The name of the genome to perform tBLASTn on.",
+    )
+    parser.add_argument(
+        "--num_threads",
+        type=int,
+        default=defaults.MAX_THREADPOOL_WORKERS,
+        help="The number of threads to use for tBLASTn (default from config).",
+    )
+    args = parser.parse_args()
+    # The rule is a heavy one and must stay byte-identical, so it passes no log
+    # path; the job log follows the LOG_DIR/<step>/<genome>.log layout anyway.
+    job_log = (
+        Path(defaults.PATH_DICT["LOG_DIR"])
+        / "full_genome_blaster"
+        / f"{args.genome}.log"
+    )
+    job_logging(job_log, "full_genome_blaster")
+    run_main(lambda: main(args))

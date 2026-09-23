@@ -131,6 +131,15 @@ To cut version `X.Y.Z`:
    `git tag -a vX.Y.Z -m "RetroSeek vX.Y.Z"` then `git push --tags`.
 5. Optionally publish a GitHub Release from the tag, pasting the changelog section.
 
+## Writing to the console
+
+Scripts write one plain line per message through `log.py` / `utils/log.R` and
+never colour anything; the launcher draws the screen. Entry points use
+`job_logging` / `log_job` and `run_main`, known failures raise `PipelineError` /
+`abort_hint` with their fix, and tools run through `external.run_tool`. Every
+non-heavy rule has `log: job_log('<step>', '{genome}')`. See
+[console_style.md](console_style.md) and ADR-021.
+
 ## Snakemake patterns to know
 
 A few non-obvious patterns are used in [`workflow/Snakefile`](../workflow/Snakefile) that contributors should understand before editing rules:
@@ -139,7 +148,7 @@ A few non-obvious patterns are used in [`workflow/Snakefile`](../workflow/Snakef
 
 - **Global `wildcard_constraints` on `{genome}`.** Pinned to the exact configured species list via `"|".join(re.escape(s) for s in SPECIES)` near the top of the Snakefile. Prevents the default `.+` regex from greedily absorbing suffixes like `_retroviral` into the wildcard and producing `AmbiguousRuleException` at runtime when two rules write into the same directory with overlapping filename patterns. When adding a new rule whose output shares a directory with another rule's output, prefer unambiguous filename prefixes *and* rely on the constraint - defense in depth.
 
-- **Trap-backed heartbeat on silent long-running rules.** `ltr_index_generator_setup` (suffixerator) and `ltr_harvester_setup` (ltrharvest) wrap their shell commands in a background subshell that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s, with `trap '... EXIT'` for cleanup. Adopt the same pattern for any new rule whose primary tool writes all output to stdout (and therefore leaves stderr silent). Do *not* add heartbeats to rules whose tool already emits chatty stderr (e.g. `gt ltrdigest -v`, anything using Python `logging` / `coloredlogs` / `tqdm`) - the cost is zero but the duplication is noise.
+- **Trap-backed heartbeat on silent long-running rules.** `ltr_index_generator_setup` (suffixerator) and `ltr_harvester_setup` (ltrharvest) wrap their shell commands in a background subshell that emits `[heartbeat:<rule>:<genome>] still running at Nm elapsed` to stderr every 60 s, with `trap '... EXIT'` for cleanup. Adopt the same pattern for any new rule whose primary tool writes all output to stdout (and therefore leaves stderr silent). Do *not* add heartbeats to rules whose tool already emits chatty stderr (e.g. `gt ltrdigest -v`, anything that already writes progress lines of its own) - the cost is zero but the duplication is noise.
 
 ## Architectural decision records
 
