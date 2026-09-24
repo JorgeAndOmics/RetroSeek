@@ -128,6 +128,11 @@ main <- function(args) {
   gr <- attach_min_gapwidth(gr, opts$probe_min_length)
   record_count("filtered_blast_hits",  length(gr))
   log_info("%d of %d hits kept", length(gr), .pre_n)
+  # One set of sequence names for hits and LTRdigest features, so comparing them
+  # never warns about levels missing on one side (see share_seqlevels).
+  .shared  <- share_seqlevels(gr, ltr_data)
+  gr       <- .shared$a
+  ltr_data <- .shared$b
 
 
   # ----------------------------------------------------------------------------

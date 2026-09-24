@@ -217,7 +217,9 @@ def summary_lines(
             lines.append(f"    log: {failure.log}")
 
     lines.append(f"run log   {run_log}")
-    if tally.failures:
+    if status == "interrupted":
+        lines.append("Rerun the same command to continue: finished work is kept.")
+    elif tally.failures:
         lines.append(
             "Fix the cause, then rerun the same command: finished work is kept."
         )
@@ -332,10 +334,13 @@ class ScreenHandler(logging.Handler):
 def stream(cmd: list[str], screen: Screen, tally: Tally, run_log: Path) -> int:
     """Run `cmd`, route every output line, and return its exit code.
 
-    Ctrl-C reaches Snakemake too (same process group); it stops its jobs and marks
-    unfinished outputs as incomplete. We wait for it and report 130.
+    Ctrl-C reaches Snakemake too (same process group): it stops its jobs and
+    marks unfinished outputs as incomplete. Meanwhile we keep reading, because
+    its last lines belong in the run log and a full pipe would stall it, and then
+    report 130 (interrupted).
     """
     run_log.parent.mkdir(parents=True, exist_ok=True)
+    interrupted = False
     with run_log.open("a", encoding="utf-8") as record:
         proc = subprocess.Popen(
             cmd,
@@ -347,19 +352,27 @@ def stream(cmd: list[str], screen: Screen, tally: Tally, run_log: Path) -> int:
         )
         assert proc.stdout is not None
         try:
-            for raw in proc.stdout:
-                line = raw.rstrip("\n")
-                record.write(raw)
-                tally.feed(line)
-                if event := parse_event(line):
-                    screen.show(event)
-                elif progress := parse_progress(line):
-                    screen.progress(*progress)
-                else:
-                    screen.raw(line)
-            return proc.wait()
-        except KeyboardInterrupt:
-            proc.wait()
-            return 130
+            while True:
+                try:
+                    for raw in proc.stdout:
+                        _route(raw, screen, tally, record)
+                    break
+                except KeyboardInterrupt:
+                    interrupted = True
+            code = proc.wait()
         finally:
             screen.stop()
+    return 130 if interrupted else code
+
+
+def _route(raw: str, screen: Screen, tally: Tally, record: IO[str]) -> None:
+    """One line of the stream: into the run log, the tally and (maybe) the screen."""
+    line = raw.rstrip("\n")
+    record.write(raw)
+    tally.feed(line)
+    if event := parse_event(line):
+        screen.show(event)
+    elif progress := parse_progress(line):
+        screen.progress(*progress)
+    else:
+        screen.raw(line)

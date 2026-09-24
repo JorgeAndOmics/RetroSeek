@@ -8,7 +8,10 @@ verbosity filter, and the summary built from what streamed past.
 
 import io
 import logging
+import os
+import signal
 import sys
+import threading
 
 import pytest
 
@@ -236,3 +239,32 @@ def test_tally_counts_a_failure_once_although_snakemake_repeats_it() -> None:
     _feed(tally, SNAKEMAKE9_ERROR + "Select jobs to execute...\n" + SNAKEMAKE9_ERROR)
     tally.finish()
     assert len(tally.failures) == 1
+
+
+def test_an_interrupt_keeps_reading_until_snakemake_has_stopped(tmp_path) -> None:
+    """Ctrl-C reaches Snakemake too; while it stops its jobs, its last lines must
+    still be read (a full pipe would stall it) and the run reported as 130."""
+    script = (
+        "import sys, time\n"
+        "print('started', flush=True)\n"
+        "time.sleep(1.5)\n"
+        "print('10:00:02 ERROR make g | stopped by the interrupt', flush=True)\n"
+    )
+    timer = threading.Timer(0.7, lambda: os.kill(os.getpid(), signal.SIGINT))
+    timer.start()
+    tally = console.Tally()
+    run_log = tmp_path / "r.log"
+    code = console.stream(
+        [sys.executable, "-c", script],
+        console.Screen(file=io.StringIO(), verbosity="normal"),
+        tally,
+        run_log,
+    )
+    timer.join()
+    assert code == 130
+    assert "stopped by the interrupt" in run_log.read_text()
+
+
+def test_an_interrupted_run_is_told_to_continue_not_to_fix() -> None:
+    lines = console.summary_lines(console.Tally(), "interrupted", 5.0, "r.log")
+    assert lines[-1] == "Rerun the same command to continue: finished work is kept."

@@ -196,10 +196,13 @@ main <- function(args) {
       n_fit_rows = nrow(fit$fit_data)
     )
     if (identical(fit$status, "insufficient_data")) {
-      log_warn("%s: too few non-zero windows to fit the model; its windows get NA p-values",
+      # Expected for rare lineages (a handful of loci), and recorded in the tables
+      # as NA p-values: information, not something to act on.
+      log_info("%s: too few non-zero windows to fit the model; its windows get NA p-values",
                label)
     } else if (identical(fit$status, "failed")) {
-      log_warn("%s: the NB GLM did not converge; its windows get NA p-values", label)
+      log_warn(paste("%s: the NB GLM did not converge, so its windows get NA p-values;",
+                     "a larger hotspot.window_size usually lets it fit"), label)
     }
 
     # Score windows
@@ -227,7 +230,15 @@ main <- function(args) {
   all_hotspots <- if (length(per_label_hotspots) == 0L) {
     .empty_merged_gr()
   } else {
-    do.call(c, unname(per_label_hotspots))
+    # Lineages can have hotspots on different chromosomes; joining GRanges whose
+    # sequence levels differ warns ("no sequence levels in common"). Give every
+    # piece the full set first; the joined level order is the one c() made anyway.
+    every_level <- unique(unlist(lapply(per_label_hotspots, GenomeInfoDb::seqlevels)))
+    shared <- lapply(per_label_hotspots, function(gr) {
+      GenomeInfoDb::seqlevels(gr) <- union(GenomeInfoDb::seqlevels(gr), every_level)
+      gr
+    })
+    do.call(c, unname(shared))
   }
   all_hotspots <- assign_hotspot_ids(all_hotspots, species)
   all_windows_df <- attach_hotspot_id_to_windows(all_windows_df, all_hotspots)

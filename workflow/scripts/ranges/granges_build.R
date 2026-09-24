@@ -60,6 +60,20 @@ build_blast_gr <- function(blast_df, probe_lengths = NULL) {
 }
 
 
+# Give two GRanges the same set of sequence names. BLAST hits and LTRdigest
+# features sit on different scaffolds, and every comparison of objects whose
+# sequence levels differ raises a Bioconductor warning ("Each of the 2 combined
+# objects has sequence levels not in the other"): noise that buried real
+# warnings. Each object keeps its own level order first and gains the missing
+# names at the end, because GRanges sort by level order and the output row order
+# must not change. Returns list(a = , b = ).
+share_seqlevels <- function(a, b) {
+  every <- union(GenomeInfoDb::seqlevels(a), GenomeInfoDb::seqlevels(b))
+  GenomeInfoDb::seqlevels(a) <- union(GenomeInfoDb::seqlevels(a), every)
+  GenomeInfoDb::seqlevels(b) <- union(GenomeInfoDb::seqlevels(b), every)
+  list(a = a, b = b)
+}
+
 # Pull the LTR_retrotransposon features (the parent ERVs) from the LTRdigest
 # GFF3. Optionally pad each ERV by `resize_bp` on both sides so downstream
 # overlap detection has tolerance.

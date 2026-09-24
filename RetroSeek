@@ -63,12 +63,15 @@ def main() -> int:
         env["RETROSEEK_CONFIG"] = config
 
     cmd = [sys.executable, "scripts/RetroSeek.py", *argv]
-    try:
-        return subprocess.run(cmd, cwd=REPO / "workflow", env=env, check=False).returncode
-    except KeyboardInterrupt:
-        # Ctrl-C reaches the child too (same process group); Snakemake stops its
-        # jobs and marks unfinished files as incomplete. 130 = interrupted.
-        return 130
+    child = subprocess.Popen(cmd, cwd=REPO / "workflow", env=env)
+    # Ctrl-C reaches the child too (same process group): Snakemake stops its jobs,
+    # the pipeline prints its summary and exits 130. Wait for all of that rather
+    # than leaving early (subprocess.run would kill the child on Ctrl-C).
+    while True:
+        try:
+            return child.wait()
+        except KeyboardInterrupt:
+            continue
 
 
 if __name__ == "__main__":

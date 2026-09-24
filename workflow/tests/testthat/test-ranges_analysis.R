@@ -290,3 +290,21 @@ test_that("read_pipeline_options STOPS when main_probes is missing", {
   cfg$parameters$main_probes <- NULL
   expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
 })
+
+
+test_that("share_seqlevels gives both objects every sequence name, keeping their order", {
+  # Hits and LTR elements sit on different scaffolds. Comparing two GRanges with
+  # different sequence levels warns every time (36 noise warnings per model-5
+  # run); sharing the levels removes the cause. Each object keeps its own level
+  # order first, because GRanges sort by it and output row order must not move.
+  hits <- GenomicRanges::GRanges(c("chr2", "chr1"), IRanges::IRanges(c(1, 1), width = 10))
+  elements <- GenomicRanges::GRanges(c("scaf9", "chr1"), IRanges::IRanges(c(5, 5), width = 10))
+  shared <- share_seqlevels(hits, elements)
+
+  expect_setequal(GenomeInfoDb::seqlevels(shared$a), c("chr1", "chr2", "scaf9"))
+  expect_setequal(GenomeInfoDb::seqlevels(shared$b), c("chr1", "chr2", "scaf9"))
+  expect_equal(GenomeInfoDb::seqlevels(shared$a)[1:2], GenomeInfoDb::seqlevels(hits))
+  expect_equal(GenomeInfoDb::seqlevels(shared$b)[1:2], GenomeInfoDb::seqlevels(elements))
+  expect_silent(GenomicRanges::findOverlaps(shared$a, shared$b))
+  expect_equal(as.character(GenomicRanges::seqnames(shared$a)), c("chr2", "chr1"))
+})

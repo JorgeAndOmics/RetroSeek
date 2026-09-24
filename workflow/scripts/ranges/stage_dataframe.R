@@ -135,7 +135,9 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   element_domains <- vapply(names_by_parent, function(x) {
     x <- x[!is.na(x)]
     if (length(x) == 0L) return(NA_character_)
-    paste(sort(unique(x)), collapse = "; ")
+    # radix = byte order, the same on every machine; the default follows the
+    # locale and wrote "Gag_p10; GP41" here but "GP41; Gag_p10" elsewhere.
+    paste(sort(unique(x), method = "radix"), collapse = "; ")
   }, character(1))
 
   # All Pfam `protein_match` features per parent, regardless of probe

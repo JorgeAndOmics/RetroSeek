@@ -158,3 +158,14 @@ test_that("an unexpected error is one screen line, the call stack in the log", {
   expect_match(errors, "object 'x' not found")
   expect_true(any(grepl("call stack", readLines(job_log))))
 })
+
+test_that("a multi-line warning becomes one line, so it counts once", {
+  withr::local_envvar(RETROSEEK_VERBOSITY = "normal")
+  log_setup("s", "g")
+  out <- .capture_stderr(run_main(function() {
+    warning("Each of the 2 combined objects has sequence levels not in the other:\n  - in 'x': chr9\n  Make sure to always combine objects based on the same reference")
+  }, quit_on_error = FALSE))
+  warns <- grep(" WARN ", out, value = TRUE)
+  expect_length(warns, 1)
+  expect_match(warns, "not in the other: - in 'x': chr9 Make sure")
+})

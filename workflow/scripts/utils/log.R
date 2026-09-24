@@ -142,7 +142,9 @@ run_main <- function(fn, quit_on_error = TRUE) {
         0L
       },
       warning = function(w) {
-        log_warn("%s", conditionMessage(w))
+        # One warning, one line: package warnings often wrap over several lines,
+        # which would otherwise count as several warnings in the summary.
+        log_warn("%s", gsub("\\s*\n\\s*", " ", conditionMessage(w)))
         invokeRestart("muffleWarning")
       },
       error = function(e) {

@@ -78,7 +78,7 @@ overlap_matrix_exporter <- function(gr_virus, gr_valid, parquet_path, csv_path) 
   probes <- sort(unique(c(
     as.character(S4Vectors::mcols(gr_virus)$probe),
     as.character(S4Vectors::mcols(gr_valid)$probe)
-  )))
+  )), method = "radix")  # byte order: row order must not depend on the locale
   counts <- function(g, p) sum(as.character(S4Vectors::mcols(g)$probe) == p)
   # The former `candidate` column is gone (ADR-016): it was always equal to
   # `valid`, since valid is the candidate set with a Parent attached.

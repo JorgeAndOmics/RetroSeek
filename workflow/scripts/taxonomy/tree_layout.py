@@ -85,7 +85,13 @@ def from_taxonomy(taxonomy_tsv: Path, tips: list[str]) -> Tree | None:
     """
     parent, _rank = load_hierarchy(taxonomy_tsv)
     known = [t for t in tips if t in parent]
-    missing = sorted(set(tips) - set(known))
+    # Placeholders are not taxa: "unclassified" and "unassigned_at_<rank>" never
+    # appear in taxonomy.tsv by design, so they are no reason to warn.
+    missing = sorted(
+        t
+        for t in set(tips) - set(known)
+        if t != "unclassified" and not t.startswith("unassigned_at_")
+    )
     if missing:
         logger.warning(
             "taxon tree: %d call(s) absent from taxonomy.tsv, omitted: %s",
@@ -235,10 +241,12 @@ def from_newick(
     for leaf in tree.get_terminals():
         leaf.name = matched.get(leaf.name, leaf.name)
     if uninformative_branch_lengths(tree):
-        logger.warning(
-            "species tree %s has uninformative branch lengths (all absent or "
-            "whole numbers); it is a cladogram, not a timetree. Topology is "
-            "usable, but any comparison against divergence times is not.",
+        # Information, not a warning: the figures use only the tree's order and
+        # topology, and square a cladogram off on purpose.
+        logger.info(
+            "species tree %s is a cladogram (branch lengths absent or whole "
+            "numbers): its topology orders the species, but it says nothing about "
+            "divergence times.",
             newick,
         )
     result: Tree = tree
