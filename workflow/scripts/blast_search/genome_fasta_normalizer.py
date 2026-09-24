@@ -41,8 +41,9 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
+
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -141,20 +142,19 @@ def normalize(species_dir: Path, genome: str, output: Path) -> Path:
     return output
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--genome-name", required=True)
     parser.add_argument("--species-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    job_logging(args.log, "genome_fasta_normalizer")
 
     canonical = normalize(args.species_dir, args.genome_name, args.output)
-    logger.info("Canonical FASTA for %s: %s", args.genome_name, canonical)
-    return 0
+    logger.log(OK, "canonical FASTA: %s", canonical)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    run_main(main)

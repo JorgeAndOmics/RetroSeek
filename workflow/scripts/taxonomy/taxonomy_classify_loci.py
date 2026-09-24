@@ -24,7 +24,6 @@ import csv
 import hashlib
 import logging
 import re
-import subprocess
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -35,7 +34,7 @@ import taxonomy_lca as tlca
 import taxonomy_placement
 from Bio.Seq import Seq
 
-from colored_logging import colored_logging
+from log import OK, job_logging, run_main
 
 # Domain-class semantics are shared with the scanner. The scanner imports THIS
 # module for locus grouping, so the shared piece lives in its own module to keep
@@ -43,6 +42,8 @@ from colored_logging import colored_logging
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "domains"))
 from domain_classes import load_classes
 from domain_classes import summarise as summarise_domains
+
+from external import run_tool
 
 logger = logging.getLogger(__name__)
 
@@ -60,19 +61,6 @@ _OVERSIZED = re.compile(r"oversized=([^;\t]+)")
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
 # (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
 # classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
-
-
-def run(cmd: list[str], stdout: Any = None) -> None:
-    res = subprocess.run(
-        cmd,
-        stdout=stdout or subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        sys.stderr.write((res.stderr or "")[-2000:])
-        raise SystemExit(f"command failed: {' '.join(cmd[:3])}...")
 
 
 # ---------------------------------------------------------------- loci + regions
@@ -264,11 +252,11 @@ def write_region_bed(loci: list[dict[str, Any]], bed: Path) -> None:
 # ---------------------------------------------------------------- search
 def build_db(faa: Path, db: Path) -> None:
     if not db.with_suffix(".pin").exists():
-        run([MAKEBLASTDB, "-in", str(faa), "-dbtype", "prot", "-out", str(db)])
+        run_tool([MAKEBLASTDB, "-in", str(faa), "-dbtype", "prot", "-out", str(db)])
 
 
 def search(query: Path, db: Path, out: Path, evalue: float, threads: int) -> None:
-    run(
+    run_tool(
         [
             BLASTX,
             "-query",
@@ -331,7 +319,7 @@ def classify(
     write_region_bed(loci, bed)
     # strand-aware region extraction via Biostrings (Bioconductor), replacing
     # `bedtools getfasta -s -nameOnly`.
-    run(
+    run_tool(
         [
             "Rscript",
             str(_EXTRACT_R),
@@ -949,15 +937,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Omit to leave the artifacts in the scratch workdir."
         ),
     )
+    p.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     return p
 
 
-def main() -> int:
+def main() -> None:
     a = _build_arg_parser().parse_args()
-
-    # Per-(genome, tier) log file so the parallel per-genome invocations don't
-    # clobber one another's log.
-    colored_logging(log_file_name=f"taxonomy_classify_{a.gff3.stem}_{a.source}.txt")
+    # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
+    # path says which, and keeps parallel genomes apart.
+    job_logging(a.log, f"taxonomy_classify_{a.source}")
     logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
 
     tax = a.ref_dir / "taxonomy.tsv"
@@ -1011,9 +999,10 @@ def main() -> int:
         logger.info("wrote tables -> %s, %s", a.out_parquet, a.out_csv)
     if a.out_gff3 and a.out_bed:  # production IGV track
         write_track(records, a.out_gff3, a.out_bed)
-        logger.info("wrote track -> %s", a.out_gff3)
-    return 0
+        logger.info("wrote track: %s", a.out_gff3)
+    called = sum(1 for r in records if r.get("taxon_call"))
+    logger.log(OK, "%s loci, %s with a taxon call", f"{len(records):,}", f"{called:,}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

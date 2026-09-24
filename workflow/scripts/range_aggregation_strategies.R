@@ -33,6 +33,17 @@ suppressMessages({
 #' @param strict_marker Value returned by `strict` when contributors disagree.
 #' @return Either a single character (for all strategies except `list`) or an
 #'   IRanges::CharacterList of length 1 (for `list`).
+# Byte order, the same on every machine. Plain sort() follows the locale's
+# collation, so `first`, a `majority` tie or a joined list could differ between
+# two machines for the same data (found 2026-09-23).
+.byte_sort <- function(x) sort(x, method = "radix")
+
+# The most frequent value; ties go to the first in byte order.
+.majority <- function(x) {
+  counts <- table(factor(x, levels = .byte_sort(unique(x))))
+  names(counts)[which.max(counts)]
+}
+
 aggregate_values <- function(values, strategy,
                              tiebreaker    = NULL,
                              separator     = "; ",
@@ -55,15 +66,15 @@ aggregate_values <- function(values, strategy,
   switch(
     strategy,
     list        = IRanges::CharacterList(list(uniq)),
-    concatenate = paste(sort(uniq), collapse = separator),
+    concatenate = paste(.byte_sort(uniq), collapse = separator),
     best        = {
       if (is.null(tiebreaker)) {
         stop("aggregate_values(strategy='best') requires a tiebreaker vector.")
       }
       values_chr[which.max(tiebreaker)][1]
     },
-    majority    = names(sort(table(values_chr), decreasing = TRUE))[1],
-    first       = sort(uniq)[1],
+    majority    = .majority(values_chr),
+    first       = .byte_sort(uniq)[1],
     strict      = if (length(uniq) == 1L) uniq else strict_marker,
     stop("Unknown aggregation strategy: ", strategy)
   )
@@ -98,8 +109,8 @@ aggregate_values <- function(values, strategy,
     uniq <- unique(elem)
     switch(
       strategy,
-      list        = paste(sort(uniq), collapse = separator),  # see comment above
-      concatenate = paste(sort(uniq), collapse = separator),
+      list        = paste(.byte_sort(uniq), collapse = separator),  # see comment above
+      concatenate = paste(.byte_sort(uniq), collapse = separator),
       best        = {
         if (is.null(tiebreaker)) {
           stop("aggregate_values(strategy='best') requires a tiebreaker vector.")
@@ -111,8 +122,8 @@ aggregate_values <- function(values, strategy,
         }
         elem[which.max(tb_i)][1]
       },
-      majority    = names(sort(table(elem), decreasing = TRUE))[1],
-      first       = sort(uniq)[1],
+      majority    = .majority(elem),
+      first       = .byte_sort(uniq)[1],
       strict      = if (length(uniq) == 1L) uniq else strict_marker,
       stop("Unknown aggregation strategy: ", strategy)
     )

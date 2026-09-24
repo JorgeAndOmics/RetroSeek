@@ -40,6 +40,9 @@ extract_region_fasta <- function(genome, bed) {
 
 main <- function() {
   suppressMessages(library(argparse))
+  # This file's folder, to find utils/log.R beside it (Rscript passes --file=).
+  script_file <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE))
+  source(file.path(dirname(script_file), "..", "utils", "log.R"))
   parser <- ArgumentParser(
     description = "Strand-aware region FASTA extraction (Biostrings; replaces bedtools getfasta)"
   )
@@ -47,8 +50,17 @@ main <- function() {
   parser$add_argument("--bed", required = TRUE,
                       help = "regions BED6 (chrom, start0, end, name, score, strand)")
   parser$add_argument("--out", required = TRUE, help = "output FASTA")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path of the calling rule")
   args <- parser$parse_args()
+  log_job(args$log, "extract_region_fasta")
+  run_main(function() extract(args))
+}
 
+
+# Read the genome and the BED, write the regions. A helper step inside other jobs,
+# so it reports at INFO: the calling job prints the one OK headline.
+extract <- function(args) {
   genome <- Biostrings::readDNAStringSet(args$genome)
   # Key on the first whitespace token of each header, as bedtools does, so a
   # header like "chr1 description" is addressed as "chr1".
@@ -59,7 +71,9 @@ main <- function() {
     col.names = c("chrom", "start0", "end", "name", "score", "strand"),
     colClasses = c("character", "integer", "integer", "character", "character", "character")
   )
-  Biostrings::writeXStringSet(extract_region_fasta(genome, bed), args$out)
+  regions <- extract_region_fasta(genome, bed)
+  Biostrings::writeXStringSet(regions, args$out)
+  log_info("%s regions extracted", format(length(regions), big.mark = ","))
 }
 
 

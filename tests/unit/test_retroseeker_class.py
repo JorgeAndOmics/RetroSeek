@@ -17,6 +17,9 @@ from __future__ import annotations
 # ``conftest.py`` puts ``workflow/scripts`` on sys.path and stubs ``defaults``
 # before this import runs, so the real RetroSeeker_class can be imported
 # without triggering defaults.py's filesystem side effects.
+import pytest
+
+from log import PipelineError
 from RetroSeeker_class import RetroSeeker
 
 
@@ -139,3 +142,30 @@ def test_imported_class_is_the_real_retroseeker() -> None:
     rs = _make(identifier="id01")
     assert rs.__class__.__name__ == "RetroSeeker"
     assert rs.__class__.__module__ == "RetroSeeker_class"
+
+
+class TestMissingSequenceIsLoud:
+    """A probe without a sequence used to be skipped quietly by the BLAST stage."""
+
+    @staticmethod
+    def _probe() -> RetroSeeker:
+        return RetroSeeker(
+            label="toy_label",
+            virus="toy_virus",
+            abbreviation="TOY",
+            species="Toyus_simplex",
+            probe="POL",
+            accession="TOY_POL_001",
+            identifier="seq001",
+        )
+
+    def test_get_fasta_without_genbank_names_the_probe_and_the_fix(self) -> None:
+        with pytest.raises(PipelineError) as caught:
+            self._probe().get_fasta("tempfile")
+        assert "TOY_POL_001" in str(caught.value)
+        assert "--probe-extractor" in str(caught.value)
+
+    def test_an_unreadable_genbank_record_raises(self) -> None:
+        """gb_fetcher catches this, retries, then reports an ERROR."""
+        with pytest.raises(ValueError, match="No records"):
+            self._probe().set_genbank("this is not a GenBank record")

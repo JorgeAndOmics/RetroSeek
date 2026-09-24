@@ -1,18 +1,32 @@
-# -------------------
-# DEPENDENCIES
-# -------------------
+# =============================================================================
+# RetroSeek.py: the pipeline side of the launcher (ADR-020, ADR-021)
+# =============================================================================
+# Called by the root `./RetroSeek` shim. One run goes:
+#
+#   banner -> checks (preflight always, validation unless -skp) -> the heavy-rule
+#   guard (a captured dry run) -> ONE Snakemake call streamed through console.py
+#   -> summary. The exit code is Snakemake's, or 1 when a check or the guard
+#   stopped the run.
+#
+# Every line of the run, ours and Snakemake's, lands in LOG_DIR/runs/<time>.log;
+# the screen shows what `display.verbosity` (or --verbosity) asks for.
+# =============================================================================
 
+import argparse
 import logging
+import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
-import colored_logging
+import console
 import defaults
 import guard
 import stages
-from validator import preflight, validation_run
+from log import OK
+from validator import preflight, uses_pfam, validation_run
 
 logger = logging.getLogger(__name__)
 
@@ -37,61 +51,6 @@ def standardize_fasta_extensions(fasta_dir_path: str | Path) -> None:
             new_name: Path = file.with_name(f"{file.stem}.fa")
             logger.debug(f"Renaming: {file.name} -> {new_name.name}")
             file.rename(new_name)
-
-
-# -----------------------------
-# SNAKEMAKE RULE EXECUTION
-# -----------------------------
-
-
-def run_snakemake_rule(
-    rule: str | list[str],
-    num_cores: int,
-    display_info: bool,
-    snakemake_flags: list[str] | None = None,
-) -> None:
-    """
-    Execute one or more Snakemake rules with specified options.
-
-    Parameters
-    ----------
-        :param rule : str | list[str]
-        Name(s) of the Snakemake rule(s) to execute. A list is passed to
-        snakemake as multiple targets in a single invocation (one DAG).
-        :param num_cores : int
-        Number of cores to allocate for the rule.
-        :param display_info : bool
-        Whether to display detailed Snakemake command output.
-        :param snakemake_flags:
-    """
-    if snakemake_flags is None:
-        snakemake_flags = []
-    rules = [rule] if isinstance(rule, str) else list(rule)
-    rule_label = " ".join(rules)
-    shell_cmd: list[str] = [
-        "snakemake",
-        *rules,
-        "--cores",
-        str(num_cores),
-        "--rerun-incomplete",
-        *snakemake_flags,
-    ]
-
-    if not display_info:
-        shell_cmd.append("-q")
-
-    try:
-        result = subprocess.run(shell_cmd, check=False)
-    except (FileNotFoundError, OSError) as exc:
-        logger.error(f"Failed to invoke snakemake for rule(s) '{rule_label}': {exc}")
-        sys.exit(1)
-
-    if result.returncode != 0:
-        logger.error(
-            f"Snakemake rule(s) '{rule_label}' failed with exit code "
-            f"{result.returncode}. See snakemake output above for details."
-        )
-        sys.exit(result.returncode)
 
 
 # -----------------------------
@@ -126,28 +85,73 @@ def is_maintenance(user_options: list[str]) -> bool:
     return any(flag in _MAINTENANCE_FLAGS for flag in user_options)
 
 
-def capture_dry_run(targets: list[str], options: list[str]) -> str:
-    """A Snakemake dry run of `targets`, captured for the guard to read.
+def snakemake_command(targets: list[str], cores: int, options: list[str]) -> list[str]:
+    """The Snakemake command line for `targets`: the same for the run and the guard.
 
-    Exits with Snakemake's own code and output if the dry run itself fails
-    (a config or DAG error), since nothing sensible can be checked then.
+    Snakemake always speaks in full; the launcher decides what reaches the screen
+    and keeps everything in the run log.
     """
-    cmd = [
+    return [
         "snakemake",
         *targets,
         "--cores",
-        str(defaults.NUM_CORES),
+        str(cores),
         "--rerun-incomplete",
-        "-n",
         *options,
     ]
+
+
+def capture_dry_run(targets: list[str], options: list[str]) -> tuple[int, str]:
+    """A Snakemake dry run of `targets`, captured for the guard: (exit code, text)."""
+    cmd = snakemake_command(targets, defaults.NUM_CORES, ["-n", *options])
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        print(output)
-        logger.error(f"The dry run failed with exit code {result.returncode}.")
-        sys.exit(result.returncode)
-    return output
+    return result.returncode, result.stdout + result.stderr
+
+
+# -----------------------------
+# WHAT THE RUN LOOKS LIKE
+# -----------------------------
+
+
+def _commit() -> str:
+    """The checked-out commit, so a run log says which code produced it."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=Path(__file__).resolve().parent,
+    )
+    return result.stdout.strip() or "unknown commit"
+
+
+def banner(chosen: list[stages.Stage], verbosity: str, run_log: Path) -> list[str]:
+    """The lines that open a run: what runs, on what, and where its record goes."""
+    names = " > ".join(s.flag.lstrip("-").replace("-", " ") for s in chosen)
+    return [
+        f"RetroSeek {_commit()}",
+        f"  config     {defaults.CONFIG_FILE}",
+        f"  genomes    {len(defaults.SPECIES)}    cores  {defaults.NUM_CORES}"
+        f"    verbosity  {verbosity}",
+        f"  stages     {names}",
+        f"  run log    {run_log}",
+    ]
+
+
+def _append(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as out:
+        out.write(text if text.endswith("\n") else text + "\n")
+
+
+def write_warnings(tally: console.Tally, path: Path) -> None:
+    """Every warning of the run, one line each, next to the run log."""
+    _append(
+        path,
+        "".join(
+            f"{e.time} WARN {e.step} {e.genome} | {e.message}\n" for e in tally.warnings
+        ),
+    )
 
 
 # -----------------------------
@@ -155,16 +159,91 @@ def capture_dry_run(targets: list[str], options: list[str]) -> str:
 # -----------------------------
 
 
+def run_checks(args: argparse.Namespace, chosen: list[stages.Stage]) -> None:
+    """Preflight (always) and the slow validation (unless -skp); exit 1 on failure."""
+    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
+    if not preflight(chosen):
+        logger.error("Preflight checks failed; nothing was run.")
+        sys.exit(1)
+    species_paths = [
+        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
+        for species in defaults.SPECIES
+    ]
+    if not args.skip_validation and not validation_run(chosen, species_paths):
+        sys.exit(1)
+    logger.log(
+        OK, "checks passed: config, tools%s", ", Pfam" if uses_pfam(chosen) else ""
+    )
+
+
+def run_guard(
+    args: argparse.Namespace,
+    chosen: list[stages.Stage],
+    targets: list[str],
+    options: list[str],
+    screen: console.Screen,
+    run_log: Path,
+) -> None:
+    """The heavy-rule guard. Exits when it stops the run, or after a dry run."""
+    code, output = capture_dry_run(targets, options)
+    _append(run_log, output)
+    dry_run = is_dry_run(options)
+    if code != 0 or dry_run:
+        screen.lines(output.splitlines())
+    if code != 0:
+        logger.error(f"The dry run failed (exit {code}); nothing was run.")
+        sys.exit(code)
+    counts = guard.job_counts(output)
+    heavy = guard.blocked(counts, stages.allowed_heavy(chosen))
+    if heavy and not args.allow_heavy:
+        logger.error(guard.report(heavy, counts, guard.first_reasons(output)))
+        sys.exit(1)
+    logger.log(
+        OK, "guard: %s jobs to run, none of them heavy", f"{sum(counts.values()):,}"
+    )
+    if dry_run:
+        logger.warning("Dry run only: nothing was run.")
+        sys.exit(0)
+
+
+def run_workflow(
+    targets: list[str],
+    options: list[str],
+    screen: console.Screen,
+    run_log: Path,
+    started: float,
+) -> int:
+    """The one Snakemake call, streamed; then the summary. Returns its exit code."""
+    screen.heading("Run")
+    tally = console.Tally()
+    cmd = snakemake_command(targets, defaults.NUM_CORES, options)
+    code = console.stream(cmd, screen, tally, run_log)
+
+    warnings_file = run_log.with_suffix(".warnings.txt")
+    if tally.warnings:
+        write_warnings(tally, warnings_file)
+    status = {0: "done", 130: "interrupted"}.get(code, f"failed (exit {code})")
+    screen.heading("Summary")
+    summary = console.summary_lines(
+        tally,
+        status,
+        time.monotonic() - started,
+        str(run_log),
+        str(warnings_file) if tally.warnings else None,
+    )
+    screen.lines(summary)
+    _append(run_log, "\n".join(summary))
+    return code
+
+
 def cli_entry() -> None:
     """
     Main entrypoint for RetroSeek CLI.
 
-    Order: preflight (always), slow validation (unless -skp), the heavy-rule
-    guard (a captured dry run), then one Snakemake call for every requested
-    stage. Exits non-zero whenever something stopped the run.
+    Order: banner, checks, the heavy-rule guard, then one Snakemake call for
+    every requested stage and the summary. Exits non-zero whenever something
+    stopped the run.
     """
-    colored_logging.colored_logging(log_file_name="RetroSeek_main.log")
-
     parser = stages.build_parser()
     args, unknown = parser.parse_known_args()
     chosen = stages.selected(args)
@@ -172,42 +251,27 @@ def cli_entry() -> None:
         parser.print_help()
         sys.exit(0)
 
-    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
+    verbosity = args.verbosity or defaults.VERBOSITY
+    # Every job inherits the environment, so log.py and log.R filter the same way.
+    os.environ["RETROSEEK_VERBOSITY"] = verbosity
+    started = time.monotonic()
+    stamp = time.strftime("%Y-%m-%d_%H%M%S")
+    run_log = Path(defaults.PATH_DICT["LOG_DIR"]) / "runs" / f"{stamp}.log"
+    screen = console.Screen(verbosity)
+    root = logging.getLogger()
+    root.handlers = [console.ScreenHandler(screen, run_log)]
+    root.setLevel(logging.DEBUG)
 
-    if not preflight(chosen):
-        logger.error("Preflight checks failed; nothing was run.")
-        sys.exit(1)
-
-    species_paths = [
-        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
-        for species in defaults.SPECIES
-    ]
-    if not args.skip_validation and not validation_run(chosen, species_paths):
-        sys.exit(1)
+    screen.lines(banner(chosen, verbosity, run_log))
+    screen.heading("Checks")
+    run_checks(args, chosen)
 
     targets = stages.targets(chosen)
     options = snakemake_options(unknown, stop_on_error=args.stop_on_error)
-    dry_run = is_dry_run(unknown)
+    if not is_maintenance(unknown) and (is_dry_run(unknown) or not args.allow_heavy):
+        run_guard(args, chosen, targets, options, screen, run_log)
 
-    if not is_maintenance(unknown) and (dry_run or not args.allow_heavy):
-        output = capture_dry_run(targets, options)
-        if dry_run:
-            print(output)
-        counts = guard.job_counts(output)
-        heavy = guard.blocked(counts, stages.allowed_heavy(chosen))
-        if heavy and not args.allow_heavy:
-            logger.error(guard.report(heavy, counts, guard.first_reasons(output)))
-            sys.exit(1)
-        if dry_run:
-            return
-
-    run_snakemake_rule(
-        targets,
-        num_cores=defaults.NUM_CORES,
-        display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-        snakemake_flags=options,
-    )
-    logger.info("Finished execution.")
+    sys.exit(run_workflow(targets, options, screen, run_log, started))
 
 
 # -----------------------------

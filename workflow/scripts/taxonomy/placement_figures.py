@@ -51,9 +51,10 @@ import argparse
 import json
 import logging
 import shutil
-import subprocess
-import sys
 from pathlib import Path
+
+from external import run_tool
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -181,20 +182,7 @@ def route_heat_tree_outputs(plot_dir: Path, tree_dir: Path, stem: str) -> None:
             shutil.move(str(src), str(tree_dir / src.name))
 
 
-def run(cmd: list[str]) -> None:
-    """Invoke gappa, surfacing its stderr on failure.
-
-    Checked explicitly rather than via a pipeline exit code: gappa aborts by
-    raising a C++ exception, and a piped invocation would report the exit status
-    of the last stage instead.
-    """
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"gappa failed ({res.returncode}): {' '.join(cmd[:3])}")
-
-
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jplace", type=Path, required=True)
@@ -219,9 +207,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mass-norm", choices=VALID_MASS_NORM, default="absolute")
     parser.add_argument("--skip-edpl", action="store_true")
     parser.add_argument("--skip-lwr", action="store_true")
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    job_logging(args.log, "placement_figures")
     table_dir = args.table_dir or args.out_dir
     tree_dir = args.tree_dir or args.out_dir
     for d in (args.out_dir, table_dir, tree_dir):
@@ -239,17 +227,17 @@ def main(argv: list[str] | None = None) -> int:
             args.stem,
             reason="no queries were placed on the reference tree",
         )
-        return 0
+        return
 
     logger.info("%s: %d placed queries", args.stem, n)
-    run(heat_tree_cmd(args.jplace, args.out_dir, args.stem, args.mass_norm))
+    run_tool(heat_tree_cmd(args.jplace, args.out_dir, args.stem, args.mass_norm))
     route_heat_tree_outputs(args.out_dir, tree_dir, args.stem)
     if not args.skip_edpl:
-        run(edpl_cmd(args.jplace, table_dir, args.stem))
+        run_tool(edpl_cmd(args.jplace, table_dir, args.stem))
     if not args.skip_lwr:
-        run(lwr_histogram_cmd(args.jplace, table_dir, args.stem))
-    return 0
+        run_tool(lwr_histogram_cmd(args.jplace, table_dir, args.stem))
+    logger.log(OK, "%s placed queries drawn", f"{n:,}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    run_main(main)

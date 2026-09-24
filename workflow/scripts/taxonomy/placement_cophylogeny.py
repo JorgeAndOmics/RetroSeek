@@ -61,14 +61,15 @@ import argparse
 import csv
 import logging
 import shutil
-import subprocess
-import sys
 from io import StringIO
 from pathlib import Path
 
 import tree_layout
 import yaml
 from Bio import Phylo
+
+from external import run_tool
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -294,14 +295,6 @@ def congruence_with_aliases(
     return congruence(canonicalise(host_newick), canonicalise(erv_newick))
 
 
-def run(cmd: list[str]) -> None:
-    """Invoke gappa, surfacing its stderr on failure."""
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        sys.stderr.write((res.stderr or "")[-3000:])
-        raise SystemExit(f"gappa failed ({res.returncode}): {' '.join(cmd[:3])}")
-
-
 def write_summary(path: Path, tier: str, result: dict[str, object] | None) -> None:
     """Write the congruence verdict as a one-row-per-metric CSV.
 
@@ -334,7 +327,7 @@ def write_summary(path: Path, tier: str, result: dict[str, object] | None) -> No
                     writer.writerow([tier, key, split])
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     """Entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jplace", type=Path, nargs="+", required=True)
@@ -368,9 +361,9 @@ def main(argv: list[str] | None = None) -> int:
             "with display names match the ERV tree's genome stems"
         ),
     )
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    job_logging(args.log, "placement_cophylogeny")
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     if len(args.jplace) < 3:
@@ -384,12 +377,12 @@ def main(argv: list[str] | None = None) -> int:
             args.tier,
             None,
         )
-        return 0
+        return
 
     staged = stage_jplace(args.jplace, args.staged_dir or args.out_dir / "_staged")
     prefix = output_prefix(args.tier, args.gene)
-    run(squash_cmd(staged, args.out_dir, prefix))
-    run(krd_cmd(staged, args.out_dir, prefix))
+    run_tool(squash_cmd(staged, args.out_dir, prefix))
+    run_tool(krd_cmd(staged, args.out_dir, prefix))
 
     # Trees out of the table directory, mass trees a level down (see
     # route_squash_outputs). The KRD matrix stays: it is a table.
@@ -435,8 +428,10 @@ def main(argv: list[str] | None = None) -> int:
         args.tier,
         result,
     )
-    return 0
+    logger.log(
+        OK, "%s tier, %s: %d samples compared", args.tier, args.gene, len(args.jplace)
+    )
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    run_main(main)

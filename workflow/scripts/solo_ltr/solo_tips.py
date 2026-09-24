@@ -37,9 +37,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 import random
 from pathlib import Path
 from typing import NamedTuple
+
+from log import PipelineError, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 FLANK = "FLANK"
 SOLO = "SOLO"
@@ -140,7 +145,7 @@ def write_bed(tips: list[Tip], path: Path) -> int:
     return len(tips)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bait-bed", type=Path, required=True)
     parser.add_argument("--candidates-csv", type=Path, required=True)
@@ -149,7 +154,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n-solo-tips", type=int, required=True)
     parser.add_argument("--n-mono-tips", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "solo_tree")
 
     rng = random.Random(args.seed)
     # Solos first, so their seeds can be required on the tree.
@@ -160,21 +167,25 @@ def main(argv: list[str] | None = None) -> int:
     seeds = {tip.seed for tip in solos}
     tips = bait_tips(args.bait_bed, args.n_element_tips, rng, required=seeds)
     written = write_bed(tips + solos + monos, args.out_bed)
-    print(
-        f"tree tips: {len(tips)} flanking arms from <= {args.n_element_tips} elements "
-        f"({len(seeds)} of them seeds of sampled solos), "
-        f"{len(solos)} solos, {len(monos)} monoLTRs-at-orphans -> {written} total"
+    logger.info(
+        "tree tips: %d flanking arms from at most %d elements (%d of them seeds of "
+        "sampled solos), %d solos, %d monoLTRs at orphans; %d in all",
+        len(tips),
+        args.n_element_tips,
+        len(seeds),
+        len(solos),
+        len(monos),
+        written,
     )
     # IQ-TREE cannot build a tree from fewer than three sequences, and it fails
     # with a message that does not point back here. Say what is actually wrong.
     if written < 3:
-        raise SystemExit(
-            f"only {written} tree tips: too few to build a phylogeny. This genome "
-            f"has almost no ERV-bearing elements, so there is nothing for the tree "
-            f"to show. Set solo_ltr.tree.enable to false to skip the tree stage."
+        raise PipelineError(
+            f"only {written} tree tips, too few to build a phylogeny: this genome "
+            "has almost no ERV-bearing elements, so the tree would show nothing",
+            hint="set solo_ltr.tree.enable to false to skip the tree stage",
         )
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

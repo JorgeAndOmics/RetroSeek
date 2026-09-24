@@ -201,3 +201,19 @@ test_that("plyranges reduce_ranges_directed + aggregate_values round-trips clean
   expect_type(GenomicRanges::mcols(result)$virus, "character")
   expect_length(GenomicRanges::mcols(result)$virus, 4)
 })
+
+
+test_that("first and concatenate do not depend on the locale", {
+  # sort() follows the locale's collation, so `first` could pick a different
+  # value on another machine. Byte order is the same everywhere.
+  values <- c("Gag_p10", "GP41")
+  under <- function(collate, strategy) {
+    withr::local_collate(collate)
+    aggregate_values(values, strategy = strategy)
+  }
+  expect_equal(under("en_US.UTF-8", "first"), "GP41")
+  expect_equal(under("C", "first"), "GP41")
+  expect_equal(under("en_US.UTF-8", "concatenate"), "GP41; Gag_p10")
+  # A tie in `majority` resolves in byte order too.
+  expect_equal(under("en_US.UTF-8", "majority"), "GP41")
+})

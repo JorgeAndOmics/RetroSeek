@@ -44,7 +44,7 @@ import pandas as pd
 from Bio import Entrez, SeqIO
 from Bio.SeqRecord import SeqRecord
 
-from colored_logging import colored_logging
+from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ def write_manifest(
     manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
         description="Build the taxon-comprehensive ERV reference"
     )
@@ -200,8 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="probeset CSV; axis defaults to its distinct Label values when --taxa is empty",
     )
+    p.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     a = p.parse_args(argv)
-    colored_logging(log_file_name="taxonomy_reference_builder.txt")
+    job_logging(a.log, "taxonomy_reference")
     a.out_dir.mkdir(parents=True, exist_ok=True)
 
     taxa = [t.strip() for t in a.taxa.split(",") if t.strip()]
@@ -230,10 +231,11 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerow(["accession", "taxon", "gene", "defline"])
         writer.writerows(all_rows)
     write_manifest(all_rows, axis, meta, a.out_dir / "manifest.yaml")
-    logger.info("wrote %d reference proteins -> %s", len(all_rows), faa)
-    logger.info("wrote taxonomy map -> %s", meta)
-    return 0
+    logger.info("wrote taxonomy map: %s", meta)
+    logger.log(
+        OK, "%s reference proteins over %d taxa", f"{len(all_rows):,}", len(axis)
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

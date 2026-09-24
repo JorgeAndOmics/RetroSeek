@@ -311,7 +311,10 @@ main <- function() {
   parser$add_argument("--config", required = TRUE)
   parser$add_argument("--species_tree_dir", default = "",
                       help = "species_tree_layout.py output: the host tree coordinates")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "loss_analysis")
 
   use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
@@ -334,9 +337,11 @@ main <- function() {
   # Per-genome novel candidates from the loci parquet tables.
   dir.create(args$novel_dir, showWarnings = FALSE, recursive = TRUE)
   loci_files <- list.files(args$loci_dir, pattern = "\\.loci\\.parquet$", full.names = TRUE)
+  n_novel <- 0L
   for (f in loci_files) {
     genome <- sub("\\.loci$", "", tools::file_path_sans_ext(basename(f)))
     novel <- pick_novel_candidates(as_tibble(arrow::read_parquet(f)))
+    n_novel <- n_novel + nrow(novel)
     readr::write_csv(novel, file.path(args$novel_dir, paste0(genome, ".novel_candidates.csv")))
   }
   log_section(sprintf("Wrote novel candidates for %d genomes", length(loci_files)))
@@ -360,7 +365,8 @@ main <- function() {
   n_rows <- max(length(ctx$species_order), length(unique(funnel_disp$genome)))
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
-  log_section("Done")
+  log_ok("loss funnel over %s genomes, %s novel candidates",
+         format(length(unique(funnel$genome)), big.mark = ","), format(n_novel, big.mark = ","))
 }
 
 
@@ -382,13 +388,9 @@ main <- function() {
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
+  source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
   source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
-  .t0 <- Sys.time()
-  log_section <- function(name) {
-    elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-    message(sprintf("[%6.2fs] > %s", elapsed, name))
-  }
-  main()
+  run_main(main)
 }

@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import csv
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 
@@ -270,22 +269,3 @@ def summarise(records: list[dict[str, str]]) -> str:
     for genus, n in confident.most_common():
         lines.append(f"  {genus:18s} {n:6d}  [{ERV_CLASS.get(genus, '')}]")
     return "\n".join(lines)
-
-
-def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: taxonomy_lca.py <valid.gff3> [out.csv]", file=sys.stderr)
-        return 2
-    records = classify_gff3(argv[1])
-    print(summarise(records))
-    if len(argv) >= 3 and records:
-        with Path(argv[2]).open("w", newline="", encoding="utf-8") as fh:
-            writer = csv.DictWriter(fh, fieldnames=list(records[0].keys()))
-            writer.writeheader()
-            writer.writerows(records)
-        print(f"\nwrote per-locus calls -> {argv[2]}", file=sys.stderr)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv))

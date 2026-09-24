@@ -33,7 +33,12 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
+
+from log import OK, PipelineError, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 
 def wanted_accessions(classes_tsv: Path) -> set[str]:
@@ -71,14 +76,19 @@ def missing_accessions(hmm_path: Path, wanted: set[str]) -> list[str]:
     return sorted(wanted - library_accessions(hmm_path))
 
 
+MISSING_HINT = (
+    "./RetroSeek --download-hmm --forcerun pfam_hmm_downloader, then backdate the "
+    "new files so LTRdigest does not rerun (docs/adr/ADR-019)"
+)
+
+
 def missing_message(missing: list[str], hmm_path: Path) -> str:
     """Explain a library that lacks curated accessions: what, why, and the fix."""
     return (
         f"{hmm_path} lacks {len(missing)} accession(s) listed in the curated "
         f"Pfam class table: {', '.join(missing)}. The file probably comes from an "
         "older Pfam release than the one the pipeline pins (input.pfam_release). "
-        "Fix: ./RetroSeek --download-hmm --forcerun pfam_hmm_downloader, then "
-        "backdate the new files so LTRdigest does not rerun (docs/adr/ADR-019)."
+        f"Fix: {MISSING_HINT}."
     )
 
 
@@ -90,7 +100,10 @@ def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
     """
     wanted = wanted_accessions(classes_tsv)
     if not wanted:
-        raise SystemExit(f"no accessions listed in {classes_tsv}")
+        raise PipelineError(
+            f"no accessions listed in {classes_tsv}",
+            hint="point input.pfam_domain_classes at the curated class table",
+        )
 
     found: set[str] = set()
     record: list[str] = []
@@ -111,7 +124,13 @@ def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
 
     missing = sorted(wanted - found)
     if missing:
-        raise SystemExit(missing_message(missing, hmm_path))
+        raise PipelineError(
+            f"{hmm_path} lacks {len(missing)} accession(s) listed in the curated "
+            f"Pfam class table: {', '.join(missing)}. The file probably comes from "
+            "an older Pfam release than the one the pipeline pins "
+            "(input.pfam_release)",
+            hint=MISSING_HINT,
+        )
     return len(found)
 
 
@@ -139,21 +158,22 @@ def write_name_map(hmm_path: Path, out_path: Path) -> int:
     return written
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(args: argparse.Namespace) -> None:
+    n_models = subset_pfam(args.hmm, args.classes, args.out)
+    n_names = write_name_map(args.hmm, args.name_map)
+    logger.info("wrote %d name to accession pairs to %s", n_names, args.name_map)
+    logger.log(OK, "%s curated Pfam models in the subset", f"{n_models:,}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Build the curated Pfam subset.")
     parser.add_argument("--hmm", type=Path, required=True, help="full Pfam-A.hmm")
     parser.add_argument("--classes", type=Path, required=True, help="curated class TSV")
     parser.add_argument("--out", type=Path, required=True, help="subset HMM to write")
     parser.add_argument(
-        "--name-map", type=Path, required=True, help="name->accession map to write"
+        "--name-map", type=Path, required=True, help="name to accession map to write"
     )
-    args = parser.parse_args()
-
-    n_models = subset_pfam(args.hmm, args.classes, args.out)
-    n_names = write_name_map(args.hmm, args.name_map)
-    print(f"wrote {n_models} models to {args.out}")
-    print(f"wrote {n_names} name->accession pairs to {args.name_map}")
-
-
-if __name__ == "__main__":
-    main()
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
+    cli = parser.parse_args()
+    job_logging(cli.log, "pfam_subset_builder")
+    run_main(lambda: main(cli))

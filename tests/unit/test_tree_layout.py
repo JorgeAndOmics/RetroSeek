@@ -7,12 +7,15 @@ artifact that must not churn between runs.
 
 from __future__ import annotations
 
+import logging
 from io import StringIO
 from pathlib import Path
 
 import pytest
 import tree_layout as tl
 from Bio import Phylo
+
+from log import PipelineError
 
 
 @pytest.fixture
@@ -85,7 +88,7 @@ class TestFromNewick:
         assert "Myotis myotis" in caplog.text
 
     def test_zero_overlap_fails_loudly(self, newick):
-        with pytest.raises(SystemExit, match="shares no tip"):
+        with pytest.raises(PipelineError, match="shares no tip"):
             tl.from_newick(newick, ["Gallus gallus"])
 
 
@@ -262,3 +265,31 @@ def test_from_newick_prunes_tips_the_study_does_not_include(tmp_path: Path) -> N
         "Antrozous pallidus",
         "Myotis myotis",
     ]
+
+
+class TestWarningsMeanSomething:
+    """A warning must be worth acting on (ADR-021): placeholders and cladograms are not."""
+
+    def test_unclassified_is_not_reported_as_a_missing_taxon(
+        self, taxonomy_tsv, caplog
+    ):
+        with caplog.at_level(logging.INFO):
+            tl.from_taxonomy(taxonomy_tsv, ["Alpharetrovirus", "unclassified"])
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+    def test_a_real_missing_taxon_still_warns(self, taxonomy_tsv, caplog):
+        with caplog.at_level(logging.INFO):
+            tl.from_taxonomy(taxonomy_tsv, ["Alpharetrovirus", "Madeupvirus"])
+        assert any(
+            "Madeupvirus" in r.getMessage()
+            for r in caplog.records
+            if r.levelno >= logging.WARNING
+        )
+
+    def test_a_cladogram_species_tree_is_information(self, tmp_path, caplog):
+        newick = tmp_path / "hosts.nwk"
+        newick.write_text("((Homo_sapiens,Mus_musculus),Myotis_myotis);")
+        with caplog.at_level(logging.INFO):
+            tl.from_newick(newick, ["Homo sapiens", "Mus musculus", "Myotis myotis"])
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert "cladogram" in caplog.text

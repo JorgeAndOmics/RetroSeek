@@ -19,7 +19,6 @@ Classes:
 
 # ruff: noqa: N802, N803
 
-import logging
 import tempfile
 from dataclasses import dataclass, field
 from io import StringIO
@@ -28,8 +27,7 @@ from typing import Any
 from Bio import SeqIO
 
 import defaults
-
-logger = logging.getLogger(__name__)
+from log import PipelineError
 
 
 @dataclass
@@ -125,13 +123,9 @@ class RetroSeeker:
 
         """
 
-        try:
-            with StringIO() as handle:
-                SeqIO.write(genbank_record, handle, "fasta")
-                return handle.getvalue()
-        except Exception as e:
-            logger.warning(f"Could not extract fasta: {e}")
-            return None
+        with StringIO() as handle:
+            SeqIO.write(genbank_record, handle, "fasta")
+            return handle.getvalue()
 
     @staticmethod
     def extract_gff_from_genbank(genbank_record: Any) -> str | None:
@@ -147,17 +141,11 @@ class RetroSeeker:
                 :returns: The GFF file content.
 
         """
-        try:
-            with StringIO() as handle:
-                for feature in genbank_record.features:
-                    gff_line = (
-                        f"{genbank_record.id}\t{feature.type}\t{feature.location}\n"
-                    )
-                    handle.write(gff_line)
-                return handle.getvalue()
-        except Exception as e:
-            logger.warning(f"Could not extract gff: {e}")
-            return None
+        with StringIO() as handle:
+            for feature in genbank_record.features:
+                gff_line = f"{genbank_record.id}\t{feature.type}\t{feature.location}\n"
+                handle.write(gff_line)
+            return handle.getvalue()
 
     @staticmethod
     def extract_strand_from_HSP(HSP_obj: Any) -> str | None:
@@ -175,23 +163,17 @@ class RetroSeeker:
                 :returns: The strand information (+ or -).
 
         """
-        try:
-            if HSP_obj.frame:
-                if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
-                    return "+"
-                if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
-                    return "-"
-            else:
-                if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
-                    return "+"
-                if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
-                    return "-"
-
-        except Exception as e:
-            logger.warning(f"Could not extract strand: {e}")
-            return None
-        # The try block can complete without returning (e.g. a zero frame, or
-        # equal sbjct_start/sbjct_end); make that implicit None explicit.
+        if HSP_obj.frame:
+            if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
+                return "+"
+            if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
+                return "-"
+        else:
+            if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
+                return "+"
+            if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
+                return "-"
+        # A zero frame, or equal sbjct_start and sbjct_end: no strand to report.
         return None
 
     @staticmethod
@@ -242,10 +224,7 @@ class RetroSeeker:
                 :returns: Alignment or None: The Alignment file content.
 
         """
-        try:
-            return self.alignment
-        except Exception as e:
-            logger.warning(f"Could not retrieve alignment: {e}")
+        return self.alignment
 
     def set_alignment(self, alignment_object: object) -> None:
         """
@@ -267,10 +246,7 @@ class RetroSeeker:
                     :returns: The HSP object.
 
         """
-        try:
-            return self.HSP
-        except Exception as e:
-            logger.warning(f"Could not retrieve HSP: {e}")
+        return self.HSP
 
     def set_HSP(self, HSP_object: object) -> None:
         """
@@ -299,29 +275,20 @@ class RetroSeeker:
 
             Returns
             -------
-                :returns: str or None: The FASTA file content.
+                :returns: The FASTA file content.
+                Raises PipelineError, naming the probe, if its GenBank record was never fetched.
 
             Raises
             ------
                 :raise Error: If output_type is not 'tempfile'.
 
         """
-        if self.genbank:
-            try:
-                if output_type:
-                    return self.extract_seq2rec(
-                        seq_obj=str(self.genbank),
-                        obj_type="genbank",
-                        output_type=output_type,
-                    )
-                return self.genbank
-
-            except Exception as e:
-                logger.warning(f"Could not retrieve genbank: {e}")
-
-        else:
-            logger.warning("Genbank not set. Could not retrieve genbank.")
-            return None
+        self._require_genbank()
+        if output_type:
+            return self.extract_seq2rec(
+                seq_obj=str(self.genbank), obj_type="genbank", output_type=output_type
+            )
+        return self.genbank
 
     def set_genbank(self, genbank_obj: str) -> None:
         """
@@ -333,13 +300,11 @@ class RetroSeeker:
                 :param genbank_obj: The GenBank file to associate with the object.
 
         """
-        try:
-            handle = StringIO(genbank_obj)
-            self.genbank = SeqIO.read(handle, "genbank")  # type: ignore[no-untyped-call]
-            self.fasta = self.extract_fasta_from_genbank(self.genbank)
-            self.gff = self.extract_gff_from_genbank(self.genbank)
-        except Exception as e:
-            logger.warning(f"Could not set genbank: {e}")
+        # An unreadable record raises: gb_fetcher retries, then reports an ERROR.
+        handle = StringIO(genbank_obj)
+        self.genbank = SeqIO.read(handle, "genbank")  # type: ignore[no-untyped-call]
+        self.fasta = self.extract_fasta_from_genbank(self.genbank)
+        self.gff = self.extract_gff_from_genbank(self.genbank)
 
     def get_fasta(self, output_type: str | None = None) -> Any:
         """
@@ -353,22 +318,16 @@ class RetroSeeker:
 
             Returns
             -------
-                :returns: str or None: The FASTA file content.
+                :returns: The FASTA file content.
+                Raises PipelineError, naming the probe, if its GenBank record was never fetched.
 
         """
-        if self.genbank:
-            try:
-                if output_type:
-                    return self.extract_seq2rec(
-                        seq_obj=self.fasta, obj_type="fasta", output_type=output_type
-                    )
-                return self.fasta
-
-            except Exception as e:
-                logger.warning(f"Could not retrieve fasta: {e}")
-        else:
-            logger.warning("Genbank not set. Could not retrieve fasta.")
-            return None
+        self._require_genbank()
+        if output_type:
+            return self.extract_seq2rec(
+                seq_obj=self.fasta, obj_type="fasta", output_type=output_type
+            )
+        return self.fasta
 
     def get_gff(self) -> Any:
         """
@@ -376,18 +335,22 @@ class RetroSeeker:
 
             Returns
             -------
-                :returns: str or None: The GFF file content.
+                :returns: The GFF file content.
+                Raises PipelineError, naming the probe, if its GenBank record was never fetched.
 
         """
+        self._require_genbank()
+        return self.gff
 
-        if self.genbank:
-            try:
-                return self.gff
-            except Exception as e:
-                logger.warning(f"Could not retrieve gff: {e}")
-        else:
-            logger.warning("Genbank not set. Could not retrieve gff.")
-            return None
+    def _require_genbank(self) -> None:
+        """Stop, naming the probe, when its NCBI record was never fetched."""
+        if not self.genbank:
+            raise PipelineError(
+                f"{self.accession} ({self.probe}) has no GenBank record: its NCBI "
+                "fetch failed",
+                hint="rerun ./RetroSeek --probe-extractor, and check the accession "
+                "in the probe CSV",
+            )
 
     # Display methods and Verifier methods
     def display_info(self) -> str:

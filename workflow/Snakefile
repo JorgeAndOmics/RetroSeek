@@ -87,6 +87,15 @@ configfile: defaults.CONFIG_FILE
 # which the plots read as "no tree" and fall back to config order.
 _SPECIES_TREE_NWK = (config.get('input', {}) or {}).get('species_tree', '') or ''
 
+def job_log(step, name='all'):
+    """LOG_DIR/<step>/<name>.log, the one log layout (ADR-021).
+
+    log.py and log.R read the job's step and genome from this path, so a script
+    shared by two rules still reports the right one. `name` is the wildcard
+    pattern ('{genome}', '{gene}', ...) or 'all' for a job over every genome.
+    """
+    return os.path.join(defaults.PATH_DICT['LOG_DIR'], step, f'{name}.log')
+
 
 rule species_tree_layout:
     input:
@@ -100,15 +109,14 @@ rule species_tree_layout:
         genomes     = ' '.join(SPECIES),
         newick_arg  = f"--species-tree {_SPECIES_TREE_NWK}" if _SPECIES_TREE_NWK else ''
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'species_tree_layout', 'species_tree_layout.log')
+        job_log('species_tree_layout', 'all')
     shell:
         '''
-        PYTHONPATH=scripts:scripts/taxonomy python scripts/taxonomy/species_tree_layout.py \
+        PYTHONPATH=scripts:scripts/taxonomy python scripts/taxonomy/species_tree_layout.py --log {log:q} \
             --config {params.config_yaml:q} \
             --genomes {params.genomes} \
             {params.newick_arg} \
-            --out-dir {params.out_dir:q} \
-            2> {log:q}
+            --out-dir {params.out_dir:q}
         '''
 
 
@@ -147,17 +155,16 @@ rule genome_fasta_normalizer_setup:
     output:
         canonical_fa = os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa')
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'genome_fasta_normalizer', '{genome}.log')
+        job_log('genome_fasta_normalizer', '{genome}')
     params:
         species_dir = defaults.PATH_DICT['SPECIES_DB']
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts python scripts/blast_search/genome_fasta_normalizer.py \
+        PYTHONPATH=scripts python scripts/blast_search/genome_fasta_normalizer.py --log {log:q} \
             --genome-name {wildcards.genome:q} \
             --species-dir {params.species_dir:q} \
-            --output {output.canonical_fa:q} \
-            2> {log:q}
+            --output {output.canonical_fa:q}
         '''
 
 
@@ -200,9 +207,11 @@ rule pfam_release_recorder:
         version = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam.version')
     params:
         release = defaults.PFAM_RELEASE
+    log:
+        job_log('pfam_release_recorder', 'all')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/domains/pfam_release.py \
+        PYTHONPATH=scripts python scripts/domains/pfam_release.py --log {log:q} \
             --release {params.release:q} --local-md5 {input.md5:q} --out {output.version:q}
         '''
 
@@ -227,9 +236,11 @@ rule pfam_subset_builder:
         hmm      = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam-A.retro.hmm'),
         name_map = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'pfam_name_to_acc.tsv')
     threads: config.get('rule_threads', 1)
+    log:
+        job_log('pfam_subset_builder', 'all')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/domains/subset_pfam.py \
+        PYTHONPATH=scripts python scripts/domains/subset_pfam.py --log {log:q} \
             --hmm {input.hmm:q} --classes {input.classes:q} \
             --out {output.hmm:q} --name-map {output.name_map:q}
         '''
@@ -493,8 +504,10 @@ rule species_segmenter_setup:
         csv_dir = defaults.PATH_DICT['SEGMENTED_SPECIES_CSV_DIR'],
         config_file = defaults.CONFIG_FILE,
         species_list = ",".join(SPECIES)
+    log:
+        job_log('species_segmenter', 'all')
     shell:
-        'Rscript scripts/species_segmenter.R \
+        'Rscript scripts/species_segmenter.R --log {log:q} \
         --input_file {input.input_parquet:q} \
         --parquet_dir {params.parquet_dir:q} \
         --csv_dir {params.csv_dir:q} \
@@ -571,9 +584,11 @@ rule ranges_analysis_setup:
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
+    log:
+        job_log('ranges_analysis', '{genome}')
     shell:
         '''
-        Rscript scripts/ranges_analysis.R \
+        Rscript scripts/ranges_analysis.R --log {log:q} \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --blast {params.segmented_species_dir:q}/{wildcards.genome:q}.parquet \
         --ltrdigest {params.ltr_digest_dir:q}/{wildcards.genome:q}.gff3 \
@@ -650,19 +665,17 @@ rule solo_bait_builder_setup:
     params:
         min_bait_length = _SOLO['min_bait_length']
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_bait_builder', '{genome}.log')
+        job_log('solo_bait_builder', '{genome}')
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts python scripts/solo_ltr/bait_builder.py \
+        PYTHONPATH=scripts python scripts/solo_ltr/bait_builder.py --log {log:q} \
             --flanking-ltr-gff3 {input.flanking_ltr:q} \
             --loci-csv {input.loci:q} \
             --out-bed {output.bed:q} \
-            --min-bait-length {params.min_bait_length} \
-            2> {log:q}
-        Rscript scripts/taxonomy/extract_region_fasta.R \
-            --genome {input.genome:q} --bed {output.bed:q} --out {output.fasta:q} \
-            2>> {log:q}
+            --min-bait-length {params.min_bait_length}
+        Rscript scripts/taxonomy/extract_region_fasta.R --log {log:q} \
+            --genome {input.genome:q} --bed {output.bed:q} --out {output.fasta:q}
         '''
 
 
@@ -738,11 +751,11 @@ rule solo_finder_setup:
         merge_gap            = _SOLO['merge_gap'],
         orphan_pad           = _SOLO['orphan_pad']
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_finder', '{genome}.log')
+        job_log('solo_finder', '{genome}')
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_finder.py \
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_finder.py --log {log:q} \
             --hits {input.hits:q} \
             --elements-gff3 {input.elements:q} \
             --orphans-gff3 {input.orphans:q} \
@@ -758,8 +771,7 @@ rule solo_finder_setup:
             --min-alignment-length {params.min_alignment_length} \
             --min-hit-length {params.min_hit_length} \
             --merge-gap {params.merge_gap} \
-            --orphan-pad {params.orphan_pad} \
-            2> {log:q}
+            --orphan-pad {params.orphan_pad}
         '''
 
 
@@ -791,11 +803,11 @@ rule solo_annotator_setup:
         group_by = 'segment',
         max_distance = _SOLO['orphan_pad']
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_annotator', '{genome}.log')
+        job_log('solo_annotator', '{genome}')
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_annotator.py \
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_annotator.py --log {log:q} \
             --solo-list {input.solo_list:q} \
             --loci-csv {input.loci:q} \
             --genome {wildcards.genome:q} \
@@ -806,8 +818,7 @@ rule solo_annotator_setup:
             --output-ratio-csv {output.ratio_csv:q} \
             --output-ratio-parquet {output.ratio_parquet:q} \
             --group-by {params.group_by} \
-            --nearest-locus-max-distance {params.max_distance} \
-            2> {log:q}
+            --nearest-locus-max-distance {params.max_distance}
         '''
 
 
@@ -846,7 +857,7 @@ rule solo_tree_setup:
         model        = _SOLO_TREE['model'],
         fast         = '-fast' if _SOLO_TREE['fast'] else ''
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree', '{genome}.log')
+        job_log('solo_tree', '{genome}')
     # Tips are extracted as they lie on the + strand, but an LTR can sit on either
     # strand, so MAFFT orients every sequence to the others before aligning
     # (--adjustdirectionaccurately; it marks a flipped sequence with a `_R_` name
@@ -861,32 +872,29 @@ rule solo_tree_setup:
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_tips.py \
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/solo_tips.py --log {log:q} \
             --bait-bed {input.bait:q} \
             --candidates-csv {input.candidates:q} \
             --out-bed {output.tips_bed:q} \
             --n-element-tips {params.n_element_tips} \
             --n-solo-tips {params.n_solo_tips} \
             --n-mono-tips {params.n_mono_tips} \
-            --seed {params.seed} \
-            2> {log:q}
-        Rscript scripts/taxonomy/extract_region_fasta.R \
-            --genome {input.genome:q} --bed {output.tips_bed:q} --out {output.tips_fna:q} \
-            2>> {log:q}
+            --seed {params.seed}
+        Rscript scripts/taxonomy/extract_region_fasta.R --log {log:q} \
+            --genome {input.genome:q} --bed {output.tips_bed:q} --out {output.tips_fna:q}
         mafft --auto --adjustdirectionaccurately --thread {threads} --quiet \
             {output.tips_fna:q} > {output.alignment:q}.raw 2>> {log:q}
-        echo "mafft reoriented $(grep -c '^>_R_' {output.alignment:q}.raw || true) sequences" >> {log:q}
+        echo "$(date +%H:%M:%S) INFO solo_tree {wildcards.genome} | mafft reoriented $(grep -c '^>_R_' {output.alignment:q}.raw || true) sequences" >> {log:q}
         sed 's/^>_R_/>/' {output.alignment:q}.raw > {output.alignment:q}
         rm {output.alignment:q}.raw
         iqtree -s {output.alignment:q} -m {params.model} {params.fast} \
             -nt {threads} -seed {params.seed} -pre {params.prefix:q} -quiet -redo >> {log:q} 2>&1
-        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/tree_stats.py \
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/tree_stats.py --log {log:q} \
             --treefile {output.treefile:q} \
             --out-summary-csv {output.summary:q} \
             --out-adjacency-csv {output.adjacency:q} \
             --permutations {params.permutations} \
-            --seed {params.seed} \
-            2>> {log:q}
+            --seed {params.seed}
         '''
 
 
@@ -912,17 +920,16 @@ rule solo_tree_views_setup:
         max_distance = _SOLO_TREE['family_max_distance'],
         per_kind     = _SOLO_TREE['family_panels_per_kind']
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'solo_tree_views', '{genome}.log')
+        job_log('solo_tree_views', '{genome}')
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts:scripts/solo_ltr:scripts/taxonomy python scripts/solo_ltr/solo_tree_layout.py \
+        PYTHONPATH=scripts:scripts/solo_ltr:scripts/taxonomy python scripts/solo_ltr/solo_tree_layout.py --log {log:q} \
             --treefile {input.treefile:q} \
             --table-prefix {params.table_prefix:q} \
             --out-solo-newick {output.solo_newick:q} \
             --family-max-distance {params.max_distance} \
-            --family-panels-per-kind {params.per_kind} \
-            2> {log:q}
+            --family-panels-per-kind {params.per_kind}
         '''
 
 
@@ -956,9 +963,11 @@ rule solo_plot_generator_setup:
         table_dir   = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
         config_yaml = defaults.CONFIG_FILE
     threads: 1
+    log:
+        job_log('solo_plot_generator', '{genome}')
     shell:
         '''
-        Rscript scripts/solo_ltr/solo_plots.R \
+        Rscript scripts/solo_ltr/solo_plots.R --log {log:q} \
             --table_dir {params.table_dir:q} \
             --config {params.config_yaml:q} \
             --genome {wildcards.genome:q} \
@@ -986,9 +995,11 @@ rule solo_plot_summary:
         config_yaml      = defaults.CONFIG_FILE,
         species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR']
     threads: 1
+    log:
+        job_log('solo_plot_summary', 'all')
     shell:
         '''
-        Rscript scripts/solo_ltr/solo_plots.R \
+        Rscript scripts/solo_ltr/solo_plots.R --log {log:q} \
             --table_dir {params.table_dir:q} \
             --config {params.config_yaml:q} \
             --out_pdf {output.pdf:q} \
@@ -1047,9 +1058,11 @@ rule plot_generator_setup:
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('plot_generator', 'all')
     shell:
         '''
-        Rscript scripts/plot2sort.R \
+        Rscript scripts/plot2sort.R --log {log:q} \
         --input {params.ranges_analysis_parquet_dir:q} \
         --out_pdf {output.pdf:q} \
         --species_tree_dir {params.species_tree_dir:q} \
@@ -1092,9 +1105,11 @@ rule stage_plot_generator_setup:
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('stage_plot_generator', 'all')
     shell:
         '''
-        Rscript scripts/stage_plot_generator.R \
+        Rscript scripts/stage_plot_generator.R --log {log:q} \
         --input {params.ranges_analysis_parquet_dir:q} \
         --out_pdf {output.pdf:q} \
         --species_tree_dir {params.species_tree_dir:q} \
@@ -1124,9 +1139,11 @@ rule erv_like_plot_generator_setup:
         config_yaml=defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('erv_like_plot_generator', 'all')
     shell:
         '''
-        Rscript scripts/taxonomy/erv_like_plot_generator.R \
+        Rscript scripts/taxonomy/erv_like_plot_generator.R --log {log:q} \
         --input {params.taxonomy_parquet_dir:q} \
         --out_pdf {output.pdf:q} \
         --species_tree_dir {params.species_tree_dir:q} \
@@ -1156,9 +1173,11 @@ rule circle_plot_generator_setup:
         config_file=defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('circle_plot_generator', '{genome}')
     shell:
         '''
-        Rscript scripts/circle_plot_generator.R \
+        Rscript scripts/circle_plot_generator.R --log {log:q} \
         --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
         --gff_custom {params.element_hits_dir:q}/{wildcards.genome:q}.gff3 \
         --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
@@ -1222,9 +1241,11 @@ rule hotspot_detector_setup:
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('hotspot_detector', '{genome}')
     shell:
         '''
-        Rscript scripts/hotspot_detector.R \
+        Rscript scripts/hotspot_detector.R --log {log:q} \
         --fasta {input.fasta:q} \
         --hits {input.track:q} \
         --config {params.config_yaml:q} \
@@ -1253,9 +1274,11 @@ rule pair_detector_setup:
         csv_dir=defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR']
     threads:
         workflow.cores
+    log:
+        job_log('pair_detector', '{genome}')
     shell:
         '''
-        Rscript scripts/pair_detector.R \
+        Rscript scripts/pair_detector.R --log {log:q} \
         --config {params.config_yaml:q} \
         --gff {input.gff3_file:q} \
         --parquet_dir {params.parquet_dir:q} \
@@ -1298,9 +1321,11 @@ rule domain_scanner_setup:
     params:
         workdir = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'domains')
     threads: config.get('rule_threads', 1)
+    log:
+        job_log('domain_scanner', '{genome}')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/domains/scan_domains.py \
+        PYTHONPATH=scripts python scripts/domains/scan_domains.py --log {log:q} \
             --valid-gff3 {input.valid:q} --orphan-gff3 {input.orphans:q} \
             --genome {input.genome:q} --hmm {input.hmm:q} \
             --workdir {params.workdir:q}/{wildcards.genome:q} \
@@ -1359,11 +1384,13 @@ rule taxonomy_reference:
         probe_csv      = _PROBE_CSV,
         erv_class_src  = os.path.join(defaults.PATH_DICT['CONFIG_DIR'], 'erv_class.tsv')
     threads: 1
+    log:
+        job_log('taxonomy_reference', 'all')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_reference_builder.py --email {params.email:q} --out-dir {params.ref_dir:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_reference_builder.py --log {log:q} --email {params.email:q} --out-dir {params.ref_dir:q} \
             --taxa {params.reference_taxa:q} --probe-csv {params.probe_csv:q} && \
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_hierarchy.py {output.csv:q} {params.email:q} && \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_hierarchy.py --log {log:q} {output.csv:q} {params.email:q} && \
         cp {params.erv_class_src:q} {output.erv_class:q}
         '''
 
@@ -1388,9 +1415,11 @@ rule taxonomy_reference_trees_setup:
     wildcard_constraints:
         gene = "[A-Za-z0-9]+"
     threads: config.get('rule_threads', 2)
+    log:
+        job_log('taxonomy_reference_trees', '{gene}')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_tree.py {wildcards.gene} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_build_tree.py --log {log:q} {wildcards.gene} \
             --ref-dir {params.ref_dir:q} --seed {params.seed} --threads {threads}
         '''
 
@@ -1443,9 +1472,11 @@ rule taxonomy_classify_setup:
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy'),
         placement_dir   = defaults.PATH_DICT['PLACEMENT_DIR']
     threads: config.get('rule_threads', 1)
+    log:
+        job_log('taxonomy_classify', '{genome}')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.valid:q} {input.genome:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py --log {log:q} {input.valid:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
@@ -1530,9 +1561,11 @@ rule taxonomy_orphans_setup:
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans'),
         placement_dir   = defaults.PATH_DICT['PLACEMENT_DIR']
     threads: config.get('rule_threads', 1)
+    log:
+        job_log('taxonomy_orphans', '{genome}')
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py {input.orphans:q} {input.genome:q} \
+        PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py --log {log:q} {input.orphans:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
             --placement-genes {params.placement_genes:q} \
@@ -1589,16 +1622,15 @@ rule taxonomy_tree_layout_setup:
         out_dir      = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
         taxonomy_tsv = os.path.join(defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'], 'taxonomy.tsv')
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'taxonomy_tree_layout', 'tree_layout.log')
+        job_log('taxonomy_tree_layout', 'all')
     shell:
         '''
         set -euo pipefail
         mkdir -p "$(dirname {log:q})"
-        PYTHONPATH=scripts python scripts/taxonomy/tree_layout.py \
+        PYTHONPATH=scripts python scripts/taxonomy/tree_layout.py --log {log:q} \
         --parquet-dir {params.parquet_dir:q} \
         --taxonomy-tsv {params.taxonomy_tsv:q} \
-        --out-dir {params.out_dir:q} \
-        2> {log:q}
+        --out-dir {params.out_dir:q}
         '''
 
 
@@ -1626,9 +1658,11 @@ rule taxonomy_plot_generator_setup:
         config_yaml = defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('taxonomy_plot_generator', 'all')
     shell:
         '''
-        Rscript scripts/taxonomy/taxonomy_plot_generator.R \
+        Rscript scripts/taxonomy/taxonomy_plot_generator.R --log {log:q} \
         --input {params.parquet_dir:q} \
         --out_pdf {output.pdf:q} \
         --config {params.config_yaml:q} \
@@ -1679,9 +1713,11 @@ rule taxonomy_segments_setup:
         tree_dir    = defaults.PATH_DICT['TAXONOMY_TREE_COORDS_DIR'],
         species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
         config_yaml = defaults.CONFIG_FILE
+    log:
+        job_log('taxonomy_segments', 'all')
     shell:
         '''
-        Rscript scripts/taxonomy/taxonomy_segments.R \
+        Rscript scripts/taxonomy/taxonomy_segments.R --log {log:q} \
         --catalog {input.catalog:q} \
         --output {params.out_dir:q} \
         --plots {params.plot_dir:q} \
@@ -1722,7 +1758,7 @@ rule placement_figures_setup:
         # an empty-state SVG instead. This output therefore always materialises.
         heat_tree = os.path.join(defaults.PATH_DICT['PLACEMENT_PLOT_DIR'], '{genome}.{tier}.{gene}.tree.svg')
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_figures', '{genome}.{tier}.{gene}.log')
+        job_log('placement_figures', '{genome}.{tier}.{gene}')
     params:
         out_dir   = defaults.PATH_DICT['PLACEMENT_PLOT_DIR'],
         table_dir = defaults.PATH_DICT['PLACEMENT_TABLE_DIR'],
@@ -1731,14 +1767,13 @@ rule placement_figures_setup:
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/placement_figures.py \
+        PYTHONPATH=scripts python scripts/taxonomy/placement_figures.py --log {log:q} \
             --jplace {input.jplace:q} \
             --out-dir {params.out_dir:q} \
             --table-dir {params.table_dir:q} \
             --tree-dir {params.tree_dir:q} \
             --stem {wildcards.genome:q}.{wildcards.tier:q}.{wildcards.gene:q} \
-            --mass-norm {params.mass_norm} \
-            2> {log:q}
+            --mass-norm {params.mass_norm}
         '''
 
 
@@ -1763,7 +1798,7 @@ rule placement_cophylogeny_setup:
     output:
         summary = os.path.join(defaults.PATH_DICT['COPHYLOGENY_DIR'], 'cophylogeny_summary.{tier}.{gene}.csv')
     log:
-        os.path.join(defaults.PATH_DICT['LOG_DIR'], 'placement_cophylogeny', '{tier}.{gene}.log')
+        job_log('placement_cophylogeny', '{tier}.{gene}')
     params:
         out_dir    = defaults.PATH_DICT['COPHYLOGENY_DIR'],
         tree_dir   = defaults.PATH_DICT['COPHYLOGENY_TREE_DIR'],
@@ -1774,7 +1809,7 @@ rule placement_cophylogeny_setup:
     threads: 1
     shell:
         '''
-        PYTHONPATH=scripts python scripts/taxonomy/placement_cophylogeny.py \
+        PYTHONPATH=scripts python scripts/taxonomy/placement_cophylogeny.py --log {log:q} \
             --jplace {input.jplace:q} \
             --out-dir {params.out_dir:q} \
             --tree-dir {params.tree_dir:q} \
@@ -1783,8 +1818,7 @@ rule placement_cophylogeny_setup:
             --gene {wildcards.gene:q} \
             --staged-dir {params.staged_dir:q} \
             --config {params.config_yaml:q} \
-            $( [ -n "{params.host_tree}" ] && echo --host-tree "{params.host_tree}" ) \
-            2> {log:q}
+            $( [ -n "{params.host_tree}" ] && echo --host-tree "{params.host_tree}" )
         '''
 
 
@@ -1849,9 +1883,11 @@ rule loss_analysis_setup:
         config_yaml       = defaults.CONFIG_FILE
     threads:
         workflow.cores
+    log:
+        job_log('loss_analysis', 'all')
     shell:
         '''
-        Rscript scripts/taxonomy/loss_analysis.R \
+        Rscript scripts/taxonomy/loss_analysis.R --log {log:q} \
         --ranges_counts_dir {params.ranges_counts_dir:q} \
         --classification_counts_dir {params.class_counts_dir:q} \
         --loci_dir {params.loci_dir:q} \

@@ -65,7 +65,7 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
 - Publication-ready figures: one multi-page vector PDF per stage in a single colour-blind-safe visual system, with host species on rows beside the host phylogeny ([visual style](docs/visual_style.md)).
-- Structured, colour-coded logging for audit; heartbeat log lines for long-running silent tools (suffixerator, ltrharvest) so progress is observable on multi-hour mammalian runs.
+- A readable run: one line per finished job, warnings and errors with their fix, a progress bar and a closing summary, while every job keeps its own complete log ([console style](docs/console_style.md)).
 - Single-environment reproducibility (`data/config/environment.yml`) covering Python, R, Bioconductor, and all external bio tools.
 - Intuitive CLI delegating to Snakemake - resume from checkpoints after interruption, compose with any Snakemake flag.
 

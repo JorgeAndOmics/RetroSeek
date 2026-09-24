@@ -51,19 +51,10 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
 source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
-
-
-# ----------------------------------------------------------------------------
-# Pipeline instrumentation - same idiom as the other plot generators.
-# ----------------------------------------------------------------------------
-.t0 <- Sys.time()
-log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-  message(sprintf("[%6.2fs] > %s", elapsed, name))
-}
 
 
 # ----------------------------------------------------------------------------
@@ -119,8 +110,7 @@ reconcile_catalog <- function(combined) {
   if (length(anch_i) == 0L || length(orph_i) == 0L) return(combined)
   gr <- GenomicRanges::GRanges(
     seqnames = paste(combined$species, combined$seqname, sep = "|"),
-    ranges   = IRanges::IRanges(suppressWarnings(as.integer(combined$start)),
-                                suppressWarnings(as.integer(combined$end)))
+    ranges   = IRanges::IRanges(as.integer(combined$start), as.integer(combined$end))
   )
   ov <- GenomicRanges::findOverlaps(gr[orph_i], gr[anch_i], ignore.strand = TRUE)
   drop <- orph_i[unique(S4Vectors::queryHits(ov))]
@@ -264,9 +254,10 @@ add_numeric_companions <- function(df) {
   if (nrow(df) == 0L) return(df)
   df %>%
     mutate(
-      confidence_num   = suppressWarnings(as.numeric(.data$confidence)),
-      n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),
-      completeness_num = suppressWarnings(as.numeric(.data$completeness))
+      # Blank for loci without a call; NA is the intended reading.
+      confidence_num   = suppressWarnings(as.numeric(.data$confidence)),  # blank -> NA
+      n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),  # blank -> NA
+      completeness_num = suppressWarnings(as.numeric(.data$completeness))  # blank -> NA
     )
 }
 
@@ -884,7 +875,10 @@ main <- function() {
                       help = paste("Output path for the unified authoritative ERV",
                                    "catalog CSV (ltr-flanked proviruses + clustered",
                                    "orphan loci, one non-overlapping record each)."))
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "taxonomy_plot_generator")
 
   use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
@@ -938,19 +932,21 @@ main <- function() {
   catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(catalog_cols))
   if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
     catalog <- catalog %>%
-      dplyr::arrange(.data$species, .data$seqname,
-                     suppressWarnings(as.integer(.data$start)))
+      dplyr::arrange(.data$species, .data$seqname, as.integer(.data$start))
   }
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
-  log_section(sprintf("Done: wrote %s (%d pages), report %s, catalog %s",
-                      args$out_pdf, length(pages) + 1L, args$report_csv,
-                      args$catalog_csv))
+  log_info("wrote %s (%d pages), report %s, catalog %s",
+           args$out_pdf, length(pages) + 1L, args$report_csv, args$catalog_csv)
+  log_ok("catalog of %s loci (%s LTR-flanked, %s orphans), %s pages",
+         format(nrow(catalog), big.mark = ","), format(nrow(loci), big.mark = ","),
+         format(nrow(orphans), big.mark = ","), format(length(pages) + 1L, big.mark = ","))
 }
 
 
 # ----------------------------------------------------------------------------
 # Entry-point guard - only fire main() under `Rscript taxonomy_plot_generator.R`.
+# run_main() logs how the job ended (ADR-021).
 # ----------------------------------------------------------------------------
-if (sys.nframe() == 0L) main()
+if (sys.nframe() == 0L) run_main(main)

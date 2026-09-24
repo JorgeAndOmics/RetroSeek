@@ -40,6 +40,7 @@ import argparse
 import csv
 import gzip
 import hashlib
+import logging
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -49,6 +50,10 @@ from typing import NamedTuple, TextIO
 
 import pandas as pd
 from solo_intervals import IntervalIndex
+
+from log import OK, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 # The three fates. Module constants rather than string literals at call sites, so a
 # typo is an ImportError instead of a silently empty class.
@@ -490,7 +495,7 @@ def count_intact_loci(loci_csv: Path) -> int:
         return sum(1 for _ in csv.DictReader(handle))
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--hits", type=Path, required=True, help="gzipped blastn tabular output"
@@ -511,7 +516,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-hit-length", type=int, required=True)
     parser.add_argument("--merge-gap", type=int, required=True)
     parser.add_argument("--orphan-pad", type=int, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "solo_finder")
 
     thresholds = Thresholds(
         min_identity=args.min_identity,
@@ -544,17 +551,18 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     ratio = solos / intact_loci if intact_loci else float("nan")
-    print(
-        f"raw hits {result.funnel.get('raw_hits', 0):,} -> "
-        f"accepted {result.funnel.get('accepted_hits', 0):,} -> "
-        f"candidates {result.funnel.get('merged_candidates', 0):,} -> "
-        f"intact {result.funnel.get(INTACT_FLANK, 0):,}, "
-        f"monoLTR {result.funnel.get(MONO_AT_ORPHAN, 0):,}, "
-        f"solo {solos:,}"
+    logger.info(
+        "funnel: %s raw hits, %s accepted, %s candidates; fates: %s intact flank, "
+        "%s monoLTR at an orphan, %s solo",
+        f"{result.funnel.get('raw_hits', 0):,}",
+        f"{result.funnel.get('accepted_hits', 0):,}",
+        f"{result.funnel.get('merged_candidates', 0):,}",
+        f"{result.funnel.get(INTACT_FLANK, 0):,}",
+        f"{result.funnel.get(MONO_AT_ORPHAN, 0):,}",
+        f"{solos:,}",
     )
-    print(f"solo/intact = {solos:,} / {intact_loci:,} = {ratio:.1f}:1")
-    return 0
+    logger.log(OK, "%s solo LTRs, %.1f per intact locus", f"{solos:,}", ratio)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

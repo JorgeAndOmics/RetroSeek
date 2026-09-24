@@ -21,7 +21,7 @@ read_tree_part <- function(dir, name, part) {
   if (is.null(dir) || length(dir) == 0L || !nzchar(dir)) return(NULL)
   f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
   if (!file.exists(f)) return(NULL)
-  df <- suppressWarnings(readr::read_csv(f, show_col_types = FALSE))
+  df <- readr::read_csv(f, show_col_types = FALSE)
   if (nrow(df) == 0L) NULL else df
 }
 

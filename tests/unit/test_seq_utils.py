@@ -160,3 +160,72 @@ class TestGbFetcherNoUndefinedNameError:
 
         # Successful path returns the (mutated) instance.
         assert result is instance
+
+
+class TestBlastFailuresStopTheJob:
+    """A failed BLAST used to become a silently missing probe (ADR-021).
+
+    ``blaster`` returned None on failure, ``blaster_parser`` swallowed every
+    exception, and ``_blast_task`` caught the rest, so a genome's pickle could lack
+    a probe's hits with nothing but a log line to show for it.
+    """
+
+    @staticmethod
+    def _fake_blast(tmp_path, body: str):
+        import stat
+
+        tool = tmp_path / "fake_tblastn"
+        tool.write_text(f"#!/bin/sh\n{body}\n")
+        tool.chmod(tool.stat().st_mode | stat.S_IEXEC)
+        return str(tool)
+
+    @staticmethod
+    def _instance(tmp_path):
+        query = tmp_path / "q.fa"
+        query.write_text(">q\nMKV\n")
+        instance = MagicMock()
+        instance.get_fasta.return_value = str(query)
+        instance.probe = "POL"
+        return instance
+
+    def test_a_failing_blast_raises(self, tmp_path) -> None:
+        import pytest
+
+        import seq_utils
+        from log import PipelineError
+
+        tool = self._fake_blast(tmp_path, "echo 'BLAST Database error' >&2; exit 3")
+        with pytest.raises(PipelineError, match="exit code 3"):
+            seq_utils.blaster(self._instance(tmp_path), tool, tmp_path, "Toyus", 1)
+
+    def test_an_empty_blast_output_raises(self, tmp_path) -> None:
+        """outfmt 11 (ASN.1) is never empty, even with no hits: empty means broken."""
+        import pytest
+
+        import seq_utils
+        from log import PipelineError
+
+        tool = self._fake_blast(tmp_path, "exit 0")
+        with pytest.raises(PipelineError, match="no output"):
+            seq_utils.blaster(self._instance(tmp_path), tool, tmp_path, "Toyus", 1)
+
+    def test_an_unreadable_archive_raises(self) -> None:
+        import pytest
+
+        import seq_utils
+        from log import PipelineError
+
+        with pytest.raises(PipelineError, match="blast_formatter"):
+            seq_utils.blaster_parser("not an ASN.1 archive", MagicMock(), "Toyus")
+
+    def test_blast_task_does_not_swallow_failures(self) -> None:
+        import pytest
+
+        import seq_utils
+        from log import PipelineError
+
+        with (
+            patch.object(seq_utils, "blaster", side_effect=PipelineError("broken")),
+            pytest.raises(PipelineError),
+        ):
+            seq_utils._blast_task(MagicMock(), "tblastn", "Toyus", "/db", 1)

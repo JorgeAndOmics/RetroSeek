@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 import random
 import re
 import statistics
@@ -46,6 +47,10 @@ from pathlib import Path
 from typing import Any
 
 from Bio import Phylo
+
+from log import OK, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 # FLANK tips are named FLANK__{seqname}_{element}_{L|R}; the element is whatever
 # sits between the prefix and the final arm letter.
@@ -56,6 +61,9 @@ CLASSES = ("FLANK", "SOLO", "MONO")
 # seed control. 95% identity is about 0.05; twice that absorbs alignment and
 # model noise, and is still far below the 0.2 family cut.
 SEED_CONTROL_DISTANCE = 0.1
+# Below this share of solos near their seed, the tree is not to be trusted: the
+# model 5 sit at 0.92 to 1.00 once sequences are oriented (2026-09-23).
+SEED_CONTROL_MIN_FRACTION = 0.9
 
 
 def tip_class(name: str) -> str:
@@ -293,36 +301,62 @@ def write_csvs(summary: dict[str, Any], summary_csv: Path, adjacency_csv: Path) 
         writer.writerows(summary["adjacency"])
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--treefile", type=Path, required=True)
     parser.add_argument("--out-summary-csv", type=Path, required=True)
     parser.add_argument("--out-adjacency-csv", type=Path, required=True)
     parser.add_argument("--permutations", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "solo_tree")
 
     summary = summarise(args.treefile, args.permutations, args.seed)
     write_csvs(summary, args.out_summary_csv, args.out_adjacency_csv)
-    print(
-        f"tree: {summary['n_tips']} tips "
-        f"(FLANK {summary['n_flank']}, SOLO {summary['n_solo']}, MONO {summary['n_mono']})"
+    logger.info(
+        "tree: %s tips (FLANK %s, SOLO %s, MONO %s)",
+        summary["n_tips"],
+        summary["n_flank"],
+        summary["n_solo"],
+        summary["n_mono"],
     )
-    print(
-        f"control: arms recovered as sisters "
-        f"{summary['arms_recovered_as_sisters']}/{summary['elements_with_both_arms']} "
-        f"({summary['arm_sisterhood_fraction']})"
-        f"; seed control: {summary['solos_near_seed_fraction']} of "
-        f"{summary['solos_with_seed_on_tree']} solos within {SEED_CONTROL_DISTANCE} "
-        f"of their seed"
+    logger.info(
+        "controls: arms recovered as sisters %s of %s (%s); %s of %s solos within "
+        "%s of their seed",
+        summary["arms_recovered_as_sisters"],
+        summary["elements_with_both_arms"],
+        summary["arm_sisterhood_fraction"],
+        summary["solos_near_seed_fraction"],
+        summary["solos_with_seed_on_tree"],
+        SEED_CONTROL_DISTANCE,
     )
-    print(
-        f"clustering: observed {summary['same_class_sister_observed']} vs null "
-        f"{summary['same_class_sister_null_mean']} (sd {summary['same_class_sister_null_sd']}), "
-        f"{summary['enrichment']}x, {summary['sd_above_null']} sd above null"
+    logger.info(
+        "clustering: observed %s against a null of %s (sd %s), %sx, %s sd above it",
+        summary["same_class_sister_observed"],
+        summary["same_class_sister_null_mean"],
+        summary["same_class_sister_null_sd"],
+        summary["enrichment"],
+        summary["sd_above_null"],
     )
-    return 0
+    near_seed = summary["solos_near_seed_fraction"]
+    if isinstance(near_seed, float) and near_seed < SEED_CONTROL_MIN_FRACTION:
+        logger.warning(
+            "only %.0f%% of solos sit within %s of their seed arm (expected at least "
+            "%.0f%%), so this genome's evidence tree is unreliable. Read its tree "
+            "pages with care; a slower tree search (solo_ltr.tree.fast: false) may "
+            "help",
+            100 * near_seed,
+            SEED_CONTROL_DISTANCE,
+            100 * SEED_CONTROL_MIN_FRACTION,
+        )
+    logger.log(
+        OK,
+        "evidence tree: %s tips, %s of solos near their seed",
+        summary["n_tips"],
+        near_seed,
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

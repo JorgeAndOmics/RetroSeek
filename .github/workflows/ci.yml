@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ruff mypy pytest \
-            snakemake biopython dill pandas pyarrow pandera tqdm coloredlogs pyyaml yamale
+            snakemake biopython dill pandas pyarrow pandera tqdm rich pyyaml yamale
       - name: Ruff lint
         run: ruff check workflow/scripts tests workflow/tests
       - name: Ruff format check

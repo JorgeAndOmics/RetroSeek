@@ -21,7 +21,6 @@ Main components:
 """
 
 import logging
-import subprocess
 import tempfile
 import time
 from collections import defaultdict
@@ -34,6 +33,8 @@ from tqdm import tqdm
 
 import defaults
 import utils
+from external import run_tool
+from log import PipelineError
 from RetroSeeker_class import RetroSeeker
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def blaster(
     subject: str,
     num_threads: int,
     _outfmt: str = "11",
-) -> str | None:
+) -> str:
     """
     Runs a BLAST search for a given object against a given database
 
@@ -94,35 +95,28 @@ def blaster(
         else input_database_path
     )
     subject = subject or str(input_database_path)
-    try:
-        blast_command = [
-            command,
-            "-db",
-            input_path,
-            "-query",
-            instance.get_fasta("tempfile"),
-            "-evalue",
-            str(defaults.E_VALUE),
-            "-outfmt",
-            _outfmt,
-            "-num_threads",
-            str(num_threads),
-        ]
-
-        result = subprocess.run(
-            blast_command, capture_output=True, text=True, check=False
+    blast_command = [
+        command,
+        "-db",
+        input_path,
+        "-query",
+        instance.get_fasta("tempfile"),
+        "-evalue",
+        str(defaults.E_VALUE),
+        "-outfmt",
+        _outfmt,
+        "-num_threads",
+        str(num_threads),
+    ]
+    blast_output = run_tool(blast_command).stdout
+    # The ASN.1 archive (outfmt 11) is written even when nothing matches, so an
+    # empty one means BLAST broke, not that the probe has no hits.
+    if not blast_output.strip():
+        raise PipelineError(
+            f"{command} gave no output for probe {instance.probe} against {subject}",
+            hint="check the BLAST database with --blast-dbs; the job log has the details",
         )
-        blast_output = result.stdout
-        if blast_output.strip():
-            return blast_output
-
-        logger.error(
-            f"BLAST (outfmt=11) output is empty for {instance.probe} against {subject}:\n{result.stderr}"
-        )
-        return None
-    except Exception as e:
-        logger.error(f"An error occurred while running {command}: {e!s}")
-        return None
+    return blast_output
 
 
 def blaster_parser(
@@ -147,25 +141,15 @@ def blaster_parser(
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict[str, RetroSeeker] = {}
+    # blast_formatter reads the ASN.1 archive from a file; the file is removed
+    # whatever happens. Any failure below stops the job: a half-parsed genome
+    # would otherwise look like one with fewer hits.
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".asn") as tmp_asn:
+        tmp_asn.write(result)
+        tmp_asn_path = tmp_asn.name
     try:
-        # Write ASN.1 to a temp file
-        with tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".asn"
-        ) as tmp_asn:
-            tmp_asn.write(result)
-            tmp_asn_path = tmp_asn.name
-
-        # Convert ASN.1 to XML
         xml_command = ["blast_formatter", "-archive", tmp_asn_path, "-outfmt", "5"]
-        xml_result = subprocess.run(
-            xml_command, capture_output=True, text=True, check=False
-        )
-        if xml_result.returncode != 0:
-            logger.error(f"Error converting ASN to XML: {xml_result.stderr}")
-            return None
-
-        xml_string = xml_result.stdout
-        xml_handle = StringIO(xml_string)
+        xml_handle = StringIO(run_tool(xml_command).stdout)
 
         # Now parse the XML as before
         for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
@@ -201,10 +185,8 @@ def blaster_parser(
                     new_instance.set_HSP(hsp)
 
                     alignment_dict[f"{accession_id}-{random_string}"] = new_instance
-
-    except Exception:
-        # logging.error(f'Error parsing BLAST output: {e}')
-        return None
+    finally:
+        Path(tmp_asn_path).unlink(missing_ok=True)
 
     return alignment_dict
 
@@ -237,24 +219,14 @@ def _blast_task(
             :raises Exception: If the BLAST process fails
 
     """
-    try:
-        if blast_result := blaster(
-            instance=instance,
-            command=command,
-            subject=subject,
-            input_database_path=input_database_path,
-            num_threads=num_threads,
-        ):
-            return blaster_parser(blast_result, instance, subject)
-        logger.warning(
-            f"Could not parse sequences for {instance.probe}, {instance.virus} against {subject}"
-        )
-        return None
-    except Exception as e:
-        logger.error(
-            f"Error in BLAST task for {instance.probe}, {instance.virus} against {subject}: {e}"
-        )
-        return None
+    blast_result = blaster(
+        instance=instance,
+        command=command,
+        subject=subject,
+        input_database_path=input_database_path,
+        num_threads=num_threads,
+    )
+    return blaster_parser(blast_result, instance, subject)
 
 
 def blast_executor(
@@ -262,7 +234,6 @@ def blast_executor(
     command: str,
     input_database_path: str | Path,
     num_threads: int,
-    display_full_info: bool,
     genome: str,
 ) -> dict[str, RetroSeeker] | None:
     """
@@ -274,7 +245,6 @@ def blast_executor(
             :param command: The type of BLAST to run
             :param input_database_path: The path to the input database (species, virus...)
             :param num_threads: The number of threads to use. Default is 1.
-            :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
             :param genome: Optional: A genome to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
 
         Returns
@@ -283,7 +253,11 @@ def blast_executor(
     """
     full_parsed_results: dict[str, RetroSeeker] = {}
 
-    with tqdm(total=len(object_dict), desc=f"Processing {genome}...") as object_bar:
+    # disable=None: no bar when stderr is not a terminal (under the launcher),
+    # where its carriage returns would flood the run log.
+    with tqdm(
+        total=len(object_dict), desc=f"Processing {genome}...", disable=None
+    ) as object_bar:
         for value in object_dict.values():
             if result := _blast_task(
                 instance=value,
@@ -293,11 +267,10 @@ def blast_executor(
                 num_threads=num_threads,
             ):
                 full_parsed_results |= result
-                if display_full_info:
-                    key_identifier = f"{value.accession}-{value.identifier}"
-                    logger.info(
-                        f"Added {key_identifier} to Blast Dictionary\n{value.display_info()}"
-                    )
+                key_identifier = f"{value.accession}-{value.identifier}"
+                logger.debug(
+                    f"Added {key_identifier} to Blast Dictionary\n{value.display_info()}"
+                )
 
             object_bar.update(1)
 
@@ -314,7 +287,6 @@ def blast_retriever(
     genome: str,
     input_database_path: str | Path,
     num_threads: int,
-    display_full_info: bool = defaults.DISPLAY_OPERATION_INFO,
 ) -> dict[str, RetroSeeker] | None:
     """
     Orchestrates the blast retrieval process. It first performs the blast search, then merges the results, and
@@ -327,8 +299,6 @@ def blast_retriever(
             :param genome: The species to search for. Retrieved from defaults.
             :param input_database_path: The path to the local database (species, virus...).
             :param num_threads: The number of threads to use. Default is 1.
-            :param display_warning: Toggle display of request warning messages. Default from defaults.
-            :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
 
         Returns
         -------
@@ -340,7 +310,6 @@ def blast_retriever(
         genome=genome,
         num_threads=num_threads,
         input_database_path=input_database_path,
-        display_full_info=display_full_info,
     )
 
 
@@ -349,7 +318,6 @@ def gb_fetcher(
     online_database: str,
     _attempt: int = 1,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
-    display_warning: bool = False,
     _entrez_email: str = defaults.ENTREZ_EMAIL,
 ) -> RetroSeeker:
     """
@@ -361,7 +329,6 @@ def gb_fetcher(
             :param online_database: The database to fetch the sequence from.
             :param _attempt: The number of current attempts to fetch the sequence. Default is 1.
             :param max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
-            :param display_warning: Toggle display of request warning messages. Default is True.
             :param _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
 
         Returns
@@ -397,24 +364,22 @@ def gb_fetcher(
     except Exception as e:
         if _attempt < max_attempts:
             time.sleep(2**_attempt)
-            if display_warning:
-                logger.warning(
-                    f"While fetching the genbank record: {e!s}. Retrying... (attempt {_attempt + 1})"
-                )
-            return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
-        if display_warning:
-            logger.error(
-                f"Failed to fetch the GenBank record after {max_attempts} attempts."
+            # Retries are routine with NCBI; only the final failure matters.
+            logger.debug(
+                f"{instance.accession}: GenBank fetch failed ({e!s}); retry {_attempt + 1}"
             )
+            return gb_fetcher(instance, online_database, _attempt + 1, max_attempts)
+        logger.error(
+            f"{instance.accession}: GenBank record not fetched after {max_attempts} "
+            f"attempts ({e!s}). The probe will lack its sequence."
+        )
         return instance
 
 
 def gb_executor(
     object_dict: dict[str, RetroSeeker],
     online_database: str,
-    display_warning: bool = defaults.DISPLAY_REQUESTS_WARNING,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
-    display_full_info: bool = False,
 ) -> dict[str, RetroSeeker] | None:
     """
     Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
@@ -423,9 +388,7 @@ def gb_executor(
         ----------
             :param object_dict: A dictionary containing object pairs.
             :param online_database: The database to retrieve the sequences from.
-            :param display_warning: Toggle display of request warning messages - in [_gb_fetcher] -. Default in defaults.
             :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
-            :param display_full_info: Toggle display of full information for each fetched sequence. Default is False.
 
         Returns
         -------
@@ -437,7 +400,9 @@ def gb_executor(
     """
     full_retrieved_results = {}
 
-    with tqdm(total=len(object_dict), desc="Fetching GenBank sequences") as object_bar:
+    with tqdm(
+        total=len(object_dict), desc="Fetching GenBank sequences", disable=None
+    ) as object_bar:
         for value in object_dict.values():
             # gb_fetcher always returns the instance (updated on success, or
             # unchanged after exhausting retries) - never None.
@@ -445,14 +410,12 @@ def gb_executor(
                 instance=value,
                 online_database=online_database,
                 max_attempts=max_attempts,
-                display_warning=display_warning,
             )
             key_identifier = f"{value.accession}-{value.identifier}"
             full_retrieved_results[key_identifier] = result
-            if display_full_info:
-                logger.info(
-                    f"Added {key_identifier} to GenBank Dictionary\n{result.display_info()}"
-                )
+            logger.debug(
+                f"Added {key_identifier} to GenBank Dictionary\n{result.display_info()}"
+            )
             object_bar.update(1)
 
     if not full_retrieved_results:

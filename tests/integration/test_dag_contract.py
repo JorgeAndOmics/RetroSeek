@@ -428,3 +428,21 @@ def test_solo_blaster_threads_are_configurable(project_root: Path) -> None:
     text = _read_snakefile(project_root)
     block = text.split("rule solo_blaster_setup:", 1)[1].split("\nrule ", 1)[0]
     assert "_SOLO.get('blast_threads') or workflow.cores" in block
+
+
+def test_heavy_rules_keep_their_commands(project_root: Path) -> None:
+    """Heavy rules (and the blast checkpoint) must not change: a changed command
+    reruns them on every genome, about a day each for LTRdigest (ADR-020/021).
+    The per-job log layout is therefore added to every rule except these."""
+    text = _read_snakefile(project_root)
+    for rule in sorted(stages.HEAVY_RULES):
+        start = re.search(rf"^(?:rule|checkpoint) {rule}:", text, flags=re.MULTILINE)
+        assert start, rule
+        following = re.search(
+            r"^(?:rule|checkpoint|ruleorder) ", text[start.end() :], flags=re.MULTILINE
+        )
+        block = text[
+            start.start() : start.end()
+            + (following.start() if following else len(text))
+        ]
+        assert "job_log(" not in block, f"{rule} gained a job log"

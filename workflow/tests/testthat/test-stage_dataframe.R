@@ -254,3 +254,29 @@ test_that("build_stage_probe_domain_df is typed-empty when no domains", {
   expect_equal(nrow(out), 0L)
   expect_true(all(c("hit_probe", "domain_name") %in% names(out)))
 })
+
+test_that("element_domains is ordered the same under every locale", {
+  # sort() follows the locale's collation: en_US put "Gag_p10" before "GP41",
+  # C put "GP41" first, so two machines wrote different bytes for the same
+  # element (found comparing a 2026-09-23 rerun). The byte-wise order is the one
+  # every machine agrees on.
+  retros <- .fake_retros()
+  ltr_data <- GenomicRanges::GRanges(
+    seqnames = "chr1",
+    ranges   = IRanges::IRanges(start = c(122, 152), end = c(142, 172)),
+    strand   = "+"
+  )
+  S4Vectors::mcols(ltr_data)$type   <- c("protein_match", "protein_match")
+  S4Vectors::mcols(ltr_data)$Parent <- c("retro_1", "retro_1")
+  S4Vectors::mcols(ltr_data)$name   <- c("Gag_p10", "GP41")
+  empty <- GenomicRanges::GRanges()
+  S4Vectors::mcols(empty)$Parent <- character(0)
+
+  domains_under <- function(collate) {
+    withr::local_collate(collate)
+    df <- build_stage_ltr_df(retros, empty, empty, ltr_data, .fake_gr_virus())
+    df$element_domains[df$ID == "retro_1"]
+  }
+  expect_equal(domains_under("C"), "GP41; Gag_p10")
+  expect_equal(domains_under("en_US.UTF-8"), "GP41; Gag_p10")
+})

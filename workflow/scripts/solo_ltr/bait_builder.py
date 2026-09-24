@@ -26,9 +26,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
+
+from log import OK, PipelineError, job_logging, run_main
+
+logger = logging.getLogger(__name__)
 
 ARM_FEATURE = "long_terminal_repeat"
 
@@ -73,9 +78,10 @@ def erv_bearing_parents(loci_csv: Path) -> set[str]:
     with loci_csv.open(newline="") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None or "parent" not in reader.fieldnames:
-            raise SystemExit(
-                f"{loci_csv} has no 'parent' column, so no element can be identified as "
-                f"ERV-bearing. Columns present: {reader.fieldnames}"
+            raise PipelineError(
+                f"{loci_csv} has no 'parent' column, so no element can be identified "
+                f"as ERV-bearing (columns present: {reader.fieldnames})",
+                hint="rerun --classify; the loci table predates the parent column",
             )
         return {row["parent"] for row in reader if row.get("parent")}
 
@@ -124,7 +130,7 @@ def write_bed(arms: list[Arm], path: Path) -> int:
     return len(arms)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--flanking-ltr-gff3", type=Path, required=True)
     parser.add_argument("--loci-csv", type=Path, required=True)
@@ -136,23 +142,32 @@ def main(argv: list[str] | None = None) -> int:
         help="From config solo_ltr.min_bait_length. Required on purpose: a default "
         "here would be a second source of truth that drifts from config.yaml.",
     )
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
     args = parser.parse_args(argv)
+    job_logging(args.log, "solo_bait_builder")
 
     parents = erv_bearing_parents(args.loci_csv)
     arms = select_bait(
         parse_arms(args.flanking_ltr_gff3), parents, args.min_bait_length
     )
     written = write_bed(arms, args.out_bed)
-    print(
-        f"bait: {written} arms from {len({a.parent for a in arms})} of {len(parents)} "
-        f"ERV-bearing elements (>= {args.min_bait_length} bp) -> {args.out_bed}"
-    )
     if not written:
-        print(
-            "WARNING: no bait arms selected; no solo LTRs can be found for this genome"
+        logger.warning(
+            "no bait: none of %d ERV-bearing elements has an LTR arm of at least %d "
+            "bp, so no solo LTR can be found in this genome. Lower "
+            "solo_ltr.min_bait_length if it should have some",
+            len(parents),
+            args.min_bait_length,
         )
-    return 0
+        return
+    logger.log(
+        OK,
+        "%s bait arms from %s of %s ERV-bearing elements",
+        f"{written:,}",
+        f"{len({a.parent for a in arms}):,}",
+        f"{len(parents):,}",
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    run_main(main)

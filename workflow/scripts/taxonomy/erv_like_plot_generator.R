@@ -48,19 +48,10 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
+source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
 source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
 source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
 source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
-
-
-# ----------------------------------------------------------------------------
-# Pipeline instrumentation.
-# ----------------------------------------------------------------------------
-.t0 <- Sys.time()
-log_section <- function(name) {
-  elapsed <- as.numeric(difftime(Sys.time(), .t0, units = "secs"))
-  message(sprintf("[%6.2fs] > %s", elapsed, name))
-}
 
 
 # ----------------------------------------------------------------------------
@@ -97,10 +88,10 @@ add_structure_companions <- function(df) {
   if (nrow(df) == 0L) return(df)
   df %>%
     mutate(
-      completeness    = suppressWarnings(as.numeric(.data$completeness)),
-      n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),
+      completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank -> NA
+      n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank -> NA
       canonical_order = toupper(as.character(.data$canonical_order)) == "TRUE",
-      span_bp         = suppressWarnings(as.numeric(.data$end) - as.numeric(.data$start) + 1)
+      span_bp         = as.numeric(.data$end) - as.numeric(.data$start) + 1
     )
 }
 
@@ -291,7 +282,10 @@ main <- function() {
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--species_tree_dir", required = FALSE, default = "",
                       help = "species_tree_layout.py output: the host tree coordinates")
+  parser$add_argument("--log", default = NULL,
+                      help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
+  log_job(args$log, "erv_like_plot_generator")
 
   use_retroseek_style()
   cfg <- yaml::read_yaml(args$config)
@@ -315,11 +309,13 @@ main <- function() {
   n_rows <- max(length(ctx$species_order), length(unique(loci$species)))
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
-  log_section(sprintf("Done: wrote %s (%d pages)", args$out_pdf, length(pages) + 1L))
+  log_ok("wrote %s, %s pages, %s loci", basename(args$out_pdf),
+         format(length(pages) + 1L, big.mark = ","), format(nrow(loci), big.mark = ","))
 }
 
 
 # ----------------------------------------------------------------------------
 # Entry-point guard - only fire main() under `Rscript erv_like_plot_generator.R`.
+# run_main() logs how the job ended (ADR-021).
 # ----------------------------------------------------------------------------
-if (sys.nframe() == 0L) main()
+if (sys.nframe() == 0L) run_main(main)
