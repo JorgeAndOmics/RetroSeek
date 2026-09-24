@@ -17,8 +17,10 @@
 #      families. The file stores versioned accessions (`ACC PF00665.33`); the
 #      curated table stores the unversioned key, so the version is stripped here.
 #   2. An accession the table asks for and the library does not contain is a
-#      hard error naming the offenders. Silently emitting a short library would
-#      make every downstream count wrong with no signal.
+#      hard error naming the offenders, the likely cause and the fix. Silently
+#      emitting a short library would make every downstream count wrong with no
+#      signal. The usual cause is a Pfam-A.hmm older than the pinned release
+#      (ADR-019): new families such as PF29843 do not exist in it yet.
 #
 # The file is read as a stream (one record at a time), not slurped: Pfam-A.hmm is
 # ~2.2 GB. Measured on the full file: 5.3 s, 116 MB peak RSS.
@@ -50,6 +52,36 @@ def wanted_accessions(classes_tsv: Path) -> set[str]:
     return wanted
 
 
+def library_accessions(hmm_path: Path) -> set[str]:
+    """Unversioned accessions of every model in `hmm_path`, read as a stream."""
+    found: set[str] = set()
+    with hmm_path.open(encoding="utf-8") as source:
+        for line in source:
+            if line.startswith("ACC "):
+                found.add(line.split()[1].split(".")[0])
+    return found
+
+
+def missing_accessions(hmm_path: Path, wanted: set[str]) -> list[str]:
+    """The accessions in `wanted` that `hmm_path` does not hold, sorted.
+
+    Used before a run starts (the launcher's preflight), so a stale library is
+    reported in seconds instead of after the upstream stages have run.
+    """
+    return sorted(wanted - library_accessions(hmm_path))
+
+
+def missing_message(missing: list[str], hmm_path: Path) -> str:
+    """Explain a library that lacks curated accessions: what, why, and the fix."""
+    return (
+        f"{hmm_path} lacks {len(missing)} accession(s) listed in the curated "
+        f"Pfam class table: {', '.join(missing)}. The file probably comes from an "
+        "older Pfam release than the one the pipeline pins (input.pfam_release). "
+        "Fix: ./RetroSeek --download-hmm --forcerun pfam_hmm_downloader, then "
+        "backdate the new files so LTRdigest does not rerun (docs/adr/ADR-019)."
+    )
+
+
 def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
     """Copy the records named by `classes_tsv` from `hmm_path` into `out_path`.
 
@@ -79,9 +111,7 @@ def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
 
     missing = sorted(wanted - found)
     if missing:
-        raise SystemExit(
-            f"accessions not found in {hmm_path.name}: {', '.join(missing)}"
-        )
+        raise SystemExit(missing_message(missing, hmm_path))
     return len(found)
 
 

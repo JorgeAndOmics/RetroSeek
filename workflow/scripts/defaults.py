@@ -400,6 +400,9 @@ PROBE_CSV = _anchor(config["input"].get("probe_csv"), "data/tables/_input/probes
 PFAM_DOMAIN_CLASSES = _anchor(
     config["input"].get("pfam_domain_classes"), "data/config/pfam_domain_classes.tsv"
 )
+# Pinned Pfam release (ADR-019). The curated class table above was checked
+# against this release; an older library lacks some of its accessions.
+PFAM_RELEASE: str = str(config["input"].get("pfam_release", "38.2"))
 
 # Genomes
 SPECIES_DICT: dict[str, str] = config.get("species", {})

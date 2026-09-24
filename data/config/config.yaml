@@ -222,6 +222,10 @@ input:
   # Pfam family to one of retroviral_diagnostic / retroelement_shared / non_ltr /
   # dna_transposon / other, which is what decides domain_tier and domain_evidence.
   pfam_domain_classes: 'data/config/pfam_domain_classes.tsv'
+  # Pfam release downloaded by --download-hmm and recorded beside the domain scan.
+  # The class table above was checked against 38.2; older releases lack some of
+  # its families and stop the domain scan.
+  pfam_release: '38.2'
 
 display:
   display_snakemake_info: false
