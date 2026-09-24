@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -150,3 +151,77 @@ class TestNoSelfImport:
         assert "import validator" not in lines, (
             "validator.py should not import itself - remove the dead import"
         )
+
+
+class TestPreflight:
+    """The fast checks that always run, whatever -skp says (ADR-020).
+
+    They catch, in seconds, what used to fail hours into a run: a tool missing
+    from the environment, or a Pfam library older than the curated table.
+    """
+
+    @staticmethod
+    def _hmm(path: Path, *accessions: str) -> Path:
+        path.write_text(
+            "".join(f"HMMER3/f\nNAME  m{a}\nACC   {a}.1\n//\n" for a in accessions)
+        )
+        return path
+
+    @staticmethod
+    def _classes(path: Path, *accessions: str) -> Path:
+        rows = "".join(f"{a}\tname\tother\n" for a in accessions)
+        path.write_text("pfam_acc\tpfam_name\tclass\n" + rows)
+        return path
+
+    def test_missing_tools_names_only_the_absent_ones(self) -> None:
+        import validator as v
+
+        assert v.missing_tools(["sh", "retroseek-no-such-tool"]) == [
+            "retroseek-no-such-tool"
+        ]
+
+    def test_pfam_problem_is_none_when_the_library_has_every_family(
+        self, tmp_path: Path
+    ) -> None:
+        import validator as v
+
+        hmm = self._hmm(tmp_path / "Pfam-A.hmm", "PF00001", "PF00002")
+        classes = self._classes(tmp_path / "c.tsv", "PF00001")
+        assert v.pfam_problem(hmm, classes) is None
+
+    def test_pfam_problem_explains_an_old_library(self, tmp_path: Path) -> None:
+        import validator as v
+
+        hmm = self._hmm(tmp_path / "Pfam-A.hmm", "PF00001")
+        classes = self._classes(tmp_path / "c.tsv", "PF00001", "PF29843")
+        problem = v.pfam_problem(hmm, classes)
+        assert problem is not None
+        assert "PF29843" in problem
+        assert "--download-hmm" in problem
+
+    def test_pfam_problem_is_none_before_the_first_download(
+        self, tmp_path: Path
+    ) -> None:
+        """No library yet: the downloader will fetch the pinned release."""
+        import validator as v
+
+        classes = self._classes(tmp_path / "c.tsv", "PF00001")
+        assert v.pfam_problem(tmp_path / "absent.hmm", classes) is None
+
+    def test_preflight_fails_on_a_missing_tool(self) -> None:
+        import stages
+        import validator as v
+
+        fake = stages.Stage(
+            "--x", "Analysis", ("r",), "x", tools=("retroseek-no-such-tool",)
+        )
+        with patch.object(v, "yaml_validator", return_value=True):
+            assert v.preflight([fake]) is False
+
+    def test_preflight_passes_when_nothing_is_missing(self) -> None:
+        import stages
+        import validator as v
+
+        fake = stages.Stage("--x", "Analysis", ("r",), "x", tools=("sh",))
+        with patch.object(v, "yaml_validator", return_value=True):
+            assert v.preflight([fake]) is True

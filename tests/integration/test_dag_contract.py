@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+import stages
+
 RULE_DEF_RE = re.compile(r"^rule\s+(\w+)\s*:", re.MULTILINE)
 WILDCARD_BLOCK_RE = re.compile(
     r"wildcard_constraints\s*:\s*\n\s*genome\s*=\s*(.+?)$",
@@ -301,10 +303,13 @@ def test_erv_like_plot_generator_reads_genus_loci(project_root: Path) -> None:
     assert "TAXONOMY_TABLES_PARQUET_DIR" in text
 
 
-def test_generate_global_plots_includes_erv_like_panel(project_root: Path) -> None:
+def _stage(flag: str) -> stages.Stage:
+    return next(s for s in stages.STAGES if s.flag == flag)
+
+
+def test_generate_global_plots_includes_erv_like_panel() -> None:
     """--generate-global-plots must drive the structure panel alongside ranges."""
-    text = (project_root / "workflow" / "scripts" / "RetroSeek.py").read_text()
-    assert "erv_like_plot_generator" in text
+    assert "erv_like_plot_generator" in _stage("--generate-global-plots").targets
 
 
 def test_stage_pdfs_declared(project_root: Path) -> None:
@@ -396,13 +401,10 @@ def test_taxonomy_reference_seed_from_config(project_root: Path) -> None:
     assert "config['parameters'].get('seed'" in text
 
 
-def test_classify_cli_flags_present(project_root: Path) -> None:
+def test_classify_cli_flags_present() -> None:
     """RetroSeek CLI exposes --build-reference and --classify."""
-    text = (project_root / "workflow" / "scripts" / "RetroSeek.py").read_text()
-    assert "--build-reference" in text
-    assert "--classify" in text
-    assert "taxonomy_reference_trees" in text
-    assert "taxonomy_classify" in text
+    assert _stage("--build-reference").targets == ("taxonomy_reference_trees",)
+    assert "taxonomy_classify" in _stage("--classify").targets
 
 
 def test_classification_config_and_schema(project_root: Path) -> None:

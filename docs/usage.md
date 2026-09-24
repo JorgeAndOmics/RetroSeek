@@ -14,54 +14,114 @@ The env installs BLAST+, GenomeTools, NCBI Datasets CLI, Python 3.11, R 4.3, Bio
 ## CLI
 
 ```
-./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
+./RetroSeek [STAGE FLAGS] [RUN OPTIONS] [SNAKEMAKE OPTIONS]
 ```
 
-One or more **stage flags** select which pipeline sections run. Snakemake resolves the union of their DAGs, so you can stack flags in a single invocation (e.g. `./RetroSeek --ranges-analysis --solo-ltr-detector --hotspot-detection --cores 8`). Any unrecognised argument is passed through to Snakemake unchanged.
+Stage flags choose what to build. All requested stages run as **one** Snakemake
+workflow, so their order on the command line does not matter, and a stage whose
+inputs are stale pulls its upstream stages in. `./RetroSeek -h` lists them by
+phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 
 ### Stage flags
 
-| Flag                        | Snakemake target              | Inputs (short)                          | Outputs (short)                              |
-|-----------------------------|-------------------------------|-----------------------------------------|----------------------------------------------|
-| `--download-genomes`        | `genome_downloader`           | `config.species` accessions             | `{genome}.fa` in `SPECIES_DB`                |
-| `--download-hmm`            | `pfam_hmm_downloader`         | -                                       | `Pfam-A.hmm`                                 |
-| `--blast-dbs`               | `blast_db_generator`          | `{genome}.fa`                           | BLAST nucleotide DB files                    |
-| `--suffix-arrays`           | `ltr_index_generator`         | `{genome}.fa`                           | Suffix-array index files                     |
-| `--ltr-candidates`          | `ltr_harvester`               | Suffix arrays                           | LTR candidate GFF3 + FASTA                   |
-| `--ltr-domains`             | `ltr_digester`                | LTR GFF3 + Pfam HMMs + FASTA            | Domain-annotated LTR GFF3                    |
-| `--probe-extractor`         | `probe_extractor`             | `config.input.probe_csv`                | `probe_dict.pkl` (+ CSV / Parquet)           |
-| `--blast`                   | `blast_pkl2parquet`           | BLAST DBs + probe dict                  | `{genome}.pkl` -> `full_genome_blast.parquet` |
-| `--ranges-analysis`         | `ranges_analysis`             | BLAST Parquet + LTRdigest GFF3          | GFF3 tracks + overlap matrices + dataframes  |
-| `--generate-global-plots`   | `plot_generator`              | Plot dataframes                         | Stage PDFs: `plots/ranges/homology/homology.pdf`, `plots/ranges/integration/integration.pdf`, `plots/classification/structure/structure.pdf` |
-| `--generate-circle-plots`   | `circle_plot_generator`       | Valid GFF3 + LTRdigest GFF3 + FASTA     | Per-genome Circos-style PNG + PDF (currently broken) |
-| `--hotspot-detection`       | `hotspot_detector`            | Catalog loci (or original tracks) + FASTA | Hotspot CSV + GFF3 + histogram/density PDFs  |
+**Setup**: fetch and prepare inputs, once per study.
 
-> **Note (ADR-012):** hotspot detection now counts **integration events** from the authoritative per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a multi-gene provirus counts once rather than once per gene. That makes it a consumer of the classification stage: a stale `catalog.csv` pulls `--classify` into the DAG. Each called region is annotated with its composition (`n_full` / `n_partial` / `n_gene`, dominant taxon, mean confidence) in `{genome}.hotspots.csv` and on the composition page of `{genome}.hotspots.pdf`. Because per-locus counts are several times sparser than per-hit, expect fewer calls than before; `hotspot.source: both`, a larger `hotspot.window_size`, or `hotspot.input: original` recover density.
+| Flag | Snakemake target | Makes |
+|---|---|---|
+| `--download-genomes` | `genome_downloader` | `{genome}.fa` in `SPECIES_DB`, from `config.species` accessions |
+| `--download-hmm` | `pfam_hmm_downloader` | `Pfam-A.hmm`, the pinned release `input.pfam_release` (ADR-019) |
+| `--build-reference` | `taxonomy_reference_trees` | `data/taxonomy_reference/`: reference proteins, NCBI taxonomy, per-gene placement trees (network, built once) |
+| `--probe-extractor` | `probe_extractor` | `probe_dict.pkl` (+ CSV / Parquet) from `input.probe_csv` |
 
-| `--pair-detection`          | `pair_detector`               | Valid ranges GFF3                       | Per-species pair tables (CSV + Parquet)      |
-| `--solo-ltr-detector`       | `solo_ltr_detector`           | `flanking_ltr/{genome}.gff3` + `{genome}.loci.csv` + genome BLAST db | `tracks/solo_ltr/{genome}.gff3` + `tables/solo_ltr/` + `trees/solo_ltr/` + one PDF per genome under `plots/classification/solo_ltr/` (see `docs/solo_ltr.md`) |
-| `--placement-trees`        | `placement_trees`             | published `.jplace` + host tree          | per-genome heat-trees (SVG/Newick/Nexus), EDPL + LWR tables, tables `cophylogeny_summary.{tier}.{gene}.csv` + `{tier}.{gene}.krd_matrix.csv`; trees under `results/trees/` (`placements/`, `placements/heat_trees/`, `cophylogeny/erv_composition.{tier}.{gene}.newick`, `cophylogeny/cluster_mass/`) |
-| `--build-reference`         | `taxonomy_reference_trees`    | NCBI Entrez (network)                   | `data/taxonomy_reference/` (proteins + taxonomy + placement trees + manifest) |
-| `--classify`                | `taxonomy_classify` + `taxonomy_plot_generator` | `element_hits/{genome}.gff3` + FASTA + reference | Per-locus genus calls (`taxonomy_classification/{genome}.loci.csv`) + `tracks/taxonomy/` GFF3/BED + `plots/classification/taxonomy/taxonomy.pdf` and `plots/classification/loss/loss.pdf` |
-| `--segment`                 | `taxonomy_segments` | `catalog.csv` (from `--classify`) | Catalog split by taxonomic segment. Tables: `results/tables/taxonomy_classification/segments/by_<rank>/<segment>.csv` + `segment_summary.csv`. Figures: `results/plots/classification/segments/by_<rank>/<segment>.pdf` + `overview.pdf` |
-| `-skp`, `--skip-validation` | -                             | -                                       | Bypass pre-run validation (debug only)       |
+**Indexing**: per-genome search indexes.
 
-**Taxonomic classification** needs the reference built once first: `make reference` (or `./RetroSeek --build-reference`) performs the network Entrez fetch + placement-tree build into `data/taxonomy_reference/` (cached; rebuilt only if deleted). Then `./RetroSeek --classify` assigns each valid ERV locus a calibrated genus call, and `./RetroSeek --segment` splits the resulting catalog by the taxon each locus rolls up to at `classification.segment_rank` (any rank; a call coarser than that rank is reported as `unassigned_at_<rank>` rather than being given invented precision). Set `input.species_tree` to a Newick of your host phylogeny to order the species panels by relatedness; leave it empty and those panels render a placeholder. Behaviour is governed by the [`classification`](#configuration) config block (`placement_genes`, `evalue`, `top_percent`, `min_orf`, `enable`), reusing `parameters.seed`, `parameters.main_probes`, and `execution.entrez_email`.
+| Flag | Snakemake target | Makes |
+|---|---|---|
+| `--blast-dbs` | `blast_db_generator` | BLAST nucleotide database per genome |
+| `--suffix-arrays` | `ltr_index_generator` | GenomeTools suffix array per genome |
 
-### Snakemake pass-through
+**Discovery**: the heavy searches (LTRdigest takes about a day per large genome).
 
-Any argument not recognised as a stage flag is forwarded. Common examples:
+| Flag | Snakemake target | Makes |
+|---|---|---|
+| `--ltr-candidates` | `ltr_harvester` | LTR element candidates (LTRharvest GFF3 + FASTA) |
+| `--ltr-domains` | `ltr_digester` | LTR element annotation with LTRdigest: protein domains and polypurine tracts inside each element |
+| `--blast` | `blast_pkl2parquet` | tBLASTn of every probe against every genome, `full_genome_blast.parquet` |
 
-- `--cores N` (or `--cores all`) - parallelism.
-- `--profile <name>` - HPC/cluster profile.
-- `--keep-going` - continue on rule failure.
-- `--latency-wait N` - filesystem latency tolerance.
-- `--dry-run` / `-n` - DAG-only, no execution.
-- `--configfile <path>` - override default config.
+**Analysis**: everything that reads the discovery results.
+
+| Flag | Snakemake target(s) | Makes |
+|---|---|---|
+| `--ranges-analysis` | `ranges_analysis` | Element-hit, orphan and flanking-LTR tracks, overlap matrices, stage tables |
+| `--domain-scan` | `domain_scanner` | Curated Pfam domains on element AND orphan loci (`hmmsearch --cut_ga`, ADR-015), plus `Pfam.version` |
+| `--classify` | `taxonomy_classify`, `taxonomy_orphans`, `taxonomy_plot_generator`, `loss_analysis` | Per-locus genus calls for both tiers, `catalog.csv`, `tracks/taxonomy/`, `taxonomy.pdf`, `loss.pdf`. Runs the domain scan first. |
+| `--segment` | `taxonomy_segments` | The catalog split by taxon at `classification.segment_rank`, one PDF per segment + `overview.pdf` |
+| `--solo-ltr-detector` | `solo_ltr_detector` | Solo LTRs: tracks, tables, the evidence tree and one PDF per genome (`docs/solo_ltr.md`) |
+| `--hotspot-detection` | `hotspot_detector` | Hotspot CSV + GFF3 + one PDF per genome |
+| `--pair-detection` | `pair_detector` | Per-species probe-pair tables |
+| `--placement-trees` | `placement_trees` | Heat-trees, EDPL/LWR tables, co-phylogeny against the host tree |
+
+**Figures**
+
+| Flag | Snakemake target(s) | Makes |
+|---|---|---|
+| `--generate-global-plots` | `plot_generator`, `stage_plot_generator`, `erv_like_plot_generator` | `homology.pdf`, `integration.pdf`, `structure.pdf` |
+| `--generate-circle-plots` | `circle_plot_generator` | Per-genome circle plots (currently broken) |
+
+> **Note (ADR-012):** hotspot detection counts **integration events** from the
+> per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a stale
+> `catalog.csv` pulls `--classify` into the run. `hotspot.source: both`, a larger
+> `hotspot.window_size` or `hotspot.input: original` recover density.
+
+**Taxonomic classification** needs the reference: `./RetroSeek --build-reference`
+(or `make reference`) fetches it once into `data/taxonomy_reference/`; `--classify`
+builds it first if it is missing. `--segment` rolls each call up to
+`classification.segment_rank`; a call coarser than that rank is reported as
+`unassigned_at_<rank>`. Set `input.species_tree` to a Newick of the host phylogeny
+to put species in tree order.
+
+### Presets and run options
+
+| Option | Meaning |
+|---|---|
+| `--downstream` | Every Analysis and Figures stage except circle plots: the usual run once the discovery searches exist. |
+| `-skp`, `--skip-validation` | Skip the slow checks: NCBI lookups of every probe accession and the prompts. The fast checks always run. |
+| `--allow-heavy` | Let a heavy rule run although its own stage was not requested (see below). |
+| `--stop-on-error` | Stop at the first failed job. By default Snakemake's `--keep-going` lets independent jobs (other genomes) finish. |
+| `--config-help [KEY]` | Print the documentation of one config field, or list them all, and exit. |
+
+### What happens before anything runs
+
+1. **Fast checks, always**: the config against `schema.yaml`, the tools the chosen
+   stages call, and, for `--domain-scan` and `--classify`, that `Pfam-A.hmm` holds
+   every family in the curated class table.
+2. **Slow checks, unless `-skp`**: NCBI lookups of the probe accessions and the API
+   key prompt (only for stages that talk to NCBI), then a confirmation prompt. The
+   prompts fall back to their defaults when no terminal is attached.
+3. **The heavy-rule guard**: a dry run of the requested stages. If it would run a
+   heavy rule (the downloads, suffix arrays, LTRharvest, LTRdigest, tBLASTn or the
+   probe fetch) that no requested stage owns, nothing runs; the message names each
+   rule, Snakemake's reason and the usual fix. A newly downloaded `Pfam-A.hmm`, for
+   example, makes every LTRdigest output look stale (ADR-019).
+
+The command exits non-zero whenever a check, the guard or a job failed.
+
+### Snakemake options
+
+Any other option goes to Snakemake unchanged, after the launcher's own:
+
+- `-n` / `--dry-run`: show what would run. The guard's findings are printed too.
+- `--configfile <path>`: the study config (see below).
+- `--forcerun RULE...`: put it last; it takes every name after it.
+- `--rerun-triggers mtime`: decide reruns on file dates only.
+- `--unlock`, `--cleanup-metadata FILE...`: maintenance; the guard stays out of these.
+- `--profile <name>`, `--latency-wait N`: cluster use.
 
 ### Inspecting config fields
 
-`./RetroSeek --config-help` prints the field reference in the terminal and exits without running anything (no validation, no Snakemake, no directories created). Pass a key for one field, or omit it to list every field:
+`./RetroSeek --config-help` prints the field reference in the terminal and exits
+without running anything (no validation, no Snakemake, no directories created).
+Pass a key for one field, or omit it to list every field:
 
 ```bash
 ./RetroSeek --config-help                 # list every field, grouped by section
@@ -69,7 +129,8 @@ Any argument not recognised as a stage flag is forwarded. Common examples:
 ./RetroSeek --config-help classification.placement_genes
 ```
 
-The text is sourced directly from [`docs/configuration.md`](configuration.md), so the terminal help and the written reference cannot diverge.
+The text is sourced directly from [`docs/configuration.md`](configuration.md), so
+the terminal help and the written reference cannot diverge.
 
 ## Configuration
 
@@ -83,7 +144,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 ./RetroSeek --probe-extractor --configfile data/config/config.local.yaml
 ```
 
-`config.local.yaml` is in `.gitignore`. Snakemake's `--configfile` merges its keys over `config.yaml`'s defaults, so the override file only needs the fields you're changing (typically `input.probe_csv` + the four `root` entries + `execution.entrez_email`). Absolute paths in the local config are honoured as-is; relative paths are LTR-flanked against the repo root.
+`config.local.yaml` is in `.gitignore`. It must be a **complete** config, not a list of changes: the pipeline reads the file given to `--configfile` on its own and never falls back to `config.yaml` for missing fields. Start from a copy and edit it. Absolute paths in the local config are honoured as-is; relative paths resolve against the repo root.
 
 ### Pipeline config - [`data/config/config.yaml`](../data/config/config.yaml)
 
@@ -104,20 +165,19 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 - **`placement`** - colour scale for the published heat-trees: `mass_norm` (`absolute` | `relative`).
 - **`classification`** - per-locus ERV taxon calls, rank-agnostic since ADR-008 (`reference_taxa` sets the axis, `segment_rank` the roll-up): `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
 - **`logging`** - colour styles for console logging.
-- **`plots`** - DPI, dimensions, Sankey omission threshold, circle-plot bitscore cutoff.
+- **`plots`** - segment page selection, axis scales, Sankey and waffle settings, page growth per genome (`per_stratum`).
 - **`execution`** - parallelism and API politeness:
   - `num_cores`, `max_threadpool_workers`.
   - `retrieval_time_lag` (Entrez delay), `max_retrieval_attempts` (retries).
   - `entrez_email` - **required** (NCBI ToS).
-- **`input`** - `probe_csv` (path to your probe metadata CSV; relative paths resolve against the repo root) and `species_tree`.
+- **`input`** - `probe_csv` (path to your probe metadata CSV; relative paths resolve against the repo root), `species_tree`, `pfam_domain_classes` and `pfam_release`.
 - **`display`** - verbosity toggles.
 - **`root`** - base directories for DB, data, results, logs.
-- **`domains`** - per-probe Pfam domain/regex lists used in validation.
 - **`species`** - map of genome ID -> scientific name.
 
 ### Validation - [`data/config/schema.yaml`](../data/config/schema.yaml)
 
-`schema.yaml` defines types, ranges, and enum constraints (e.g., `merge_option` must match `^(virus|label)$`). `validator.py::validation_run()` checks the config against this schema before any stage runs (unless `--skip-validation` is passed). Validation is safe to run unattended: its two prompts (NCBI API key, and the final confirmation) fall back to their defaults when no terminal is attached, so scheduled and CI runs proceed without input.
+`schema.yaml` defines types, ranges, and enum constraints (e.g., `merge_option` must match `^(virus|label)$`). The launcher checks the config against it before every run, `-skp` or not (`validator.py::preflight`); an unknown key or a wrong type stops the run with the offending field named.
 
 ### Probe CSV
 

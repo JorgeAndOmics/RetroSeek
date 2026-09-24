@@ -43,6 +43,22 @@ genome list --> genome_downloader (datasets) --> {genome}.fa
                                                    +-> pair_detector.R
 ```
 
+## The launcher
+
+`./RetroSeek` is a thin shim in front of `workflow/scripts/RetroSeek.py` (ADR-020).
+Both read one table of stages, `workflow/scripts/stages.py`: each row holds a flag,
+its phase (Setup, Indexing, Discovery, Analysis, Figures), its Snakemake targets,
+the heavy rules it may run and the tools it calls. A run goes:
+
+1. **Preflight** (`validator.preflight`, always): the config against the schema,
+   the chosen stages' tools, and the Pfam library against the curated table.
+2. **Slow validation** (unless `-skp`): NCBI probe lookups and prompts, only for
+   stages that talk to NCBI.
+3. **Guard** (`guard.py`): a captured dry run; a heavy rule that no requested stage
+   owns stops the run with its reason and the usual fix.
+4. **One Snakemake call** for every requested target, with `--keep-going` unless
+   `--stop-on-error`. The command's exit code is Snakemake's.
+
 ## Rule overview
 
 All rules follow `<name>_setup` (per-wildcard) + `<name>` (aggregate via `expand`). Groups:

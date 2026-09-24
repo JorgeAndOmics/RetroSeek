@@ -2,7 +2,6 @@
 # DEPENDENCIES
 # -------------------
 
-import argparse
 import logging
 import re
 import subprocess
@@ -11,7 +10,9 @@ from pathlib import Path
 
 import colored_logging
 import defaults
-from validator import validation_run
+import guard
+import stages
+from validator import preflight, validation_run
 
 logger = logging.getLogger(__name__)
 
@@ -94,333 +95,118 @@ def run_snakemake_rule(
 
 
 # -----------------------------
+# SNAKEMAKE OPTIONS
+# -----------------------------
+
+_DRY_RUN_FLAGS = ("-n", "--dry-run", "--dryrun")
+# Modes that run no jobs. A guard dry run carrying them would itself unlock or
+# clean, so they go straight to Snakemake.
+_MAINTENANCE_FLAGS = ("--unlock", "--cleanup-metadata", "--cm")
+
+
+def snakemake_options(user_options: list[str], stop_on_error: bool) -> list[str]:
+    """The options every Snakemake call gets, before the user's own.
+
+    `--keep-going` is the default so one failed genome does not stop the other
+    genomes' jobs overnight. The user's options come last and keep their order,
+    because `--forcerun RULE...` swallows everything after it.
+    """
+    if stop_on_error:
+        return list(user_options)
+    return ["--keep-going", *user_options]
+
+
+def is_dry_run(user_options: list[str]) -> bool:
+    """Whether the user asked Snakemake for a dry run."""
+    return any(flag in _DRY_RUN_FLAGS for flag in user_options)
+
+
+def is_maintenance(user_options: list[str]) -> bool:
+    """Whether the call is an --unlock or --cleanup-metadata, which runs no jobs."""
+    return any(flag in _MAINTENANCE_FLAGS for flag in user_options)
+
+
+def capture_dry_run(targets: list[str], options: list[str]) -> str:
+    """A Snakemake dry run of `targets`, captured for the guard to read.
+
+    Exits with Snakemake's own code and output if the dry run itself fails
+    (a config or DAG error), since nothing sensible can be checked then.
+    """
+    cmd = [
+        "snakemake",
+        *targets,
+        "--cores",
+        str(defaults.NUM_CORES),
+        "--rerun-incomplete",
+        "-n",
+        *options,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    output = result.stdout + result.stderr
+    if result.returncode != 0:
+        print(output)
+        logger.error(f"The dry run failed with exit code {result.returncode}.")
+        sys.exit(result.returncode)
+    return output
+
+
+# -----------------------------
 # CLI ENTRYPOINT
 # -----------------------------
 
 
-def cli_entry() -> None:  # noqa: PLR0912, PLR0915
+def cli_entry() -> None:
     """
     Main entrypoint for RetroSeek CLI.
 
-    Handles argument parsing, input validation, and Snakemake rule dispatch.
+    Order: preflight (always), slow validation (unless -skp), the heavy-rule
+    guard (a captured dry run), then one Snakemake call for every requested
+    stage. Exits non-zero whenever something stopped the run.
     """
     colored_logging.colored_logging(log_file_name="RetroSeek_main.log")
 
-    # -----------------------------
-    # PARSE COMMAND-LINE ARGUMENTS
-    # -----------------------------
-    parser = argparse.ArgumentParser(
-        description="RetroSeek: A tool for directed ERV detection and analysis."
-    )
-
-    parser.add_argument(
-        "--download-genomes",
-        action="store_true",
-        help="Downloads genomes specified in .yaml file. "
-        "Will skip download if the same files exist currently in the target directory",
-    )
-
-    parser.add_argument(
-        "--download-hmm", action="store_true", help="Setup domain database"
-    )
-
-    parser.add_argument(
-        "--suffix-arrays",
-        action="store_true",
-        help="Generate GenomeTools suffix arrays for genomes.",
-    )
-
-    parser.add_argument(
-        "--ltr-candidates",
-        action="store_true",
-        help="Generates LTR candidate files for genomes via LTRHarvest.",
-    )
-
-    parser.add_argument(
-        "--ltr-domains",
-        action="store_true",
-        help="Generates domain-enriched LTR candidate files for genomes via LTRDigest.",
-    )
-
-    parser.add_argument(
-        "--blast-dbs",
-        action="store_true",
-        help="Generates BLAST databases from genomes.",
-    )
-
-    parser.add_argument(
-        "--probe-extractor",
-        action="store_true",
-        help="Parses input CSV file and retrieves proviral sequences from provided NCBI accesion IDs.",
-    )
-
-    parser.add_argument(
-        "--blast",
-        action="store_true",
-        help="Runs tBLASTn of provided sequences against genome databases.",
-    )
-
-    parser.add_argument(
-        "--ranges-analysis",
-        action="store_true",
-        help="Performs genomic range integration of BLAST and LTR candidate results.",
-    )
-
-    parser.add_argument(
-        "--generate-global-plots",
-        action="store_true",
-        help="Generate plots from the analysis.",
-    )
-
-    parser.add_argument(
-        "--generate-circle-plots",
-        action="store_true",
-        help="Generate circle plots from the species in analysis.",
-    )
-
-    parser.add_argument(
-        "--hotspot-detection",
-        action="store_true",
-        help="Perform ERV hotspot detection.",
-    )
-
-    parser.add_argument(
-        "--pair-detection", action="store_true", help="Perform probe-pair detection."
-    )
-
-    parser.add_argument(
-        "--solo-ltr-detector",
-        action="store_true",
-        help=(
-            "Native solo-LTR detection (ADR-017). Writes "
-            "tracks/solo_ltr/{genome}.gff3, "
-            "tables/solo_ltr/{genome}.solo_ltr.csv, the per-genome funnel "
-            "and candidate tables, the LTR evidence tree, and the figure panel "
-            "under plots/classification/solo_ltr/."
-        ),
-    )
-
-    parser.add_argument(
-        "--placement-trees",
-        action="store_true",
-        help="Phylogenetic-placement figures from the published .jplace evidence: "
-        "per-genome heat-trees showing where each genome's ERV load sits on the "
-        "retroviral phylogeny, EDPL placement-uncertainty tables, and the "
-        "cross-genome co-phylogeny comparison against the host tree. Requires "
-        "--classify output.",
-    )
-
-    parser.add_argument(
-        "--build-reference",
-        action="store_true",
-        help="Build the taxonomic-classification reference (Entrez fetch of the "
-        "genus-comprehensive proteins + NCBI taxonomy + per-gene placement trees). "
-        "Network; build-once cache under data/taxonomy_reference/ (same as `make reference`).",
-    )
-
-    parser.add_argument(
-        "--classify",
-        action="store_true",
-        help="Per-locus ERV taxonomic classification: assigns each valid LTR-element "
-        "locus a calibrated genus call (placement + weighted-LCA), emits the "
-        "genus-founded loci tables, IGV tracks, and the taxonomy plot panel.",
-    )
-
-    parser.add_argument(
-        "--segment",
-        action="store_true",
-        help="Split the authoritative ERV catalog by taxonomic segment: one table "
-        "per taxon at classification.segment_rank (genus by default, any rank), "
-        "plus a PDF of taxonomy and structure pages per segment. Requires --classify output.",
-    )
-
-    parser.add_argument(
-        "--skip-validation", "-skp", action="store_true", help="Skip input validation."
-    )
-
+    parser = stages.build_parser()
     args, unknown = parser.parse_known_args()
-
-    # -----------------------------
-    # STANDARDIZE FASTA EXTENSIONS
-    # -----------------------------
-    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
-
-    # -----------------------------
-    # VALIDATE INPUT & EXECUTE RULES
-    # -----------------------------
-    species_paths: list[str] = [
-        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
-        for species in defaults.SPECIES
-    ]
-
-    # Print help message if no arguments or wrong arguments are provided
-    if not any(vars(args).values()):
+    chosen = stages.selected(args)
+    if not chosen:
         parser.print_help()
         sys.exit(0)
 
-    validation = True if args.skip_validation else validation_run(species_paths)
-    if validation:
-        if args.download_genomes:
-            run_snakemake_rule(
-                "genome_downloader",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
+    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
 
-        if args.suffix_arrays:
-            run_snakemake_rule(
-                "ltr_index_generator",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.download_hmm:
-            run_snakemake_rule(
-                "pfam_hmm_downloader",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.ltr_candidates:
-            run_snakemake_rule(
-                "ltr_harvester",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.ltr_domains:
-            run_snakemake_rule(
-                "ltr_digester",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.probe_extractor:
-            run_snakemake_rule(
-                "probe_extractor",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.blast_dbs:
-            run_snakemake_rule(
-                "blast_db_generator",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.blast:
-            run_snakemake_rule(
-                "blast_pkl2parquet",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.ranges_analysis:
-            run_snakemake_rule(
-                "ranges_analysis",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.generate_global_plots:
-            # --generate-global-plots produces the full panel: the ranges
-            # panel (plot_generator final-tier + stage_plot_generator middle-
-            # stage) plus the structure panel (erv_like_plot_generator)
-            # - one DAG, shared ranges_analysis upstream.
-            run_snakemake_rule(
-                ["plot_generator", "stage_plot_generator", "erv_like_plot_generator"],
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.generate_circle_plots:
-            run_snakemake_rule(
-                "circle_plot_generator",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.hotspot_detection:
-            run_snakemake_rule(
-                "hotspot_detector",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.pair_detection:
-            run_snakemake_rule(
-                "pair_detector",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.solo_ltr_detector:
-            run_snakemake_rule(
-                "solo_ltr_detector",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.placement_trees:
-            run_snakemake_rule(
-                "placement_trees",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.build_reference:
-            run_snakemake_rule(
-                "taxonomy_reference_trees",
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.segment:
-            # Per-segment tables + plots; depends on the catalog the classify
-            # panel writes, so Snakemake pulls that stage in if it is stale.
-            run_snakemake_rule(
-                ["taxonomy_segments"],
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-        if args.classify:
-            # Genus calls (LTR-flanked loci + recovered orphans tier), the derived
-            # taxonomy plot panel, and the unified loss funnel in one DAG (shared
-            # taxonomy_classify upstream). Reference must exist (--build-reference).
-            run_snakemake_rule(
-                [
-                    "taxonomy_classify",
-                    "taxonomy_orphans",
-                    "taxonomy_plot_generator",
-                    "loss_analysis",
-                ],
-                num_cores=defaults.NUM_CORES,
-                display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
-                snakemake_flags=unknown,
-            )
-
-    else:
+    if not preflight(chosen):
+        logger.error("Preflight checks failed; nothing was run.")
         sys.exit(1)
 
+    species_paths = [
+        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
+        for species in defaults.SPECIES
+    ]
+    if not args.skip_validation and not validation_run(chosen, species_paths):
+        sys.exit(1)
+
+    targets = stages.targets(chosen)
+    options = snakemake_options(unknown, stop_on_error=args.stop_on_error)
+    dry_run = is_dry_run(unknown)
+
+    if not is_maintenance(unknown) and (dry_run or not args.allow_heavy):
+        output = capture_dry_run(targets, options)
+        if dry_run:
+            print(output)
+        counts = guard.job_counts(output)
+        heavy = guard.blocked(counts, stages.allowed_heavy(chosen))
+        if heavy and not args.allow_heavy:
+            logger.error(guard.report(heavy, counts, guard.first_reasons(output)))
+            sys.exit(1)
+        if dry_run:
+            return
+
+    run_snakemake_rule(
+        targets,
+        num_cores=defaults.NUM_CORES,
+        display_info=defaults.DISPLAY_SNAKEMAKE_INFO,
+        snakemake_flags=options,
+    )
     logger.info("Finished execution.")
 
 

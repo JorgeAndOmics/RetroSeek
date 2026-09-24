@@ -48,6 +48,9 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 #    once, then assign each valid locus a calibrated genus call.
 make reference            # or: ./RetroSeek --build-reference   (network)
 ./RetroSeek --classify --cores all --skip-validation
+
+# 6. Or everything after the discovery searches, dry run first
+./RetroSeek --downstream --configfile data/config/config.local.yaml -n
 ```
 
 See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/architecture.md`](docs/architecture.md) for the pipeline design, and [`docs/development.md`](docs/development.md) for contributor setup.
@@ -78,35 +81,47 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 ## CLI
 
 ```
-./RetroSeek [STAGE_FLAG] [SNAKEMAKE_FLAGS]
+./RetroSeek [STAGE FLAGS] [RUN OPTIONS] [SNAKEMAKE OPTIONS]
 ```
 
-Stage flags (one per invocation, or chain stages by running again):
+Stages are grouped by phase (`./RetroSeek -h`). Any number of them can be combined:
+they run as one Snakemake workflow, in dependency order.
 
-| Flag                        | Stage                                                    |
-|-----------------------------|----------------------------------------------------------|
-| `--download-genomes`        | Download genomes via NCBI Datasets                       |
-| `--download-hmm`            | Fetch and verify the Pfam HMM database                   |
-| `--blast-dbs`               | Build BLAST nucleotide DBs per genome                    |
-| `--suffix-arrays`           | Build GenomeTools suffix arrays per genome               |
-| `--ltr-candidates`          | LTRharvest candidate discovery                           |
-| `--ltr-domains`             | LTRdigest domain annotation                              |
-| `--probe-extractor`         | Parse probe CSV and fetch probe sequences via Entrez     |
-| `--blast`                   | tBLASTn probes against each genome                       |
-| `--ranges-analysis`         | Integrate BLAST + LTR -> GFF3 tracks + tables             |
-| `--generate-global-plots`   | Homology, integration and structure PDFs                 |
-| `--generate-circle-plots`   | Per-genome Circos-style plots (currently broken)         |
-| `--hotspot-detection`       | Deterministic NB-GLM hotspot detection                   |
-| `--pair-detection`          | Probe-pair (e.g. GAG-ENV) detection per species          |
-| `--solo-ltr-detector`       | Solo-LTR detection, taxonomy inheritance, the LTR evidence tree, and the solo-LTR figure panel |
-| `--build-reference`         | Build the taxonomic-classification reference (Entrez + placement trees; build-once) |
-| `--classify`                | Per-locus ERV genus calls + IGV tracks + taxonomy plot panel |
-| `--placement-trees`         | Publish placement evidence: heat-trees + cophylogeny     |
-| `--segment`                 | Split the catalog by taxon at `classification.segment_rank` |
-| `--config-help [KEY]`       | Print documentation for a config field, then exit        |
-| `-skp`, `--skip-validation` | Skip pre-run validation (debug use)                      |
+| Phase | Flag | Stage |
+|---|---|---|
+| Setup | `--download-genomes` | Download genomes via NCBI Datasets |
+| | `--download-hmm` | Fetch the pinned Pfam release |
+| | `--build-reference` | Build the classification reference (Entrez + placement trees; once) |
+| | `--probe-extractor` | Fetch the probe sequences via Entrez |
+| Indexing | `--blast-dbs` | BLAST nucleotide databases per genome |
+| | `--suffix-arrays` | GenomeTools suffix arrays per genome |
+| Discovery | `--ltr-candidates` | LTRharvest candidate discovery |
+| | `--ltr-domains` | LTRdigest annotation of each element |
+| | `--blast` | tBLASTn of every probe against every genome |
+| Analysis | `--ranges-analysis` | Integrate BLAST + LTR evidence into element-hit and orphan tracks |
+| | `--domain-scan` | Curated Pfam domains on element and orphan loci |
+| | `--classify` | Per-locus ERV genus calls, IGV tracks, taxonomy and loss PDFs |
+| | `--segment` | Split the catalog by taxon at `classification.segment_rank` |
+| | `--solo-ltr-detector` | Solo-LTR detection with its evidence tree |
+| | `--hotspot-detection` | Deterministic NB-GLM hotspot detection |
+| | `--pair-detection` | Probe-pair (e.g. GAG-ENV) detection per species |
+| | `--placement-trees` | Placement evidence: heat-trees and co-phylogeny |
+| Figures | `--generate-global-plots` | Homology, integration and structure PDFs |
+| | `--generate-circle-plots` | Per-genome circle plots (currently broken) |
 
-Any additional arguments are forwarded to Snakemake (e.g., `--cores`, `--profile`, `--keep-going`, `--latency-wait`).
+| Option | Meaning |
+|---|---|
+| `--downstream` | Every Analysis and Figures stage (except circle plots) |
+| `-skp`, `--skip-validation` | Skip the slow NCBI checks and prompts; the fast checks always run |
+| `--allow-heavy` | Let a heavy search run although its stage was not requested |
+| `--stop-on-error` | Stop at the first failed job (by default the rest finish) |
+| `--config-help [KEY]` | Print documentation for a config field, then exit |
+
+Before a run, the launcher checks the config, the tools and the Pfam library, and
+refuses to start if a heavy search (LTRharvest, LTRdigest, tBLASTn, downloads) would
+rerun without being asked for. Any other option is forwarded to Snakemake (e.g.
+`-n`, `--cores`, `--profile`, `--latency-wait`). The command exits non-zero when
+anything failed.
 
 ## Examples
 
@@ -119,7 +134,7 @@ Generate BLAST databases across all available cores:
 LTR candidate discovery, four genomes at a time, resume-friendly:
 
 ```bash
-./RetroSeek --ltr-candidates --cores 4 --keep-going --latency-wait 60
+./RetroSeek --ltr-candidates --cores 4 --latency-wait 60
 ```
 
 Integrate BLAST + LTR evidence using an HPC profile:
