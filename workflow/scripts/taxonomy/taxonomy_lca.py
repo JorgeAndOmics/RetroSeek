@@ -34,8 +34,6 @@ builds on the same taxonomy and ``lca``/``rank_of`` primitives - see
 from __future__ import annotations
 
 import csv
-import re
-from collections import Counter
 from pathlib import Path
 
 # =============================================================================
@@ -194,78 +192,3 @@ def weighted_lca(
 
     node = lca(set(mass))
     return node, dominant_fraction
-
-
-# =============================================================================
-# 3. GFF3 evidence parsing
-# =============================================================================
-_LABEL_RE = re.compile(r"label=([^;\t]+)")
-_PROBE_RE = re.compile(r"probe=([^;\t]+)")
-
-
-def parse_taxon_set(label_field: str) -> set[str]:
-    """
-    Parse a GFF3 ``label=`` value into a set of taxon names.
-
-    Values are GFF3-escaped (``%3b`` = ``;``) and joined by ``"; "`` when the
-    run used list/concatenate aggregation.
-    """
-    decoded = label_field.replace("%3b", ";").replace("%3B", ";")
-    return {part.strip() for part in decoded.split(";") if part.strip()}
-
-
-def classify_gff3(gff3_path: str | Path) -> list[dict[str, str]]:
-    """
-    Resolve every feature of a valid-tier GFF3 to an LCA taxon.
-
-    Returns one record per feature with the input genus set, the resolved node,
-    its rank, and (when the node is a genus) its ERV class.
-    """
-    records: list[dict[str, str]] = []
-    with Path(gff3_path).open(encoding="utf-8") as handle:
-        for line in handle:
-            if line.startswith("#") or not line.strip():
-                continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 9:
-                continue
-            attrs = fields[8]
-            label_match = _LABEL_RE.search(attrs)
-            probe_match = _PROBE_RE.search(attrs)
-            if not label_match:
-                continue
-            taxon_set = parse_taxon_set(label_match.group(1))
-            node = lca(taxon_set)
-            records.append(
-                {
-                    "seqname": fields[0],
-                    "start": fields[3],
-                    "end": fields[4],
-                    "probe": probe_match.group(1) if probe_match else "",
-                    "n_taxa": str(len(taxon_set)),
-                    "taxon_set": ";".join(sorted(taxon_set)),
-                    "lca_node": node,
-                    "lca_rank": rank_of(node),
-                    "erv_class": ERV_CLASS.get(node, ""),
-                }
-            )
-    return records
-
-
-# =============================================================================
-# 4. Summary + CLI
-# =============================================================================
-def summarise(records: list[dict[str, str]]) -> str:
-    """Human-readable summary of resolved ranks and confident-genus calls."""
-    total = len(records)
-    by_rank = Counter(r["lca_rank"] for r in records)
-    confident = Counter(r["lca_node"] for r in records if r["lca_rank"] == "genus")
-    lines = [f"loci classified: {total}", "", "resolved rank distribution:"]
-    for rank in ("genus", "subfamily", "family", "none"):
-        if by_rank.get(rank):
-            pct = 100.0 * by_rank[rank] / total if total else 0.0
-            lines.append(f"  {rank:10s} {by_rank[rank]:6d}  ({pct:4.1f}%)")
-    lines += ["", "confident genus calls:"]
-    for genus, n in confident.most_common():
-        lines.append(f"  {genus:18s} {n:6d}  [{ERV_CLASS.get(genus, '')}]")
-    return "\n".join(lines)

@@ -76,43 +76,6 @@ def unpickler(input_directory_path: str | Path, input_file_name: str) -> Any:
         raise Exception(f"Failed to unpickle {file_path}") from exc
 
 
-def directory_file_retriever(input_directory_path: str | Path) -> list[str]:
-    """Return the basenames of files (not subdirectories) in a directory.
-
-    Parameters
-    ----------
-    input_directory_path:
-        Directory to inspect.
-
-    Returns
-    -------
-    list[str]
-        Basenames of regular files present under ``input_directory_path``.
-        Order is unspecified - sort at the call site if determinism is
-        required.
-    """
-    directory = Path(input_directory_path)
-    return [entry.name for entry in directory.iterdir() if entry.is_file()]
-
-
-def directory_content_eraser(directory_path: str | Path) -> None:
-    """Delete every regular file directly inside ``directory_path``.
-
-    Subdirectories are left alone - this is a flat sweep, not a
-    recursive wipe. Individual ``unlink`` failures are logged at
-    WARNING and do not abort the sweep.
-    """
-    logger.debug("Cleaning up temporal files...")
-
-    directory = Path(directory_path)
-    for entry in directory.iterdir():
-        if entry.is_file():
-            try:
-                entry.unlink()
-            except Exception as exc:
-                logger.warning(f"Failed to delete {entry}: {exc}")
-
-
 def incomplete_dict_cleaner(object_dict: dict[str, Any]) -> dict[str, Any]:
     """Drop dict entries whose value fails ``.is_complete()``.
 

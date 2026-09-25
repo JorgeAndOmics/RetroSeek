@@ -23,7 +23,6 @@ Main components:
 import logging
 import tempfile
 import time
-from collections import defaultdict
 from io import StringIO
 from pathlib import Path
 
@@ -38,27 +37,6 @@ from log import PipelineError
 from RetroSeeker_class import RetroSeeker
 
 logger = logging.getLogger(__name__)
-
-
-def species_divider(
-    object_dict: dict[str, RetroSeeker],
-) -> dict[str | None, dict[str, RetroSeeker]]:
-    """
-    Divides the full_genome_dict into different subdictionaries based on the species contained in the objects
-
-        Parameters
-        ----------
-            :param object_dict: The dictionary containing the objects to be divided
-
-        Returns
-        -------
-            :return: A dictionary containing the objects divided by species
-    """
-    species_dict: dict[str | None, dict[str, RetroSeeker]] = defaultdict(dict)
-    for key, value in object_dict.items():
-        species_dict[value.species][key] = value
-
-    return species_dict
 
 
 def blaster(

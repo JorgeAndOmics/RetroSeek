@@ -19,7 +19,6 @@ Search defaults to blastx (no new dependency). See docs/taxonomy_classification/
 from __future__ import annotations
 
 import argparse
-import bisect
 import csv
 import hashlib
 import logging
@@ -56,7 +55,6 @@ _EXTRACT_R = Path(__file__).resolve().parent / "extract_region_fasta.R"
 _PROBE = re.compile(r"probe=([^;\t]+)")
 _PARENT = re.compile(r"Parent=([^;\t]+)")
 _LABEL = re.compile(r"label=([^;\t]+)")
-_ID = re.compile(r"ID=([^;\t]+)")
 _OVERSIZED = re.compile(r"oversized=([^;\t]+)")
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
 # (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
@@ -92,51 +90,6 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
                 }
             )
     return feats
-
-
-def load_elements(ltr_gff3: Path) -> dict[str, list[tuple[int, int, str]]]:
-    """LTR_retrotransposon element ranges per seqname (sorted by start) from ltrdigest."""
-    elems: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
-    with ltr_gff3.open(encoding="utf-8") as fh:
-        for line in fh:
-            if line.startswith("#") or "\t" not in line:
-                continue
-            f = line.rstrip("\n").split("\t")
-            if len(f) < 9 or f[2] != "LTR_retrotransposon":
-                continue
-            eid = _ID.search(f[8])
-            elems[f[0]].append(
-                (int(f[3]), int(f[4]), eid.group(1) if eid else f"{f[0]}:{f[3]}")
-            )
-    for v in elems.values():
-        v.sort()
-    return elems
-
-
-def assign_element(
-    seqname: str,
-    start: int,
-    end: int,
-    elems: dict[str, list[tuple[int, int, str]]],
-    maxlen: dict[str, int],
-) -> str:
-    """Return the element id with greatest overlap of [start,end], or '' if none."""
-    cand = elems.get(seqname)
-    if not cand:
-        return ""
-    hi = bisect.bisect_right(
-        [c[0] for c in cand], end
-    )  # elements starting at/before end
-    best, best_ov = "", 0
-    lo = max(0, hi - 1)
-    window_start = start - maxlen.get(seqname, 20000)
-    while lo >= 0 and cand[lo][0] >= window_start:
-        es, ee, eid = cand[lo]
-        ov = min(end, ee) - max(start, es) + 1  # +1: GFF coords are 1-based inclusive
-        if ov > best_ov:
-            best, best_ov = eid, ov
-        lo -= 1
-    return best
 
 
 def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
