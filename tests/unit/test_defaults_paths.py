@@ -103,3 +103,38 @@ class TestConfigDirResolution:
 
         assert Path(path_dict["PICKLE_DIR"]).is_relative_to(tmp_path)
         assert Path(path_dict["LOG_DIR"]).is_relative_to(tmp_path)
+
+
+class TestDownloadLogIsAFile:
+    """``DOWNLOAD_LOG`` is the one FILE in ``PATH_DICT``.
+
+    The mkdir-at-import loop used to create it as a folder. The genome
+    downloader then failed to append its record to it, carried on and reported
+    success, so the record of which assembly was downloaded was lost.
+    """
+
+    def test_it_is_not_created_as_a_folder(self, tmp_path: Path) -> None:
+        log = Path(_path_dict_with_data_root(tmp_path)["DOWNLOAD_LOG"])
+
+        assert log.parent.is_dir()
+        assert not log.exists()
+
+    def test_an_empty_folder_left_by_older_versions_is_removed(
+        self, tmp_path: Path
+    ) -> None:
+        stale = tmp_path / "logs" / "download_log.log"
+        stale.mkdir(parents=True)
+
+        _path_dict_with_data_root(tmp_path)
+
+        assert not stale.exists()
+
+    def test_a_folder_with_contents_is_left_alone(self, tmp_path: Path) -> None:
+        """Never delete what the user may want: only an empty folder goes."""
+        stale = tmp_path / "logs" / "download_log.log"
+        stale.mkdir(parents=True)
+        (stale / "note.txt").write_text("keep me")
+
+        _path_dict_with_data_root(tmp_path)
+
+        assert (stale / "note.txt").exists()

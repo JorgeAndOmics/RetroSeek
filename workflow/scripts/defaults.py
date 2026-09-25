@@ -369,9 +369,19 @@ PATH_DICT["HMM_PROFILE_DIR"] = (PATH_DICT["ACCESSORY_DB"] / "hmm_profiles").reso
 PATH_DICT["HMM_SUBSET_DIR"] = (PATH_DICT["DATA_DIR"] / "hmm_profiles").resolve()
 
 
-# Directory generation
-for value in PATH_DICT.values():
-    value.mkdir(parents=True, exist_ok=True)
+# Directory generation. Every entry is a folder except DOWNLOAD_LOG, a file the
+# genome downloader appends to; creating it as a folder made that append fail
+# while the download still reported success, so the record was lost.
+_FILE_ENTRIES = {"DOWNLOAD_LOG"}
+for key, value in PATH_DICT.items():
+    if key not in _FILE_ENTRIES:
+        value.mkdir(parents=True, exist_ok=True)
+
+# Older versions did create it as a folder. An empty one is removed so the file can
+# be written; one with contents is left for the user to look at.
+_download_log = PATH_DICT["DOWNLOAD_LOG"]
+if _download_log.is_dir() and not any(_download_log.iterdir()):
+    _download_log.rmdir()
 
 # Execution and requests
 NUM_CORES = config["execution"].get("num_cores", 1)
