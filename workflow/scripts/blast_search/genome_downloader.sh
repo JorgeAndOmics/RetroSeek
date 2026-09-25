@@ -27,11 +27,12 @@ fi
 OUTDIR="$(realpath -m "$2")"
 LOGFILE="$(realpath -m "$3")"  # one tab-separated line per download
 
+# An array, so the option is two words when set and nothing at all when not.
+API_KEY_FLAG=()
 if [ -z "$NCBI_API_KEY" ]; then
     say INFO "no NCBI_API_KEY set; downloads will be slower (export NCBI_API_KEY=...)"
-    API_KEY_FLAG=""
 else
-    API_KEY_FLAG="--api-key $NCBI_API_KEY"
+    API_KEY_FLAG=(--api-key "$NCBI_API_KEY")
 fi
 
 if [[ "$QUERY" =~ ^GC[AF]_[0-9]+(\.[0-9]+)?$ ]]; then
@@ -42,7 +43,7 @@ else
     BEST_LEVEL=""
     for LEVEL in "Complete" "Chromosome" "Scaffold" "Contig"; do
         # The client's "New version of client" notice would break the JSON.
-        DATASETS_OUTPUT="$(datasets summary genome taxon "$QUERY" $API_KEY_FLAG 2>&1 \
+        DATASETS_OUTPUT="$(datasets summary genome taxon "$QUERY" "${API_KEY_FLAG[@]}" 2>&1 \
                            | sed '/^New version of client (/d')"
 
         if echo "$DATASETS_OUTPUT" | grep -q "The taxonomy name"; then
@@ -70,7 +71,7 @@ ZIPFILE="$(realpath -m "$OUTDIR/genome_${BEST_LEVEL// /_}_${QUERY}.zip")"
 FASTA_FILE="$(realpath -m "$OUTDIR/${QUERY}.fa")"
 
 say INFO "downloading $BEST_ASSEMBLY"
-if ! datasets download genome accession "$BEST_ASSEMBLY" $API_KEY_FLAG \
+if ! datasets download genome accession "$BEST_ASSEMBLY" "${API_KEY_FLAG[@]}" \
         --include genome --assembly-version latest --exclude-atypical \
         --filename "$ZIPFILE"; then
     say ERROR "datasets could not download $BEST_ASSEMBLY; check the network and the accession"
@@ -83,5 +84,9 @@ if ! unzip -p "$ZIPFILE" 'ncbi_dataset/data/*/*.fna' > "$FASTA_FILE"; then
 fi
 rm -f "$ZIPFILE"
 
-printf '%s\t%s\t%s\n' "$QUERY" "$BEST_ASSEMBLY" "$BEST_LEVEL" >> "$LOGFILE"
+# The record is the only trace of which assembly was chosen: no record, no success.
+if ! printf '%s\t%s\t%s\n' "$QUERY" "$BEST_ASSEMBLY" "$BEST_LEVEL" >> "$LOGFILE"; then
+    say ERROR "could not write the download record to $LOGFILE; the genome is in $FASTA_FILE but which assembly was chosen is not recorded"
+    exit 1
+fi
 say OK "$BEST_ASSEMBLY ($BEST_LEVEL) downloaded to $FASTA_FILE"

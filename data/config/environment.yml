@@ -38,6 +38,7 @@ dependencies:
   - blast=2.14.1         # tblastn, blastn, makeblastdb
   - genometools-genometools  # gt ltrharvest, gt ltrdigest
   - ncbi-datasets-cli    # genome download via `datasets`
+  - jq                   # genome_downloader.sh reads `datasets` JSON with it
   - hmmer                # hmmbuild/hmmalign - gene profiles + query alignment
   - mafft                # reference MSA + aligning query markers into it
   - iqtree               # per-gene reference tree (placement scaffold)
