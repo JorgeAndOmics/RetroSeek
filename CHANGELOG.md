@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree_layout.py` warns when a supplied species tree has uninformative branch
   lengths, so a cladogram is not mistaken for a timetree.
 
+### Changed
+
+- biopython pinned at 1.88 (was 1.87), verified by rerunning every downstream
+  stage on the model genomes and comparing the tables.
+
 ### Fixed
 
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
