@@ -1,4 +1,4 @@
-.PHONY: help env env-update reference lint format format-check typecheck test test-py test-r test-snakemake check clean
+.PHONY: help env env-update reference lint lint-r format format-check typecheck test test-py test-r test-snakemake check clean
 
 ENV_FILE := data/config/environment.yml
 ENV_NAME := RetroSeek
@@ -26,6 +26,11 @@ reference: ## Build the genus-classification reference (CONFIG=path/to/config.ya
 # -- linting / formatting / typing -----------------------
 lint: ## Run ruff lint on Python sources
 	ruff check $(PY_SRC) $(PY_TESTS)
+
+# Not yet part of `check`: the R sources still carry the baseline findings recorded
+# at the quality setup. It joins `check` once they are cleared.
+lint-r: ## Run lintr on R sources (config: .lintr.R)
+	Rscript -e 'l <- lintr::lint_dir("workflow"); print(l); quit(status = length(l) > 0)'
 
 format: ## Auto-format Python and run ruff --fix
 	ruff format $(PY_SRC) $(PY_TESTS)

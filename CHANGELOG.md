@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Code-quality measurement**: Qlty (`.qlty/qlty.toml`) checks Python and shell and
+  measures function complexity against a limit of 8; `make lint-r` runs lintr with
+  the same limit on the R sources (`.lintr.R`). Measurement only: no existing
+  code was changed.
 - **Phylogenetic placement evidence is now published** (ADR-014). EPA-ng places
   every locus onto the retroviral reference tree on each run; the resulting
   `.jplace` was written into `data/tmp/`, documented as cleared between runs.
