@@ -182,7 +182,6 @@ plots:
   sankey_top_n: null
   sankey_other_label: 'Other'
   waffle_unit_hits: null
-  circle_plot_bitscore_threshold: 0
   # Page growth for studies with many genomes: inches added to the A4 page height
   # per genome past 20, so each genome's row keeps its room (docs/visual_style.md).
   per_stratum: 0.18

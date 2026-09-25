@@ -50,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected the conda environment name in the test-fixture docs (`RetroSeek`, not
   `retroseek`), which fails on case-sensitive filesystems.
 
+### Removed
+
+- **Circle plots** (`--generate-circle-plots`, `circle_plot_generator`): the stage
+  had not run since April 2026 (it read per-locus scores a refactor replaced) and
+  was never brought into the house style. Its config key
+  `plots.circle_plot_bitscore_threshold` is retired, and `bioconductor-ggbio`, used
+  only by it, leaves the environment.
+
 ## [1.1.1] - 2026-05-27
 
 ### Added

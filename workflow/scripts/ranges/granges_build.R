@@ -107,7 +107,7 @@ extract_repeat_regions <- function(ltr_data) {
 #
 # What survives is a count: how many protein domains LTRdigest saw in this
 # element. That is a structural observation, not a judgement about what the
-# element is, and it is what `n_domains_total` and the circle plots report.
+# element is, and it is what `n_domains_total` reports.
 extract_all_domains <- function(ltr_data) {
   ltr_data[ltr_data$type == "protein_match"]
 }

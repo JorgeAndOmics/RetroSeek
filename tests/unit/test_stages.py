@@ -104,14 +104,16 @@ def test_selection_follows_table_order_not_command_line_order() -> None:
     ]
 
 
-def test_downstream_is_every_analysis_and_figures_stage_but_circle_plots() -> None:
+def test_downstream_is_every_analysis_and_figures_stage() -> None:
     chosen = _select("--downstream")
-    assert "--ranges-analysis" in chosen
-    assert "--domain-scan" in chosen
-    assert "--solo-ltr-detector" in chosen
+    expected = [s.flag for s in stages.STAGES if s.phase in ("Analysis", "Figures")]
+    assert chosen == expected
     assert "--generate-global-plots" in chosen
-    assert "--generate-circle-plots" not in chosen
     assert not {"--ltr-domains", "--blast", "--download-hmm"} & set(chosen)
+
+
+def test_circle_plot_stage_is_gone() -> None:
+    assert "--generate-circle-plots" not in {s.flag for s in stages.STAGES}
 
 
 def test_nothing_selected_without_stage_flags() -> None:

@@ -7,7 +7,7 @@
 #   3. Probe extraction & homology search  (tBLASTn -> pickle -> parquet -> segmentation)
 #   4. Range analysis                      (tBLASTn x LTR integration -> valid/orphans tracks)
 #   5. Solo-LTR workstream                 (LTR_retriever prefilter / detect / integrate)
-#   6. Provirus & structural plots         (plot2sort, stage, erv-like, circle panels)
+#   6. Provirus & structural plots         (plot2sort, stage, erv-like panels)
 #   7. Hotspot & pair detection
 #   8. Taxonomic classification            (reference build, classify, orphans tier, plots)
 #   9. Loss analysis                       (per-stage funnel + novel candidates)
@@ -1042,8 +1042,8 @@ rule solo_ltr_detector:
 
 # =============================================================================
 # 6. PROVIRUS & STRUCTURAL PLOTS
-#    plot2sort provirus panel, middle-stage concordance, erv-like structural
-#    panel, and Circos-style circle plots.
+#    plot2sort provirus panel, middle-stage concordance and erv-like structural
+#    panel.
 # =============================================================================
 rule plot_generator_setup:
     input:
@@ -1154,40 +1154,6 @@ rule erv_like_plot_generator_setup:
 rule erv_like_plot_generator:
     input:
         plots=rules.erv_like_plot_generator_setup.output
-
-
-rule circle_plot_generator_setup:
-    input:
-        fasta=os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{genome}.fa'),
-        hits=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
-        ltrdigest=os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
-    output:
-        circle_plot_png=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),
-        circle_plot_pdf=os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.pdf')
-
-    params:
-        species_db=defaults.PATH_DICT['SPECIES_DB'],
-        ltrdigest_dir=defaults.PATH_DICT['LTRDIGEST_DIR'],
-        element_hits_dir=defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],
-        circle_plot_dir=defaults.PATH_DICT['CIRCLE_PLOT_DIR'],
-        config_file=defaults.CONFIG_FILE
-    threads:
-        workflow.cores
-    log:
-        job_log('circle_plot_generator', '{genome}')
-    shell:
-        '''
-        Rscript scripts/circle_plot_generator.R --log {log:q} \
-        --fasta {params.species_db:q}/{wildcards.genome:q}.fa \
-        --gff_custom {params.element_hits_dir:q}/{wildcards.genome:q}.gff3 \
-        --gff_ltrdigest {params.ltrdigest_dir:q}/{wildcards.genome:q}.gff3 \
-        --config {params.config_file:q} \
-        --output {params.circle_plot_dir:q}/{wildcards.genome:q}
-        '''
-
-rule circle_plot_generator:
-    input:
-        circle_plots=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['CIRCLE_PLOT_DIR'], '{genome}.png'),genome=species_with_hits(wildcards))
 
 
 # Hotspot input-tier router: `hotspot.input` selects which upstream track feeds
@@ -1302,7 +1268,7 @@ rule pair_detector:
 # assessed" indistinguishable from "assessed and empty" for 99.04% of such rows.
 #
 # LTRdigest is untouched and is NOT rerun: its protein_match and RR_tract features
-# keep feeding the structural panels and circle plots. What changes is that the
+# keep feeding the structural panels. What changes is that the
 # CLASSIFICATION signal now comes from a scan that records accessions and bit
 # scores, neither of which LTRdigest emits. Running both also yields a free
 # concordance check between the two annotations over identical sequence.

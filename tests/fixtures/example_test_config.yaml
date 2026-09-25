@@ -135,7 +135,6 @@ plots:
   sankey_top_n: null
   sankey_other_label: 'Other'
   waffle_unit_hits: null
-  circle_plot_bitscore_threshold: 0
 
 execution:
   num_cores: 8
