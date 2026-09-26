@@ -38,22 +38,16 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 # Where this script lives, so it can source its siblings. The file name travels
 # in `ofile` when the script is source()d (testthat does, several frames deep)
-# and in `--file=` when Rscript runs it. Copied into each script on purpose: a
-# script cannot source a shared helper before it knows where it lives.
+# and in `--file=` when Rscript runs it. The scripts that tests source carry
+# this copy; a script cannot source a shared helper before it knows where it
+# lives.
 .resolve_script_dir <- function() {
-  ofile <- .sourced_file()
-  if (!is.null(ofile)) return(dirname(normalizePath(ofile, mustWork = FALSE)))
+  for (frame in rev(sys.frames())) {
+    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+  }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
-}
-
-# The innermost source()d file on the call stack, or NULL outside source().
-.sourced_file <- function() {
-  for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(frame$ofile)
-  }
-  NULL
 }
 .script_dir <- .resolve_script_dir()
 source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)

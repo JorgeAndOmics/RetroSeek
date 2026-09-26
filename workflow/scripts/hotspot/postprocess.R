@@ -250,7 +250,6 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 }
 
 #' Numeric confidence at the overlapping loci; NULL when the column is absent.
-#' Orphan loci carry a blank confidence, which reads as NA.
 .locus_confidence <- function(mc, locus_i) {
   if (!"confidence" %in% colnames(mc)) return(NULL)
   suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: blank -> NA
@@ -307,9 +306,9 @@ annotate_hotspot_composition <- function(merged_gr, loci, group_col = "segment")
     S4Vectors::mcols(merged_gr)[[column]] <-
       .tally_regions(region_i, n, counts[[column]])
   }
+  taxon <- .locus_column(mc, group_col, locus_i)
   conf <- .locus_confidence(mc, locus_i)
-  merged_gr <- .fill_by_region(merged_gr, "dominant_taxon",
-                               .locus_column(mc, group_col, locus_i), region_i,
+  merged_gr <- .fill_by_region(merged_gr, "dominant_taxon", taxon, region_i,
                                .dominant_value, character(1))
   .fill_by_region(merged_gr, "mean_confidence", conf, region_i,
                   .mean_or_na, numeric(1))

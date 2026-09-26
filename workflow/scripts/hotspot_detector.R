@@ -101,11 +101,7 @@ log_job(args$log, "hotspot_detector")
   set.seed(opts$seed)
 
   species      <- tools::file_path_sans_ext(basename(args$fasta))
-  species_name <- if (!is.null(config$species[[species]])) {
-    as.character(config$species[[species]])
-  } else {
-    species
-  }
+  species_name <- .display_name(species, config$species)
   log_info("species: %s (display: %s)", species, species_name)
   log_info("seed: %d, input: %s, window: %d", opts$seed, opts$input, opts$window_size)
 
@@ -269,10 +265,6 @@ log_job(args$log, "hotspot_detector")
 }
 
 .output_paths <- function(args, species) {
-  for (dir in c(args$parquet_dir, args$csv_dir, args$track_output_dir,
-                args$pdf_output_dir)) {
-    dir.create(dir, showWarnings = FALSE, recursive = TRUE)
-  }
   list(
     csv      = file.path(args$csv_dir,          paste0(species, ".csv")),
     regions  = file.path(args$csv_dir,          paste0(species, ".hotspots.csv")),
@@ -285,6 +277,11 @@ log_job(args$log, "hotspot_detector")
 
 .write_outputs <- function(args, inputs, layout, result, scans) {
   log_section("Phase 5: emitting tables, tracks, manifest")
+  # The PDF directory too: .write_plots() writes into it next.
+  for (dir in c(args$parquet_dir, args$csv_dir, args$track_output_dir,
+                args$pdf_output_dir)) {
+    dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  }
   paths <- .output_paths(args, inputs$species)
   readr::write_csv(result$windows, paths$csv)
   arrow::write_parquet(result$windows, paths$parquet)

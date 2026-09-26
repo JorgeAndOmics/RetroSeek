@@ -93,9 +93,8 @@ fit_nb_model <- function(window_df,
   if (sum(fit_data$count > 0L) < as.integer(min_nonzero)) {
     return(.no_fit("insufficient_data", fit_data, isTRUE(strata_by_chromosome)))
   }
-  formula_str <- .nb_formula(fit_data, strata_by_chromosome)
-  strata <- grepl("chrom_stratum", formula_str, fixed = TRUE)
-  nb_attempt <- .fit_glm_nb_safely(stats::as.formula(formula_str), fit_data)
+  strata <- .use_strata(fit_data, strata_by_chromosome)
+  nb_attempt <- .fit_glm_nb_safely(.nb_formula(strata), fit_data)
   if (is.null(nb_attempt$model) || nb_attempt$theta_warning) {
     return(.no_fit("failed", fit_data, strata))
   }
@@ -106,22 +105,27 @@ fit_nb_model <- function(window_df,
   )
 }
 
+#' Whether chromosome strata enter the model: when asked for and when the fit
+#' data spans more than one stratum (a single level would make the covariate
+#' rank-deficient).
+.use_strata <- function(fit_data, strata_by_chromosome) {
+  isTRUE(strata_by_chromosome) && length(unique(fit_data$chrom_stratum)) > 1L
+}
+
+#' The model formula, with or without the chromosome-stratum covariate.
+.nb_formula <- function(strata) {
+  if (strata) {
+    return(stats::as.formula("count ~ chrom_stratum + offset(log(effective_bp))"))
+  }
+  stats::as.formula("count ~ 1 + offset(log(effective_bp))")
+}
+
 #' The result of a fit that did not happen or did not converge.
 .no_fit <- function(status, fit_data, strata) {
   list(
     model = NULL, family = NA_character_, theta = NA_real_,
     status = status, fit_data = fit_data, strata = strata
   )
-}
-
-#' The model formula: chromosome strata as a covariate when asked for and when
-#' the fit data spans more than one stratum (a single level would make the
-#' covariate rank-deficient), else an intercept-only model.
-.nb_formula <- function(fit_data, strata_by_chromosome) {
-  if (isTRUE(strata_by_chromosome) && length(unique(fit_data$chrom_stratum)) > 1L) {
-    return("count ~ chrom_stratum + offset(log(effective_bp))")
-  }
-  "count ~ 1 + offset(log(effective_bp))"
 }
 
 
