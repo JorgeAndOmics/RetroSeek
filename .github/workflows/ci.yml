@@ -80,7 +80,6 @@ jobs:
             bioconductor-s4vectors
             bioconductor-plyranges
             bioconductor-rtracklayer
-            bioconductor-ggbio
           cache-environment: true
       - name: Run testthat suite
         run: Rscript -e 'testthat::test_dir("workflow/tests/testthat", stop_on_failure = TRUE)'

@@ -234,7 +234,6 @@ PATH_DICT["SOLO_BLAST_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_blast").resolve()
 #       loss/                 loss_analysis: per-stage attrition funnel
 #       placement/            EPA-ng heat-trees, one per (genome, tier, gene)
 #       segments/by_<rank>/   the curated per-segment panel (taxonomy_segments)
-#     circle/                 per-genome Circos overviews
 #     hotspot/                integration-hotspot enrichment (Manhattan / QQ / karyotype)
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
 
@@ -289,7 +288,6 @@ PATH_DICT["SOLO_LTR_PLOT_DIR"] = (
 ).resolve()
 
 # --- Standalone analyses ---
-PATH_DICT["CIRCLE_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "circle").resolve()
 PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 
 # === Results - Tracks ===

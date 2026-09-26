@@ -66,7 +66,6 @@ phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 | Flag | Snakemake target(s) | Makes |
 |---|---|---|
 | `--generate-global-plots` | `plot_generator`, `stage_plot_generator`, `erv_like_plot_generator` | `homology.pdf`, `integration.pdf`, `structure.pdf` |
-| `--generate-circle-plots` | `circle_plot_generator` | Per-genome circle plots (currently broken) |
 
 > **Note (ADR-012):** hotspot detection counts **integration events** from the
 > per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a stale
@@ -84,7 +83,7 @@ to put species in tree order.
 
 | Option | Meaning |
 |---|---|
-| `--downstream` | Every Analysis and Figures stage except circle plots: the usual run once the discovery searches exist. |
+| `--downstream` | Every Analysis and Figures stage: the usual run once the discovery searches exist. |
 | `-skp`, `--skip-validation` | Skip the slow checks: NCBI lookups of every probe accession and the prompts. The fast checks always run. |
 | `--allow-heavy` | Let a heavy rule run although its own stage was not requested (see below). |
 | `--stop-on-error` | Stop at the first failed job. By default Snakemake's `--keep-going` lets independent jobs (other genomes) finish. |

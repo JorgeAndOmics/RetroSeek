@@ -52,7 +52,7 @@ dependencies:
   # is only readable by the Biopython version that wrote it (older releases
   # exposed `Bio.Blast.Record`, which newer ones removed). Pinning keeps
   # `make env` deterministic; if you bump it, regenerate the cache (--blast).
-  - biopython=1.87
+  - biopython=1.88
   - pandas
   - pyarrow              # parquet I/O from Python
   - pandera
@@ -92,7 +92,6 @@ dependencies:
   - bioconductor-s4vectors   # core S4 infra; dep of genomicranges, library()'d directly
   - bioconductor-rtracklayer
   - bioconductor-plyranges
-  - bioconductor-ggbio
 
   # -- dev / QA --------------------------------------------
   - pytest>=8

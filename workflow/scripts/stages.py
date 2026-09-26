@@ -212,21 +212,11 @@ STAGES: tuple[Stage, ...] = (
         "The homology, integration and structure PDFs.",
         tools=("Rscript",),
     ),
-    Stage(
-        "--generate-circle-plots",
-        "Figures",
-        ("circle_plot_generator",),
-        "Circle plots per genome (not yet in the house style).",
-        tools=("Rscript",),
-    ),
 )
 
-# `--downstream`: everything after the heavy discovery searches. Circle plots are
-# left out while that stage is broken (backlog).
+# `--downstream`: everything after the heavy discovery searches.
 DOWNSTREAM: tuple[str, ...] = tuple(
-    s.flag
-    for s in STAGES
-    if s.phase in ("Analysis", "Figures") and s.flag != "--generate-circle-plots"
+    s.flag for s in STAGES if s.phase in ("Analysis", "Figures")
 )
 
 HEAVY_RULES: frozenset[str] = frozenset(rule for s in STAGES for rule in s.heavy)
@@ -258,9 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
     presets.add_argument(
         "--downstream",
         action="store_true",
-        help="Every Analysis and Figures stage except circle plots: "
-        + ", ".join(DOWNSTREAM)
-        + ".",
+        help="Every Analysis and Figures stage: " + ", ".join(DOWNSTREAM) + ".",
     )
 
     options = parser.add_argument_group("Run options")

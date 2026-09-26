@@ -197,7 +197,6 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 | `sankey_top_n` | int >= 1 or `null` | `null` | Long-tail handling for Sankey plots. `null` (default) shows every stratum. Set to a positive integer N to keep the top N strata per axis and fold the rest into a single labelled `Other (k)` stratum recording how many strata were collapsed. |
 | `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
 | `waffle_unit_hits` | int >= 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` -> "1 square = 10 ranges"). |
-| `circle_plot_bitscore_threshold` | number >= 0 | `0` | Bit-score cutoff for circle-plot display. The circle-plot stage is currently broken (see README). |
 | `per_stratum` | number >= 0 | `0.18` | Inches added to a stage PDF's page height per genome past 20, so each genome's row keeps its room in a large study (pages are A4 landscape otherwise; see [visual_style.md](visual_style.md)). `0` keeps every page A4. |
 
 ## `execution`

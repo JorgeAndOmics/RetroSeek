@@ -56,6 +56,10 @@ RETIRED_KEYS: dict[tuple[str, ...], str] = {
         "display.verbosity: retries show at verbose, a failed fetch is always an error"
     ),
     ("logging",): "nothing: the terminal colours are fixed now (ADR-021)",
+    (
+        "plots",
+        "circle_plot_bitscore_threshold",
+    ): "nothing: the circle-plot stage was removed",
 }
 
 
