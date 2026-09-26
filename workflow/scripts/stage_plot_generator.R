@@ -30,22 +30,24 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 # Locate sibling scripts + source modules
 # ----------------------------------------------------------------------------
+# Where this script lives, so it can source its siblings. The file name travels
+# in `ofile` when the script is source()d (testthat does, several frames deep)
+# and in `--file=` when Rscript runs it. Copied into each script on purpose: a
+# script cannot source a shared helper before it knows where it lives.
 .resolve_script_dir <- function() {
-  # Walk the call stack: the most recent source() frame carries `ofile`.
-  # Works under testthat (source()d several frames deep) and Rscript (falls
-  # through to the --file= argument).
-  for (i in rev(seq_len(sys.nframe()))) {
-    fr <- tryCatch(sys.frame(i), error = function(e) NULL)
-    if (is.null(fr)) next
-    ofile <- tryCatch(fr$ofile, error = function(e) NULL)
-    if (!is.null(ofile)) {
-      return(dirname(normalizePath(ofile, mustWork = FALSE)))
-    }
-  }
-  cmd_args <- commandArgs(trailingOnly = FALSE)
-  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  ofile <- .sourced_file()
+  if (!is.null(ofile)) return(dirname(normalizePath(ofile, mustWork = FALSE)))
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
+}
+
+# The innermost source()d file on the call stack, or NULL outside source().
+.sourced_file <- function() {
+  for (frame in rev(sys.frames())) {
+    if (!is.null(frame$ofile)) return(frame$ofile)
+  }
+  NULL
 }
 .script_dir <- .resolve_script_dir()
 # Reused from plot2sort: style (palette, theme, stage PDFs), helpers
