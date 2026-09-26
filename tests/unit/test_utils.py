@@ -48,56 +48,6 @@ class TestPicklerUnpicklerRoundtrip:
             utils.unpickler(tmp_path, "does-not-exist.pkl")
 
 
-class TestDirectoryFileRetriever:
-    """Lists files (not subdirectories) in a directory."""
-
-    def test_returns_file_basenames(self, tmp_path: Path) -> None:
-        """Returns file names (not subdirectory names)."""
-        (tmp_path / "a.txt").write_text("hi")
-        (tmp_path / "b.txt").write_text("hi")
-        (tmp_path / "subdir").mkdir()
-        (tmp_path / "subdir" / "nested.txt").write_text("hi")
-
-        result = utils.directory_file_retriever(tmp_path)
-        assert sorted(result) == ["a.txt", "b.txt"]
-
-    def test_accepts_string_path(self, tmp_path: Path) -> None:
-        """Caller can pass a ``str`` path."""
-        (tmp_path / "only.txt").write_text("hi")
-        result = utils.directory_file_retriever(str(tmp_path))
-        assert result == ["only.txt"]
-
-    def test_empty_directory_returns_empty_list(self, tmp_path: Path) -> None:
-        """Empty dir -> empty list, not None."""
-        assert utils.directory_file_retriever(tmp_path) == []
-
-
-class TestDirectoryContentEraser:
-    """Deletes files in the given directory; leaves subdirs alone."""
-
-    def test_removes_files(self, tmp_path: Path) -> None:
-        """Plain files under the dir are removed."""
-        (tmp_path / "doomed.txt").write_text("bye")
-        (tmp_path / "alsodoomed.txt").write_text("bye")
-        utils.directory_content_eraser(tmp_path)
-        assert list(tmp_path.iterdir()) == []
-
-    def test_leaves_subdirectories_intact(self, tmp_path: Path) -> None:
-        """Subdirectories are not removed (current contract)."""
-        (tmp_path / "keep").mkdir()
-        (tmp_path / "doomed.txt").write_text("bye")
-        utils.directory_content_eraser(tmp_path)
-        remaining = [p.name for p in tmp_path.iterdir()]
-        assert "keep" in remaining
-        assert "doomed.txt" not in remaining
-
-    def test_accepts_string_path(self, tmp_path: Path) -> None:
-        """String path input works."""
-        (tmp_path / "x.txt").write_text("x")
-        utils.directory_content_eraser(str(tmp_path))
-        assert list(tmp_path.iterdir()) == []
-
-
 class TestIncompleteDictCleaner:
     """Filters an object dict by ``.is_complete()``."""
 

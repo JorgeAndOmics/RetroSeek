@@ -30,6 +30,15 @@ import defaults
 from log import PipelineError
 
 
+def _direction(low: Any, high: Any) -> str | None:
+    """'+' when ``low < high``, '-' when ``low > high``, None when equal."""
+    if low < high:
+        return "+"
+    if low > high:
+        return "-"
+    return None
+
+
 @dataclass
 class RetroSeeker:
     """
@@ -160,21 +169,17 @@ class RetroSeeker:
 
             Returns
             -------
-                :returns: The strand information (+ or -).
+                :returns: The strand, '+' or '-', or None when it cannot be told.
 
         """
+        # A zero or non-integer frame, or equal sbjct_start and sbjct_end, has no
+        # strand to report. The sign is taken before the type check so that an
+        # uncomparable frame raises instead of passing as "no strand".
         if HSP_obj.frame:
-            if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
-                return "+"
-            if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
-                return "-"
-        else:
-            if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
-                return "+"
-            if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
-                return "-"
-        # A zero frame, or equal sbjct_start and sbjct_end: no strand to report.
-        return None
+            last = HSP_obj.frame[-1]
+            sign = _direction(0, last)
+            return sign if isinstance(last, int) else None
+        return _direction(HSP_obj.sbjct_start, HSP_obj.sbjct_end)
 
     @staticmethod
     def extract_seq2rec(

@@ -18,6 +18,8 @@ import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
 import taxonomy_placement as tplace
 
+from log import PipelineError
+
 # Default (retroviral-genus) axis used by most tests - matches the fallback taxonomy.
 _AXIS = {
     "Alpharetrovirus",
@@ -268,6 +270,46 @@ class TestGappaParse:
 
     def test_missing_file_returns_empty(self, tmp_path) -> None:
         assert tplace._parse_gappa(tmp_path / "nope.tsv") == {}
+
+    def test_unreadable_confidence_reads_zero_and_is_reported(
+        self, tmp_path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(
+            "name\taLWR\ttaxopath\n"
+            "L0|POL\tnan%\tRetroviridae\n"
+            "L1|POL\t0,5\tRetroviridae\n"
+            "L2|POL\t0.5\tRetroviridae\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level("WARNING"):
+            parsed = tplace._parse_gappa(tsv)
+        assert [parsed[q][1] for q in ("L0|POL", "L1|POL", "L2|POL")] == [0.0, 0.0, 0.5]
+        assert "2 of 3" in caplog.text
+
+    @pytest.mark.parametrize(
+        "header",
+        ["query\taLWR\ttaxopath", "name\taLWR\tpath", "name\tfract\ttaxopath"],
+    )
+    def test_a_header_without_its_columns_stops_the_job(
+        self, tmp_path, header: str
+    ) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(header + "\nL0|POL\t0.5\tRetroviridae\n")
+        with pytest.raises(PipelineError, match=r"per_query\.tsv"):
+            tplace._parse_gappa(tsv)
+
+    def test_lwr_alone_is_enough(self, tmp_path) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text("name\tLWR\ttaxopath\nL0|POL\t0.7\tRetroviridae\n")
+        assert tplace._parse_gappa(tsv) == {"L0|POL": ("Retroviridae", 0.7)}
+
+    def test_clean_table_logs_nothing(self, tmp_path, caplog) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text("name\taLWR\ttaxopath\nL0|POL\t0.5\tRetroviridae\n")
+        with caplog.at_level("WARNING"):
+            tplace._parse_gappa(tsv)
+        assert caplog.text == ""
 
 
 class TestPlaceableQuery:
@@ -773,3 +815,126 @@ class TestSegmentOf:
 def test_loci_columns_carry_segment_fields():
     assert "segment" in tcl.LOCI_COLUMNS
     assert "segment_rank" in tcl.LOCI_COLUMNS
+
+
+# ---------------------------------------------------------------- parsers
+# Characterization tests (quality campaign, 2026-09-26): they pin what the
+# GFF3 / FASTA readers do today, oddities included, so a refactor cannot
+# change a result unnoticed.
+
+_VALID_GFF3 = (
+    "##gff-version 3\n"
+    "chr1\tRetroSeek\thit\t100\t200\t.\t-\t.\t"
+    "ID=h1;probe=pol;Parent=LTR_retrotransposon7;label=ALV%3b RSV;oversized=True\n"
+    "chr1\tRetroSeek\thit\t300\t400\t.\t.\t.\tID=h2\n"
+    "short\tline\n"
+    "no tabs at all\n"
+)
+
+
+class TestParseValidFull:
+    def test_attributes_are_read_and_normalised(self, tmp_path: Path) -> None:
+        gff3 = tmp_path / "valid.gff3"
+        gff3.write_text(_VALID_GFF3)
+        first, second = tcl.parse_valid_full(gff3)
+        assert first == {
+            "seqname": "chr1",
+            "start": "100",
+            "end": "200",
+            "strand": "-",
+            "gene": "POL",
+            "parent": "LTR_retrotransposon7",
+            "label": "ALV; RSV",
+            "oversized": "True",
+        }
+        assert second == {
+            "seqname": "chr1",
+            "start": "300",
+            "end": "400",
+            "strand": "+",
+            "gene": "OTHER",
+            "parent": "",
+            "label": "",
+            "oversized": "False",
+        }
+
+    def test_comments_and_malformed_lines_are_skipped(self, tmp_path: Path) -> None:
+        gff3 = tmp_path / "valid.gff3"
+        gff3.write_text(_VALID_GFF3)
+        assert len(tcl.parse_valid_full(gff3)) == 2
+
+
+class TestRegionIO:
+    def test_region_bed_is_zero_based_and_clamped(self, tmp_path: Path) -> None:
+        loci = [
+            {"id": "L0", "seqname": "c", "strand": "-", "genes": {"POL": (1, 90)}},
+            {"id": "L1", "seqname": "c", "strand": "+", "genes": {"GAG": (0, 5)}},
+        ]
+        bed = tmp_path / "regions.bed"
+        tcl.write_region_bed(loci, bed)
+        assert bed.read_text() == "c\t0\t90\tL0|POL\t.\t-\nc\t0\t5\tL1|GAG\t.\t+\n"
+
+    def test_load_regions_joins_lines_and_strips_strand_suffix(
+        self, tmp_path: Path
+    ) -> None:
+        fna = tmp_path / "regions.fna"
+        fna.write_text(">L0|POL(-) extra\nACG\nTTT\n>L1|GAG\nAAA\n")
+        assert tcl._load_regions(fna) == {"L0|POL": "ACGTTT", "L1|GAG": "AAA"}
+
+    def test_translate_frame_both_strands(self) -> None:
+        dna = "ATGGCCTAA"  # M A *
+        assert tcl.translate_frame(dna, 1) == "MA*"
+        assert tcl.translate_frame(dna, 2) == "WP"
+        assert tcl.translate_frame(dna, -1) == "LGH"
+
+
+class TestPlacementBranch:
+    def test_placement_on_axis_beats_lca(self) -> None:
+        loci = [
+            {
+                "id": "L0",
+                "seqname": "c",
+                "start": 1,
+                "end": 9,
+                "strand": "+",
+                "parent": "P",
+                "genes": {"POL": (1, 9)},
+                "probe_label_set": "",
+            }
+        ]
+        hits = {"L0|POL": [("Betaretrovirus", 100.0)]}
+        placement = {
+            "L0|POL": {
+                "taxon_call": "Gammaretrovirus",
+                "rank": "genus",
+                "confidence": "0.900",
+                "method": "placement",
+            }
+        }
+        (rec,) = tcl._assemble(loci, hits, placement, "v", ["POL"], {}, 0.1, _AXIS)
+        assert (rec["taxon_call"], rec["method"]) == ("Gammaretrovirus", "placement")
+
+    def test_off_axis_placement_falls_back_to_lca(self) -> None:
+        loci = [
+            {
+                "id": "L0",
+                "seqname": "c",
+                "start": 1,
+                "end": 9,
+                "strand": "+",
+                "parent": "P",
+                "genes": {"POL": (1, 9)},
+                "probe_label_set": "",
+            }
+        ]
+        hits = {"L0|POL": [("Betaretrovirus", 100.0)]}
+        placement = {
+            "L0|POL": {
+                "taxon_call": "Retroviridae",
+                "rank": "family",
+                "confidence": "0.900",
+                "method": "placement",
+            }
+        }
+        (rec,) = tcl._assemble(loci, hits, placement, "v", ["POL"], {}, 0.1, _AXIS)
+        assert (rec["taxon_call"], rec["method"]) == ("Betaretrovirus", "lca")

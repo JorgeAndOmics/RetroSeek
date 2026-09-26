@@ -106,6 +106,19 @@ def _validate_fasta_first_byte(path: Path) -> None:
         )
 
 
+def _links_to(link: Path, source: Path) -> bool:
+    """True when ``link`` is a working symlink to ``source``.
+
+    A stale symlink, whose target cannot be resolved, is not: it gets replaced.
+    """
+    if not link.is_symlink():
+        return False
+    try:
+        return link.resolve() == source.resolve() and link.exists()
+    except (OSError, RuntimeError):
+        return False
+
+
 def normalize(species_dir: Path, genome: str, output: Path) -> Path:
     """Make ``output`` (= ``{genome}.fa``) point at the canonical source.
 
@@ -125,16 +138,11 @@ def normalize(species_dir: Path, genome: str, output: Path) -> Path:
         return output
 
     _validate_fasta_first_byte(source)
+    if _links_to(output, source):
+        return output  # already correct
 
     # Replace any prior link / file (other than the validated real-file case above).
     if output.is_symlink() or output.exists():
-        if output.is_symlink():
-            try:
-                if output.resolve() == source.resolve() and output.exists():
-                    return output  # already correct
-            except (OSError, RuntimeError):
-                # Stale symlink whose target can't be resolved.
-                pass
         output.unlink()
 
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -327,8 +327,8 @@ def write_summary(path: Path, tier: str, result: dict[str, object] | None) -> No
                     writer.writerow([tier, key, split])
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Entry point."""
+def _build_parser() -> argparse.ArgumentParser:
+    """The command line; declarative, so longer than the function-length target."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jplace", type=Path, nargs="+", required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
@@ -362,9 +362,74 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def _squash(args: argparse.Namespace) -> Path:
+    """Run gappa squash + KRD and route the outputs; returns the composition tree.
+
+    Trees go out of the table directory, mass trees a level down (see
+    route_squash_outputs). The KRD matrix stays: it is a table.
+    """
+    staged = stage_jplace(args.jplace, args.staged_dir or args.out_dir / "_staged")
+    prefix = output_prefix(args.tier, args.gene)
+    run_tool(squash_cmd(staged, args.out_dir, prefix))
+    run_tool(krd_cmd(staged, args.out_dir, prefix))
+    tree_dir: Path = args.tree_dir or args.out_dir
+    cluster_mass_dir = args.cluster_mass_dir or (tree_dir / "cluster_mass")
+    route_squash_outputs(
+        args.out_dir, tree_dir, cluster_mass_dir, prefix, args.tier, args.gene
+    )
+    return tree_dir / f"erv_composition.{args.tier}.{args.gene}.newick"
+
+
+def _species_map(config: Path | None) -> dict[str, str]:
+    """The config's `species:` map (stem -> display name); empty without a config."""
+    if not (config and config.is_file()):
+        return {}
+    cfg = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    return cfg.get("species") or {}
+
+
+def _verdict(result: dict[str, object]) -> str:
+    """How the ERV tree relates to the host phylogeny, in one phrase."""
+    if not result["comparable"]:
+        return "NOT COMPARABLE (fewer than 4 taxa)"
+    return "congruent" if result["congruent"] else "DISCORDANT"
+
+
+def _compare_with_hosts(
+    host_tree: Path, erv_tree: Path, species_map: dict[str, str], tier: str
+) -> dict[str, object] | None:
+    """Congruence of the ERV composition tree with the host tree, logged.
+
+    None when the tip sets differ (a genome without placements, say): that is
+    recorded as a warning rather than aborting the run.
+    """
+    try:
+        result = congruence_with_aliases(
+            host_tree.read_text(), erv_tree.read_text(), species_map
+        )
+    except ValueError as exc:
+        logger.warning("congruence not computed: %s", exc)
+        return None
+    logger.info(
+        "%s tier: %s with the host phylogeny (RF=%s, %s/%s splits shared)",
+        tier,
+        _verdict(result),
+        result["rf_distance"],
+        result["shared_splits"],
+        result["host_splits"],
+    )
+    return result
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Entry point."""
+    args = _build_parser().parse_args(argv)
     job_logging(args.log, "placement_cophylogeny")
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    summary = args.out_dir / f"cophylogeny_summary.{args.tier}.{args.gene}.csv"
 
     if len(args.jplace) < 3:
         # Squash clustering over fewer than three samples has no internal
@@ -372,62 +437,17 @@ def main(argv: list[str] | None = None) -> None:
         logger.warning(
             "only %d sample(s); a composition tree needs at least 3", len(args.jplace)
         )
-        write_summary(
-            args.out_dir / f"cophylogeny_summary.{args.tier}.{args.gene}.csv",
-            args.tier,
-            None,
-        )
+        write_summary(summary, args.tier, None)
         return
 
-    staged = stage_jplace(args.jplace, args.staged_dir or args.out_dir / "_staged")
-    prefix = output_prefix(args.tier, args.gene)
-    run_tool(squash_cmd(staged, args.out_dir, prefix))
-    run_tool(krd_cmd(staged, args.out_dir, prefix))
-
-    # Trees out of the table directory, mass trees a level down (see
-    # route_squash_outputs). The KRD matrix stays: it is a table.
-    tree_dir = args.tree_dir or args.out_dir
-    cluster_mass_dir = args.cluster_mass_dir or (tree_dir / "cluster_mass")
-    route_squash_outputs(
-        args.out_dir, tree_dir, cluster_mass_dir, prefix, args.tier, args.gene
-    )
-    erv_tree = tree_dir / f"erv_composition.{args.tier}.{args.gene}.newick"
+    erv_tree = _squash(args)
     if not erv_tree.is_file():
         logger.warning("gappa produced no composition tree for the %s tier", args.tier)
-
-    species_map: dict[str, str] = {}
-    if args.config and args.config.is_file():
-        cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
-        species_map = cfg.get("species") or {}
-
+    species_map = _species_map(args.config)
     result = None
     if args.host_tree and args.host_tree.is_file() and erv_tree.is_file():
-        try:
-            result = congruence_with_aliases(
-                args.host_tree.read_text(), erv_tree.read_text(), species_map
-            )
-        except ValueError as exc:
-            # Tip sets differ (a genome without placements, say). Record it
-            # rather than aborting the run.
-            logger.warning("congruence not computed: %s", exc)
-        else:
-            if not result["comparable"]:
-                verdict = "NOT COMPARABLE (fewer than 4 taxa)"
-            else:
-                verdict = "congruent" if result["congruent"] else "DISCORDANT"
-            logger.info(
-                "%s tier: %s with the host phylogeny (RF=%s, %s/%s splits shared)",
-                args.tier,
-                verdict,
-                result["rf_distance"],
-                result["shared_splits"],
-                result["host_splits"],
-            )
-    write_summary(
-        args.out_dir / f"cophylogeny_summary.{args.tier}.{args.gene}.csv",
-        args.tier,
-        result,
-    )
+        result = _compare_with_hosts(args.host_tree, erv_tree, species_map, args.tier)
+    write_summary(summary, args.tier, result)
     logger.log(
         OK, "%s tier, %s: %d samples compared", args.tier, args.gene, len(args.jplace)
     )

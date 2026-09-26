@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from log import PipelineError, job_logging, run_main
+from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,27 @@ class Tip(NamedTuple):
     seed: str = ""  # the seeding element's ID, for solos; empty otherwise
 
 
+def _bait_arms(bait_bed: Path) -> dict[str, list[Tip]]:
+    """Bait arms grouped by element, in file order.
+
+    The bait name is `{seqname}|{element}|{arm}`; `|` is replaced in the tip name
+    because a Newick label cannot carry it.
+    """
+    by_element: dict[str, list[Tip]] = {}
+    with bait_bed.open() as handle:
+        for fields in tab_rows(handle, 4):
+            element = fields[3].split("|")[1] if "|" in fields[3] else fields[3]
+            by_element.setdefault(element, []).append(
+                Tip(
+                    seqname=fields[0],
+                    start=int(fields[1]),
+                    end=int(fields[2]),
+                    name=f"{FLANK}__{fields[3].replace('|', '_')}",
+                )
+            )
+    return by_element
+
+
 def bait_tips(
     bait_bed: Path,
     n_elements: int,
@@ -72,27 +94,12 @@ def bait_tips(
 
     Sampling by element rather than by arm is what preserves the tree's positive
     control: it only means anything for an element whose two arms are both on the
-    tree. The bait name is `{seqname}|{element}|{arm}`, and `|` is replaced because
-    a Newick label cannot carry it.
+    tree.
 
     `required` elements (the seeds of the sampled solos) are always kept, even past
     `n_elements`; the cap only limits the random fill around them.
     """
-    by_element: dict[str, list[Tip]] = {}
-    with bait_bed.open() as handle:
-        for line in handle:
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 4:
-                continue
-            element = fields[3].split("|")[1] if "|" in fields[3] else fields[3]
-            by_element.setdefault(element, []).append(
-                Tip(
-                    seqname=fields[0],
-                    start=int(fields[1]),
-                    end=int(fields[2]),
-                    name=f"{FLANK}__{fields[3].replace('|', '_')}",
-                )
-            )
+    by_element = _bait_arms(bait_bed)
     kept = sorted(set(required or ()) & set(by_element))
     others = sorted(set(by_element) - set(kept))
     room = len(others) if n_elements <= 0 else max(0, n_elements - len(kept))

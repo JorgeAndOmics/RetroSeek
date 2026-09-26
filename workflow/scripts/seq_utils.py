@@ -23,9 +23,9 @@ Main components:
 import logging
 import tempfile
 import time
-from collections import defaultdict
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 from Bio import Entrez
 from Bio.Blast import NCBIXML
@@ -38,27 +38,6 @@ from log import PipelineError
 from RetroSeeker_class import RetroSeeker
 
 logger = logging.getLogger(__name__)
-
-
-def species_divider(
-    object_dict: dict[str, RetroSeeker],
-) -> dict[str | None, dict[str, RetroSeeker]]:
-    """
-    Divides the full_genome_dict into different subdictionaries based on the species contained in the objects
-
-        Parameters
-        ----------
-            :param object_dict: The dictionary containing the objects to be divided
-
-        Returns
-        -------
-            :return: A dictionary containing the objects divided by species
-    """
-    species_dict: dict[str | None, dict[str, RetroSeeker]] = defaultdict(dict)
-    for key, value in object_dict.items():
-        species_dict[value.species][key] = value
-
-    return species_dict
 
 
 def blaster(
@@ -119,8 +98,65 @@ def blaster(
     return blast_output
 
 
+def _accession(hit_def: str | None) -> str:
+    """The accession of a BLAST hit: the first whitespace token of its hit_def.
+
+    FASTA-header convention: "CM138268.1 Molossus molossus chr 3, whole genome
+    shotgun sequence" -> "CM138268.1". Storing only the accession keeps the
+    seqid identical to how LTRdigest / rtracklayer / GRanges represent it, so
+    downstream findOverlaps matches without per-stage stripping.
+    """
+    raw_hit_def = hit_def or ""
+    return raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
+
+
+def _unused_identifier(used: set[str]) -> str:
+    """A random 6-character identifier not yet given to a hit of this genome.
+
+    Every probe of a genome shares one key space ({accession}-{identifier}), and
+    RetroSeeker objects compare equal by identifier, so a repeated draw would
+    either replace an earlier hit or make two hits indistinguishable. The new
+    identifier is recorded in ``used``.
+    """
+    while True:
+        identifier = utils.random_string_generator(6)
+        if identifier not in used:
+            used.add(identifier)
+            return identifier
+
+
+def _hit_object(
+    instance: RetroSeeker,
+    subject: str,
+    alignment: Any,
+    hsp: Any,
+    used: set[str],
+) -> tuple[str, RetroSeeker]:
+    """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
+
+    The key is ``{accession}-{identifier}``; the identifier is new to ``used``.
+    """
+    accession_id = _accession(alignment.hit_def)
+    random_string = _unused_identifier(used)
+    new_instance = RetroSeeker(
+        label=str(instance.label),
+        virus=str(instance.virus),
+        abbreviation=str(instance.abbreviation),
+        species=instance.species or subject,
+        probe=str(instance.probe).strip(),
+        accession=accession_id,
+        identifier=random_string,
+    )
+    new_instance.set_alignment(alignment)
+    new_instance.set_HSP(hsp)
+    return f"{accession_id}-{random_string}", new_instance
+
+
 def blaster_parser(
-    result: str, instance: RetroSeeker, subject: str
+    result: str,
+    instance: RetroSeeker,
+    subject: str,
+    used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
     """
         Parameters
@@ -128,19 +164,22 @@ def blaster_parser(
         :param result: The result of [blaster] function.
         :param instance: The RetroSeeker instance containing information about the query.
         :param subject: The particular genome against whose database it's being BLASTed.
+        :param used_identifiers: Identifiers already given to this genome's hits; new
+            ones are added. Pass the same set for every probe of a genome.
 
     Returns
     -------
         :returns: A dictionary containing the parsed results of the [blaster] function:
-        alignment_dict[f'{alignment.id}-{random_string}'] = Object
+        alignment_dict[f'{alignment.id}-{random_string}'] = Object, one per HSP.
 
     Raises
     ------
-        :raise Exception: If an error occurs while parsing the BLAST output.
+        :raise PipelineError: If blast_formatter cannot read the archive.
 
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict[str, RetroSeeker] = {}
+    used = set() if used_identifiers is None else used_identifiers
     # blast_formatter reads the ASN.1 archive from a file; the file is removed
     # whatever happens. Any failure below stops the job: a half-parsed genome
     # would otherwise look like one with fewer hits.
@@ -150,41 +189,11 @@ def blaster_parser(
     try:
         xml_command = ["blast_formatter", "-archive", tmp_asn_path, "-outfmt", "5"]
         xml_handle = StringIO(run_tool(xml_command).stdout)
-
-        # Now parse the XML as before
         for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
             for alignment in record.alignments:
-                if not record.alignments:
-                    logger.warning("No alignments found.")
-                    continue
                 for hsp in alignment.hsps:
-                    # FASTA-header convention: the first whitespace-separated
-                    # token of hit_def is the accession (e.g. "CM138268.1");
-                    # the rest is the description ("Molossus molossus chr 3,
-                    # whole genome shotgun sequence"). Storing only the
-                    # accession keeps the seqid identical to how LTRdigest /
-                    # rtracklayer / GRanges represent it, so downstream
-                    # findOverlaps matches without needing per-stage stripping.
-                    raw_hit_def = alignment.hit_def or ""
-                    accession_id = (
-                        raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
-                    )
-                    random_string = utils.random_string_generator(6)
-
-                    new_instance = RetroSeeker(
-                        label=str(instance.label),
-                        virus=str(instance.virus),
-                        abbreviation=str(instance.abbreviation),
-                        species=instance.species or subject,
-                        probe=str(instance.probe).strip(),
-                        accession=accession_id,
-                        identifier=random_string,
-                    )
-
-                    new_instance.set_alignment(alignment)
-                    new_instance.set_HSP(hsp)
-
-                    alignment_dict[f"{accession_id}-{random_string}"] = new_instance
+                    key, hit = _hit_object(instance, subject, alignment, hsp, used)
+                    alignment_dict[key] = hit
     finally:
         Path(tmp_asn_path).unlink(missing_ok=True)
 
@@ -197,6 +206,7 @@ def _blast_task(
     subject: str,
     input_database_path: str | Path,
     num_threads: int,
+    used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
     """
     Run BLAST command for the Entrez-retrieved sequences against the species database. This function is used as a task
@@ -226,7 +236,7 @@ def _blast_task(
         input_database_path=input_database_path,
         num_threads=num_threads,
     )
-    return blaster_parser(blast_result, instance, subject)
+    return blaster_parser(blast_result, instance, subject, used_identifiers)
 
 
 def blast_executor(
@@ -252,6 +262,7 @@ def blast_executor(
             :returns: A dictionary containing the parsed BLAST results
     """
     full_parsed_results: dict[str, RetroSeeker] = {}
+    used_identifiers: set[str] = set()  # one key space for all probes of a genome
 
     # disable=None: no bar when stderr is not a terminal (under the launcher),
     # where its carriage returns would flood the run log.
@@ -265,6 +276,7 @@ def blast_executor(
                 subject=genome,
                 input_database_path=input_database_path,
                 num_threads=num_threads,
+                used_identifiers=used_identifiers,
             ):
                 full_parsed_results |= result
                 key_identifier = f"{value.accession}-{value.identifier}"

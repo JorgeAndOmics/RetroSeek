@@ -52,6 +52,7 @@ import pandas as pd
 from solo_intervals import IntervalIndex
 
 from log import OK, job_logging, run_main
+from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,18 @@ class Candidate:
     def length(self) -> int:
         return self.end - self.start + 1
 
+    def absorb(self, hit: Hit) -> None:
+        """Extend the run over an overlapping hit.
+
+        The better-matching bait represents the run; an equal identity keeps the
+        bait already there.
+        """
+        self.end = max(self.end, hit.span[1])
+        self.n_hits += 1
+        if hit.identity > self.best_identity:
+            self.best_identity = hit.identity
+            self.bait = hit.bait
+
 
 @dataclass
 class ClassifiedCandidate:
@@ -156,7 +169,11 @@ def rejection_reason(hit: Hit, thresholds: Thresholds) -> str | None:
 
 
 def parse_hits(handle: TextIO) -> Iterator[Hit]:
-    """Read the tabular blastn output, skipping rows too short to interpret."""
+    """Read the tabular blastn output, skipping rows too short to interpret.
+
+    Not built on tabular.tab_rows on purpose: -outfmt 6 has no comment lines, and
+    a bait name is free text, so no line is skipped for starting with '#'.
+    """
     for line in handle:
         fields = line.rstrip("\n").split("\t")
         if len(fields) < 7:
@@ -175,6 +192,21 @@ def parse_hits(handle: TextIO) -> Iterator[Hit]:
             continue
 
 
+def _merge_sequence(seqname: str, hits: list[Hit], gap: int) -> list[Candidate]:
+    """Merge one sequence's hits, taken in span order, into runs.
+
+    A hit starting within ``gap`` bp of the current run's end joins it.
+    """
+    runs: list[Candidate] = []
+    for hit in sorted(hits, key=lambda h: h.span):
+        start, end = hit.span
+        if runs and start <= runs[-1].end + gap:
+            runs[-1].absorb(hit)
+        else:
+            runs.append(Candidate(seqname, start, end, hit.identity, 1, hit.bait))
+    return runs
+
+
 def merge_candidates(accepted: list[Hit], gap: int) -> list[Candidate]:
     """Merge accepted hits into candidate loci, per sequence.
 
@@ -186,26 +218,11 @@ def merge_candidates(accepted: list[Hit], gap: int) -> list[Candidate]:
     by_sequence: dict[str, list[Hit]] = defaultdict(list)
     for hit in accepted:
         by_sequence[hit.seqname].append(hit)
-
-    candidates: list[Candidate] = []
-    for seqname in sorted(by_sequence):
-        hits = sorted(by_sequence[seqname], key=lambda h: h.span)
-        current: Candidate | None = None
-        for hit in hits:
-            start, end = hit.span
-            if current is not None and start <= current.end + gap:
-                current.end = max(current.end, end)
-                current.n_hits += 1
-                if hit.identity > current.best_identity:
-                    current.best_identity = hit.identity
-                    current.bait = hit.bait
-                continue
-            if current is not None:
-                candidates.append(current)
-            current = Candidate(seqname, start, end, hit.identity, 1, hit.bait)
-        if current is not None:
-            candidates.append(current)
-    return candidates
+    return [
+        candidate
+        for seqname in sorted(by_sequence)
+        for candidate in _merge_sequence(seqname, by_sequence[seqname], gap)
+    ]
 
 
 def classify(
@@ -237,16 +254,12 @@ def read_intervals(gff3: Path, feature: str | None = None) -> dict[str, Interval
     """Build a per-sequence interval index from a GFF3.
 
     `feature` None means every feature line counts, which is what the orphan track
-    needs: its locus lines carry the probe type, not a fixed feature name.
+    needs: its locus lines carry the probe type, not a fixed feature name. Lines
+    whose coordinates do not parse are skipped.
     """
     raw: dict[str, list[tuple[int, int]]] = defaultdict(list)
     with gff3.open() as handle:
-        for line in handle:
-            if line.startswith("#"):
-                continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 5:
-                continue
+        for fields in tab_rows(handle, 5):
             if feature is not None and fields[2] != feature:
                 continue
             try:
@@ -254,6 +267,16 @@ def read_intervals(gff3: Path, feature: str | None = None) -> dict[str, Interval
             except ValueError:
                 continue
     return {seqname: IntervalIndex(spans) for seqname, spans in raw.items()}
+
+
+def _ids(attributes: str) -> list[str]:
+    """Every non-empty ``ID=`` value of a GFF3 attribute column (normally one)."""
+    ids = []
+    for attribute in attributes.rstrip().split(";"):
+        key, _, value = attribute.partition("=")
+        if key.strip() == "ID" and value:
+            ids.append(value.strip())
+    return ids
 
 
 def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
@@ -264,16 +287,11 @@ def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
     """
     spans: dict[str, tuple[str, int, int]] = {}
     with gff3.open() as handle:
-        for line in handle:
-            if line.startswith("#"):
+        for fields in tab_rows(handle, 9):
+            if fields[2] != ELEMENT_FEATURE:
                 continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 9 or fields[2] != ELEMENT_FEATURE:
-                continue
-            for attribute in fields[8].rstrip().split(";"):
-                key, _, value = attribute.partition("=")
-                if key.strip() == "ID" and value:
-                    spans[value.strip()] = (fields[0], int(fields[3]), int(fields[4]))
+            for element_id in _ids(fields[8]):
+                spans[element_id] = (fields[0], int(fields[3]), int(fields[4]))
     return spans
 
 

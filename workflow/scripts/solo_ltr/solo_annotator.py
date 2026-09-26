@@ -87,6 +87,7 @@ from pathlib import Path
 import pandas as pd
 
 from log import OK, job_logging, run_main
+from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -171,37 +172,43 @@ def parse_library_locus(library_id: str) -> tuple[str, int, int] | None:
     return match.group("chrom"), min(start, end), max(start, end)
 
 
+def _solo_from_fields(fields: list[str]) -> SoloLTR | None:
+    """One solo from a six-column row; None when it is short or a number does not parse."""
+    if len(fields) < 6:
+        return None
+    try:
+        start, end = int(fields[1]), int(fields[2])
+        coverage = float(fields[5])
+    except ValueError:
+        return None
+    return SoloLTR(
+        chrom=fields[0], start=start, end=end, library_id=fields[4], coverage=coverage
+    )
+
+
 def parse_solo_list(path: Path) -> list[SoloLTR]:
     """Read ``solo_finder.pl`` output. A missing or empty file yields no solos.
 
     Zero solos is a legitimate result for a genome, so absence is not an error
     here - but ``run_ltr_retriever.py`` does fail loudly when the RepeatMasker
-    table that feeds solo_finder is missing, which is a different claim.
+    table that feeds solo_finder is missing, which is a different claim. Rows
+    whose coordinates or coverage do not parse are skipped with a warning: the
+    detector never writes one, so they mean its column layout changed.
     """
     if not path.exists():
         return []
-    solos: list[SoloLTR] = []
     with path.open() as handle:
-        for raw in handle:
-            if raw.startswith("#") or not raw.strip():
-                continue
-            fields = raw.rstrip("\n").split("\t")
-            if len(fields) < 6:
-                continue
-            try:
-                start, end = int(fields[1]), int(fields[2])
-                coverage = float(fields[5])
-            except ValueError:
-                continue
-            solos.append(
-                SoloLTR(
-                    chrom=fields[0],
-                    start=start,
-                    end=end,
-                    library_id=fields[4],
-                    coverage=coverage,
-                )
-            )
+        rows = [f for f in tab_rows(handle, 1) if "".join(f).strip()]  # no blanks
+    parsed = [_solo_from_fields(fields) for fields in rows]
+    solos = [solo for solo in parsed if solo is not None]
+    if len(solos) < len(parsed):
+        logger.warning(
+            "%s: %d of %d solo rows are short or have unreadable coordinates or "
+            "coverage and were skipped; check the solo list's column layout",
+            path.name,
+            len(parsed) - len(solos),
+            len(parsed),
+        )
     return solos
 
 
@@ -252,6 +259,45 @@ def _inherit(solo: SoloLTR, donor: ClassifiedLocus, label_source: str) -> None:
     solo.label_source = label_source
 
 
+def _library_donors(
+    solo: SoloLTR, by_chrom: dict[str, list[ClassifiedLocus]]
+) -> list[ClassifiedLocus]:
+    """Loci overlapping the element named by the solo's library id.
+
+    Widest overlap first, locus id breaking ties. Empty when the id carries no
+    coordinates or its span overlaps no classified locus.
+    """
+    span = parse_library_locus(solo.library_id)
+    if span is None:
+        return []
+    chrom, start, end = span
+    widths = (
+        (locus.overlap_with(chrom, start, end), locus)
+        for locus in by_chrom.get(chrom, [])
+    )
+    hits = sorted(
+        ((width, locus) for width, locus in widths if width > 0),
+        key=lambda pair: (-pair[0], pair[1].id),
+    )
+    return [locus for _, locus in hits]
+
+
+def _nearest_donor(
+    solo: SoloLTR, by_chrom: dict[str, list[ClassifiedLocus]], max_distance: int
+) -> ClassifiedLocus | None:
+    """The closest classified locus on the solo's chromosome within reach.
+
+    On a tie in distance the locus listed first wins (strict ``<`` below).
+    """
+    nearest: ClassifiedLocus | None = None
+    nearest_distance = max_distance + 1
+    for locus in by_chrom.get(solo.chrom, []):
+        distance = locus.distance_to(solo.chrom, solo.start, solo.end)
+        if distance is not None and distance < nearest_distance:
+            nearest, nearest_distance = locus, distance
+    return nearest
+
+
 def annotate_solos(
     solos: list[SoloLTR],
     loci: list[ClassifiedLocus],
@@ -263,32 +309,12 @@ def annotate_solos(
         by_chrom[locus.seqname].append(locus)
 
     for solo in solos:
-        # ---- primary path: the library entry's own element ----
-        library_locus = parse_library_locus(solo.library_id)
-        if library_locus is not None:
-            chrom, start, end = library_locus
-            overlapping = [
-                (locus.overlap_with(chrom, start, end), locus)
-                for locus in by_chrom.get(chrom, [])
-            ]
-            hits = sorted(
-                ((width, locus) for width, locus in overlapping if width > 0),
-                key=lambda pair: (-pair[0], pair[1].id),
-            )
-            if hits:
-                _inherit(solo, hits[0][1], "library")
-                solo.source_loci = [locus.id for _, locus in hits]
-                continue
-
-        # ---- fallback: nearest classified locus ----
-        nearest: ClassifiedLocus | None = None
-        nearest_distance: int | None = None
-        for locus in by_chrom.get(solo.chrom, []):
-            distance = locus.distance_to(solo.chrom, solo.start, solo.end)
-            if distance is None or distance > max_distance:
-                continue
-            if nearest_distance is None or distance < nearest_distance:
-                nearest, nearest_distance = locus, distance
+        donors = _library_donors(solo, by_chrom)
+        if donors:
+            _inherit(solo, donors[0], "library")
+            solo.source_loci = [locus.id for locus in donors]
+            continue
+        nearest = _nearest_donor(solo, by_chrom, max_distance)
         if nearest is not None:
             _inherit(solo, nearest, "nearest_locus")
             solo.source_loci = [nearest.id]

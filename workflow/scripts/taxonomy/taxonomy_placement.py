@@ -18,6 +18,7 @@ This is the placement branch of the classifier dispatcher; non-placement genes u
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 from pathlib import Path
@@ -26,6 +27,9 @@ import taxonomy_lca as tlca
 from Bio import SeqIO
 
 from external import run_tool
+from log import PipelineError
+
+logger = logging.getLogger(__name__)
 
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 EPA_NG = "epa-ng"
@@ -98,6 +102,17 @@ def _align_queries(
     return q_aln if kept else None
 
 
+def _confidence(fields: list[str], conf_i: int | None) -> float | None:
+    """The row's confidence as a number: 0 when the column is absent, None when
+    the cell is there but not a number."""
+    if conf_i is None or conf_i >= len(fields):
+        return 0.0
+    try:
+        return float(fields[conf_i])
+    except ValueError:
+        return None
+
+
 def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
     """Parse gappa examine assign output -> query_id -> (taxopath, confidence)."""
     out: dict[str, tuple[str, float]] = {}
@@ -106,55 +121,70 @@ def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
     with per_query_tsv.open(encoding="utf-8") as fh:
         header = fh.readline().rstrip("\n").split("\t")
         idx = {name: i for i, name in enumerate(header)}
-        name_i = idx.get("name", 0)
-        path_i = idx.get("taxopath", len(header) - 1)
-        # confidence: prefer aLWR, then LWR, else 0
-        conf_i = idx.get("aLWR", idx.get("LWR"))
+        # A renamed column would otherwise read the wrong field, or give every
+        # placement confidence 0, without an error.
+        if not {"name", "taxopath"} <= idx.keys() or not {"aLWR", "LWR"} & idx.keys():
+            raise PipelineError(
+                f"{per_query_tsv} lacks the name, taxopath and aLWR/LWR columns "
+                f"(header: {' '.join(header)})",
+                hint="the gappa version may have changed its per-query output",
+            )
+        name_i, path_i = idx["name"], idx["taxopath"]
+        conf_i = idx.get("aLWR", idx.get("LWR"))  # prefer aLWR, then LWR
+        unreadable = 0
         for line in fh:
             f = line.rstrip("\n").split("\t")
-            if len(f) <= path_i:
-                continue
-            conf = 0.0
-            if conf_i is not None and conf_i < len(f):
-                try:
-                    conf = float(f[conf_i])
-                except ValueError:
-                    conf = 0.0
-            out[f[name_i]] = (f[path_i], conf)
+            if len(f) > path_i:
+                conf = _confidence(f, conf_i)
+                unreadable += conf is None
+                out[f[name_i]] = (f[path_i], 0.0 if conf is None else conf)
+    if unreadable:
+        # Read as 0, so the placement still counts but never looks confident;
+        # the warning keeps a changed gappa format from passing unnoticed.
+        logger.warning(
+            "%s: %d of %d placements have a confidence that is not a number; read as 0",
+            per_query_tsv.name,
+            unreadable,
+            len(out),
+        )
     return out
 
 
-def place(
-    queries: dict[str, str], ref_dir: Path, gene: str, workdir: Path
-) -> dict[str, dict[str, str]]:
-    """
-    Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
+def _tree_and_model(trees: Path, gene: str, treefile: Path) -> tuple[Path, str]:
+    """The tree and model EPA-ng places onto.
 
-    taxon_call = deepest node of the assigned taxopath that is in the taxonomy
-    (an axis taxon if resolved, else a higher rank); rank via taxonomy_lca.rank_of.
-    The caller accepts the placement only when taxon_call is an axis member (ADR-008).
+    Prefer the raxml-ng-optimised model + tree (calibrated likelihoods, so less
+    over-backoff); fall back to the iqtree tree + bare model string when raxml
+    --evaluate wasn't run.
     """
-    workdir.mkdir(parents=True, exist_ok=True)
-    trees = ref_dir / "trees"
-    ref_afa = trees / f"{gene}.afa"
-    treefile = trees / f"{gene}.treefile"
-    taxon_tsv = trees / f"{gene}.taxon.tsv"
-    if not (ref_afa.exists() and treefile.exists() and taxon_tsv.exists()):
-        return {}  # no tree package -> caller falls back to LCA
-
-    # prefer the raxml-ng-optimised model + tree (calibrated likelihoods -> less over-backoff);
-    # fall back to the iqtree tree + bare model string if raxml --evaluate wasn't run.
     best_model = trees / f"{gene}.raxml.bestModel"
     best_tree = trees / f"{gene}.raxml.bestTree"
     use_tree = best_tree if best_tree.exists() else treefile
-    use_model = (
-        str(best_model)
-        if best_model.exists()
-        else _read_model(trees / f"{gene}.iqtree")
-    )
-    q_aln = _align_queries(queries, ref_afa, workdir)
-    if q_aln is None:  # all queries were all-gap -> nothing to place
-        return {}
+    if best_model.exists():
+        return use_tree, str(best_model)
+    return use_tree, _read_model(trees / f"{gene}.iqtree")
+
+
+def _deepest_known(taxopath: str) -> str:
+    """The deepest taxopath element the taxonomy knows, else unclassified."""
+    for node in reversed([n for n in taxopath.split(";") if n]):
+        if node in tlca.RETRO_PARENT:
+            return node
+    return tlca.UNCLASSIFIED
+
+
+def _epa_then_gappa(
+    use_tree: Path,
+    use_model: str,
+    ref_afa: Path,
+    q_aln: Path,
+    taxon_tsv: Path,
+    workdir: Path,
+) -> Path:
+    """Place the aligned queries with EPA-ng, assign them with gappa.
+
+    Returns gappa's per-query table. Raises when either tool fails (run_tool).
+    """
     run_tool(
         [
             EPA_NG,
@@ -171,14 +201,13 @@ def place(
             str(workdir),
         ]
     )
-    jplace = workdir / "epa_result.jplace"
     run_tool(
         [
             GAPPA,
             "examine",
             "assign",
             "--jplace-path",
-            str(jplace),
+            str(workdir / "epa_result.jplace"),
             "--taxon-file",
             str(taxon_tsv),
             "--per-query-results",
@@ -188,17 +217,36 @@ def place(
             "--allow-file-overwriting",
         ]
     )
+    return workdir / "per_query.tsv"
 
-    assigned = _parse_gappa(workdir / "per_query.tsv")
+
+def place(
+    queries: dict[str, str], ref_dir: Path, gene: str, workdir: Path
+) -> dict[str, dict[str, str]]:
+    """
+    Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
+
+    taxon_call = deepest node of the assigned taxopath that is in the taxonomy
+    (an axis taxon if resolved, else a higher rank); rank via taxonomy_lca.rank_of.
+    The caller accepts the placement only when taxon_call is an axis member (ADR-008).
+    Empty when the gene has no tree package or every query is all-gap.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    trees = ref_dir / "trees"
+    ref_afa = trees / f"{gene}.afa"
+    treefile = trees / f"{gene}.treefile"
+    taxon_tsv = trees / f"{gene}.taxon.tsv"
+    if not (ref_afa.exists() and treefile.exists() and taxon_tsv.exists()):
+        return {}  # no tree package -> caller falls back to LCA
+
+    use_tree, use_model = _tree_and_model(trees, gene, treefile)
+    q_aln = _align_queries(queries, ref_afa, workdir)
+    if q_aln is None:  # all queries were all-gap -> nothing to place
+        return {}
+    per_query = _epa_then_gappa(use_tree, use_model, ref_afa, q_aln, taxon_tsv, workdir)
     results: dict[str, dict[str, str]] = {}
-    for qid, (taxopath, conf) in assigned.items():
-        # deepest taxopath element that the taxonomy knows -> the call
-        nodes = [n for n in taxopath.split(";") if n]
-        node = tlca.UNCLASSIFIED
-        for n in reversed(nodes):
-            if n in tlca.RETRO_PARENT:
-                node = n
-                break
+    for qid, (taxopath, conf) in _parse_gappa(per_query).items():
+        node = _deepest_known(taxopath)
         results[qid] = {
             "taxon_call": node,
             "rank": tlca.rank_of(node),

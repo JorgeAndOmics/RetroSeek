@@ -163,41 +163,56 @@ def permutation_null(
     return null
 
 
+def _sister_pairs(tips: list[Any], parents: dict[Any, Any]) -> dict[str, Counter[str]]:
+    """For each tip class, how often each class sits among its sisters."""
+    pairs: dict[str, Counter[str]] = defaultdict(Counter)
+    for tip in tips:
+        own = tip_class(tip.name)
+        for leaf in sister_leaves(tip, parents):
+            pairs[own][tip_class(leaf.name)] += 1
+    return pairs
+
+
+def _adjacency_row(
+    own: str, other: str, n: int, total: int, expected_fraction: float
+) -> dict[str, Any]:
+    """One (tip class, sister class) row: ``n`` of the ``total`` sisters of ``own``.
+
+    Enrichment is blank when the sister class is not expected at all.
+    """
+    observed_fraction = (n / total) if total else 0.0
+    return {
+        "tip_class": own,
+        "sister_class": other,
+        "n": n,
+        "observed_fraction": round(observed_fraction, 4),
+        "expected_fraction": round(expected_fraction, 4),
+        "enrichment": (
+            round(observed_fraction / expected_fraction, 3) if expected_fraction else ""
+        ),
+    }
+
+
 def adjacency(tips: list[Any], parents: dict[Any, Any]) -> list[dict[str, Any]]:
     """Class-by-class sister counts, with enrichment over class abundance.
 
     The expectation is each class's share of all tips: if adjacency were random, a
     tip's sisters would be drawn in proportion to how common each class is.
     """
-    pairs: dict[str, Counter[str]] = defaultdict(Counter)
-    for tip in tips:
-        own = tip_class(tip.name)
-        for leaf in sister_leaves(tip, parents):
-            pairs[own][tip_class(leaf.name)] += 1
-
+    pairs = _sister_pairs(tips, parents)
     abundance = Counter(tip_class(tip.name) for tip in tips)
     total_tips = sum(abundance.values()) or 1
-    rows = []
-    for own in CLASSES:
-        total = sum(pairs[own].values())
-        for other in CLASSES:
-            expected_fraction = abundance[other] / total_tips
-            observed_fraction = (pairs[own][other] / total) if total else 0.0
-            rows.append(
-                {
-                    "tip_class": own,
-                    "sister_class": other,
-                    "n": pairs[own][other],
-                    "observed_fraction": round(observed_fraction, 4),
-                    "expected_fraction": round(expected_fraction, 4),
-                    "enrichment": (
-                        round(observed_fraction / expected_fraction, 3)
-                        if expected_fraction
-                        else ""
-                    ),
-                }
-            )
-    return rows
+    return [
+        _adjacency_row(
+            own,
+            other,
+            pairs[own][other],
+            sum(pairs[own].values()),
+            abundance[other] / total_tips,
+        )
+        for own in CLASSES
+        for other in CLASSES
+    ]
 
 
 def per_class_sisterhood(

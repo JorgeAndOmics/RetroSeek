@@ -162,6 +162,15 @@ def test_the_candidate_keeps_the_best_identity_and_its_bait(
     assert candidate.bait == "strong"
 
 
+def test_an_equal_identity_keeps_the_bait_seen_first() -> None:
+    accepted = [
+        solo_finder.Hit("first", "chr1", 99.0, 400, 400, 1000, 1399),
+        solo_finder.Hit("second", "chr1", 99.0, 400, 400, 1100, 1499),
+    ]
+    candidate = solo_finder.merge_candidates(accepted, gap=0)[0]
+    assert (candidate.bait, candidate.n_hits, candidate.end) == ("first", 2, 1499)
+
+
 def test_hits_separated_by_more_than_the_gap_stay_separate() -> None:
     accepted = [
         solo_finder.Hit("b", "chr1", 99.0, 400, 400, 1000, 1399),

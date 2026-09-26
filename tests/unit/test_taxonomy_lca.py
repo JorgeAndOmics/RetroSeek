@@ -99,19 +99,6 @@ class TestRankOf:
         assert tlca.rank_of("Retroviridae") == "family"
 
 
-class TestParseTaxonSet:
-    def test_decodes_escaped_semicolons(self) -> None:
-        field = "Betaretrovirus%3b Deltaretrovirus%3b Gammaretrovirus"
-        assert tlca.parse_taxon_set(field) == {
-            "Betaretrovirus",
-            "Deltaretrovirus",
-            "Gammaretrovirus",
-        }
-
-    def test_single_value(self) -> None:
-        assert tlca.parse_taxon_set("Gammaretrovirus") == {"Gammaretrovirus"}
-
-
 class TestMixedRankAxis:
     """Rank-agnostic LCA (ADR-008): the engine resolves axis taxa at whatever rank
     they sit, and backs off to their true common ancestor across ranks."""

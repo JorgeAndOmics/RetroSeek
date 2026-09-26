@@ -19,13 +19,13 @@ Search defaults to blastx (no new dependency). See docs/taxonomy_classification/
 from __future__ import annotations
 
 import argparse
-import bisect
 import csv
 import hashlib
 import logging
 import re
 import sys
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +35,7 @@ import taxonomy_placement
 from Bio.Seq import Seq
 
 from log import OK, job_logging, run_main
+from tabular import tab_rows
 
 # Domain-class semantics are shared with the scanner. The scanner imports THIS
 # module for locus grouping, so the shared piece lives in its own module to keep
@@ -56,95 +57,59 @@ _EXTRACT_R = Path(__file__).resolve().parent / "extract_region_fasta.R"
 _PROBE = re.compile(r"probe=([^;\t]+)")
 _PARENT = re.compile(r"Parent=([^;\t]+)")
 _LABEL = re.compile(r"label=([^;\t]+)")
-_ID = re.compile(r"ID=([^;\t]+)")
 _OVERSIZED = re.compile(r"oversized=([^;\t]+)")
+# The call a locus reports when none of its genes earned any call.
+_UNCLASSIFIED_CALL = {
+    "taxon_call": tlca.UNCLASSIFIED,
+    "rank": "none",
+    "confidence": "0.000",
+    "method": "lca",
+}
 # Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
 # (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
 # classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
 
 
 # ---------------------------------------------------------------- loci + regions
+def _attr(pattern: re.Pattern[str], attrs: str, default: str = "") -> str:
+    """One GFF3 attribute value, or ``default`` when the feature lacks it."""
+    match = pattern.search(attrs)
+    return match.group(1) if match else default
+
+
 def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
-    feats: list[dict[str, str]] = []
-    with gff3.open(encoding="utf-8") as fh:
-        for line in fh:
-            if line.startswith("#") or "\t" not in line:
-                continue
-            f = line.rstrip("\n").split("\t")
-            if len(f) < 9:
-                continue
-            probe = _PROBE.search(f[8])
-            parent = _PARENT.search(f[8])
-            label = _LABEL.search(f[8])
-            oversized = _OVERSIZED.search(f[8])
-            feats.append(
-                {
-                    "seqname": f[0],
-                    "start": f[3],
-                    "end": f[4],
-                    "strand": f[6] if f[6] in "+-" else "+",
-                    "gene": (probe.group(1).upper() if probe else "OTHER"),
-                    "parent": parent.group(1) if parent else "",
-                    "label": (label.group(1) if label else "").replace("%3b", ";"),
-                    # oversized rides the orphan track (overlap cluster wider than
-                    # the widest real provirus); LTR-flanked track carries no attr.
-                    "oversized": oversized.group(1) if oversized else "False",
-                }
-            )
-    return feats
+    """Read every per-hit feature of a valid-tier GFF3 as a flat string record.
 
-
-def load_elements(ltr_gff3: Path) -> dict[str, list[tuple[int, int, str]]]:
-    """LTR_retrotransposon element ranges per seqname (sorted by start) from ltrdigest."""
-    elems: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
-    with ltr_gff3.open(encoding="utf-8") as fh:
-        for line in fh:
-            if line.startswith("#") or "\t" not in line:
-                continue
-            f = line.rstrip("\n").split("\t")
-            if len(f) < 9 or f[2] != "LTR_retrotransposon":
-                continue
-            eid = _ID.search(f[8])
-            elems[f[0]].append(
-                (int(f[3]), int(f[4]), eid.group(1) if eid else f"{f[0]}:{f[3]}")
-            )
-    for v in elems.values():
-        v.sort()
-    return elems
-
-
-def assign_element(
-    seqname: str,
-    start: int,
-    end: int,
-    elems: dict[str, list[tuple[int, int, str]]],
-    maxlen: dict[str, int],
-) -> str:
-    """Return the element id with greatest overlap of [start,end], or '' if none."""
-    cand = elems.get(seqname)
-    if not cand:
-        return ""
-    hi = bisect.bisect_right(
-        [c[0] for c in cand], end
-    )  # elements starting at/before end
-    best, best_ov = "", 0
-    lo = max(0, hi - 1)
-    window_start = start - maxlen.get(seqname, 20000)
-    while lo >= 0 and cand[lo][0] >= window_start:
-        es, ee, eid = cand[lo]
-        ov = min(end, ee) - max(start, es) + 1  # +1: GFF coords are 1-based inclusive
-        if ov > best_ov:
-            best, best_ov = eid, ov
-        lo -= 1
-    return best
-
-
-def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
-    """Group features into LTR-element loci by their ``Parent=`` attribute; gene-partition each.
-
-    Parent (the enclosing LTR_retrotransposon id) is emitted natively on the valid track by
-    ``range_analysis/validation.R``. Parentless features become their own locus.
+    Comment lines and lines with fewer than nine columns are skipped. The probe
+    becomes the upper-cased ``gene`` (``OTHER`` when absent) and GFF3-escaped
+    label separators are decoded. The strand test is a substring test against
+    ``"+-"``: ``.`` and ``?`` read as ``+``, while an empty column (and the
+    literal ``+-``) passes through unchanged.
     """
+    with gff3.open(encoding="utf-8") as fh:
+        return [_feature(f) for f in tab_rows(fh, 9)]
+
+
+def _feature(f: list[str]) -> dict[str, str]:
+    """One valid-track feature from its nine GFF3 columns."""
+    return {
+        "seqname": f[0],
+        "start": f[3],
+        "end": f[4],
+        "strand": f[6] if f[6] in "+-" else "+",
+        "gene": _attr(_PROBE, f[8], "OTHER").upper(),
+        "parent": _attr(_PARENT, f[8]),
+        "label": _attr(_LABEL, f[8]).replace("%3b", ";"),
+        # oversized rides the orphan track (overlap cluster wider than the
+        # widest real provirus); the LTR-flanked track carries no attr.
+        "oversized": _attr(_OVERSIZED, f[8], "False"),
+    }
+
+
+def _group_by_parent(
+    feats: list[dict[str, str]],
+) -> dict[tuple[str, str], list[dict[str, str]]]:
+    """Features keyed by (seqname, Parent); each parentless feature is its own group."""
     groups: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     orphan = 0
     for ft in feats:
@@ -154,43 +119,55 @@ def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
             key = (ft["seqname"], f"_orphan{orphan}")
             orphan += 1
         groups[key].append(ft)
+    return groups
 
-    loci: list[dict[str, Any]] = []
-    for i, ((seqname, parent), members) in enumerate(groups.items()):
-        strand = Counter(m["strand"] for m in members).most_common(1)[0][0]
-        genes: dict[str, tuple[int, int]] = {}
-        probe_labels: set[str] = set()
-        # oversized: an orphan overlap-cluster wider than any real provirus; members
-        # share a cluster, so any "True" marks the locus.
-        oversized = "False"
-        for m in members:
-            if m.get("oversized", "False") == "True":
-                oversized = "True"
-            g = m["gene"]
-            s, e = int(m["start"]), int(m["end"])
-            if g in genes:
-                genes[g] = (min(genes[g][0], s), max(genes[g][1], e))
-            else:
-                genes[g] = (s, e)
-            for lab in m["label"].split(";"):
-                if lab.strip():
-                    probe_labels.add(lab.strip())
-        start = min(v[0] for v in genes.values())
-        end = max(v[1] for v in genes.values())
-        loci.append(
-            {
-                "id": f"L{i}",
-                "seqname": seqname,
-                "parent": parent,
-                "strand": strand,
-                "start": start,
-                "end": end,
-                "genes": genes,
-                "oversized": oversized,
-                "probe_label_set": ";".join(sorted(probe_labels)),
-            }
-        )
-    return loci
+
+def _gene_spans(members: list[dict[str, str]]) -> dict[str, tuple[int, int]]:
+    """Per gene, the span covering all of its hits in one locus (first-seen order)."""
+    genes: dict[str, tuple[int, int]] = {}
+    for m in members:
+        s, e = int(m["start"]), int(m["end"])
+        if m["gene"] in genes:
+            old_s, old_e = genes[m["gene"]]
+            s, e = min(old_s, s), max(old_e, e)
+        genes[m["gene"]] = (s, e)
+    return genes
+
+
+def _locus(
+    index: int, seqname: str, parent: str, members: list[dict[str, str]]
+) -> dict[str, Any]:
+    """One locus from the features that share its Parent."""
+    genes = _gene_spans(members)
+    labels = {
+        lab.strip() for m in members for lab in m["label"].split(";") if lab.strip()
+    }
+    return {
+        "id": f"L{index}",
+        "seqname": seqname,
+        "parent": parent,
+        "strand": Counter(m["strand"] for m in members).most_common(1)[0][0],
+        "start": min(s for s, _ in genes.values()),
+        "end": max(e for _, e in genes.values()),
+        "genes": genes,
+        # oversized: an orphan overlap-cluster wider than any real provirus;
+        # members share a cluster, so any "True" marks the locus.
+        "oversized": str(any(m.get("oversized", "False") == "True" for m in members)),
+        "probe_label_set": ";".join(sorted(labels)),
+    }
+
+
+def build_loci(feats: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Group features into LTR-element loci by their ``Parent=`` attribute; gene-partition each.
+
+    Parent (the enclosing LTR_retrotransposon id) is emitted natively on the valid track by
+    ``range_analysis/validation.R``. Parentless features become their own locus.
+    """
+    groups = _group_by_parent(feats)
+    return [
+        _locus(i, seqname, parent, members)
+        for i, ((seqname, parent), members) in enumerate(groups.items())
+    ]
 
 
 def annotate_loci_with_domains(
@@ -308,77 +285,32 @@ def classify(
     domain_classes: Path | None = None,
     scanned_txt: Path | None = None,
 ) -> list[dict[str, str]]:
+    """Classify every locus of one genome's valid track; one record per locus.
+
+    Loci come from the track grouped by ``Parent=``. Each (locus, gene) region is
+    cut from the genome and searched with blastx against the reference; the
+    placement genes are also placed on their reference trees. The placement
+    evidence is published to ``placement_out`` when given. Raises when an
+    external tool fails (``run_tool``).
+    """
     workdir.mkdir(parents=True, exist_ok=True)
     loci = build_loci(parse_valid_full(gff3))  # grouped by Parent= in the valid track
     if domains_parquet and domain_classes and scanned_txt:
         annotate_loci_with_domains(loci, domains_parquet, domain_classes, scanned_txt)
-    bed = workdir / "regions.bed"
-    fna = workdir / "regions.fna"
-    db = workdir / "ref_db"
-    hits_path = workdir / "hits.tsv"
-    write_region_bed(loci, bed)
-    # strand-aware region extraction via Biostrings (Bioconductor), replacing
-    # `bedtools getfasta -s -nameOnly`.
-    run_tool(
-        [
-            "Rscript",
-            str(_EXTRACT_R),
-            "--genome",
-            str(genome),
-            "--bed",
-            str(bed),
-            "--out",
-            str(fna),
-        ]
-    )
-    build_db(ref_dir / "retro_reference.faa", db)
-    search(fna, db, hits_path, evalue, threads)
+    fna, hits_path = _search_regions(loci, genome, ref_dir, workdir, evalue, threads)
 
     taxon_of, gene_of, axis = _ref_maps(ref_dir / "retro_reference.csv")
-    diagnostic = auto_diagnostic(
-        gene_of, taxon_of
-    )  # genes present in only one axis taxon
+    diagnostic = auto_diagnostic(gene_of, taxon_of)  # genes in only one axis taxon
     region_seq = _load_regions(fna)
-    # per region (locus|gene): taxon hits + best frame
-    hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
-    best_frame: dict[str, tuple[float, int]] = {}
-    with hits_path.open(encoding="utf-8") as fh:
-        for line in fh:
-            qid, sid, bits, frame = line.rstrip("\n").split("\t")
-            qid = qid.split("(")[0]
-            taxon = taxon_of.get(sid.split()[0])
-            if not taxon:
-                continue
-            b = float(bits)
-            hits[qid].append((taxon, b))
-            if qid not in best_frame or b > best_frame[qid][0]:
-                best_frame[qid] = (b, int(frame))
-
-    # placement: batch per placement-gene
-    placement: dict[str, dict[str, str]] = {}
-    for gene in placement_genes:
-        queries: dict[str, str] = {}
-        for qid, (_, fr) in best_frame.items():
-            if qid.endswith(f"|{gene}") and qid in region_seq:
-                prot = translate_frame(region_seq[qid], fr).replace("*", "X")
-                if len(prot) >= min_orf:
-                    queries[qid] = prot
-        if queries:
-            res = taxonomy_placement.place(
-                queries, ref_dir, gene, workdir / f"place_{gene}"
-            )
-            placement.update(res)
-
-    # Publish the placement evidence before the scratch workdir is cleared. This
-    # runs for every placement gene, including those where `place()` never ran
-    # (no queries, all-gap alignment, missing tree package) - export writes a
-    # valid empty jplace in that case so a rule declaring it still resolves.
+    hits, best_frame = _read_blastx(hits_path, taxon_of)
+    placement = _place_genes(
+        placement_genes, best_frame, region_seq, min_orf, ref_dir, workdir
+    )
     if placement_out is not None:
-        for gene in sorted(placement_genes):
-            stem = f"{genome_name or genome.stem}.{source}.{gene}"
-            taxonomy_placement.export_placement(
-                workdir / f"place_{gene}", ref_dir, gene, placement_out, stem
-            )
+        stem_prefix = f"{genome_name or genome.stem}.{source}"
+        _export_placements(
+            placement_genes, workdir, ref_dir, placement_out, stem_prefix
+        )
 
     return _assemble(
         loci,
@@ -471,6 +403,140 @@ def segment_of(taxon_call: str, segment_rank: str) -> str:
     return f"unassigned_at_{segment_rank}"
 
 
+def _search_regions(
+    loci: list[dict[str, Any]],
+    genome: Path,
+    ref_dir: Path,
+    workdir: Path,
+    evalue: float,
+    threads: int,
+) -> tuple[Path, Path]:
+    """Cut each (locus, gene) region and blastx it; returns (regions FASTA, hits TSV)."""
+    bed = workdir / "regions.bed"
+    fna = workdir / "regions.fna"
+    hits_path = workdir / "hits.tsv"
+    db = workdir / "ref_db"
+    write_region_bed(loci, bed)
+    # strand-aware region extraction via Biostrings (Bioconductor), replacing
+    # `bedtools getfasta -s -nameOnly`.
+    run_tool(
+        [
+            "Rscript",
+            str(_EXTRACT_R),
+            "--genome",
+            str(genome),
+            "--bed",
+            str(bed),
+            "--out",
+            str(fna),
+        ]
+    )
+    build_db(ref_dir / "retro_reference.faa", db)
+    search(fna, db, hits_path, evalue, threads)
+    return fna, hits_path
+
+
+def _read_blastx(
+    hits_path: Path, taxon_of: dict[str, str]
+) -> tuple[dict[str, list[tuple[str, float]]], dict[str, tuple[float, int]]]:
+    """Per region (``locus|gene``): its (taxon, bitscore) hits and best-scoring frame.
+
+    Hits to accessions missing from the reference table are ignored.
+    """
+    hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    best_frame: dict[str, tuple[float, int]] = {}
+    with hits_path.open(encoding="utf-8") as fh:
+        for line in fh:
+            qid, sid, bits, frame = line.rstrip("\n").split("\t")
+            qid = qid.split("(")[0]
+            taxon = taxon_of.get(sid.split()[0])
+            if not taxon:
+                continue
+            b = float(bits)
+            hits[qid].append((taxon, b))
+            if qid not in best_frame or b > best_frame[qid][0]:
+                best_frame[qid] = (b, int(frame))
+    return hits, best_frame
+
+
+def _placement_queries(
+    gene: str,
+    best_frame: dict[str, tuple[float, int]],
+    region_seq: dict[str, str],
+    min_orf: int,
+) -> dict[str, str]:
+    """One gene's regions translated in their best blastx frame, stops as X.
+
+    Translations shorter than ``min_orf`` residues are left out.
+    """
+    queries: dict[str, str] = {}
+    for qid, (_, frame) in best_frame.items():
+        if qid.endswith(f"|{gene}") and qid in region_seq:
+            prot = translate_frame(region_seq[qid], frame).replace("*", "X")
+            if len(prot) >= min_orf:
+                queries[qid] = prot
+    return queries
+
+
+def _place_genes(
+    placement_genes: set[str],
+    best_frame: dict[str, tuple[float, int]],
+    region_seq: dict[str, str],
+    min_orf: int,
+    ref_dir: Path,
+    workdir: Path,
+) -> dict[str, dict[str, str]]:
+    """Placement calls per region, one batch per placement gene."""
+    placement: dict[str, dict[str, str]] = {}
+    for gene in placement_genes:
+        queries = _placement_queries(gene, best_frame, region_seq, min_orf)
+        if queries:
+            placement.update(
+                taxonomy_placement.place(
+                    queries, ref_dir, gene, workdir / f"place_{gene}"
+                )
+            )
+    return placement
+
+
+def _export_placements(
+    placement_genes: set[str],
+    workdir: Path,
+    ref_dir: Path,
+    out_dir: Path,
+    stem_prefix: str,
+) -> None:
+    """Publish the placement evidence before the scratch workdir is cleared.
+
+    Runs for every placement gene, including those where `place()` never ran (no
+    queries, all-gap alignment, missing tree package): export writes a valid
+    empty jplace in that case so a rule declaring it still resolves.
+    """
+    for gene in sorted(placement_genes):
+        taxonomy_placement.export_placement(
+            workdir / f"place_{gene}", ref_dir, gene, out_dir, f"{stem_prefix}.{gene}"
+        )
+
+
+@dataclass(frozen=True)
+class _Assembly:
+    """The evidence and settings every locus record of one genome is built from."""
+
+    hits: dict[str, list[tuple[str, float]]]
+    placement: dict[str, dict[str, str]]
+    diagnostic: dict[str, str]
+    top_percent: float
+    axis: set[str]
+    main_probes: list[str]
+    gene_priority: dict[str, int]  # main_probes position: lower = more reliable
+    main_set: set[str]
+    ref_version: str
+    confidence_min: float
+    structure_full_min: float
+    source: str
+    segment_rank: str
+
+
 def _assemble(
     loci: list[dict[str, Any]],
     hits: dict[str, list[tuple[str, float]]],
@@ -485,170 +551,190 @@ def _assemble(
     source: str = "ltr-flanked",
     segment_rank: str = "genus",
 ) -> list[dict[str, str]]:
-    # gene reliability + mosaic set derived from the user's ordered main_probes (no hard-coding)
-    gene_priority = {g: i for i, g in enumerate(main_probes)}
-    default_priority = len(main_probes) + 1
-    main_set = set(main_probes)
-    records: list[dict[str, str]] = []
-    for lc in loci:
-        per_gene: dict[str, dict[str, str]] = {}
-        for gene in lc["genes"]:
-            qid = f"{lc['id']}|{gene}"
-            pl = placement.get(qid)
-            if (
-                pl and pl["taxon_call"] in axis
-            ):  # placement refines ONLY when it resolves an axis taxon (ADR-008)
-                per_gene[gene] = pl
-            elif gene in diagnostic:
-                node = diagnostic[gene]
-                per_gene[gene] = {
-                    "taxon_call": node,
-                    "rank": tlca.rank_of(node),
-                    "confidence": "1.000",
-                    "method": "presence",
-                }
-            else:
-                node, wconf = tlca.weighted_lca(hits.get(qid, []), top_percent)
-                per_gene[gene] = {
-                    "taxon_call": node,
-                    "rank": tlca.rank_of(node),
-                    "confidence": f"{wconf:.3f}",
-                    "method": "lca",
-                }
-        # locus summary: choose by marker reliability (POL>GAG>...>ENV), placement preferred,
-        # then confidence - NOT raw confidence (which is competition-dependent and favours ENV).
-        # 'confident' = resolved to an axis taxon (ADR-008), replacing the old rank=='genus'.
-        confident = {g: c for g, c in per_gene.items() if c["taxon_call"] in axis}
-        if confident:
-            best_gene = min(
-                confident,
-                key=lambda g: (
-                    0 if confident[g]["method"] == "placement" else 1,
-                    gene_priority.get(g, default_priority),
-                    -float(confident[g]["confidence"]),
-                ),
-            )
-            call = confident[best_gene]
-            taxon_call, rank, conf, method = (
-                call["taxon_call"],
-                call["rank"],
-                call["confidence"],
-                call["method"],
-            )
-        else:
-            # no axis taxon resolved -> best non-unclassified by rank, else unclassified
-            ranked = [
-                c for c in per_gene.values() if c["taxon_call"] != tlca.UNCLASSIFIED
-            ]
-            call = (
-                ranked[0]
-                if ranked
-                else {
-                    "taxon_call": tlca.UNCLASSIFIED,
-                    "rank": "none",
-                    "confidence": "0.000",
-                    "method": "lca",
-                }
-            )
-            taxon_call, rank, conf, method = (
-                call["taxon_call"],
-                call["rank"],
-                call["confidence"],
-                call["method"],
-            )
-        # mosaic only over main genes (exclude OTHER; ENV noisy but kept as a main gene)
-        distinct = {c["taxon_call"] for g, c in confident.items() if g in main_set}
-        # structural metrics - this loci table IS the genus-founded ERV assembly, so it
-        # carries the same structure the legacy erv_like tier reported: how many main
-        # genes are present (completeness) and whether they sit in canonical genomic order.
-        present_main = [g for g in main_probes if g in lc["genes"]]
-        by_pos = [
-            g
-            for g, _ in sorted(
-                ((g, lc["genes"][g][0]) for g in present_main), key=lambda x: x[1]
-            )
-        ]
-        # `main_probes` IS the declared expected order, by design: the user sets
-        # one list and it serves both gene reliability (above) and this. The
-        # reverse is accepted because a minus-strand provirus reads backwards.
-        # Consequence to keep in mind when reading the column: a POL-first list
-        # (best for reliability) reports canonical=False for a textbook
-        # gag -> pol -> env provirus, since that is neither the list nor its
-        # reverse. Loci with <=2 main genes match either way. Documented under
-        # "How main_probes is used" in docs/configuration.md.
-        canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
-        # Discrete structural class over gene content (ADR-009): a single main
-        # gene is a 'gene' fragment; a multi-gene locus is 'full' once its
-        # completeness clears structure_full_min, else 'partial'. Deliberately
-        # gene-content only - LTR-pair structure lives in the anchoring axis and
-        # the solo-LTR module, not here.
-        completeness_val = len(present_main) / len(main_probes) if main_probes else 0.0
-        if len(present_main) <= 1:
-            structure_class = "gene"
-        elif completeness_val >= structure_full_min:
-            structure_class = "full"
-        else:
-            structure_class = "partial"
-        # blastx evidence depth for this locus (summed over its gene regions). Zero
-        # means the locus carries valid LTR structure but NO protein homology to the
-        # reference - the candidate-novel-retrovirus signal the loss analysis surfaces.
-        n_blastx_hits = sum(len(hits.get(f"{lc['id']}|{g}", [])) for g in lc["genes"])
-        # confidence tag: HC/LC against a user-adjustable floor (classification.confidence_min).
-        # Threshold is inclusive - conf == floor is still High Confidence.
-        confidence_tag = "LC" if float(conf) < confidence_min else "HC"
-        records.append(
-            {
-                "id": lc["id"],
-                "seqname": lc["seqname"],
-                "start": str(lc["start"]),
-                "end": str(lc["end"]),
-                "strand": lc["strand"],
-                "parent": lc["parent"],
-                "genes_present": ",".join(sorted(lc["genes"])),
-                "n_main_genes": str(len(present_main)),
-                "completeness": f"{completeness_val:.3f}",
-                "canonical_order": str(canonical),
-                "structure_class": structure_class,
-                "domain_tier": lc.get("domain_tier", "non_domain"),
-                "domain_evidence": lc.get("domain_evidence", "none"),
-                "domain_names": lc.get("domain_names", ""),
-                "domain_source": lc.get("domain_source", "not_scanned"),
-                "oversized": lc.get("oversized", "False"),
-                "taxon_call": taxon_call,
-                "rank": rank,
-                # Rank roll-up for the segmentation stage (ADR-011): the locus's
-                # ancestor at classification.segment_rank, or unassigned_at_<rank>
-                # when the call is coarser than that rank.
-                "segment": segment_of(taxon_call, segment_rank),
-                "segment_rank": segment_rank,
-                # resolved = the call landed on a declared axis taxon (ADR-008),
-                # vs an honest LCA-backoff to an interior ancestor. Rank-agnostic
-                # 'confident' flag for downstream consumers (default axis=genera
-                # -> resolved iff rank=='genus', so plots stay identical).
-                "resolved": str(taxon_call in axis),
-                "confidence": conf,
-                "confidence_tag": confidence_tag,
-                "n_blastx_hits": str(n_blastx_hits),
-                "method": method,
-                "per_gene": ";".join(
-                    f"{g}:{c['taxon_call']}({c['method']},{c['confidence']})"
-                    for g, c in sorted(per_gene.items())
-                ),
-                "is_mosaic": str(len(distinct) > 1),
-                "mosaic_composition": (
-                    ";".join(
-                        f"{g}:{c['taxon_call']}" for g, c in sorted(confident.items())
-                    )
-                    if len(distinct) > 1
-                    else ""
-                ),
-                "erv_class": tlca.ERV_CLASS.get(taxon_call, ""),
-                "probe_label_set": lc["probe_label_set"],
-                "ref_version": ref_version,
-                "source": source,
-            }
+    """One output record per locus, from its per-gene evidence.
+
+    Gene reliability and the mosaic gene set are derived from the user's ordered
+    ``main_probes``, never hard-coded.
+    """
+    asm = _Assembly(
+        hits=hits,
+        placement=placement,
+        diagnostic=diagnostic,
+        top_percent=top_percent,
+        axis=axis,
+        main_probes=main_probes,
+        gene_priority={g: i for i, g in enumerate(main_probes)},
+        main_set=set(main_probes),
+        ref_version=ref_version,
+        confidence_min=confidence_min,
+        structure_full_min=structure_full_min,
+        source=source,
+        segment_rank=segment_rank,
+    )
+    return [_locus_record(lc, asm) for lc in loci]
+
+
+def _gene_call(qid: str, gene: str, asm: _Assembly) -> dict[str, str]:
+    """The call for one gene region of a locus.
+
+    Placement wins, but only when it resolves an axis taxon (ADR-008); a
+    diagnostic gene is called by presence; anything else by weighted-LCA over
+    its blastx hits.
+    """
+    pl = asm.placement.get(qid)
+    if pl and pl["taxon_call"] in asm.axis:
+        return pl
+    if gene in asm.diagnostic:
+        node = asm.diagnostic[gene]
+        return {
+            "taxon_call": node,
+            "rank": tlca.rank_of(node),
+            "confidence": "1.000",
+            "method": "presence",
+        }
+    node, wconf = tlca.weighted_lca(asm.hits.get(qid, []), asm.top_percent)
+    return {
+        "taxon_call": node,
+        "rank": tlca.rank_of(node),
+        "confidence": f"{wconf:.3f}",
+        "method": "lca",
+    }
+
+
+def _locus_call(
+    per_gene: dict[str, dict[str, str]],
+    confident: dict[str, dict[str, str]],
+    asm: _Assembly,
+) -> dict[str, str]:
+    """The call a locus reports, picked from its genes' calls.
+
+    Among genes resolved to an axis taxon: placement first, then marker
+    reliability (the order of ``main_probes``), then confidence. Raw confidence
+    alone would favour ENV, because it depends on how much competes. With no
+    gene resolved, the first gene with any call is used, else unclassified.
+    """
+    if confident:
+        default_priority = len(asm.main_probes) + 1
+        best_gene = min(
+            confident,
+            key=lambda g: (
+                0 if confident[g]["method"] == "placement" else 1,
+                asm.gene_priority.get(g, default_priority),
+                -float(confident[g]["confidence"]),
+            ),
         )
-    return records
+        return confident[best_gene]
+    ranked = [c for c in per_gene.values() if c["taxon_call"] != tlca.UNCLASSIFIED]
+    return ranked[0] if ranked else dict(_UNCLASSIFIED_CALL)
+
+
+def _structure(
+    genes: dict[str, tuple[int, int]], main_probes: list[str], structure_full_min: float
+) -> dict[str, str]:
+    """Structural columns over gene content: count, completeness, order, class.
+
+    This loci table IS the genus-founded ERV assembly, so it carries the
+    structure the legacy erv_like tier reported.
+    """
+    present_main = [g for g in main_probes if g in genes]
+    by_pos = sorted(present_main, key=lambda g: genes[g][0])
+    # `main_probes` IS the declared expected order, by design: the user sets
+    # one list and it serves both gene reliability and this. The reverse is
+    # accepted because a minus-strand provirus reads backwards. Consequence to
+    # keep in mind when reading the column: a POL-first list (best for
+    # reliability) reports canonical=False for a textbook gag -> pol -> env
+    # provirus, since that is neither the list nor its reverse. Loci with <=2
+    # main genes match either way. Documented under "How main_probes is used"
+    # in docs/configuration.md.
+    canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
+    completeness = len(present_main) / len(main_probes) if main_probes else 0.0
+    # Discrete structural class over gene content (ADR-009): a single main gene
+    # is a 'gene' fragment; a multi-gene locus is 'full' once its completeness
+    # clears structure_full_min, else 'partial'. Deliberately gene-content only:
+    # LTR-pair structure lives in the anchoring axis and the solo-LTR module.
+    if len(present_main) <= 1:
+        structure_class = "gene"
+    elif completeness >= structure_full_min:
+        structure_class = "full"
+    else:
+        structure_class = "partial"
+    return {
+        "n_main_genes": str(len(present_main)),
+        "completeness": f"{completeness:.3f}",
+        "canonical_order": str(canonical),
+        "structure_class": structure_class,
+    }
+
+
+def _mosaic(
+    confident: dict[str, dict[str, str]], main_set: set[str]
+) -> tuple[str, str]:
+    """(is_mosaic, composition): main genes resolved to more than one taxon.
+
+    Only main genes count (OTHER is excluded; ENV is noisy but kept as a main
+    gene); the composition lists every resolved gene.
+    """
+    distinct = {c["taxon_call"] for g, c in confident.items() if g in main_set}
+    if len(distinct) <= 1:
+        return "False", ""
+    return "True", ";".join(
+        f"{g}:{c['taxon_call']}" for g, c in sorted(confident.items())
+    )
+
+
+def _locus_record(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
+    """The output row for one locus; column order is the ``--out`` CSV's."""
+    per_gene = {g: _gene_call(f"{lc['id']}|{g}", g, asm) for g in lc["genes"]}
+    # 'confident' = resolved to an axis taxon (ADR-008), not the old rank=='genus'.
+    confident = {g: c for g, c in per_gene.items() if c["taxon_call"] in asm.axis}
+    call = _locus_call(per_gene, confident, asm)
+    taxon_call = call["taxon_call"]
+    is_mosaic, composition = _mosaic(confident, asm.main_set)
+    # blastx evidence depth, summed over the locus's gene regions. Zero means valid
+    # LTR structure but NO protein homology to the reference: the candidate-novel
+    # retrovirus signal the loss analysis surfaces.
+    n_blastx_hits = sum(len(asm.hits.get(f"{lc['id']}|{g}", [])) for g in lc["genes"])
+    return {
+        "id": lc["id"],
+        "seqname": lc["seqname"],
+        "start": str(lc["start"]),
+        "end": str(lc["end"]),
+        "strand": lc["strand"],
+        "parent": lc["parent"],
+        "genes_present": ",".join(sorted(lc["genes"])),
+        **_structure(lc["genes"], asm.main_probes, asm.structure_full_min),
+        "domain_tier": lc.get("domain_tier", "non_domain"),
+        "domain_evidence": lc.get("domain_evidence", "none"),
+        "domain_names": lc.get("domain_names", ""),
+        "domain_source": lc.get("domain_source", "not_scanned"),
+        "oversized": lc.get("oversized", "False"),
+        "taxon_call": taxon_call,
+        "rank": call["rank"],
+        # Rank roll-up for the segmentation stage (ADR-011): the locus's
+        # ancestor at classification.segment_rank, or unassigned_at_<rank>.
+        "segment": segment_of(taxon_call, asm.segment_rank),
+        "segment_rank": asm.segment_rank,
+        # resolved = the call landed on a declared axis taxon (ADR-008), vs an
+        # honest LCA backoff to an interior ancestor.
+        "resolved": str(taxon_call in asm.axis),
+        "confidence": call["confidence"],
+        # HC/LC against classification.confidence_min; the floor itself is HC.
+        "confidence_tag": "LC"
+        if float(call["confidence"]) < asm.confidence_min
+        else "HC",
+        "n_blastx_hits": str(n_blastx_hits),
+        "method": call["method"],
+        "per_gene": ";".join(
+            f"{g}:{c['taxon_call']}({c['method']},{c['confidence']})"
+            for g, c in sorted(per_gene.items())
+        ),
+        "is_mosaic": is_mosaic,
+        "mosaic_composition": composition,
+        "erv_class": tlca.ERV_CLASS.get(taxon_call, ""),
+        "probe_label_set": lc["probe_label_set"],
+        "ref_version": asm.ref_version,
+        "source": asm.source,
+    }
 
 
 def gate_classified(records: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -941,19 +1027,40 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _load_reference_taxonomy(ref_dir: Path) -> None:
+    """Load the reference's own taxonomy and ERV classes when the build wrote them."""
+    tax = ref_dir / "taxonomy.tsv"
+    if tax.exists():
+        tlca.load_taxonomy(tax)
+    ervc = ref_dir / "erv_class.tsv"
+    if ervc.exists():
+        tlca.load_erv_class(ervc)
+
+
+def _write_outputs(a: argparse.Namespace, records: list[dict[str, str]]) -> None:
+    """Write whichever outputs were asked for: ad-hoc CSV, tables, IGV track."""
+    if a.out and records:  # ad-hoc single CSV (back-compat for trial docs)
+        with a.out.open("w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(records[0].keys()))
+            w.writeheader()
+            w.writerows(records)
+        logger.info("wrote -> %s", a.out)
+    if a.out_parquet and a.out_csv:  # production dual-table output
+        write_tables(records, a.out_parquet, a.out_csv)
+        logger.info("wrote tables -> %s, %s", a.out_parquet, a.out_csv)
+    if a.out_gff3 and a.out_bed:  # production IGV track
+        write_track(records, a.out_gff3, a.out_bed)
+        logger.info("wrote track: %s", a.out_gff3)
+
+
 def main() -> None:
+    """Classify one genome's loci and write the requested outputs."""
     a = _build_arg_parser().parse_args()
     # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
     # path says which, and keeps parallel genomes apart.
     job_logging(a.log, f"taxonomy_classify_{a.source}")
     logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
-
-    tax = a.ref_dir / "taxonomy.tsv"
-    if tax.exists():
-        tlca.load_taxonomy(tax)
-    ervc = a.ref_dir / "erv_class.tsv"
-    if ervc.exists():
-        tlca.load_erv_class(ervc)
+    _load_reference_taxonomy(a.ref_dir)
     pgenes = {g.strip().upper() for g in a.placement_genes.split(",") if g.strip()}
     main_probes = [g.strip().upper() for g in a.main_probes.split(",") if g.strip()]
 
@@ -986,22 +1093,9 @@ def main() -> None:
     if a.out_counts:
         write_counts(records, kept, a.source, a.out_counts)
         logger.info("wrote counts -> %s", a.out_counts)
-    records = kept
-
-    if a.out and records:  # ad-hoc single CSV (back-compat for trial docs)
-        with a.out.open("w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(records[0].keys()))
-            w.writeheader()
-            w.writerows(records)
-        logger.info("wrote -> %s", a.out)
-    if a.out_parquet and a.out_csv:  # production dual-table output
-        write_tables(records, a.out_parquet, a.out_csv)
-        logger.info("wrote tables -> %s, %s", a.out_parquet, a.out_csv)
-    if a.out_gff3 and a.out_bed:  # production IGV track
-        write_track(records, a.out_gff3, a.out_bed)
-        logger.info("wrote track: %s", a.out_gff3)
-    called = sum(1 for r in records if r.get("taxon_call"))
-    logger.log(OK, "%s loci, %s with a taxon call", f"{len(records):,}", f"{called:,}")
+    _write_outputs(a, kept)
+    called = sum(1 for r in kept if r.get("taxon_call"))
+    logger.log(OK, "%s loci, %s with a taxon call", f"{len(kept):,}", f"{called:,}")
 
 
 if __name__ == "__main__":

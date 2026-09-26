@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from log import OK, PipelineError, job_logging, run_main
@@ -92,6 +93,22 @@ def missing_message(missing: list[str], hmm_path: Path) -> str:
     )
 
 
+def _hmm_records(lines: Iterable[str]) -> Iterator[tuple[str | None, list[str]]]:
+    """Each ``//``-terminated HMM record as (accession without version, its lines).
+
+    Lines after the last ``//`` are not a complete record and are not yielded.
+    """
+    record: list[str] = []
+    accession: str | None = None
+    for line in lines:
+        record.append(line)
+        if line.startswith("ACC "):
+            accession = line.split()[1].split(".")[0]
+        elif line.startswith("//"):
+            yield accession, record
+            record, accession = [], None
+
+
 def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
     """Copy the records named by `classes_tsv` from `hmm_path` into `out_path`.
 
@@ -106,21 +123,14 @@ def subset_pfam(hmm_path: Path, classes_tsv: Path, out_path: Path) -> int:
         )
 
     found: set[str] = set()
-    record: list[str] = []
-    accession: str | None = None
     with (
         hmm_path.open(encoding="utf-8") as source,
         out_path.open("w", encoding="utf-8") as out,
     ):
-        for line in source:
-            record.append(line)
-            if line.startswith("ACC "):
-                accession = line.split()[1].split(".")[0]
-            elif line.startswith("//"):
-                if accession in wanted:
-                    out.writelines(record)
-                    found.add(accession)
-                record, accession = [], None
+        for accession, record in _hmm_records(source):
+            if accession in wanted:
+                out.writelines(record)
+                found.add(accession)
 
     missing = sorted(wanted - found)
     if missing:

@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+from itertools import combinations
 from pathlib import Path
 
 import taxonomy_lca as tlca
@@ -73,25 +74,46 @@ def gene_subset(
     return wanted
 
 
+def _pair_identity(a: str, b: str) -> float | None:
+    """Fraction identical over the columns where neither sequence has a gap.
+
+    None when the two share no such column.
+    """
+    cols = [(x, y) for x, y in zip(a, b, strict=False) if x != "-" and y != "-"]
+    if not cols:
+        return None
+    return sum(x == y for x, y in cols) / len(cols)
+
+
+def _mean_pairwise_identity(seqs: list[str], max_pairs: int = 40) -> float:
+    """Mean % identity over the first ``max_pairs`` pairs that share a column.
+
+    Pairs are taken in alignment order, (0,1), (0,2), ..., (1,2), ..., so the
+    value depends on the ORDER of the sequences, not only on the alignment: the
+    same sequences in another order sample other pairs. Kept that way so the
+    logged number stays comparable across runs. Re-measuring it on a reordered
+    subset and calling the documented value stale is a known trap.
+    """
+    # A plain running total on purpose: from Python 3.12 sum() compensates float
+    # error and would move the last bits of the logged value.
+    total, pairs = 0.0, 0
+    for a, b in combinations(seqs, 2):
+        identity = _pair_identity(a, b)
+        if identity is None:
+            continue
+        total += identity
+        pairs += 1
+        if pairs == max_pairs:
+            break
+    return 100.0 * total / pairs if pairs else 0.0
+
+
 def alignment_quality(afa: Path) -> str:
     """n seqs, columns, % gap, mean pairwise %identity (sampled) - a quality flag."""
     seqs = [str(r.seq) for r in SeqIO.parse(str(afa), "fasta")]  # type: ignore[no-untyped-call]
     ncol = len(seqs[0]) if seqs else 0
     gap = sum(s.count("-") for s in seqs) / max(1, len(seqs) * ncol)
-    # mean pairwise identity over non-gap columns (sample up to 40 pairs)
-    pairs, idents = 0, 0.0
-    for i in range(len(seqs)):
-        for j in range(i + 1, len(seqs)):
-            a, b = seqs[i], seqs[j]
-            cols = [(x, y) for x, y in zip(a, b, strict=False) if x != "-" and y != "-"]
-            if cols:
-                idents += sum(x == y for x, y in cols) / len(cols)
-                pairs += 1
-            if pairs >= 40:
-                break
-        if pairs >= 40:
-            break
-    mpi = 100.0 * idents / pairs if pairs else 0.0
+    mpi = _mean_pairwise_identity(seqs)
     flag = "OK" if mpi >= 25 else "LOW (tree may be unreliable)"
     return f"n={len(seqs)} cols={ncol} gap={100 * gap:.0f}% mean_pident={mpi:.1f}% -> {flag}"
 
