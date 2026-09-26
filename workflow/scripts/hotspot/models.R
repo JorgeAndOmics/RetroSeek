@@ -90,41 +90,38 @@ fit_nb_model <- function(window_df,
     .data$effective_bp > 0L,
     .data$effective_bp / as.integer(window_size) >= .MIN_EFFECTIVE_FRACTION
   )
-  n_nonzero <- sum(fit_data$count > 0L)
-  if (n_nonzero < as.integer(min_nonzero)) {
-    return(list(
-      model = NULL, family = NA_character_, theta = NA_real_,
-      status = "insufficient_data", fit_data = fit_data,
-      strata = isTRUE(strata_by_chromosome)
-    ))
+  if (sum(fit_data$count > 0L) < as.integer(min_nonzero)) {
+    return(.no_fit("insufficient_data", fit_data, isTRUE(strata_by_chromosome)))
   }
-
-  # Drop chrom_stratum levels with no variability (a stratum that exists
-  # in fit_data but has only zeros provides no information and risks
-  # rank-deficient fits).
-  formula_str <- if (isTRUE(strata_by_chromosome) &&
-                     length(unique(fit_data$chrom_stratum)) > 1L) {
-    "count ~ chrom_stratum + offset(log(effective_bp))"
-  } else {
-    "count ~ 1 + offset(log(effective_bp))"
+  formula_str <- .nb_formula(fit_data, strata_by_chromosome)
+  strata <- grepl("chrom_stratum", formula_str, fixed = TRUE)
+  nb_attempt <- .fit_glm_nb_safely(stats::as.formula(formula_str), fit_data)
+  if (is.null(nb_attempt$model) || nb_attempt$theta_warning) {
+    return(.no_fit("failed", fit_data, strata))
   }
-  formula <- stats::as.formula(formula_str)
+  list(
+    model = nb_attempt$model, family = "nb",
+    theta = nb_attempt$model$theta,
+    status = "ok", fit_data = fit_data, strata = strata
+  )
+}
 
-  nb_attempt <- .fit_glm_nb_safely(formula, fit_data)
-  if (!is.null(nb_attempt$model) && !nb_attempt$theta_warning) {
-    return(list(
-      model = nb_attempt$model, family = "nb",
-      theta = nb_attempt$model$theta,
-      status = "ok", fit_data = fit_data,
-      strata = grepl("chrom_stratum", formula_str, fixed = TRUE)
-    ))
-  }
-
+#' The result of a fit that did not happen or did not converge.
+.no_fit <- function(status, fit_data, strata) {
   list(
     model = NULL, family = NA_character_, theta = NA_real_,
-    status = "failed", fit_data = fit_data,
-    strata = grepl("chrom_stratum", formula_str, fixed = TRUE)
+    status = status, fit_data = fit_data, strata = strata
   )
+}
+
+#' The model formula: chromosome strata as a covariate when asked for and when
+#' the fit data spans more than one stratum (a single level would make the
+#' covariate rank-deficient), else an intercept-only model.
+.nb_formula <- function(fit_data, strata_by_chromosome) {
+  if (isTRUE(strata_by_chromosome) && length(unique(fit_data$chrom_stratum)) > 1L) {
+    return("count ~ chrom_stratum + offset(log(effective_bp))")
+  }
+  "count ~ 1 + offset(log(effective_bp))"
 }
 
 

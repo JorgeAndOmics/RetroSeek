@@ -81,6 +81,63 @@ load_hits_gff <- function(gff_path) {
 }
 
 
+#' Stop, naming the missing ones, when the catalog lacks a required column.
+.check_catalog_columns <- function(df, catalog_path) {
+  missing <- setdiff(c("species", "seqname", "start", "end"), colnames(df))
+  if (length(missing) > 0L) {
+    stop(sprintf(
+      "Catalog %s is missing required column(s): %s. Re-run taxonomy_plot_generator to regenerate it.",
+      catalog_path, paste(missing, collapse = ", ")
+    ), call. = FALSE)
+  }
+}
+
+#' The configured display name of a genome, or its stem when the map lacks it.
+.display_name <- function(genome, species_map) {
+  if (!is.null(species_map) && !is.null(species_map[[genome]])) {
+    return(as.character(species_map[[genome]]))
+  }
+  genome
+}
+
+#' The catalog rows of one genome, found under its stem or its display name.
+#' Stops when there are none: that is a stage that has not run or a species map
+#' that does not match, never a genome without ERVs.
+.catalog_rows_of_genome <- function(df, genome, species_map, catalog_path) {
+  display <- .display_name(genome, species_map)
+  wanted <- unique(.species_key(c(genome, display)))
+  df <- df[.species_key(df$species) %in% wanted, , drop = FALSE]
+  if (nrow(df) == 0L) {
+    stop(sprintf(
+      paste0(
+        "No catalog rows for genome '%s' (display name '%s') in %s. Either the ",
+        "classification stage has not run for this genome, or the config `species:` ",
+        "map does not match the catalog's species values."
+      ),
+      genome, display, catalog_path
+    ), call. = FALSE)
+  }
+  df
+}
+
+#' The rows of one tier (`source`); stops when the column or the rows are missing.
+.catalog_rows_of_tier <- function(df, source, genome, catalog_path) {
+  if (!"source" %in% colnames(df)) {
+    stop(sprintf(
+      "Catalog %s has no `source` column, so hotspot.source='%s' cannot be applied.",
+      catalog_path, source
+    ), call. = FALSE)
+  }
+  df <- df[as.character(df$source) == source, , drop = FALSE]
+  if (nrow(df) == 0L) {
+    stop(sprintf(
+      "No '%s' loci for genome '%s' in %s. Set hotspot.source to 'both' or check the tier.",
+      source, genome, catalog_path
+    ), call. = FALSE)
+  }
+  df
+}
+
 #' Load one genome's loci from the authoritative catalog (ADR-012).
 #'
 #' The catalog is the per-locus, non-overlapping ERV assembly: one row per
@@ -102,48 +159,10 @@ load_hits_gff <- function(gff_path) {
 load_catalog_loci <- function(catalog_path, genome, species_map = NULL,
                               source = "ltr-flanked") {
   df <- readr::read_csv(catalog_path, show_col_types = FALSE, progress = FALSE)
-  required <- c("species", "seqname", "start", "end")
-  missing <- setdiff(required, colnames(df))
-  if (length(missing) > 0L) {
-    stop(sprintf(
-      "Catalog %s is missing required column(s): %s. Re-run taxonomy_plot_generator to regenerate it.",
-      catalog_path, paste(missing, collapse = ", ")
-    ), call. = FALSE)
-  }
-
-  # A genome may appear under its stem or its display name; accept both.
-  display <- if (!is.null(species_map) && !is.null(species_map[[genome]])) {
-    as.character(species_map[[genome]])
-  } else {
-    genome
-  }
-  wanted <- unique(.species_key(c(genome, display)))
-  df <- df[.species_key(df$species) %in% wanted, , drop = FALSE]
-  if (nrow(df) == 0L) {
-    stop(sprintf(
-      paste0(
-        "No catalog rows for genome '%s' (display name '%s') in %s. Either the ",
-        "classification stage has not run for this genome, or the config `species:` ",
-        "map does not match the catalog's species values."
-      ),
-      genome, display, catalog_path
-    ), call. = FALSE)
-  }
-
+  .check_catalog_columns(df, catalog_path)
+  df <- .catalog_rows_of_genome(df, genome, species_map, catalog_path)
   if (!identical(source, "both")) {
-    if (!"source" %in% colnames(df)) {
-      stop(sprintf(
-        "Catalog %s has no `source` column, so hotspot.source='%s' cannot be applied.",
-        catalog_path, source
-      ), call. = FALSE)
-    }
-    df <- df[as.character(df$source) == source, , drop = FALSE]
-    if (nrow(df) == 0L) {
-      stop(sprintf(
-        "No '%s' loci for genome '%s' in %s. Set hotspot.source to 'both' or check the tier.",
-        source, genome, catalog_path
-      ), call. = FALSE)
-    }
+    df <- .catalog_rows_of_tier(df, source, genome, catalog_path)
   }
 
   gr <- GenomicRanges::GRanges(
