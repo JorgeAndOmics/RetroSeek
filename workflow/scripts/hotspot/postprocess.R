@@ -190,6 +190,77 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 }
 
 
+#' Count, per region, the overlaps selected by `mask` (all of them when TRUE).
+#' A NULL mask means the column is absent: every region counts 0.
+.tally_regions <- function(region_i, n, mask) {
+  out <- integer(n)
+  if (is.null(mask)) return(out)
+  t <- table(region_i[mask])
+  out[as.integer(names(t))] <- as.integer(t)
+  out
+}
+
+#' The most frequent non-blank value among one region's loci; NA when none.
+#' sort() breaks count ties in the table's level order, so the output is
+#' deterministic for a given locale.
+.dominant_value <- function(v) {
+  v <- v[!is.na(v) & nzchar(v)]
+  if (length(v) == 0L) return(NA_character_)
+  names(sort(table(v), decreasing = TRUE))[1]
+}
+
+#' Mean of one region's numeric values, NA when all are missing.
+.mean_or_na <- function(v) {
+  if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
+}
+
+#' Fill the per-region summary `column` of `gr` from `values` split by region.
+.fill_by_region <- function(gr, column, values, region_i, reduce, type) {
+  if (is.null(values)) return(gr)
+  per_region <- vapply(split(values, region_i), reduce, type)
+  S4Vectors::mcols(gr)[[column]][as.integer(names(per_region))] <- unname(per_region)
+  gr
+}
+
+#' The zero / NA composition columns every region starts with.
+.empty_composition <- function(merged_gr) {
+  n <- length(merged_gr)
+  for (column in c("n_loci", "n_full", "n_partial", "n_gene",
+                   "n_ltr_flanked", "n_orphan")) {
+    S4Vectors::mcols(merged_gr)[[column]] <- rep(0L, n)
+  }
+  S4Vectors::mcols(merged_gr)$dominant_taxon  <- rep(NA_character_, n)
+  S4Vectors::mcols(merged_gr)$mean_confidence <- rep(NA_real_, n)
+  merged_gr
+}
+
+#' Which locus overlaps which region, as two parallel integer vectors; NULL when
+#' there are no regions, no loci, or no overlap.
+.overlap_index <- function(loci, regions) {
+  if (length(regions) == 0L || length(loci) == 0L) return(NULL)
+  ov <- GenomicRanges::findOverlaps(loci, regions, ignore.strand = TRUE)
+  if (length(ov) == 0L) return(NULL)
+  list(locus = as.integer(S4Vectors::queryHits(ov)),
+       region = as.integer(S4Vectors::subjectHits(ov)))
+}
+
+#' `values == level`, or NULL when the column is absent (so it counts zero).
+.equal_or_null <- function(values, level) {
+  if (is.null(values)) NULL else values == level
+}
+
+#' Numeric confidence at the overlapping loci; NULL when the column is absent.
+#' Orphan loci carry a blank confidence, which reads as NA.
+.locus_confidence <- function(mc, locus_i) {
+  if (!"confidence" %in% colnames(mc)) return(NULL)
+  suppressWarnings(as.numeric(mc$confidence[locus_i]))
+}
+
+#' A loci column at the overlapping loci, as character; NULL when absent.
+.locus_column <- function(mc, name, locus_i) {
+  if (name %in% colnames(mc)) as.character(mc[[name]][locus_i]) else NULL
+}
+
 #' Annotate merged hotspot regions with the composition of the loci inside them
 #' (ADR-012).
 #'
@@ -214,70 +285,32 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 #' @param loci      GRanges of the loci that were counted
 #' @param group_col mcols column naming the lineage (e.g. "segment")
 annotate_hotspot_composition <- function(merged_gr, loci, group_col = "segment") {
+  merged_gr <- .empty_composition(merged_gr)
   n <- length(merged_gr)
-  .rep <- function(value) rep(value, n)
-  S4Vectors::mcols(merged_gr)$n_loci          <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$n_full          <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$n_partial       <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$n_gene          <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$n_ltr_flanked   <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$n_orphan        <- .rep(0L)
-  S4Vectors::mcols(merged_gr)$dominant_taxon  <- .rep(NA_character_)
-  S4Vectors::mcols(merged_gr)$mean_confidence <- .rep(NA_real_)
-  if (n == 0L || length(loci) == 0L) return(merged_gr)
-
-  ov <- GenomicRanges::findOverlaps(loci, merged_gr, ignore.strand = TRUE)
-  if (length(ov) == 0L) return(merged_gr)
-  locus_i  <- as.integer(S4Vectors::queryHits(ov))
-  region_i <- as.integer(S4Vectors::subjectHits(ov))
+  hits <- .overlap_index(loci, merged_gr)
+  if (is.null(hits)) return(merged_gr)
+  locus_i  <- hits$locus
+  region_i <- hits$region
 
   mc <- S4Vectors::mcols(loci)
-  col_of <- function(name) {
-    if (name %in% colnames(mc)) as.character(mc[[name]][locus_i]) else NULL
+  structure_class <- .locus_column(mc, "structure_class", locus_i)
+  tier <- .locus_column(mc, "source", locus_i)
+  counts <- list(
+    n_loci        = rep(TRUE, length(region_i)),
+    n_full        = .equal_or_null(structure_class, "full"),
+    n_partial     = .equal_or_null(structure_class, "partial"),
+    n_gene        = .equal_or_null(structure_class, "gene"),
+    n_ltr_flanked = .equal_or_null(tier, "ltr-flanked"),
+    n_orphan      = .equal_or_null(tier, "orphan")
+  )
+  for (column in names(counts)) {
+    S4Vectors::mcols(merged_gr)[[column]] <-
+      .tally_regions(region_i, n, counts[[column]])
   }
-  structure_class <- col_of("structure_class")
-  source_col      <- col_of("source")
-  taxon           <- col_of(group_col)
-  conf <- if ("confidence" %in% colnames(mc)) {
-    suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: blank -> NA
-  } else {
-    NULL
-  }
-
-  # tapply over the region index keeps this a single pass per statistic.
-  tally <- function(mask) {
-    out <- integer(n)
-    if (is.null(mask)) return(out)
-    t <- table(region_i[mask])
-    out[as.integer(names(t))] <- as.integer(t)
-    out
-  }
-  S4Vectors::mcols(merged_gr)$n_loci <- tally(rep(TRUE, length(region_i)))
-  if (!is.null(structure_class)) {
-    S4Vectors::mcols(merged_gr)$n_full    <- tally(structure_class == "full")
-    S4Vectors::mcols(merged_gr)$n_partial <- tally(structure_class == "partial")
-    S4Vectors::mcols(merged_gr)$n_gene    <- tally(structure_class == "gene")
-  }
-  if (!is.null(source_col)) {
-    S4Vectors::mcols(merged_gr)$n_ltr_flanked <- tally(source_col == "ltr-flanked")
-    S4Vectors::mcols(merged_gr)$n_orphan      <- tally(source_col == "orphan")
-  }
-  if (!is.null(taxon)) {
-    dom <- vapply(split(taxon, region_i), function(v) {
-      v <- v[!is.na(v) & nzchar(v)]
-      if (length(v) == 0L) return(NA_character_)
-      t <- table(v)
-      # sort() breaks count ties alphabetically -> deterministic output
-      names(sort(t, decreasing = TRUE))[1]
-    }, character(1))
-    S4Vectors::mcols(merged_gr)$dominant_taxon[as.integer(names(dom))] <- unname(dom)
-  }
-  if (!is.null(conf)) {
-    mc_mean <- vapply(split(conf, region_i), function(v) {
-      if (all(is.na(v))) NA_real_ else mean(v, na.rm = TRUE)
-    }, numeric(1))
-    S4Vectors::mcols(merged_gr)$mean_confidence[as.integer(names(mc_mean))] <-
-      unname(mc_mean)
-  }
-  merged_gr
+  conf <- .locus_confidence(mc, locus_i)
+  merged_gr <- .fill_by_region(merged_gr, "dominant_taxon",
+                               .locus_column(mc, group_col, locus_i), region_i,
+                               .dominant_value, character(1))
+  .fill_by_region(merged_gr, "mean_confidence", conf, region_i,
+                  .mean_or_na, numeric(1))
 }
