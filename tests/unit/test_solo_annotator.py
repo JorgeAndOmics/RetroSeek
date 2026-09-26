@@ -383,3 +383,61 @@ def test_solo_table_uses_catalog_column_names(tmp_path: Path, loci_csv: Path) ->
     body = csv_path.read_text().splitlines()[1]
     assert "solo-ltr" in body
     assert "solo_ltr" in body  # structure_class
+
+
+# ---------------------------------------------------------------------
+# Tie-breaks and malformed rows (pinned in the quality campaign, 2026-09-26)
+# ---------------------------------------------------------------------
+def test_nearest_locus_tie_goes_to_the_locus_listed_first(tmp_path: Path) -> None:
+    loci = tmp_path / "tie.loci.csv"
+    loci.write_text(
+        LOCI_HEADER
+        + "\n"
+        + _locus_row("L0", "chr1", 1000, 1099, "Gammaretrovirus", "Gammaretrovirus")
+        + "\n"
+        + _locus_row("L1", "chr1", 1300, 1399, "Betaretrovirus", "Betaretrovirus")
+        + "\n"
+    )
+    solo_list = _write_solo_list(
+        tmp_path / "s.txt", [("chr1", 1150, 1249, "family7#LTR/Copia", 0.9)]
+    )
+    solos = parse_solo_list(solo_list)
+    annotate_solos(solos, parse_loci_csv(loci), max_distance=10000)
+    assert solos[0].source_loci == ["L0"]  # both 51 bp away; L0 comes first
+
+
+def test_equal_library_overlaps_are_ordered_by_locus_id(tmp_path: Path) -> None:
+    loci = tmp_path / "tie.loci.csv"
+    loci.write_text(
+        LOCI_HEADER
+        + "\n"
+        + _locus_row("L9", "chr1", 1000, 1099, "Gammaretrovirus", "Gammaretrovirus")
+        + "\n"
+        + _locus_row("L1", "chr1", 2000, 2099, "Betaretrovirus", "Betaretrovirus")
+        + "\n"
+    )
+    solo_list = _write_solo_list(
+        tmp_path / "s.txt", [("chr1", 9000, 9300, "chr1:900..3000#LTR/Gypsy", 0.9)]
+    )
+    solos = parse_solo_list(solo_list)
+    annotate_solos(solos, parse_loci_csv(loci), max_distance=10000)
+    assert solos[0].source_loci == ["L1", "L9"]  # 100 bp each: id decides
+    assert solos[0].taxon_call == "Betaretrovirus"
+
+
+def test_parse_solo_list_skips_comments_blank_and_unparseable_rows(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "s.txt"
+    path.write_text(
+        "# header\n"
+        "\n"
+        "\t\t\t\t\t\n"
+        "chr1\tx\t20\tchr1:1..20\tlib\t0.5\n"
+        "chr1\t1\t20\n"
+        "chr1\t1\t20\tchr1:1..20\tlib\t0.5\n"
+    )
+    solos = parse_solo_list(path)
+    assert [(s.chrom, s.start, s.end, s.coverage) for s in solos] == [
+        ("chr1", 1, 20, 0.5)
+    ]

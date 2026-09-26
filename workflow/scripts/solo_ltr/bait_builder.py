@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from log import OK, PipelineError, job_logging, run_main
+from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +90,8 @@ def erv_bearing_parents(loci_csv: Path) -> set[str]:
 def parse_arms(gff3: Path) -> Iterator[Arm]:
     """Yield every LTR arm in the flanking-LTR track."""
     with gff3.open() as handle:
-        for line in handle:
-            if line.startswith("#"):
-                continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 9 or fields[2] != ARM_FEATURE:
+        for fields in tab_rows(handle, 9):
+            if fields[2] != ARM_FEATURE:
                 continue
             attributes = _attributes(fields[8])
             parent = attributes.get("Parent", "")
