@@ -132,6 +132,10 @@ branch = true
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
+# The floor only rises: 65% at the quality setup (2026-09-26), 68.85% after the
+# campaign's characterization tests. `make test-py` enforces it; CI runs a
+# faster subset without coverage.
+fail_under = 68
 show_missing = true
 skip_empty = true
 exclude_lines = [

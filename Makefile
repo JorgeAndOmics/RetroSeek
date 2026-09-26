@@ -45,8 +45,8 @@ typecheck: ## mypy strict on Python sources
 # -- testing ---------------------------------------------
 test: test-py test-r ## Run Python and R tests
 
-test-py: ## pytest
-	pytest
+test-py: ## pytest, with the coverage floor from pyproject.toml
+	pytest --cov --cov-report=
 
 test-r: ## R testthat suite
 	Rscript -e 'testthat::test_dir("workflow/tests/testthat")'
