@@ -149,6 +149,17 @@ test_that("annotate_ltr_flanked_hits emits no domain label", {
   expect_false("domain_hit_class" %in% names(S4Vectors::mcols(out)))
 })
 
+test_that("annotate_ltr_flanked_hits gives NA parents when there are no elements", {
+  # The stage itself never passes candidates without elements (find_candidate_hits
+  # returns none then), but a direct caller got "0 elements in value to replace".
+  # With no element, no candidate has a parent.
+  f <- .parent_fixture()
+  out <- annotate_ltr_flanked_hits(f$candidates, f$retros[FALSE])
+  expect_equal(length(out), length(f$candidates))
+  expect_true(all(is.na(S4Vectors::mcols(out)$Parent)))
+  expect_type(S4Vectors::mcols(out)$Parent, "character")
+})
+
 test_that("annotate_ltr_flanked_hits on empty input returns a typed-empty GRanges", {
   f <- .parent_fixture()
   out <- annotate_ltr_flanked_hits(f$candidates[FALSE], f$retros)

@@ -85,3 +85,32 @@ test_that("a single-virus locus is untouched by either strategy", {
     expect_equal(df$probe_type, "main", info = strategy)
   }
 })
+
+# ---------------------------------------------------------------------------
+# attach_probe_category: main / accessory / mixed per range, from a probe column
+# that is either separator-joined text or a CharacterList.
+# ---------------------------------------------------------------------------
+.probe_gr <- function(probe) {
+  gr <- GenomicRanges::GRanges("c1", IRanges::IRanges(seq_along(probe), width = 1L))
+  S4Vectors::mcols(gr)$probe <- probe
+  gr
+}
+
+test_that("attach_probe_category reads joined text", {
+  probe <- c("POL", "REX", "POL; REX", "", "POL; ", NA, "GAG; POL")
+  out <- attach_probe_category(.probe_gr(probe), c("POL", "GAG"))
+  expect_equal(S4Vectors::mcols(out)$probe_category,
+               c("main", "accessory", "mixed", NA, "main", "accessory", "main"))
+})
+
+test_that("attach_probe_category reads a CharacterList", {
+  probe <- IRanges::CharacterList(list("POL", c("POL", "REX"), character(0), c("", "REX")))
+  out <- attach_probe_category(.probe_gr(probe), c("POL"))
+  expect_equal(S4Vectors::mcols(out)$probe_category,
+               c("main", "mixed", NA, "accessory"))
+})
+
+test_that("attach_probe_category keeps an empty range set typed", {
+  out <- attach_probe_category(GenomicRanges::GRanges(), c("POL"))
+  expect_identical(S4Vectors::mcols(out)$probe_category, character(0))
+})

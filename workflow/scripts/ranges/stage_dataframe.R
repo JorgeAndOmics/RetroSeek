@@ -87,6 +87,33 @@ build_stage_hits_df <- function(gr_virus, retrotransposons, element_hits,
 }
 
 
+# A character mcols column of `gr`; character(0) for an empty set, whose
+# mcols may lack the column altogether.
+.mcol_chr <- function(gr, column) {
+  if (length(gr) == 0L) return(character(0))
+  as.character(S4Vectors::mcols(gr)[[column]])
+}
+
+# How many child features name each parent, in the order of `parents`.
+.count_per_parent <- function(child_parents, parents) {
+  as.integer(table(factor(child_parents, levels = parents)))
+}
+
+# Raw Pfam domain names per parent, "; "-joined and sorted. Deliberately
+# unclassified, and deliberately NOT called `domain_names`: the catalog has a
+# column of that name holding the scan's LOCUS-grain families (ADR-016).
+.element_domains <- function(domain_names, domain_parents, parents) {
+  by_parent <- split(domain_names, factor(domain_parents, levels = parents))
+  vapply(by_parent, function(x) {
+    x <- x[!is.na(x)]
+    if (length(x) == 0L) return(NA_character_)
+    # radix = byte order, the same on every machine; the default follows the
+    # locale and wrote "Gag_p10; GP41" here but "GP41; Gag_p10" elsewhere.
+    paste(sort(unique(x), method = "radix"), collapse = "; ")
+  }, character(1))
+}
+
+
 # One row per retrotransposon. Structural-completeness flags are derived by
 # grouping the LTRdigest child features by `Parent` ID. Two `Parent` namespaces
 # are in play: flanking LTRs, Pfam domains and RR-tracts (PPT) are children of
@@ -110,64 +137,32 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
   if (length(retrotransposons) == 0L) return(empty)
 
   retro_ids <- as.character(S4Vectors::mcols(retrotransposons)$ID)
-  retro_lvl <- factor(retro_ids, levels = retro_ids)
   # Each retrotransposon's own `Parent` is the enclosing `repeat_region` ID -
   # the namespace that target-site-duplication features are parented to.
   retro_parent <- as.character(S4Vectors::mcols(retrotransposons)$Parent)
 
   # Flanking LTR arms per parent retrotransposon.
-  flank_parent <- if (length(flanking_ltrs) > 0L) {
-    as.character(S4Vectors::mcols(flanking_ltrs)$Parent)
-  } else character(0)
-  n_flank <- as.integer(table(factor(flank_parent, levels = retro_ids)))
-
-  # Raw Pfam domain names per parent, "; "-joined and sorted. Deliberately
-  # unclassified, and deliberately NOT called `domain_names`: the catalog has a
-  # column of that name holding the scan's LOCUS-grain families (ADR-016).
-  pm_all <- ltr_data[ltr_data$type == "protein_match"]
-  nm_parent <- if (length(pm_all) > 0L) {
-    as.character(S4Vectors::mcols(pm_all)$Parent)
-  } else character(0)
-  nm_name <- if (length(pm_all) > 0L) {
-    as.character(S4Vectors::mcols(pm_all)$name)
-  } else character(0)
-  names_by_parent <- split(nm_name, factor(nm_parent, levels = retro_ids))
-  element_domains <- vapply(names_by_parent, function(x) {
-    x <- x[!is.na(x)]
-    if (length(x) == 0L) return(NA_character_)
-    # radix = byte order, the same on every machine; the default follows the
-    # locale and wrote "Gag_p10; GP41" here but "GP41; Gag_p10" elsewhere.
-    paste(sort(unique(x), method = "radix"), collapse = "; ")
-  }, character(1))
+  n_flank <- .count_per_parent(.mcol_chr(flanking_ltrs, "Parent"), retro_ids)
 
   # All Pfam `protein_match` features per parent, regardless of probe
   # assignment - LTRdigest's view of coding capacity, independent of the probe
   # panel. `protein_match` is a child of the `LTR_retrotransposon`.
   pm <- ltr_data[ltr_data$type == "protein_match"]
-  pm_parent <- if (length(pm) > 0L) {
-    as.character(S4Vectors::mcols(pm)$Parent)
-  } else character(0)
-  n_domains_total <- as.integer(table(factor(pm_parent, levels = retro_ids)))
+  pm_parent <- .mcol_chr(pm, "Parent")
+  n_domains_total <- .count_per_parent(pm_parent, retro_ids)
+  element_domains <- .element_domains(.mcol_chr(pm, "name"), pm_parent, retro_ids)
 
   # Target-site duplications per parent. TSDs are children of the enclosing
   # `repeat_region`, not the `LTR_retrotransposon` - so they join on
   # `retro_parent` (the retrotransposon's own `Parent`), not `retro_ids`.
   tsd <- ltr_data[ltr_data$type == "target_site_duplication"]
-  tsd_parent <- if (length(tsd) > 0L) {
-    as.character(S4Vectors::mcols(tsd)$Parent)
-  } else character(0)
-  n_tsd <- as.integer(table(factor(tsd_parent, levels = retro_parent)))
-  has_tsd <- n_tsd > 0L
+  n_tsd <- .count_per_parent(.mcol_chr(tsd, "Parent"), retro_parent)
 
   # Polypurine tracts (RR_tract / PPT) per parent - a marker of structural
   # intactness. Children of the `LTR_retrotransposon`, so they join on
   # `retro_ids`. LTRdigest emits these for only a fraction of elements.
   ppt <- ltr_data[ltr_data$type == "RR_tract"]
-  ppt_parent <- if (length(ppt) > 0L) {
-    as.character(S4Vectors::mcols(ppt)$Parent)
-  } else character(0)
-  n_ppt <- as.integer(table(factor(ppt_parent, levels = retro_ids)))
-  has_ppt <- n_ppt > 0L
+  n_ppt <- .count_per_parent(.mcol_chr(ppt, "Parent"), retro_ids)
 
   # tBLASTn (gr_virus) loci landing inside each retrotransposon.
   n_hits_in <- if (length(gr_virus) > 0L) {
@@ -189,9 +184,9 @@ build_stage_ltr_df <- function(retrotransposons, flanking_ltrs,
     has_both_ltrs      = n_flank >= 2L,
     n_domains_total    = n_domains_total,
     element_domains    = unname(element_domains),
-    has_tsd            = has_tsd,
+    has_tsd            = n_tsd > 0L,
     n_tsd              = n_tsd,
-    has_ppt            = has_ppt,
+    has_ppt            = n_ppt > 0L,
     n_ppt              = n_ppt,
     n_overlapping_hits = n_hits_in
   )

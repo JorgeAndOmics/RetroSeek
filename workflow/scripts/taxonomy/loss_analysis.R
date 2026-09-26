@@ -145,15 +145,18 @@ novel_burden_table <- function(funnel) {
   if (is.null(dir) || !dir.exists(dir)) return(tibble::tibble())
   pat <- paste0("\\.", suffix, "\\.csv$")
   files <- list.files(dir, pattern = pat, full.names = TRUE)
-  frames <- lapply(files, function(f) {
-    df <- readr::read_csv(f, show_col_types = FALSE)
-    if (nrow(df) == 0L || !all(c("metric", "value") %in% names(df))) return(NULL)
-    df$genome <- sub(pat, "", basename(f))
-    df[, c("genome", "metric", "value")]
-  })
-  frames <- Filter(Negate(is.null), frames)
+  frames <- Filter(Negate(is.null), lapply(files, .read_count_file, pat = pat))
   if (length(frames) == 0L) return(tibble::tibble())
   dplyr::bind_rows(frames)
+}
+
+# One genome's (genome, metric, value) rows, the genome taken from the file
+# name; NULL for an empty file or one without metric/value columns.
+.read_count_file <- function(f, pat) {
+  df <- readr::read_csv(f, show_col_types = FALSE)
+  if (nrow(df) == 0L || !all(c("metric", "value") %in% names(df))) return(NULL)
+  df$genome <- sub(pat, "", basename(f))
+  df[, c("genome", "metric", "value")]
 }
 
 
@@ -373,15 +376,16 @@ main <- function() {
 # Source shared plotting helpers (style, empty_plot, add_titles, species order).
 # Placed after the function defs so testthat can source this file without a plot
 # environment; main() only runs under Rscript.
+# Where this script lives, so it can source its siblings. The file name travels
+# in `ofile` when the script is source()d (testthat does, several frames deep)
+# and in `--file=` when Rscript runs it. The scripts that tests source carry
+# this copy; a script cannot source a shared helper before it knows where it
+# lives.
 .resolve_script_dir <- function() {
-  for (i in rev(seq_len(sys.nframe()))) {
-    fr <- tryCatch(sys.frame(i), error = function(e) NULL)
-    if (is.null(fr)) next
-    ofile <- tryCatch(fr$ofile, error = function(e) NULL)
-    if (!is.null(ofile)) return(dirname(normalizePath(ofile, mustWork = FALSE)))
+  for (frame in rev(sys.frames())) {
+    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
-  cmd_args <- commandArgs(trailingOnly = FALSE)
-  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }

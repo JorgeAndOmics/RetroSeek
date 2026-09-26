@@ -240,3 +240,28 @@ test_that("composition tolerates a raw-hit input carrying none of the columns", 
   expect_equal(mc$n_full, c(0L, 0L))        # but no structural breakdown
   expect_true(all(is.na(mc$dominant_taxon)))
 })
+
+test_that("composition ties, blanks and empty regions are handled the same way", {
+  loci <- GenomicRanges::GRanges(
+    seqnames = c("chr1", "chr1", "chr1", "chr1"),
+    ranges = IRanges::IRanges(start = c(10L, 20L, 30L, 40L),
+                              end   = c(15L, 25L, 35L, 45L))
+  )
+  S4Vectors::mcols(loci)$segment <- c("Gammaretrovirus", "Betaretrovirus", "", NA)
+  S4Vectors::mcols(loci)$confidence <- c("", "", "", "")
+  regions <- GenomicRanges::GRanges(
+    seqnames = c("chr1", "chr3"),
+    ranges = IRanges::IRanges(start = c(1L, 1L), end = c(100L, 100L))
+  )
+  out <- S4Vectors::mcols(annotate_hotspot_composition(regions, loci, "segment"))
+  # a 1-1 tie goes to the first name in table order; blank and NA are ignored
+  expect_equal(out$dominant_taxon, c("Betaretrovirus", NA_character_))
+  expect_equal(out$n_loci, c(4L, 0L))
+  # all confidences blank -> NA, not NaN or 0
+  expect_equal(out$mean_confidence, c(NA_real_, NA_real_))
+  # absent columns count zero, in the original column order
+  expect_equal(out$n_full, c(0L, 0L))
+  expect_equal(colnames(out), c("n_loci", "n_full", "n_partial", "n_gene",
+                                "n_ltr_flanked", "n_orphan", "dominant_taxon",
+                                "mean_confidence"))
+})

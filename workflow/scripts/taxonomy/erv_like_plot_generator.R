@@ -33,17 +33,16 @@ suppressMessages({
 # ----------------------------------------------------------------------------
 # Locate sibling scripts + source shared modules
 # ----------------------------------------------------------------------------
+# Where this script lives, so it can source its siblings. The file name travels
+# in `ofile` when the script is source()d (testthat does, several frames deep)
+# and in `--file=` when Rscript runs it. The scripts that tests source carry
+# this copy; a script cannot source a shared helper before it knows where it
+# lives.
 .resolve_script_dir <- function() {
-  for (i in rev(seq_len(sys.nframe()))) {
-    fr <- tryCatch(sys.frame(i), error = function(e) NULL)
-    if (is.null(fr)) next
-    ofile <- tryCatch(fr$ofile, error = function(e) NULL)
-    if (!is.null(ofile)) {
-      return(dirname(normalizePath(ofile, mustWork = FALSE)))
-    }
+  for (frame in rev(sys.frames())) {
+    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
-  cmd_args <- commandArgs(trailingOnly = FALSE)
-  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }
