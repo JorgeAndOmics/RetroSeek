@@ -25,28 +25,41 @@ _RULE_LINE = re.compile(r"^(?:local)?rule (\w+):\s*$")
 _REASON_LINE = re.compile(r"^\s+reason: (.+)$")
 
 
+def _job_stats_sections(dry_run: str) -> list[list[str]]:
+    """The lines after each "Job stats:" header, one list per header."""
+    sections: list[list[str]] = []
+    for line in dry_run.splitlines():
+        if line.startswith("Job stats:"):
+            sections.append([])
+        elif sections:
+            sections[-1].append(line)
+    return sections
+
+
+def _rule_rows(lines: list[str]) -> tuple[dict[str, int], bool]:
+    """(jobs per rule, whether the table's "total" line was reached)."""
+    counts: dict[str, int] = {}
+    for line in lines:
+        fields = line.split()
+        if fields and fields[0] == "total":
+            return counts, True
+        if len(fields) == 2 and fields[1].isdigit():
+            counts[fields[0]] = int(fields[1])
+    return counts, False
+
+
 def job_counts(dry_run: str) -> dict[str, int]:
     """Jobs per rule from the first "Job stats" table of a dry run.
 
-    Snakemake prints the table again at the end, so only the first is read.
-    Empty when nothing would run.
+    Snakemake prints the table again at the end, so reading stops at the first
+    table's "total" line, or at the next header once rows were counted. Empty
+    when nothing would run.
     """
-    counts: dict[str, int] = {}
-    inside = False
-    for line in dry_run.splitlines():
-        if line.startswith("Job stats:"):
-            if counts:
-                break
-            inside = True
-            continue
-        if not inside:
-            continue
-        fields = line.split()
-        if fields and fields[0] == "total":
-            break
-        if len(fields) == 2 and fields[1].isdigit():
-            counts[fields[0]] = int(fields[1])
-    return counts
+    for section in _job_stats_sections(dry_run):
+        rows, reached_total = _rule_rows(section)
+        if rows or reached_total:
+            return rows
+    return {}
 
 
 def first_reasons(dry_run: str) -> dict[str, str]:

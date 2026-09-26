@@ -52,22 +52,27 @@ RETIRED_KEYS: dict[tuple[str, ...], str] = {
 }
 
 
+def _value_at(config: dict[str, object], path: tuple[str, ...]) -> object:
+    """The value at a key path, or None when any key on the way is missing."""
+    node: object = config
+    for key in path:
+        node = node.get(key) if isinstance(node, dict) else None
+        if node is None:
+            return None
+    return node
+
+
 def retired_key_messages(config: dict[str, object]) -> list[str]:
-    """One message per retired key present in `config`, naming its replacement."""
-    messages = []
-    for path, replacement in RETIRED_KEYS.items():
-        node: object = config
-        for key in path:
-            node = node.get(key) if isinstance(node, dict) and key in node else None
-            if node is None:
-                break
-        if node is not None:
-            dotted = ".".join(path)
-            messages.append(
-                f"Config key `{dotted}` was retired; delete it. Replaced by: "
-                f"{replacement}. See docs/configuration.md."
-            )
-    return messages
+    """One message per retired key present in `config`, naming its replacement.
+
+    A retired key set to null (a bare `key:` in YAML) counts as absent.
+    """
+    return [
+        f"Config key `{'.'.join(path)}` was retired; delete it. Replaced by: "
+        f"{replacement}. See docs/configuration.md."
+        for path, replacement in RETIRED_KEYS.items()
+        if _value_at(config, path) is not None
+    ]
 
 
 def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
