@@ -269,6 +269,29 @@ class TestGappaParse:
     def test_missing_file_returns_empty(self, tmp_path) -> None:
         assert tplace._parse_gappa(tmp_path / "nope.tsv") == {}
 
+    def test_unreadable_confidence_reads_zero_and_is_reported(
+        self, tmp_path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(
+            "name\taLWR\ttaxopath\n"
+            "L0|POL\tnan%\tRetroviridae\n"
+            "L1|POL\t0,5\tRetroviridae\n"
+            "L2|POL\t0.5\tRetroviridae\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level("WARNING"):
+            parsed = tplace._parse_gappa(tsv)
+        assert [parsed[q][1] for q in ("L0|POL", "L1|POL", "L2|POL")] == [0.0, 0.0, 0.5]
+        assert "2 of 3" in caplog.text
+
+    def test_clean_table_logs_nothing(self, tmp_path, caplog) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text("name\taLWR\ttaxopath\nL0|POL\t0.5\tRetroviridae\n")
+        with caplog.at_level("WARNING"):
+            tplace._parse_gappa(tsv)
+        assert caplog.text == ""
+
 
 class TestPlaceableQuery:
     """A placement query must overlap the reference at >= _MIN_PLACEMENT_SITES

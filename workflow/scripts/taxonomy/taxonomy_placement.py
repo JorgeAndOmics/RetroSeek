@@ -18,6 +18,7 @@ This is the placement branch of the classifier dispatcher; non-placement genes u
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 from pathlib import Path
@@ -26,6 +27,8 @@ import taxonomy_lca as tlca
 from Bio import SeqIO
 
 from external import run_tool
+
+logger = logging.getLogger(__name__)
 
 MAFFT = "mafft"  # all tools resolved from PATH (the RetroSeek conda env)
 EPA_NG = "epa-ng"
@@ -98,14 +101,15 @@ def _align_queries(
     return q_aln if kept else None
 
 
-def _confidence(fields: list[str], conf_i: int | None) -> float:
-    """The row's confidence column as a number; 0 when absent or not numeric."""
+def _confidence(fields: list[str], conf_i: int | None) -> float | None:
+    """The row's confidence as a number: 0 when the column is absent, None when
+    the cell is there but not a number."""
     if conf_i is None or conf_i >= len(fields):
         return 0.0
     try:
         return float(fields[conf_i])
     except ValueError:
-        return 0.0
+        return None
 
 
 def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
@@ -120,10 +124,22 @@ def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
         path_i = idx.get("taxopath", len(header) - 1)
         # confidence: prefer aLWR, then LWR, else 0
         conf_i = idx.get("aLWR", idx.get("LWR"))
+        unreadable = 0
         for line in fh:
             f = line.rstrip("\n").split("\t")
             if len(f) > path_i:
-                out[f[name_i]] = (f[path_i], _confidence(f, conf_i))
+                conf = _confidence(f, conf_i)
+                unreadable += conf is None
+                out[f[name_i]] = (f[path_i], 0.0 if conf is None else conf)
+    if unreadable:
+        # Read as 0, so the placement still counts but never looks confident;
+        # the warning keeps a changed gappa format from passing unnoticed.
+        logger.warning(
+            "%s: %d of %d placements have a confidence that is not a number; read as 0",
+            per_query_tsv.name,
+            unreadable,
+            len(out),
+        )
     return out
 
 
