@@ -6,7 +6,7 @@
 #   2. LTR discovery                       (LTRharvest / LTRdigest)
 #   3. Probe extraction & homology search  (tBLASTn -> pickle -> parquet -> segmentation)
 #   4. Range analysis                      (tBLASTn x LTR integration -> valid/orphans tracks)
-#   5. Solo-LTR workstream                 (LTR_retriever prefilter / detect / integrate)
+#   5. Solo-LTR workstream                 (bait, blastn, find, annotate, tree, plots)
 #   6. Provirus & structural plots         (plot2sort, stage, erv-like panels)
 #   7. Hotspot & pair detection
 #   8. Taxonomic classification            (reference build, classify, orphans tier, plots)
@@ -38,9 +38,9 @@ SPECIES = list(defaults.SPECIES)
 # Pin {genome} to the exact configured species list. Without this, Snakemake
 # defaults {genome} to the regex `.+`, which causes AmbiguousRuleException
 # whenever two rules write to the same directory with overlapping filename
-# patterns - e.g. ltr_harvester_setup ({genome}.scn) and
-# ltr_retriever_prefilter_setup ({genome}_retroviral.scn), where {genome}
-# would greedily absorb "example_genome_retroviral" for the first rule.
+# patterns - e.g. the element_hits track's {genome}.gff3 and
+# {genome}_reduced.gff3, where {genome} would greedily absorb
+# "example_genome_reduced" for the first pattern.
 wildcard_constraints:
     genome = "|".join(re.escape(s) for s in SPECIES) if SPECIES else r"(?!x)x"
 
@@ -330,8 +330,9 @@ rule ltr_harvester_setup:
         ltr_fasta       = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
         ltr_gff3        = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),
         ltr_sorted_gff3 = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}_sorted.gff3'),
-        # Screen-format (.scn) output - LTRharvest writes this to stdout by default.
-        # Needed as LTR_retriever's primary input format (-inharvest).
+        # Screen-format (.scn) output, which LTRharvest writes to stdout. No stage
+        # reads it since the native solo-LTR route (ADR-017); it stays declared
+        # because changing this heavy rule's outputs would rerun it everywhere.
         ltr_scn         = os.path.join(defaults.PATH_DICT['LTR_SCN_DIR'],    '{genome}.scn')
     params:
         index_directory_path=defaults.PATH_DICT['SPECIES_DB'],
@@ -541,8 +542,8 @@ rule ranges_analysis_setup:
         orphans_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
         element_hits_tracks=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
         element_hits_tracks_reduced=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}_reduced.gff3'),
-        # solo_ltr production has moved to the LTR_retriever-based workstream
-        # (separate rule); the file is no longer produced by ranges_analysis.R.
+        # Solo LTRs come from the solo-LTR stage (ADR-017), not from
+        # ranges_analysis.R; the flanking arms below feed its bait.
         flanking_ltr=os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
         overlap_matrix_parquet=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_PARQUET_DIR'],'{genome}.parquet'),
         overlap_matrix_csv=os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_CSV_DIR'],'{genome}.csv'),
@@ -617,8 +618,8 @@ rule ranges_analysis:
                              genome=species_with_hits(wildcards)),
         element_hits_tracks_reduced=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],'{genome}_reduced.gff3'),
                                 genome=species_with_hits(wildcards)),
-        # solo_ltr aggregation is owned by the LTR_retriever workstream; do not
-        # demand solo_ltr/{genome}.gff3 here.
+        # Solo LTRs belong to the solo-LTR stage (ADR-017); do not demand its
+        # outputs here.
         flanking_ltr=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['FLANKING_LTR_DIR'],'{genome}.gff3'),
                             genome=species_with_hits(wildcards)),
         overlap_matrix=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['OVERLAP_MATRIX_PARQUET_DIR'],'{genome}.parquet'),
