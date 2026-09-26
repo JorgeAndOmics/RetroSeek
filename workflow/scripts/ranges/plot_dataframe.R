@@ -66,18 +66,28 @@ attach_probe_category <- function(gr, main_set, concat_separator = "; ") {
   }
   probe_col <- S4Vectors::mcols(gr)$probe
   cat_chr <- vapply(seq_along(probe_col), function(i) {
-    probes <- if (inherits(probe_col, "CharacterList")) {
-      as.character(probe_col[[i]])
-    } else {
-      strsplit(as.character(probe_col[[i]]), concat_separator, fixed = TRUE)[[1]]
-    }
-    probes <- probes[nzchar(probes)]
-    if (length(probes) == 0L) return(NA_character_)
-    in_main <- probes %in% main_set
-    if (all(in_main))   return("main")
-    if (!any(in_main))  return("accessory")
-    "mixed"
+    .probe_category(.probes_of(probe_col, i, concat_separator), main_set)
   }, character(1))
   S4Vectors::mcols(gr)$probe_category <- cat_chr
   gr
+}
+
+# The probes of row `i`: a list column's element, or a joined string split on
+# `concat_separator`. Empty names are dropped.
+.probes_of <- function(probe_col, i, concat_separator) {
+  probes <- if (inherits(probe_col, "CharacterList")) {
+    as.character(probe_col[[i]])
+  } else {
+    strsplit(as.character(probe_col[[i]]), concat_separator, fixed = TRUE)[[1]]
+  }
+  probes[nzchar(probes)]
+}
+
+# "main", "accessory" or "mixed" for a probe set; NA when it is empty.
+.probe_category <- function(probes, main_set) {
+  if (length(probes) == 0L) return(NA_character_)
+  in_main <- probes %in% main_set
+  if (all(in_main))   return("main")
+  if (!any(in_main))  return("accessory")
+  "mixed"
 }

@@ -110,26 +110,27 @@ annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons) {
     return(gr_candidates)
   }
 
-  retro_ids <- as.character(retrotransposons$ID)
   ov    <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons, ignore.strand = FALSE)
   qhits <- S4Vectors::queryHits(ov)
   shits <- S4Vectors::subjectHits(ov)
-  retro_ids_per_subj <- retro_ids[shits]
-
-  n         <- length(gr_candidates)
-  parent_of <- rep(NA_character_, n)
-  best_w    <- rep(-1L, n)
-
   ov_widths <- IRanges::width(GenomicRanges::pintersect(
     gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE))
+  S4Vectors::mcols(gr_candidates)$Parent <- .widest_overlap(
+    qhits, ov_widths, as.character(retrotransposons$ID)[shits], length(gr_candidates))
+  gr_candidates
+}
+
+# Per query, the id of the overlap with the greatest width; NA without one. The
+# first of equally wide overlaps wins (strict `>`), in findOverlaps order.
+.widest_overlap <- function(qhits, widths, ids, n) {
+  parent_of <- rep(NA_character_, n)
+  best_w    <- rep(-1L, n)
   for (i in seq_along(qhits)) {
     q <- qhits[i]
-    if (ov_widths[i] > best_w[q]) {
-      best_w[q] <- ov_widths[i]
-      parent_of[q] <- retro_ids_per_subj[i]
+    if (widths[i] > best_w[q]) {
+      best_w[q] <- widths[i]
+      parent_of[q] <- ids[i]
     }
   }
-
-  S4Vectors::mcols(gr_candidates)$Parent <- parent_of
-  gr_candidates
+  parent_of
 }
