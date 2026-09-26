@@ -273,6 +273,14 @@ divergence_age_plot <- function(candidates, species) {
 }
 
 
+#' One metric of the tree summary as a number; NA when absent or blank.
+.summary_metric <- function(summary_dt, key) {
+  value <- summary_dt[metric == key, value][1]
+  if (length(value) == 0 || is.na(value)) return(NA_real_)
+  suppressWarnings(as.numeric(value))  # blank metric (no seeds on the tree) -> NA
+}
+
+
 #' The evidence tree itself, drawn from solo_tree_layout.py's coordinates.
 #'
 #' Tips are points, not labels: with around a thousand tips a label per tip is
@@ -284,11 +292,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   d <- copy(tips)
   d[, fate := factor(class_to_fate[class], levels = .FATE_LEVELS)]
 
-  get <- function(key) {
-    value <- summary_dt[metric == key, value][1]
-    if (length(value) == 0 || is.na(value)) return(NA_real_)
-    suppressWarnings(as.numeric(value))  # blank metric (no seeds on the tree) -> NA
-  }
+  get <- function(key) .summary_metric(summary_dt, key)
   subtitle <- sprintf(paste(
     "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
     "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
@@ -320,11 +324,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
 #' Without the null this number is uninterpretable, because any structured tree
 #' shows some clustering. Both bars are therefore always drawn together.
 tree_enrichment_plot <- function(summary_dt, species) {
-  get <- function(key) {
-    value <- summary_dt[metric == key, value][1]
-    if (length(value) == 0 || is.na(value)) return(NA_real_)
-    suppressWarnings(as.numeric(value))  # blank metric (no seeds on the tree) -> NA
-  }
+  get <- function(key) .summary_metric(summary_dt, key)
   observed <- get("same_class_sister_observed")
   null_mean <- get("same_class_sister_null_mean")
   null_sd <- get("same_class_sister_null_sd")

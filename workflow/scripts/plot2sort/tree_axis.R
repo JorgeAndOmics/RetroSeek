@@ -13,12 +13,14 @@
 # writes `species.tree_tips.csv` (tip, x, y) and `species.tree_segments.csv`; this
 # file only draws those coordinates. No R tree package is involved.
 
+# No directory at all (an unset option) means no tree, same as an empty file.
+.no_dir <- function(dir) is.null(dir) || length(dir) == 0L || !nzchar(dir)
+
 # Read a tree coordinate CSV written by tree_layout.py. A missing or empty file
 # means no tree is configured, which is a normal state, so this returns NULL for
 # the caller to handle rather than failing.
 read_tree_part <- function(dir, name, part) {
-  # No directory at all (an unset option) means no tree, same as an empty file.
-  if (is.null(dir) || length(dir) == 0L || !nzchar(dir)) return(NULL)
+  if (.no_dir(dir)) return(NULL)
   f <- file.path(dir, sprintf("%s.tree_%s.csv", name, part))
   if (!file.exists(f)) return(NULL)
   df <- readr::read_csv(f, show_col_types = FALSE)
@@ -27,7 +29,7 @@ read_tree_part <- function(dir, name, part) {
 
 # The host tree as list(tips, segments), or NULL when none is configured.
 read_species_tree <- function(dir) {
-  if (is.null(dir) || !nzchar(dir)) return(NULL)
+  if (.no_dir(dir)) return(NULL)
   tips <- read_tree_part(dir, "species", "tips")
   if (is.null(tips)) return(NULL)
   list(tips = tips, segments = read_tree_part(dir, "species", "segments"))

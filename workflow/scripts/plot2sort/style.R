@@ -276,13 +276,16 @@ display_species <- function(values, species_map = NULL) {
   no_solo              = "No solos"
 )
 display_label <- function(values) {
-  values <- as.character(values)
-  vapply(values, function(v) {
-    if (!is.na(v) && v %in% names(.LABELS)) return(.LABELS[[v]])
-    if (is.na(v) || !nzchar(v)) return(v)
-    words <- gsub("_", " ", v)
-    paste0(toupper(substr(words, 1, 1)), substr(words, 2, nchar(words)))
-  }, character(1), USE.NAMES = FALSE)
+  vapply(as.character(values), .display_one, character(1), USE.NAMES = FALSE)
+}
+
+# One value: its entry in .LABELS, else underscores to spaces with a capital
+# first letter. NA and "" pass through unchanged.
+.display_one <- function(v) {
+  if (is.na(v) || !nzchar(v)) return(v)
+  if (v %in% names(.LABELS)) return(.LABELS[[v]])
+  words <- gsub("_", " ", v)
+  paste0(toupper(substr(words, 1, 1)), substr(words, 2, nchar(words)))
 }
 
 # Legend or axis labels with taxa in italics (ICTV and binomial convention) and
