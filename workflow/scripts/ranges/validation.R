@@ -106,7 +106,9 @@ cluster_orphan_hits <- function(orphan_hits, max_provirus_len = Inf) {
 # What LTRdigest still contributes is `n_domains_total`, a count (stage_dataframe.R).
 annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons) {
   if (length(gr_candidates) == 0L || length(retrotransposons) == 0L) {
-    S4Vectors::mcols(gr_candidates)$Parent <- character(0)
+    # No candidate, or no element to anchor to: every candidate's parent is NA,
+    # the same value the overlap loop gives a candidate with no element.
+    S4Vectors::mcols(gr_candidates)$Parent <- rep(NA_character_, length(gr_candidates))
     return(gr_candidates)
   }
 
