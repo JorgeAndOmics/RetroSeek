@@ -15,6 +15,8 @@ in ``ranges_analysis.R`` via ``GenomicRanges::resize()`` - not here.
 
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from RetroSeeker_class import RetroSeeker
@@ -229,3 +231,43 @@ class TestBlastFailuresStopTheJob:
             pytest.raises(PipelineError),
         ):
             seq_utils._blast_task(MagicMock(), "tblastn", "Toyus", "/db", 1)
+
+
+class TestBlasterParserReadsEveryHsp:
+    """blaster_parser turns every HSP of every hit into one RetroSeeker.
+
+    blast_formatter is replaced by a stand-in that returns a small fixed XML
+    report, so the test needs no BLAST install and no real archive.
+    """
+
+    XML = Path(__file__).resolve().parents[1] / "fixtures" / "blast" / "two_hits.xml"
+
+    def test_one_object_per_hsp_with_query_metadata(self) -> None:
+        import seq_utils
+
+        query = RetroSeeker(
+            label="ALV",
+            virus="Avian leukosis virus",
+            abbreviation="ALV",
+            species=None,
+            probe=" POL ",
+            accession="Q1",
+            identifier="x",
+        )
+        report = SimpleNamespace(stdout=self.XML.read_text())
+        with patch.object(seq_utils, "run_tool", return_value=report):
+            hits = seq_utils.blaster_parser("archive", query, "Toyus_toyus")
+
+        by_key = sorted(hits.items())
+        assert [key.split("-")[0] for key, _ in by_key] == ["CM1.1", "CM1.1", "CM2.1"]
+        assert all(len(key.split("-")[1]) == 6 for key, _ in by_key)
+        rows = sorted(
+            (o.accession, o.HSP.sbjct_start, o.strand, o.species, o.probe, o.label)
+            for _, o in by_key
+        )
+        assert rows == [
+            ("CM1.1", 100, "+", "Toyus_toyus", "POL", "ALV"),
+            ("CM1.1", 900, "-", "Toyus_toyus", "POL", "ALV"),
+            ("CM2.1", 10, "+", "Toyus_toyus", "POL", "ALV"),
+        ]
+        assert all(o.alignment.hit_def.startswith(o.accession) for o in hits.values())

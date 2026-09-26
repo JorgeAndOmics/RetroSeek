@@ -17,6 +17,8 @@ from __future__ import annotations
 # ``conftest.py`` puts ``workflow/scripts`` on sys.path and stubs ``defaults``
 # before this import runs, so the real RetroSeeker_class can be imported
 # without triggering defaults.py's filesystem side effects.
+from types import SimpleNamespace
+
 import pytest
 
 from log import PipelineError
@@ -169,3 +171,29 @@ class TestMissingSequenceIsLoud:
         """gb_fetcher catches this, retries, then reports an ERROR."""
         with pytest.raises(ValueError, match="No records"):
             self._probe().set_genbank("this is not a GenBank record")
+
+
+class TestStrandFromHSP:
+    """The strand a hit is recorded on: frame first, coordinates as a fallback."""
+
+    @staticmethod
+    def _strand(frame, start=1, end=2):
+        hsp = SimpleNamespace(frame=frame, sbjct_start=start, sbjct_end=end)
+        return RetroSeeker.extract_strand_from_HSP(hsp)
+
+    def test_the_last_frame_decides(self) -> None:
+        assert self._strand((0, 2)) == "+"
+        assert self._strand((0, -1)) == "-"
+
+    def test_a_zero_or_non_integer_frame_has_no_strand(self) -> None:
+        assert self._strand((0, 0)) is None
+        assert self._strand((0, 1.5)) is None
+
+    def test_without_a_frame_the_coordinates_decide(self) -> None:
+        assert self._strand((), 10, 99) == "+"
+        assert self._strand((), 99, 10) == "-"
+        assert self._strand((), 50, 50) is None
+
+    def test_an_uncomparable_frame_raises(self) -> None:
+        with pytest.raises(TypeError):
+            self._strand((0, "x"))

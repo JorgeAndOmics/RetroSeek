@@ -62,21 +62,11 @@ class Tip(NamedTuple):
     seed: str = ""  # the seeding element's ID, for solos; empty otherwise
 
 
-def bait_tips(
-    bait_bed: Path,
-    n_elements: int,
-    rng: random.Random,
-    required: set[str] | None = None,
-) -> list[Tip]:
-    """A seeded sample of bait arms, grouped so both arms of an element travel together.
+def _bait_arms(bait_bed: Path) -> dict[str, list[Tip]]:
+    """Bait arms grouped by element, in file order.
 
-    Sampling by element rather than by arm is what preserves the tree's positive
-    control: it only means anything for an element whose two arms are both on the
-    tree. The bait name is `{seqname}|{element}|{arm}`, and `|` is replaced because
-    a Newick label cannot carry it.
-
-    `required` elements (the seeds of the sampled solos) are always kept, even past
-    `n_elements`; the cap only limits the random fill around them.
+    The bait name is `{seqname}|{element}|{arm}`; `|` is replaced in the tip name
+    because a Newick label cannot carry it.
     """
     by_element: dict[str, list[Tip]] = {}
     with bait_bed.open() as handle:
@@ -93,6 +83,25 @@ def bait_tips(
                     name=f"{FLANK}__{fields[3].replace('|', '_')}",
                 )
             )
+    return by_element
+
+
+def bait_tips(
+    bait_bed: Path,
+    n_elements: int,
+    rng: random.Random,
+    required: set[str] | None = None,
+) -> list[Tip]:
+    """A seeded sample of bait arms, grouped so both arms of an element travel together.
+
+    Sampling by element rather than by arm is what preserves the tree's positive
+    control: it only means anything for an element whose two arms are both on the
+    tree.
+
+    `required` elements (the seeds of the sampled solos) are always kept, even past
+    `n_elements`; the cap only limits the random fill around them.
+    """
+    by_element = _bait_arms(bait_bed)
     kept = sorted(set(required or ()) & set(by_element))
     others = sorted(set(by_element) - set(kept))
     room = len(others) if n_elements <= 0 else max(0, n_elements - len(kept))

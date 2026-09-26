@@ -37,6 +37,7 @@ Usage:
 import argparse
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,58 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # 1. Attribute Extraction Function
 # =============================================================================
+# Columns read from each optional record attached to a probe Object: column name
+# -> how to read it. A missing record gives None in every one of its columns.
+_GENBANK_COLUMNS: dict[str, Callable[[Any], Any]] = {
+    "genbank_id": lambda gb: gb.id,
+    "genbank_name": lambda gb: gb.name,
+    "genbank_description": lambda gb: gb.description,
+    "genbank_dbxrefs": lambda gb: gb.dbxrefs,
+    "genbank_annotations": lambda gb: str(gb.annotations),
+    "genbank_seq": lambda gb: str(gb.seq),
+}
+_ALIGNMENT_COLUMNS: dict[str, Callable[[Any], Any]] = {
+    "alignment_title": lambda aln: aln.title,
+    "alignment_length": lambda aln: aln.length,
+    "alignment_accession": lambda aln: aln.accession,
+    "alignment_hit_id": lambda aln: aln.hit_id,
+    "alignment_hit_def": lambda aln: aln.hit_def,
+}
+_HSP_COLUMNS: dict[str, Callable[[Any], Any]] = {
+    "hsp_bits": lambda hsp: hsp.bits,
+    "hsp_score": lambda hsp: hsp.score,
+    "hsp_evalue": lambda hsp: hsp.expect,
+    "hsp_query": lambda hsp: hsp.query,
+    "hsp_sbjct": lambda hsp: hsp.sbjct,
+    "hsp_query_start": lambda hsp: hsp.query_start,
+    "hsp_query_end": lambda hsp: hsp.query_end,
+    "hsp_sbjct_start": lambda hsp: hsp.sbjct_start,
+    "hsp_sbjct_end": lambda hsp: hsp.sbjct_end,
+    "hsp_identity": lambda hsp: hsp.identities,
+    "hsp_align_length": lambda hsp: hsp.align_length,
+    "hsp_gaps": lambda hsp: hsp.gaps,
+    "hsp_positives": lambda hsp: hsp.positives,
+    "hsp_strand": lambda hsp: hsp.strand,
+    "hsp_frame": lambda hsp: hsp.frame,
+}
+
+
+def _read_columns(
+    record: Any, columns: dict[str, Callable[[Any], Any]]
+) -> dict[str, Any]:
+    """One optional record's columns; all None when the record is absent."""
+    if not record:
+        return dict.fromkeys(columns)
+    return {name: read(record) for name, read in columns.items()}
+
+
+def _species_name(species: str) -> str:
+    """The configured display name of a genome, or its stem without a species map."""
+    if defaults.USE_SPECIES_DICT:
+        return defaults.SPECIES_DICT.get(species, species)
+    return species
+
+
 def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
     """
     Extracts all structured attributes from a probe Object for tabular export.
@@ -73,7 +126,6 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
         Raises
         ------
             :raises AttributeError: If the Object structure does not expose required attributes.
-            :raises Exception: For any unexpected failure during data extraction.
     """
     # Defensive accession cleanup: older pickles (pre-seq_utils-fix) stored
     # the full BLAST hit_def ("CM138268.1 Molossus molossus chromosome 3,
@@ -82,8 +134,7 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
     # column compatible with LTRdigest / GRanges seqnames downstream.
     raw_accession = obj.accession or ""
     clean_accession = raw_accession.split()[0] if raw_accession else raw_accession
-    data: dict[str, Any] = {
-        # Basic Object attributes
+    return {
         "label": obj.label,
         "virus": obj.virus,
         "abbreviation": obj.abbreviation,
@@ -92,58 +143,11 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
         "accession": clean_accession,
         "identifier": obj.identifier,
         "strand": obj.strand,
+        "species_name": _species_name(obj.species),
+        **_read_columns(obj.genbank, _GENBANK_COLUMNS),
+        **_read_columns(obj.alignment, _ALIGNMENT_COLUMNS),
+        **_read_columns(obj.HSP, _HSP_COLUMNS),
     }
-    if defaults.USE_SPECIES_DICT:
-        data |= {
-            "species_name": defaults.SPECIES_DICT.get(obj.species, obj.species),
-        }
-    else:
-        data |= {
-            "species_name": obj.species,
-        }
-
-    # GenBank info
-    gb = obj.genbank
-    data |= {
-        "genbank_id": gb.id if gb else None,
-        "genbank_name": gb.name if gb else None,
-        "genbank_description": gb.description if gb else None,
-        "genbank_dbxrefs": gb.dbxrefs if gb else None,
-        "genbank_annotations": str(gb.annotations) if gb else None,
-        "genbank_seq": str(gb.seq) if gb else None,
-    }
-
-    # Alignment info
-    aln = obj.alignment
-    data |= {
-        "alignment_title": aln.title if aln else None,
-        "alignment_length": aln.length if aln else None,
-        "alignment_accession": aln.accession if aln else None,
-        "alignment_hit_id": aln.hit_id if aln else None,
-        "alignment_hit_def": aln.hit_def if aln else None,
-    }
-
-    # HSP info
-    hsp = obj.HSP
-    data |= {
-        "hsp_bits": hsp.bits if hsp else None,
-        "hsp_score": hsp.score if hsp else None,
-        "hsp_evalue": hsp.expect if hsp else None,
-        "hsp_query": hsp.query if hsp else None,
-        "hsp_sbjct": hsp.sbjct if hsp else None,
-        "hsp_query_start": hsp.query_start if hsp else None,
-        "hsp_query_end": hsp.query_end if hsp else None,
-        "hsp_sbjct_start": hsp.sbjct_start if hsp else None,
-        "hsp_sbjct_end": hsp.sbjct_end if hsp else None,
-        "hsp_identity": hsp.identities if hsp else None,
-        "hsp_align_length": hsp.align_length if hsp else None,
-        "hsp_gaps": hsp.gaps if hsp else None,
-        "hsp_positives": hsp.positives if hsp else None,
-        "hsp_strand": hsp.strand if hsp else None,
-        "hsp_frame": hsp.frame if hsp else None,
-    }
-
-    return data
 
 
 # =============================================================================

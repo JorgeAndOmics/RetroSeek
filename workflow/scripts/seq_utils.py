@@ -25,6 +25,7 @@ import tempfile
 import time
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
 from Bio import Entrez
 from Bio.Blast import NCBIXML
@@ -97,6 +98,42 @@ def blaster(
     return blast_output
 
 
+def _accession(hit_def: str | None) -> str:
+    """The accession of a BLAST hit: the first whitespace token of its hit_def.
+
+    FASTA-header convention: "CM138268.1 Molossus molossus chr 3, whole genome
+    shotgun sequence" -> "CM138268.1". Storing only the accession keeps the
+    seqid identical to how LTRdigest / rtracklayer / GRanges represent it, so
+    downstream findOverlaps matches without per-stage stripping.
+    """
+    raw_hit_def = hit_def or ""
+    return raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
+
+
+def _hit_object(
+    instance: RetroSeeker, subject: str, alignment: Any, hsp: Any
+) -> tuple[str, RetroSeeker]:
+    """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
+
+    The key is ``{accession}-{random 6 characters}``: one accession can carry
+    several HSPs, so the accession alone is not unique.
+    """
+    accession_id = _accession(alignment.hit_def)
+    random_string = utils.random_string_generator(6)
+    new_instance = RetroSeeker(
+        label=str(instance.label),
+        virus=str(instance.virus),
+        abbreviation=str(instance.abbreviation),
+        species=instance.species or subject,
+        probe=str(instance.probe).strip(),
+        accession=accession_id,
+        identifier=random_string,
+    )
+    new_instance.set_alignment(alignment)
+    new_instance.set_HSP(hsp)
+    return f"{accession_id}-{random_string}", new_instance
+
+
 def blaster_parser(
     result: str, instance: RetroSeeker, subject: str
 ) -> dict[str, RetroSeeker] | None:
@@ -110,11 +147,11 @@ def blaster_parser(
     Returns
     -------
         :returns: A dictionary containing the parsed results of the [blaster] function:
-        alignment_dict[f'{alignment.id}-{random_string}'] = Object
+        alignment_dict[f'{alignment.id}-{random_string}'] = Object, one per HSP.
 
     Raises
     ------
-        :raise Exception: If an error occurs while parsing the BLAST output.
+        :raise PipelineError: If blast_formatter cannot read the archive.
 
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
@@ -128,41 +165,11 @@ def blaster_parser(
     try:
         xml_command = ["blast_formatter", "-archive", tmp_asn_path, "-outfmt", "5"]
         xml_handle = StringIO(run_tool(xml_command).stdout)
-
-        # Now parse the XML as before
         for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
             for alignment in record.alignments:
-                if not record.alignments:
-                    logger.warning("No alignments found.")
-                    continue
                 for hsp in alignment.hsps:
-                    # FASTA-header convention: the first whitespace-separated
-                    # token of hit_def is the accession (e.g. "CM138268.1");
-                    # the rest is the description ("Molossus molossus chr 3,
-                    # whole genome shotgun sequence"). Storing only the
-                    # accession keeps the seqid identical to how LTRdigest /
-                    # rtracklayer / GRanges represent it, so downstream
-                    # findOverlaps matches without needing per-stage stripping.
-                    raw_hit_def = alignment.hit_def or ""
-                    accession_id = (
-                        raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
-                    )
-                    random_string = utils.random_string_generator(6)
-
-                    new_instance = RetroSeeker(
-                        label=str(instance.label),
-                        virus=str(instance.virus),
-                        abbreviation=str(instance.abbreviation),
-                        species=instance.species or subject,
-                        probe=str(instance.probe).strip(),
-                        accession=accession_id,
-                        identifier=random_string,
-                    )
-
-                    new_instance.set_alignment(alignment)
-                    new_instance.set_HSP(hsp)
-
-                    alignment_dict[f"{accession_id}-{random_string}"] = new_instance
+                    key, hit = _hit_object(instance, subject, alignment, hsp)
+                    alignment_dict[key] = hit
     finally:
         Path(tmp_asn_path).unlink(missing_ok=True)
 

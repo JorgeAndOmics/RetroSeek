@@ -30,6 +30,15 @@ import defaults
 from log import PipelineError
 
 
+def _sign(value: Any) -> str | None:
+    """'+' for a positive number, '-' for a negative one, None for zero."""
+    if value > 0:
+        return "+"
+    if value < 0:
+        return "-"
+    return None
+
+
 @dataclass
 class RetroSeeker:
     """
@@ -160,20 +169,20 @@ class RetroSeeker:
 
             Returns
             -------
-                :returns: The strand information (+ or -).
+                :returns: The strand, '+' or '-', or None when it cannot be told.
 
         """
+        # A zero or non-integer frame, or equal sbjct_start and sbjct_end, has no
+        # strand to report. The sign is taken before the type check so that an
+        # uncomparable frame raises instead of passing as "no strand".
         if HSP_obj.frame:
-            if HSP_obj.frame[-1] > 0 and isinstance(HSP_obj.frame[-1], int):
-                return "+"
-            if HSP_obj.frame[-1] < 0 and isinstance(HSP_obj.frame[-1], int):
-                return "-"
-        else:
-            if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
-                return "+"
-            if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
-                return "-"
-        # A zero frame, or equal sbjct_start and sbjct_end: no strand to report.
+            last = HSP_obj.frame[-1]
+            sign = _sign(last)
+            return sign if isinstance(last, int) else None
+        if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
+            return "+"
+        if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
+            return "-"
         return None
 
     @staticmethod
