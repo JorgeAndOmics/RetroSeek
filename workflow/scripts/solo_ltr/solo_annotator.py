@@ -190,13 +190,23 @@ def parse_solo_list(path: Path) -> list[SoloLTR]:
     Zero solos is a legitimate result for a genome, so absence is not an error
     here - but ``run_ltr_retriever.py`` does fail loudly when the RepeatMasker
     table that feeds solo_finder is missing, which is a different claim. Rows
-    whose coordinates or coverage do not parse are skipped.
+    whose coordinates or coverage do not parse are skipped with a warning: the
+    detector never writes one, so they mean its column layout changed.
     """
     if not path.exists():
         return []
     with path.open() as handle:
-        solos = (_solo_from_fields(fields) for fields in tab_rows(handle, 6))
-        return [solo for solo in solos if solo is not None]
+        parsed = [_solo_from_fields(fields) for fields in tab_rows(handle, 6)]
+    solos = [solo for solo in parsed if solo is not None]
+    if len(solos) < len(parsed):
+        logger.warning(
+            "%s: %d of %d solo rows have unreadable coordinates or coverage and "
+            "were skipped; check the solo list's column layout",
+            path.name,
+            len(parsed) - len(solos),
+            len(parsed),
+        )
+    return solos
 
 
 def parse_loci_csv(path: Path) -> list[ClassifiedLocus]:

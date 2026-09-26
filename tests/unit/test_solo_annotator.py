@@ -441,3 +441,28 @@ def test_parse_solo_list_skips_comments_blank_and_unparseable_rows(
     assert [(s.chrom, s.start, s.end, s.coverage) for s in solos] == [
         ("chr1", 1, 20, 0.5)
     ]
+
+
+def test_unparseable_solo_rows_are_reported(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A changed column layout must not pass as 'zero solos' in silence."""
+    path = tmp_path / "s.txt"
+    path.write_text(
+        "chr1\tx\t20\tchr1:1..20\tlib\t0.5\n"
+        "chr1\t1\t20\tchr1:1..20\tlib\tnot-a-number\n"
+        "chr1\t1\t20\tchr1:1..20\tlib\t0.5\n"
+    )
+    with caplog.at_level("WARNING"):
+        solos = parse_solo_list(path)
+    assert len(solos) == 1
+    assert "2 of 3 solo rows" in caplog.text
+
+
+def test_clean_solo_lists_log_no_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = _write_solo_list(tmp_path / "s.txt", [("chr1", 1, 20, "lib", 0.5)])
+    with caplog.at_level("WARNING"):
+        parse_solo_list(path)
+    assert caplog.text == ""
