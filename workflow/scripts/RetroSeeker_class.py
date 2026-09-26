@@ -41,8 +41,7 @@ def _direction(low: Any, high: Any) -> str | None:
 
 @dataclass
 class RetroSeeker:
-    """
-    A class to store data from genomic objects.
+    """A class to store data from genomic objects.
 
         Parameters
         ----------
@@ -60,7 +59,7 @@ class RetroSeeker:
             fasta: The fasta record of the sequence
             gff: The GFF record of the sequence
 
-        Methods
+    Methods:
         -------
             extract_fasta_from_genbank: Extracts the FASTA record from the Genbank record
             extract_gff_from_genbank: Extracts the GFF record from the Genbank record
@@ -119,33 +118,30 @@ class RetroSeeker:
     # Static Methods
     @staticmethod
     def extract_fasta_from_genbank(genbank_record: Any) -> str | None:
-        """
-        Extracts the FASTA file from the GenBank record.
+        """Extracts the FASTA file from the GenBank record.
 
             Parameters
             ----------
                 :param genbank_record: The GenBank record to extract the FASTA from.
 
-            Returns
+        Returns:
             -------
                 :returns: The FASTA file content.
 
         """
-
         with StringIO() as handle:
             SeqIO.write(genbank_record, handle, "fasta")
             return handle.getvalue()
 
     @staticmethod
     def extract_gff_from_genbank(genbank_record: Any) -> str | None:
-        """
-        Extracts the GFF file from the GenBank record.
+        """Extracts the GFF file from the GenBank record.
 
             Parameters
             ----------
                 :param genbank_record: The GenBank record to extract the GFF from.
 
-            Returns
+        Returns:
             -------
                 :returns: The GFF file content.
 
@@ -158,16 +154,17 @@ class RetroSeeker:
 
     @staticmethod
     def extract_strand_from_HSP(HSP_obj: Any) -> str | None:
-        """
-        Extracts the strand information from the HSP object. If the HSP object contains frame information, it will
-        return the strand based on the frame. If the frame is not available, it will return the strand based on the
-        orientation of the HSP sbjct_start and sbjct_end values.
+        """Extract the strand ('+' or '-') of an HSP, or None when it cannot be told.
+
+        If the HSP object contains frame information, the strand comes from the
+        frame. If the frame is not available, it comes from the orientation of the
+        HSP sbjct_start and sbjct_end values.
 
             Parameters
             ----------
                 :param HSP_obj: The HSP object to extract the strand from.
 
-            Returns
+        Returns:
             -------
                 :returns: The strand, '+' or '-', or None when it cannot be told.
 
@@ -185,8 +182,7 @@ class RetroSeeker:
     def extract_seq2rec(
         seq_obj: Any, obj_type: str, output_type: str = "seqrecord"
     ) -> Any:
-        """
-        Parse text (e.g. FASTA) into a SeqRecord object or a temporary file in tmp directory.
+        """Parse text (e.g. FASTA) into a SeqRecord object or a temporary file in tmp directory.
 
             Parameters
             ----------
@@ -194,11 +190,11 @@ class RetroSeeker:
                 :param obj_type: The Seq object to parse the FASTA text into (e.g. 'fasta', 'gff').
                 :param output_type: The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns
+        Returns:
             -------
             :returns: A SeqRecord object **or** Path to temporary file containing the parsed FASTA text.
 
-            Raises
+        Raises:
             ------
                 :raise ValueError: If an invalid output_type is provided.
 
@@ -221,10 +217,9 @@ class RetroSeeker:
 
     # Getters and Setters
     def get_alignment(self) -> Any:
-        """
-        Returns the Alignment file associated with the object.
+        """Returns the Alignment file associated with the object.
 
-            Returns
+        Returns:
             ----------
                 :returns: Alignment or None: The Alignment file content.
 
@@ -232,21 +227,19 @@ class RetroSeeker:
         return self.alignment
 
     def set_alignment(self, alignment_object: object) -> None:
-        """
-        Associates an Alignment file with the object.
+        """Associates an Alignment file with the object.
 
-            Parameters
-            ----------
-                :param alignment_object: The Alignment object to associate with the object.
+        Parameters
+        ----------
+            :param alignment_object: The Alignment object to associate with the object.
 
         """
         self.alignment = alignment_object
 
     def get_HSP(self) -> Any:
-        """
-        Retrieves the HSP object.
+        """Retrieves the HSP object.
 
-                Returns
+        Returns:
                 -------
                     :returns: The HSP object.
 
@@ -254,22 +247,22 @@ class RetroSeeker:
         return self.HSP
 
     def set_HSP(self, HSP_object: object) -> None:
-        """
-        Associates an HSP file with the object. Sets strand attribute from the HSP object.
+        """Associates an HSP file with the object. Sets strand attribute from the HSP object.
 
-            Parameters
-            ----------
-                :param HSP_object: The HSP object to associate with the object.
+        Parameters
+        ----------
+            :param HSP_object: The HSP object to associate with the object.
 
         """
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
     def get_genbank(self, output_type: str | None = None) -> Any:
-        """
-        Returns the GenBank file associated with the object. If no output_type is provided, it will return the GenBank
-        record as string. If output_type is set to 'tempfile', it will return the path to a temporary file containing
-        the FASTA.
+        """Return the GenBank record of the object, or a temporary file holding it.
+
+        If no output_type is provided, it returns the stored GenBank record. If
+        output_type is set to 'tempfile', it returns the path to a temporary file
+        holding the record's text.
 
         CAUTION! The GenBank record is already a SeqRecord object. If output_type is set to 'seqrecord', it will raise
         an error. Use only default or 'tempfile' output_type.
@@ -278,12 +271,12 @@ class RetroSeeker:
             ----------
                 :param output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns
+        Returns:
             -------
                 :returns: The FASTA file content.
                 Raises PipelineError, naming the probe, if its GenBank record was never fetched.
 
-            Raises
+        Raises:
             ------
                 :raise Error: If output_type is not 'tempfile'.
 
@@ -296,9 +289,10 @@ class RetroSeeker:
         return self.genbank
 
     def set_genbank(self, genbank_obj: str) -> None:
-        """
-        Associates a GenBank file with the object. Also sets the FASTA and GFF files from the GenBank file
-        generated through the [extract_fasta_from_genbank] and [extract_gff_from_genbank] methods.
+        """Parse and store a GenBank record, and derive its FASTA and GFF from it.
+
+        The FASTA and GFF are generated through the [extract_fasta_from_genbank]
+        and [extract_gff_from_genbank] methods. An unreadable record raises.
 
             Parameters
             ----------
@@ -312,16 +306,18 @@ class RetroSeeker:
         self.gff = self.extract_gff_from_genbank(self.genbank)
 
     def get_fasta(self, output_type: str | None = None) -> Any:
-        """
-        Returns the FASTA file associated with the object. If no output_type is provided, it will return the FASTA
-        as string. If output_type is set to 'seqrecord', it will return the FASTA as a SeqRecord object. If output_type
-        is set to 'tempfile', it will return the path to a temporary file containing the FASTA.
+        """Return the FASTA of the object as text, a SeqRecord, or a temporary file.
+
+        If no output_type is provided, it returns the FASTA as a string. If
+        output_type is set to 'seqrecord', it returns the FASTA as a SeqRecord
+        object. If output_type is set to 'tempfile', it returns the path to a
+        temporary file containing the FASTA.
 
             Parameters
             ----------
                 :param output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
 
-            Returns
+        Returns:
             -------
                 :returns: The FASTA file content.
                 Raises PipelineError, naming the probe, if its GenBank record was never fetched.
@@ -335,10 +331,9 @@ class RetroSeeker:
         return self.fasta
 
     def get_gff(self) -> Any:
-        """
-        Returns the GFF file associated with the object.
+        """Returns the GFF file associated with the object.
 
-            Returns
+        Returns:
             -------
                 :returns: The GFF file content.
                 Raises PipelineError, naming the probe, if its GenBank record was never fetched.
@@ -359,11 +354,11 @@ class RetroSeeker:
 
     # Display methods and Verifier methods
     def display_info(self) -> str:
-        """
-        Displays human-readable information about the object. If there are HSPs associated with the object,
-        it will also display  HSP information.
+        """Return human-readable information about the object as text.
 
-            Returns
+        If an HSP is associated with the object, its information is included too.
+
+        Returns:
             -------
                 :returns: str or None: Object information.
 
@@ -396,10 +391,9 @@ class RetroSeeker:
         return info
 
     def display_alignment(self) -> str | None:
-        """
-        Displays human-readable information about the object's alignment.
+        """Displays human-readable information about the object's alignment.
 
-            Returns
+        Returns:
             -------
                 :returns: str or None: The instance's Alignment information.
 
@@ -407,10 +401,9 @@ class RetroSeeker:
         return f"Alignment:\n {self.alignment}\n"
 
     def display_HSP(self) -> str | None:
-        """
-        Displays human-readable information about the object's HSP.
+        """Displays human-readable information about the object's HSP.
 
-            Returns
+        Returns:
             -------
                 :returns: str or None: The instance's HSP information.
 
@@ -418,10 +411,9 @@ class RetroSeeker:
         return f"HSP:\n {self.HSP}\n"
 
     def display_genbank(self) -> str | None:
-        """
-        Displays human-readable information about the object's Genbank record.
+        """Displays human-readable information about the object's Genbank record.
 
-            Returns
+        Returns:
             -------
                 :returns: str or None: The instance's Genbank information.
 
@@ -429,10 +421,9 @@ class RetroSeeker:
         return f"Genbank:\n {self.genbank}\n"
 
     def display_fasta(self) -> str | None:
-        """
-        Displays human-readable information about the object's FASTA file.
+        """Displays human-readable information about the object's FASTA file.
 
-            Returns
+        Returns:
             -------
                 :returns: str or None: The instance's FASTA file content.
 
@@ -440,10 +431,9 @@ class RetroSeeker:
         return f"Fasta:\n {self.fasta}\n"
 
     def display_gff(self) -> str | None:
-        """
-        Displays human-readable information about the GFF file associated with the object.
+        """Displays human-readable information about the GFF file associated with the object.
 
-            Returns
+        Returns:
             -------
                 :returns: HSP or None: The GFF file content.
 
@@ -451,10 +441,9 @@ class RetroSeeker:
         return f"GFF:\n {self.gff}\n"
 
     def is_complete(self) -> bool:
-        """
-        Checks if the object contains Genbank, FASTA and GFF records.
+        """Checks if the object contains Genbank, FASTA and GFF records.
 
-            Returns
+        Returns:
             -------
                 :returns: True if the object contains all three records, False otherwise.
 

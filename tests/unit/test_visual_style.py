@@ -145,7 +145,7 @@ def test_no_hex_colour_outside_style_r() -> None:
 
 
 def test_no_foreign_palette_or_theme_in_plotting_scripts() -> None:
-    """ggsci palettes, brewer/viridis scales and stock themes bypass the house style."""
+    """Ggsci palettes, brewer/viridis scales and stock themes bypass the house style."""
     banned = re.compile(
         r"library\(ggsci\)|ggsci::|pal_futurama|scale_(?:fill|colou?r)_"
         r"(?:brewer|viridis_[cd]|distiller|npg|aaas|jco|igv|futurama)|"

@@ -1,6 +1,4 @@
-"""
-Phylogenetic placement of marker sequences (POL/GAG) onto a reference tree
-=========================================================================
+"""Phylogenetic placement of marker sequences (POL/GAG) onto a reference tree.
 
 `place()` takes a batch of per-locus marker proteins for one gene plus that gene's
 pinned tree package, and returns a taxon call (+ rank + confidence + taxopath) per
@@ -103,8 +101,11 @@ def _align_queries(
 
 
 def _confidence(fields: list[str], conf_i: int | None) -> float | None:
-    """The row's confidence as a number: 0 when the column is absent, None when
-    the cell is there but not a number."""
+    """The row's confidence as a number, 0 when absent, None when unreadable.
+
+    It is 0 when the column (or the cell) is absent, and None when the cell is
+    there but not a number.
+    """
     if conf_i is None or conf_i >= len(fields):
         return 0.0
     try:
@@ -223,8 +224,7 @@ def _epa_then_gappa(
 def place(
     queries: dict[str, str], ref_dir: Path, gene: str, workdir: Path
 ) -> dict[str, dict[str, str]]:
-    """
-    Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
+    """Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
 
     taxon_call = deepest node of the assigned taxopath that is in the taxonomy
     (an axis taxon if resolved, else a higher rank); rank via taxonomy_lca.rank_of.

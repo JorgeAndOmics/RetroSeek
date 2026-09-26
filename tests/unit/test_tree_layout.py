@@ -49,8 +49,11 @@ class TestFromTaxonomy:
         assert "Simiispumavirus" not in tips  # its whole subfamily is gone
 
     def test_taxon_that_is_also_an_ancestor_keeps_its_own_tip(self, taxonomy_tsv):
-        """Mixed-rank axis (ADR-008): loci called at `Retroviridae` need a row
-        even though it is the ancestor of the genus-level calls."""
+        """A taxon that is also an ancestor of another axis taxon keeps its tip.
+
+        Mixed-rank axis (ADR-008): loci called at `Retroviridae` need a row
+        even though it is the ancestor of the genus-level calls.
+        """
         taxa = ["Retroviridae", "Alpharetrovirus"]
         tree = tl.from_taxonomy(taxonomy_tsv, taxa)
         tips = sorted(t.name for t in tree.get_terminals())
@@ -125,8 +128,11 @@ class TestLayout:
 
 class TestWrite:
     def test_headers_are_written_even_with_no_rows(self, tmp_path):
-        """An unconfigured species tree still needs its files, so the DAG holds
-        and the R side can render a placeholder instead of failing."""
+        """The layout CSVs get their headers even when there are no rows.
+
+        An unconfigured species tree still needs its files, so the DAG holds
+        and the R side can render a placeholder instead of failing.
+        """
         tl.write(tmp_path, "species", [], [])
         segs = (tmp_path / "species.tree_segments.csv").read_text(encoding="utf-8")
         tips = (tmp_path / "species.tree_tips.csv").read_text(encoding="utf-8")
@@ -135,7 +141,9 @@ class TestWrite:
 
 
 class TestSpeciesNameCanonicalization:
-    """The plot generators relabel genome stems to the config `species:` display
+    """Species tree tips carry the same display names as the plotted loci.
+
+    The plot generators relabel genome stems to the config `species:` display
     names before plotting, so the tree tips must carry the SAME names or the
     panel silently degrades to 'no loci matching the tree tips'. Regression
     guard for that mismatch.
@@ -203,8 +211,11 @@ def test_alias_index_maps_stems_and_display_names_to_the_display_name() -> None:
 
 
 def test_alias_index_can_canonicalise_to_the_stem_instead() -> None:
-    """The co-phylogeny compares against trees whose tips ARE genome stems,
-    so it needs the mapping pointing the other way."""
+    """The alias index can map every name to the genome stem instead.
+
+    The co-phylogeny compares against trees whose tips ARE genome stems,
+    so it needs the mapping pointing the other way.
+    """
     idx = tl.build_alias_index(SPECIES_MAP, canonical="stem")
     assert idx[tl._normalize("Myotis myotis")] == "GCF_014176215.1_mMyoMyo1"
     assert idx[tl._normalize("GCF_014176215.1_mMyoMyo1")] == "GCF_014176215.1_mMyoMyo1"

@@ -1,8 +1,7 @@
-"""
-tree_layout.py
-==============
-Turns the two trees RetroSeek can draw into flat COORDINATE tables that the R
-plot generators render with `geom_segment` - no R tree library required.
+"""Turn the two trees RetroSeek can draw into flat coordinate tables.
+
+The R plot generators render these COORDINATE tables with `geom_segment`, so no
+R tree library is required.
 
 Two sources, deliberately different in kind:
 
@@ -297,7 +296,7 @@ def _set_x(clade: Clade, x: float) -> None:
 
 
 def _set_y(clade: Clade) -> float:
-    """y of an internal clade: the mean y of its children (tips already have y)."""
+    """Y of an internal clade: the mean y of its children (tips already have y)."""
     if clade.is_terminal():
         return float(clade.y)
     ys = [_set_y(c) for c in clade.clades]
@@ -392,6 +391,7 @@ def _observed(parquet_dir: Path, column: str) -> list[str]:
 
 
 def main() -> None:
+    """Command-line entry: lay out the taxon tree of the observed taxon calls."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--parquet-dir",

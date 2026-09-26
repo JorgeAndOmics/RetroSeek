@@ -141,7 +141,6 @@ class TestNoSelfImport:
 
     def test_module_has_no_self_import(self) -> None:
         """Regression guard: ``import validator`` shouldn't live inside validator.py."""
-
         source = importlib.util.find_spec("validator")
         assert source is not None, "validator module should be findable on sys.path"
         from pathlib import Path

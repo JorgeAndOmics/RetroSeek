@@ -80,8 +80,11 @@ class TestSnakemakeOptions:
 
     @pytest.mark.parametrize("flag", ["--unlock", "--cleanup-metadata", "--cm"])
     def test_maintenance_modes_skip_the_guard(self, flag: str) -> None:
-        """--unlock and --cleanup-metadata run nothing; a guard dry run with them
-        would itself unlock or clean."""
+        """--unlock and --cleanup-metadata skip the guard dry run.
+
+        They run nothing, and a guard dry run with them would itself unlock or
+        clean.
+        """
         from RetroSeek import is_maintenance
 
         assert is_maintenance([flag, "/some/file"])

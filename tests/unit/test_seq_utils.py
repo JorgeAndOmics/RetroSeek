@@ -201,7 +201,7 @@ class TestBlastFailuresStopTheJob:
             seq_utils.blaster(self._instance(tmp_path), tool, tmp_path, "Toyus", 1)
 
     def test_an_empty_blast_output_raises(self, tmp_path) -> None:
-        """outfmt 11 (ASN.1) is never empty, even with no hits: empty means broken."""
+        """Outfmt 11 (ASN.1) is never empty, even with no hits: empty means broken."""
         import pytest
 
         import seq_utils
@@ -273,8 +273,11 @@ class TestBlasterParserReadsEveryHsp:
         assert all(o.alignment.hit_def.startswith(o.accession) for o in hits.values())
 
     def test_a_repeated_random_identifier_does_not_drop_a_hit(self) -> None:
-        """Keys are {accession}-{6 random characters}; a repeated draw on one
-        accession used to replace the earlier hit without a word."""
+        """A repeated random identifier must not silently replace an earlier hit.
+
+        Keys are {accession}-{6 random characters}; a repeated draw on one
+        accession must not overwrite the earlier hit without a word.
+        """
         import seq_utils
         import utils
 
@@ -298,8 +301,11 @@ class TestBlasterParserReadsEveryHsp:
         assert all(key.endswith(o.identifier) for key, o in hits.items())
 
     def test_identifiers_stay_unique_across_the_probes_of_a_genome(self) -> None:
-        """Every probe of a genome shares one key space: two probes hitting the
-        same chromosome must not reuse an identifier either."""
+        """Hit identifiers are unique across all probes of one genome.
+
+        Every probe of a genome shares one key space: two probes hitting the
+        same chromosome must not reuse an identifier either.
+        """
         import seq_utils
         import utils
 

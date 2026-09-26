@@ -1,4 +1,4 @@
-"""Normalize genome FASTA filenames to canonical ``{genome}.fa`` via symlink.
+r"""Normalize genome FASTA filenames to canonical ``{genome}.fa`` via symlink.
 
 Why this exists
 ---------------
@@ -31,8 +31,8 @@ CLI
 ---
 ::
 
-    python genome_fasta_normalizer.py \\
-        --genome-name <str> \\
+    python genome_fasta_normalizer.py \
+        --genome-name <str> \
         --species-dir <path>     # SPECIES_DB
         --output <path>          # SPECIES_DB / {genome}.fa
 """
@@ -56,7 +56,7 @@ def pick_canonical_source(species_dir: Path, genome: str) -> Path:
     Walks ``EXT_PREFERENCE`` in order. ``.fa`` always wins when present.
     For the non-``.fa`` extensions, refuses if more than one is present.
 
-    Raises
+    Raises:
     ------
     FileNotFoundError
         No file with any of the four extensions exists for ``genome``.

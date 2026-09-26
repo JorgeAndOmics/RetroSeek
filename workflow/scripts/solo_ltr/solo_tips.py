@@ -56,6 +56,8 @@ FATE_PREFIX = {"solo": SOLO, "mono_ltr_at_orphan": MONO}
 
 
 class Tip(NamedTuple):
+    """One tree tip: a BED interval and its Newick-safe name."""
+
     seqname: str
     start: int  # BED, 0-based
     end: int
@@ -145,6 +147,7 @@ def sampled_tips(
 
 
 def write_bed(tips: list[Tip], path: Path) -> int:
+    """Write the tips as a six-column BED on the + strand; return how many."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as handle:
         for tip in tips:
@@ -153,6 +156,7 @@ def write_bed(tips: list[Tip], path: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: draw the seeded sample of tree tips and write the BED."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bait-bed", type=Path, required=True)
     parser.add_argument("--candidates-csv", type=Path, required=True)

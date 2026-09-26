@@ -10,6 +10,8 @@
 # launcher parses (ADR-021).
 # =============================================================================
 
+"""Run an external tool, stopping with a PipelineError when it fails."""
+
 from __future__ import annotations
 
 import logging

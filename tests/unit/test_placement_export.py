@@ -41,7 +41,7 @@ def _write_ref_package(ref_dir: Path, gene: str = "POL") -> Path:
 # edge_numbered_newick
 # ---------------------------------------------------------------------
 def test_edge_numbered_newick_labels_every_edge() -> None:
-    """jplace requires each edge to carry a {N} tag so placements can reference it."""
+    """Jplace requires each edge to carry a {N} tag so placements can reference it."""
     out = edge_numbered_newick(REF_TREE)
     # 4 tips + 2 internal + root = 7 edges in this topology
     assert out.count("{") == 7

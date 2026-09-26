@@ -87,7 +87,7 @@ def test_heat_tree_cmd_requests_every_vector_format(tmp_path: Path) -> None:
 
 
 def test_heat_tree_cmd_carries_the_stem_as_file_prefix(tmp_path: Path) -> None:
-    """gappa names files after the command; the prefix keeps runs distinguishable."""
+    """Gappa names files after the command; the prefix keeps runs distinguishable."""
     cmd = heat_tree_cmd(tmp_path / "x.jplace", tmp_path / "out", "Toyus.orphan.POL")
     assert "--file-prefix" in cmd
     assert cmd[cmd.index("--file-prefix") + 1] == "Toyus.orphan.POL."
@@ -107,8 +107,11 @@ def test_heat_tree_cmd_rejects_an_unknown_normalisation(tmp_path: Path) -> None:
 
 
 def test_edpl_cmd_targets_the_right_subcommand(tmp_path: Path) -> None:
-    """EDPL measures how spread out a query's placements are - an uncertainty
-    axis independent of the confidence already in the catalog."""
+    """The EDPL command calls `gappa examine edpl` with a file prefix.
+
+    EDPL measures how spread out a query's placements are: an uncertainty
+    axis independent of the confidence already in the catalog.
+    """
     cmd = edpl_cmd(tmp_path / "x.jplace", tmp_path / "out", "Toyus.ltr-flanked.POL")
     assert cmd[:3] == ["gappa", "examine", "edpl"]
     assert "--file-prefix" in cmd

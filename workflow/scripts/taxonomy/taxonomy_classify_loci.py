@@ -1,6 +1,4 @@
-"""
-Per-gene, mosaic-aware ERV locus classifier (trial)
-===================================================
+"""Per-gene, mosaic-aware ERV locus classifier (trial).
 
 Classifies ERV loci from their own sequence, per gene, with a method cascade:
 
@@ -218,6 +216,7 @@ def annotate_loci_with_domains(
 
 
 def write_region_bed(loci: list[dict[str, Any]], bed: Path) -> None:
+    """Write one BED row per (locus, gene) region, named `{locus id}|{gene}`."""
     with bed.open("w", encoding="utf-8") as fh:
         for lc in loci:
             for gene, (s, e) in lc["genes"].items():
@@ -228,11 +227,13 @@ def write_region_bed(loci: list[dict[str, Any]], bed: Path) -> None:
 
 # ---------------------------------------------------------------- search
 def build_db(faa: Path, db: Path) -> None:
+    """Build the protein BLAST database from `faa`, unless it already exists."""
     if not db.with_suffix(".pin").exists():
         run_tool([MAKEBLASTDB, "-in", str(faa), "-dbtype", "prot", "-out", str(db)])
 
 
 def search(query: Path, db: Path, out: Path, evalue: float, threads: int) -> None:
+    """Run blastx of `query` against `db`, writing tabular hits to `out`."""
     run_tool(
         [
             BLASTX,
@@ -255,6 +256,7 @@ def search(query: Path, db: Path, out: Path, evalue: float, threads: int) -> Non
 
 
 def translate_frame(dna: str, frame: int) -> str:
+    """Translate `dna` in blastx frame 1 to 3, or -1 to -3 (reverse strand)."""
     s = Seq(dna)
     if frame < 0:
         s = s.reverse_complement()  # type: ignore[no-untyped-call]
@@ -764,8 +766,10 @@ def write_counts(
 def classification_counts(
     records: list[dict[str, str]], kept: list[dict[str, str]], source: str
 ) -> list[dict[str, Any]]:
-    """Blastx-stage loss counters, emitted in the same (metric, value) shape as
-    ranges_analysis.R's counts table so the two UNION into one loss funnel.
+    """Blastx-stage loss counters, as (metric, value) rows.
+
+    They have the same shape as ranges_analysis.R's counts table, so the two
+    UNION into one loss funnel.
 
     For the gated orphan run, ``records`` is the pre-gate set and ``kept`` the
     post-gate (recovered) set; for the ltr-flanked run the two are identical.
@@ -820,6 +824,7 @@ def classification_counts(
 
 
 def summarise(records: list[dict[str, str]]) -> str:
+    """A plain-text summary: counts, ranks, methods and resolved taxa of the calls."""
     total = len(records)
     placed = [r for r in records if r["taxon_call"] != tlca.UNCLASSIFIED]
     by_rank = Counter(r["rank"] for r in placed)

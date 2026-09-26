@@ -1,6 +1,4 @@
-"""
-Probe Extractor Script
-======================
+"""Probe extractor: fetch the probe sequences from NCBI and pickle them.
 
 This script parses a CSV table containing probe gene metadata, retrieves their
 corresponding sequences from an online database (e.g., NCBI GenBank), and serializes
@@ -52,19 +50,18 @@ logger = logging.getLogger(__name__)
 # 1. CSV Table Parser
 # =============================================================================
 def table_parser(input_csv_file: str | Path) -> dict[str, RetroSeeker]:
-    """
-    Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
+    """Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
 
         Parameters
         ----------
             :param input_csv_file: Path to the input CSV file containing probe metadata.
                                    Expected columns: Label, Name, Abbreviation, Probe, Accession.
 
-        Returns
+    Returns:
         -------
             :returns: probe_dict: A dictionary mapping accession IDs to `RetroSeeker` instances that encapsulate probe metadata.
 
-        Raises
+    Raises:
         ------
             :raises FileNotFoundError: If the specified CSV file does not exist.
             :raises pd.errors.ParserError: If the CSV content is malformed.

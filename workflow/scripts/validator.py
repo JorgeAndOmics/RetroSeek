@@ -1,3 +1,10 @@
+"""Input checks the launcher runs before a pipeline run.
+
+The preflight (config schema, tools, Pfam library) always runs; the slower
+validation (NCBI probe lookups, genome FASTAs) and the confirmation prompt are
+skipped with `-skp`.
+"""
+
 # -------------------
 # DEPENDENCIES
 # -------------------
@@ -76,8 +83,7 @@ def retired_key_messages(config: dict[str, object]) -> list[str]:
 
 
 def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
-    """
-    Validates the YAML configuration file against a Yamale schema.
+    """Validates the YAML configuration file against a Yamale schema.
 
     Parameters
     ----------
@@ -86,7 +92,7 @@ def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
     yaml_schema : str
         Path to the YAML schema file.
 
-    Returns
+    Returns:
     -------
     bool
         True if the YAML is valid, False otherwise.
@@ -116,15 +122,14 @@ def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
 
 
 def csv_validator(csv_file: str) -> bool:
-    """
-    Validates the CSV file for required fields and checks NCBI accession validity.
+    """Validates the CSV file for required fields and checks NCBI accession validity.
 
     Parameters
     ----------
     csv_file : str
         Path to the CSV file.
 
-    Returns
+    Returns:
     -------
     bool
         True if CSV passes validation, False otherwise.
@@ -176,15 +181,14 @@ def csv_validator(csv_file: str) -> bool:
 
 
 def fasta_validator(fasta_file: str) -> bool:
-    """
-    Validates a FASTA file for content and headers.
+    """Validates a FASTA file for content and headers.
 
     Parameters
     ----------
     fasta_file : str
         Path to the FASTA file.
 
-    Returns
+    Returns:
     -------
     bool
         True if valid, False otherwise.
@@ -277,8 +281,7 @@ def preflight(chosen: list[stages.Stage]) -> bool:
 
 
 def ask(question: str, default: str = "") -> str:
-    """
-    Asks the user a question, falling back to `default` when nobody answers.
+    """Asks the user a question, falling back to `default` when nobody answers.
 
     Unattended runs (CI, an agent, `nohup`) have no terminal attached, so a
     bare `input()` raises EOFError and takes the whole pipeline down before
@@ -293,7 +296,7 @@ def ask(question: str, default: str = "") -> str:
         Answer to assume when the user just hits enter, or when there is no
         terminal to ask.
 
-    Returns
+    Returns:
     -------
     str
         The user's answer, or `default`.
@@ -311,9 +314,9 @@ def ask(question: str, default: str = "") -> str:
 
 
 def validate_ncbi_key() -> None:
-    """
-    Ensures that an NCBI API key is available in the environment.
-    Prompts the user to enter one if not present.
+    """Make sure an NCBI API key is set in the environment, prompting if it is not.
+
+    An empty answer skips it with a warning: NCBI retrievals then run slower.
     """
     if "NCBI_API_KEY" not in os.environ:
         logger.warning(
@@ -334,9 +337,10 @@ def validate_ncbi_key() -> None:
 
 
 def main_validator(fasta_files: list[str] | None, chosen: list[stages.Stage]) -> bool:
-    """
-    The slow checks `-skp` skips: NCBI lookups of every probe accession and the
-    API-key prompt (only for stages that talk to NCBI), and the genome FASTAs.
+    """Run the slow checks that `-skp` skips.
+
+    These are NCBI lookups of every probe accession and the API-key prompt (only
+    for stages that talk to NCBI), and the genome FASTAs.
 
     Parameters
     ----------
@@ -345,7 +349,7 @@ def main_validator(fasta_files: list[str] | None, chosen: list[stages.Stage]) ->
     chosen : list of Stage
         The stages about to run.
 
-    Returns
+    Returns:
     -------
     bool
         True if all checks pass, False otherwise.
@@ -377,15 +381,14 @@ def main_validator(fasta_files: list[str] | None, chosen: list[stages.Stage]) ->
 
 
 def green_light(all_valid: bool) -> bool:
-    """
-    Asks user to confirm whether to proceed if all validations passed.
+    """Asks user to confirm whether to proceed if all validations passed.
 
     Parameters
     ----------
     all_valid : bool
         Whether all validations were successful.
 
-    Returns
+    Returns:
     -------
     bool
         True if user wants to proceed, False otherwise.
@@ -420,8 +423,7 @@ def green_light(all_valid: bool) -> bool:
 def validation_run(
     chosen: list[stages.Stage], fasta_files: list[str] | None = None
 ) -> bool:
-    """
-    The slow, skippable validation, then the confirmation prompt.
+    """The slow, skippable validation, then the confirmation prompt.
 
     Parameters
     ----------
@@ -430,7 +432,7 @@ def validation_run(
     fasta_files : list of str, optional
         List of FASTA file paths to validate.
 
-    Returns
+    Returns:
     -------
     bool
         True if user confirms execution after passing validation, False otherwise.

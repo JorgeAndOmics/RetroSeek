@@ -1,4 +1,4 @@
-"""Per-genome phylogenetic figures and quality tables from placement evidence.
+r"""Per-genome phylogenetic figures and quality tables from placement evidence.
 
 Consumes the published `.jplace` files (see `taxonomy_placement.export_placement`)
 and turns each into figures that answer questions the catalog cannot:
@@ -40,8 +40,8 @@ CLI
 ---
 ::
 
-    python placement_figures.py \\
-        --jplace <path> --out-dir <dir> --stem <genome>.<tier>.<gene> \\
+    python placement_figures.py \
+        --jplace <path> --out-dir <dir> --stem <genome>.<tier>.<gene> \
         [--mass-norm absolute|relative] [--skip-edpl] [--skip-lwr]
 """
 

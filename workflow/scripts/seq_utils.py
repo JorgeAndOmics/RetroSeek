@@ -1,5 +1,4 @@
-"""
-seq_utils.py
+"""BLAST searches of probe objects, hit parsing and GenBank retrieval.
 
 This module provides utilities to perform BLAST searches on sequence objects,
 parse the resulting alignments, fetch associated GenBank records, and organize
@@ -48,8 +47,11 @@ def blaster(
     num_threads: int,
     _outfmt: str = "11",
 ) -> str:
-    """
-    Runs a BLAST search for a given object against a given database
+    """Run a BLAST search of one probe object against a genome database.
+
+    The output is the ASN.1 archive (outfmt 11) that blaster_parser reads. An
+    empty output stops the job with a PipelineError, since the archive is
+    written even when nothing matches.
 
         Parameters
         ----------
@@ -57,14 +59,14 @@ def blaster(
             :param command: The command to run BLAST.
             :param input_database_path: The path to the database.
             :param subject: The particular genome against whose database it's being BLASTed
-            :param _outfmt: The output format for the BLAST results. Default is 5.
+            :param _outfmt: The output format for the BLAST results. Default is 11.
             :param num_threads: The number of threads to use. Default is 1.
 
-        Returns
+    Returns:
         -------
             :returns: The output of the BLAST search, captured from std_out.
 
-        Raises
+    Raises:
         ------
             :raise Exception: If an error occurs while running BLAST.
     """
@@ -158,7 +160,12 @@ def blaster_parser(
     subject: str,
     used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
-    """
+    """Parse a BLAST archive into one RetroSeeker object per HSP.
+
+    The archive is converted to XML with blast_formatter; each HSP becomes a
+    RetroSeeker carrying the query's metadata, keyed by
+    ``{accession}-{identifier}``.
+
         Parameters
         ----------
         :param result: The result of [blaster] function.
@@ -167,12 +174,12 @@ def blaster_parser(
         :param used_identifiers: Identifiers already given to this genome's hits; new
             ones are added. Pass the same set for every probe of a genome.
 
-    Returns
+    Returns:
     -------
         :returns: A dictionary containing the parsed results of the [blaster] function:
         alignment_dict[f'{alignment.id}-{random_string}'] = Object, one per HSP.
 
-    Raises
+    Raises:
     ------
         :raise PipelineError: If blast_formatter cannot read the archive.
 
@@ -208,9 +215,9 @@ def _blast_task(
     num_threads: int,
     used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
-    """
-    Run BLAST command for the Entrez-retrieved sequences against the species database. This function is used as a task
-    in the ThreadPoolExecutor
+    """Run one probe against the species database and parse its hits.
+
+    One task of blast_executor: [blaster] followed by [blaster_parser].
 
         Parameters
         ----------
@@ -220,11 +227,11 @@ def _blast_task(
             :param input_database_path: The path to the database.
             :param num_threads: The number of threads to use. Default is 1.
 
-        Returns
+    Returns:
         -------
             :returns: A dictionary containing the BLAST results parsed by [blaster_parser] function
 
-        Raises
+    Raises:
         ------
             :raises Exception: If the BLAST process fails
 
@@ -246,8 +253,10 @@ def blast_executor(
     num_threads: int,
     genome: str,
 ) -> dict[str, RetroSeeker] | None:
-    """
-    Runs BLAST tasks sequentially
+    """Run every probe against one genome in turn and merge their hits.
+
+    All probes of the genome share one set of hit identifiers. Returns None
+    (after a CRITICAL log line) when no probe has a hit.
 
         Parameters
         ----------
@@ -257,7 +266,7 @@ def blast_executor(
             :param num_threads: The number of threads to use. Default is 1.
             :param genome: Optional: A genome to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
 
-        Returns
+    Returns:
         -------
             :returns: A dictionary containing the parsed BLAST results
     """
@@ -300,9 +309,10 @@ def blast_retriever(
     input_database_path: str | Path,
     num_threads: int,
 ) -> dict[str, RetroSeeker] | None:
-    """
-    Orchestrates the blast retrieval process. It first performs the blast search, then merges the results, and
-    finally retrieves the sequences from the online database and removes incomplete records.
+    """Run the BLAST search of every probe against one genome and merge the hits.
+
+    It delegates to [blast_executor]; retrieving GenBank records is done
+    separately by [gb_executor].
 
         Parameters
         ----------
@@ -312,7 +322,7 @@ def blast_retriever(
             :param input_database_path: The path to the local database (species, virus...).
             :param num_threads: The number of threads to use. Default is 1.
 
-        Returns
+    Returns:
         -------
             :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
     """
@@ -332,8 +342,7 @@ def gb_fetcher(
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
     _entrez_email: str = defaults.ENTREZ_EMAIL,
 ) -> RetroSeeker:
-    """
-    Fetch the GenBank results for a given sequence and appends it to the objects.
+    """Fetch the GenBank results for a given sequence and appends it to the objects.
 
         Parameters
         ----------
@@ -343,14 +352,14 @@ def gb_fetcher(
             :param max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
             :param _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
 
-        Returns
+    Returns:
         -------
             :returns: The Object instance with the fetched sequence appended. The function
             returns the instance whether it has been updated or not. If the sequence could not be fetched,
             the instance will be returned as is. If the sequence was fetched, the instance will be updated
             with the GenBank record. See [incomplete_dict_cleaner] function to remove incomplete objects.
 
-        Raises
+    Raises:
         ------
             :raise Exception: If an error occurs while fetching the sequence.
     """
@@ -393,8 +402,7 @@ def gb_executor(
     online_database: str,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
 ) -> dict[str, RetroSeeker] | None:
-    """
-    Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
+    """Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
 
         Parameters
         ----------
@@ -402,11 +410,11 @@ def gb_executor(
             :param online_database: The database to retrieve the sequences from.
             :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
 
-        Returns
+    Returns:
         -------
             :returns: full_retrieved_results: A dictionary containing the input objects + the fetched GenBank sequences
 
-        Raises
+    Raises:
         ------
             :raises Exception: If an error occurs while fetching the sequences
     """

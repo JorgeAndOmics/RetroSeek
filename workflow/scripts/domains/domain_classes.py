@@ -17,6 +17,8 @@
 # while missing `rve`, `RVP`, `IN_DBD_C` and `GP41` entirely.
 # =============================================================================
 
+"""The curated Pfam domain class table and the locus columns derived from it."""
+
 from __future__ import annotations
 
 from pathlib import Path

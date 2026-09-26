@@ -1,6 +1,4 @@
-"""
-Full Genome BLAST Executor
-==========================
+"""Full genome BLAST executor: tBLASTn of the probe set against one genome.
 
 This script runs a tBLASTn search against a specified genome using a pre-serialized
 dictionary of probe Objects. Results are serialized for downstream usage.

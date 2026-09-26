@@ -138,7 +138,10 @@ def test_required_seeds_are_kept_even_beyond_the_cap(bait: Path) -> None:
 
 
 def test_a_solo_tip_carries_its_seed_element_id(candidates: Path) -> None:
-    """Carried as a field, not parsed back out of the name: sequence names such as
-    RefSeq's NW_ contain underscores, so the name cannot be split reliably."""
+    """A solo tip carries its seed element id as a field.
+
+    It is not parsed back out of the name: sequence names such as RefSeq's NW_
+    contain underscores, so the name cannot be split reliably.
+    """
     tips = solo_tips.sampled_tips(candidates, "solo", 3, random.Random(1))
     assert {t.seed for t in tips} == {"LTR_retrotransposon1"}

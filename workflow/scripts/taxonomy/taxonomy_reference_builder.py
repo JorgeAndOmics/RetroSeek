@@ -1,6 +1,4 @@
-"""
-Taxonomy reference builder
-==========================
+"""Taxonomy reference builder: an independent retroviral protein reference.
 
 Builds an *independent*, taxon-balanced retroviral protein reference for
 weighted-LCA / placement classification of ERV loci (see ``taxonomy_lca.py`` and
@@ -116,8 +114,7 @@ def classify_gene(defline: str) -> str:
 
 
 def fetch_taxon(taxon: str, email: str) -> list[tuple[str, str, str, str]]:
-    """
-    Fetch RefSeq protein records for one axis taxon (any rank).
+    """Fetch RefSeq protein records for one axis taxon (any rank).
 
     Returns list of (accession, taxon, gene, defline), capped per gene for balance.
     """
@@ -178,6 +175,7 @@ def write_manifest(
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: build the reference faa, csv and manifest."""
     p = argparse.ArgumentParser(
         description="Build the taxon-comprehensive ERV reference"
     )

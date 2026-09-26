@@ -14,6 +14,8 @@
 # works without a config.
 # =============================================================================
 
+"""The launcher's stages in one table, and the command-line parser built from it."""
+
 from __future__ import annotations
 
 import argparse

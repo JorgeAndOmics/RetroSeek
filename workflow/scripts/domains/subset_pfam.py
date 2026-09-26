@@ -30,6 +30,8 @@
 # back to accessions, including families the curated table does not list.
 # =============================================================================
 
+"""Derive the small, curated Pfam HMM library from the full Pfam-A file."""
+
 from __future__ import annotations
 
 import argparse
@@ -169,6 +171,7 @@ def write_name_map(hmm_path: Path, out_path: Path) -> int:
 
 
 def main(args: argparse.Namespace) -> None:
+    """Write the curated Pfam subset and the full library's name to accession map."""
     n_models = subset_pfam(args.hmm, args.classes, args.out)
     n_names = write_name_map(args.hmm, args.name_map)
     logger.info("wrote %d name to accession pairs to %s", n_names, args.name_map)

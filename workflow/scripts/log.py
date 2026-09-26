@@ -33,6 +33,8 @@
 # `PipelineError("what went wrong", hint="what to do")`.
 # =============================================================================
 
+"""The console line contract and job logging for every Python script (ADR-021)."""
+
 from __future__ import annotations
 
 import logging
@@ -64,6 +66,10 @@ class LineFormatter(logging.Formatter):
         self.genome = genome or "all"
 
     def format(self, record: logging.LogRecord) -> str:
+        """Return the record as contract lines, one prefixed line per message line.
+
+        A traceback, when the record carries one, is appended to the message.
+        """
         level = _LEVEL_NAMES.get(record.levelno, record.levelname)
         stamp = time.strftime("%H:%M:%S", time.localtime(record.created))
         prefix = f"{stamp} {level} {self.step} {self.genome} | "

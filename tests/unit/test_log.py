@@ -124,8 +124,11 @@ def test_setup_appends_to_an_existing_job_log(tmp_path: Path, monkeypatch) -> No
 def test_job_logging_reads_the_job_from_its_log_path(
     tmp_path: Path, capsys, monkeypatch
 ) -> None:
-    """LOG_DIR/<step>/<genome>.log names the job: scripts shared by two rules
-    (taxonomy_classify_loci.py, solo_plots.R) still report the right step."""
+    """The job log path LOG_DIR/<step>/<genome>.log sets the step and genome.
+
+    Scripts shared by two rules (taxonomy_classify_loci.py, solo_plots.R)
+    therefore still report the right step.
+    """
     monkeypatch.setenv("RETROSEEK_VERBOSITY", "normal")
     log.job_logging(tmp_path / "taxonomy_orphans" / "Mus_musculus.log", "fallback")
     logging.getLogger("t").warning("w")

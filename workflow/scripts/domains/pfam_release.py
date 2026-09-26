@@ -25,6 +25,8 @@
 # LTRdigest output look stale (about a day per genome to redo).
 # =============================================================================
 
+"""Record which Pfam release the domain scan used (ADR-019)."""
+
 from __future__ import annotations
 
 import argparse
@@ -83,6 +85,12 @@ def _fetch(url: str) -> bytes:
 
 
 def main(args: argparse.Namespace) -> None:
+    """Write the Pfam release record, warning when the local download differs.
+
+    Fetches the pinned release's Pfam.version.gz and md5_checksums from EBI and
+    compares them with the downloader's md5sum.txt. A mismatch is a warning, not
+    an error.
+    """
     base = release_url(args.release)
     version_text = gzip.decompress(_fetch(f"{base}/Pfam.version.gz")).decode()
     release_md5_text = _fetch(f"{base}/md5_checksums").decode()

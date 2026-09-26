@@ -1,6 +1,4 @@
-"""
-Taxonomy LCA for ERV locus classification
-==========================================
+"""Taxonomy LCA for ERV locus classification.
 
 Resolves the taxonomic identity of an ERV locus from the *set* of axis taxa
 (any rank; ADR-008) supported by its evidence, using a lowest-common-ancestor
@@ -88,8 +86,7 @@ UNCLASSIFIED = "unclassified"
 
 
 def load_taxonomy(path: str | Path) -> dict[str, str | None]:
-    """
-    Replace the hierarchy with a data-derived one (``taxonomy.tsv``).
+    """Replace the hierarchy with a data-derived one (``taxonomy.tsv``).
 
     Columns: ``name, parent, rank`` (root's parent empty). Built by
     ``taxonomy_build_hierarchy.py`` from NCBI Taxonomy. Reassigns the module-level
@@ -109,8 +106,7 @@ def load_taxonomy(path: str | Path) -> dict[str, str | None]:
 
 
 def load_erv_class(path: str | Path) -> dict[str, str]:
-    """
-    Replace the ERV-class map from a data file (``erv_class.tsv``: ``genus, erv_class``).
+    """Replace the ERV-class map from a data file (``erv_class.tsv``: ``genus, erv_class``).
 
     Curated + overridable; the literal ``ERV_CLASS`` above is only a fallback default.
     """
@@ -138,8 +134,7 @@ def ancestors(node: str) -> list[str]:
 
 
 def lca(genera: set[str]) -> str:
-    """
-    Lowest common ancestor of a set of taxonomy nodes.
+    """Lowest common ancestor of a set of taxonomy nodes.
 
     Unknown labels (not in the taxonomy) are ignored; if nothing is known the
     result is ``UNCLASSIFIED``. A single known node returns itself.
@@ -165,8 +160,7 @@ def rank_of(node: str) -> str:
 def weighted_lca(
     hits: list[tuple[str, float]], top_percent: float = 0.10
 ) -> tuple[str, float]:
-    """
-    Bitscore-weighted LCA over a locus's hits (MEGAN top-percent paradigm).
+    """Bitscore-weighted LCA over a locus's hits (MEGAN top-percent paradigm).
 
     ``hits`` is ``[(taxon, bitscore), ...]``. Only hits whose bitscore is within
     ``top_percent`` of the locus's best bitscore count toward the LCA - so a taxon

@@ -1,6 +1,4 @@
-"""
-Defaults Configuration Script
-=============================
+"""Load the YAML configuration and set up the project's constants and paths.
 
 This script loads configuration settings from a YAML file and sets up various
 constants and directory paths used throughout the project.

@@ -35,8 +35,11 @@ def test_tier_non_domain_only_when_nothing_was_found() -> None:
 
 
 def test_summarise_keys_on_distinct_families_not_hit_counts(tmp_path: Path) -> None:
-    """Two hits of the same family must read identically to one hit of it, so the
-    result does not depend on fragment chaining."""
+    """Two hits of the same family summarise identically to one hit of it.
+
+    Keying on distinct families keeps the result independent of fragment
+    chaining.
+    """
     classes = {"PF00665": "retroviral_diagnostic"}
     one = [{"locus_id": "L", "pfam_acc": "PF00665", "pfam_name": "rve"}]
     two = [*one, {"locus_id": "L", "pfam_acc": "PF00665", "pfam_name": "rve"}]
@@ -56,8 +59,11 @@ def test_summarise_reports_sorted_distinct_names(tmp_path: Path) -> None:
 
 
 def test_family_absent_from_the_table_is_recorded_but_classed_other() -> None:
-    """A hit we cannot interpret must still appear in domain_names. Dropping it
-    would reintroduce the silent-loss bug this feature exists to remove."""
+    """A hit we cannot interpret must still appear in domain_names.
+
+    Dropping it would reintroduce the silent-loss bug this feature exists to
+    remove.
+    """
     got = scan_domains.summarise(
         [{"locus_id": "L", "pfam_acc": "PF99999", "pfam_name": "Mystery"}], {}
     )["L"]

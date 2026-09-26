@@ -56,12 +56,12 @@ def unpickler(input_directory_path: str | Path, input_file_name: str) -> Any:
     input_file_name:
         Basename of the pickle file.
 
-    Returns
+    Returns:
     -------
     Any
         The deserialised payload.
 
-    Raises
+    Raises:
     ------
     Exception
         If the file cannot be opened or dill fails to load it; the path

@@ -19,6 +19,8 @@
 # off by itself when the output is not a terminal; NO_COLOR turns them off too.
 # =============================================================================
 
+"""What the launcher shows and records while a run goes (ADR-021)."""
+
 from __future__ import annotations
 
 import logging
@@ -317,8 +319,10 @@ class Screen:
 
 
 class ScreenHandler(logging.Handler):
-    """Routes the launcher's own log messages (checks, guard) like a job's lines:
-    every line into the run log, and onto the screen as its verbosity allows."""
+    """Route the launcher's own log messages (checks, guard) like a job's lines.
+
+    Every line goes into the run log, and onto the screen as its verbosity allows.
+    """
 
     def __init__(self, screen: Screen, run_log: Path) -> None:
         super().__init__(level=logging.DEBUG)
@@ -327,6 +331,7 @@ class ScreenHandler(logging.Handler):
         self.setFormatter(LineFormatter("launcher", None))
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Append the formatted record to the run log and show each of its lines."""
         text = self.format(record)
         self.run_log.parent.mkdir(parents=True, exist_ok=True)
         with self.run_log.open("a", encoding="utf-8") as out:
