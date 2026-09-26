@@ -116,7 +116,7 @@ def _links_to(link: Path, source: Path) -> bool:
     try:
         return link.resolve() == source.resolve() and link.exists()
     except (OSError, RuntimeError):
-        return False  # stale symlink whose target can't be resolved
+        return False
 
 
 def normalize(species_dir: Path, genome: str, output: Path) -> Path:

@@ -37,7 +37,6 @@ Usage:
 import argparse
 import logging
 from collections import defaultdict
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -55,49 +54,64 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # 1. Attribute Extraction Function
 # =============================================================================
-# Columns read from each optional record attached to a probe Object: column name
-# -> how to read it. A missing record gives None in every one of its columns.
-_GENBANK_COLUMNS: dict[str, Callable[[Any], Any]] = {
-    "genbank_id": lambda gb: gb.id,
-    "genbank_name": lambda gb: gb.name,
-    "genbank_description": lambda gb: gb.description,
-    "genbank_dbxrefs": lambda gb: gb.dbxrefs,
-    "genbank_annotations": lambda gb: str(gb.annotations),
-    "genbank_seq": lambda gb: str(gb.seq),
+# Column name -> the attribute it is read from, for the alignment and HSP records
+# attached to a probe Object. A missing record gives None in every one of its
+# columns. Plain attribute names rather than getter functions: this runs once
+# per BLAST hit, hundreds of thousands of times per genome.
+_ALIGNMENT_COLUMNS = {
+    "alignment_title": "title",
+    "alignment_length": "length",
+    "alignment_accession": "accession",
+    "alignment_hit_id": "hit_id",
+    "alignment_hit_def": "hit_def",
 }
-_ALIGNMENT_COLUMNS: dict[str, Callable[[Any], Any]] = {
-    "alignment_title": lambda aln: aln.title,
-    "alignment_length": lambda aln: aln.length,
-    "alignment_accession": lambda aln: aln.accession,
-    "alignment_hit_id": lambda aln: aln.hit_id,
-    "alignment_hit_def": lambda aln: aln.hit_def,
-}
-_HSP_COLUMNS: dict[str, Callable[[Any], Any]] = {
-    "hsp_bits": lambda hsp: hsp.bits,
-    "hsp_score": lambda hsp: hsp.score,
-    "hsp_evalue": lambda hsp: hsp.expect,
-    "hsp_query": lambda hsp: hsp.query,
-    "hsp_sbjct": lambda hsp: hsp.sbjct,
-    "hsp_query_start": lambda hsp: hsp.query_start,
-    "hsp_query_end": lambda hsp: hsp.query_end,
-    "hsp_sbjct_start": lambda hsp: hsp.sbjct_start,
-    "hsp_sbjct_end": lambda hsp: hsp.sbjct_end,
-    "hsp_identity": lambda hsp: hsp.identities,
-    "hsp_align_length": lambda hsp: hsp.align_length,
-    "hsp_gaps": lambda hsp: hsp.gaps,
-    "hsp_positives": lambda hsp: hsp.positives,
-    "hsp_strand": lambda hsp: hsp.strand,
-    "hsp_frame": lambda hsp: hsp.frame,
+_HSP_COLUMNS = {
+    "hsp_bits": "bits",
+    "hsp_score": "score",
+    "hsp_evalue": "expect",
+    "hsp_query": "query",
+    "hsp_sbjct": "sbjct",
+    "hsp_query_start": "query_start",
+    "hsp_query_end": "query_end",
+    "hsp_sbjct_start": "sbjct_start",
+    "hsp_sbjct_end": "sbjct_end",
+    "hsp_identity": "identities",
+    "hsp_align_length": "align_length",
+    "hsp_gaps": "gaps",
+    "hsp_positives": "positives",
+    "hsp_strand": "strand",
+    "hsp_frame": "frame",
 }
 
 
-def _read_columns(
-    record: Any, columns: dict[str, Callable[[Any], Any]]
-) -> dict[str, Any]:
+def _read_columns(record: Any, columns: dict[str, str]) -> dict[str, Any]:
     """One optional record's columns; all None when the record is absent."""
     if not record:
         return dict.fromkeys(columns)
-    return {name: read(record) for name, read in columns.items()}
+    return {name: getattr(record, attr) for name, attr in columns.items()}
+
+
+def _genbank_columns(gb: Any) -> dict[str, Any]:
+    """The GenBank record's columns; annotations and sequence as text."""
+    if not gb:
+        return dict.fromkeys(
+            [
+                "genbank_id",
+                "genbank_name",
+                "genbank_description",
+                "genbank_dbxrefs",
+                "genbank_annotations",
+                "genbank_seq",
+            ]
+        )
+    return {
+        "genbank_id": gb.id,
+        "genbank_name": gb.name,
+        "genbank_description": gb.description,
+        "genbank_dbxrefs": gb.dbxrefs,
+        "genbank_annotations": str(gb.annotations),
+        "genbank_seq": str(gb.seq),
+    }
 
 
 def _species_name(species: str) -> str:
@@ -144,7 +158,7 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
         "identifier": obj.identifier,
         "strand": obj.strand,
         "species_name": _species_name(obj.species),
-        **_read_columns(obj.genbank, _GENBANK_COLUMNS),
+        **_genbank_columns(obj.genbank),
         **_read_columns(obj.alignment, _ALIGNMENT_COLUMNS),
         **_read_columns(obj.HSP, _HSP_COLUMNS),
     }

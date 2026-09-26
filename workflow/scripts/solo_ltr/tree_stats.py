@@ -174,17 +174,17 @@ def _sister_pairs(tips: list[Any], parents: dict[Any, Any]) -> dict[str, Counter
 
 
 def _adjacency_row(
-    own: str, other: str, observed: Counter[str], total: int, expected_fraction: float
+    own: str, other: str, n: int, total: int, expected_fraction: float
 ) -> dict[str, Any]:
-    """One (tip class, sister class) row; enrichment is blank when not expected.
+    """One (tip class, sister class) row: ``n`` of the ``total`` sisters of ``own``.
 
-    ``total`` is the number of sisters seen for ``own``, over every class.
+    Enrichment is blank when the sister class is not expected at all.
     """
-    observed_fraction = (observed[other] / total) if total else 0.0
+    observed_fraction = (n / total) if total else 0.0
     return {
         "tip_class": own,
         "sister_class": other,
-        "n": observed[other],
+        "n": n,
         "observed_fraction": round(observed_fraction, 4),
         "expected_fraction": round(expected_fraction, 4),
         "enrichment": (
@@ -202,10 +202,13 @@ def adjacency(tips: list[Any], parents: dict[Any, Any]) -> list[dict[str, Any]]:
     pairs = _sister_pairs(tips, parents)
     abundance = Counter(tip_class(tip.name) for tip in tips)
     total_tips = sum(abundance.values()) or 1
-    totals = {own: sum(pairs[own].values()) for own in CLASSES}
     return [
         _adjacency_row(
-            own, other, pairs[own], totals[own], abundance[other] / total_tips
+            own,
+            other,
+            pairs[own][other],
+            sum(pairs[own].values()),
+            abundance[other] / total_tips,
         )
         for own in CLASSES
         for other in CLASSES

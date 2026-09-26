@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from log import PipelineError, job_logging, run_main
+from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +71,7 @@ def _bait_arms(bait_bed: Path) -> dict[str, list[Tip]]:
     """
     by_element: dict[str, list[Tip]] = {}
     with bait_bed.open() as handle:
-        for line in handle:
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 4:
-                continue
+        for fields in tab_rows(handle, 4):
             element = fields[3].split("|")[1] if "|" in fields[3] else fields[3]
             by_element.setdefault(element, []).append(
                 Tip(

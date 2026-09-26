@@ -30,11 +30,11 @@ import defaults
 from log import PipelineError
 
 
-def _sign(value: Any) -> str | None:
-    """'+' for a positive number, '-' for a negative one, None for zero."""
-    if value > 0:
+def _direction(low: Any, high: Any) -> str | None:
+    """'+' when ``low < high``, '-' when ``low > high``, None when equal."""
+    if low < high:
         return "+"
-    if value < 0:
+    if low > high:
         return "-"
     return None
 
@@ -177,13 +177,9 @@ class RetroSeeker:
         # uncomparable frame raises instead of passing as "no strand".
         if HSP_obj.frame:
             last = HSP_obj.frame[-1]
-            sign = _sign(last)
+            sign = _direction(0, last)
             return sign if isinstance(last, int) else None
-        if HSP_obj.sbjct_start < HSP_obj.sbjct_end:
-            return "+"
-        if HSP_obj.sbjct_start > HSP_obj.sbjct_end:
-            return "-"
-        return None
+        return _direction(HSP_obj.sbjct_start, HSP_obj.sbjct_end)
 
     @staticmethod
     def extract_seq2rec(

@@ -268,15 +268,15 @@ def _library_donors(
     if span is None:
         return []
     chrom, start, end = span
-    overlapping = [
-        locus
+    widths = (
+        (locus.overlap_with(chrom, start, end), locus)
         for locus in by_chrom.get(chrom, [])
-        if locus.overlap_with(chrom, start, end) > 0
-    ]
-    return sorted(
-        overlapping,
-        key=lambda locus: (-locus.overlap_with(chrom, start, end), locus.id),
     )
+    hits = sorted(
+        ((width, locus) for width, locus in widths if width > 0),
+        key=lambda pair: (-pair[0], pair[1].id),
+    )
+    return [locus for _, locus in hits]
 
 
 def _nearest_donor(

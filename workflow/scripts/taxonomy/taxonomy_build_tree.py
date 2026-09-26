@@ -33,7 +33,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
-from itertools import combinations, islice
+from itertools import combinations
 from pathlib import Path
 
 import taxonomy_lca as tlca
@@ -94,16 +94,18 @@ def _mean_pairwise_identity(seqs: list[str], max_pairs: int = 40) -> float:
     logged number stays comparable across runs. Re-measuring it on a reordered
     subset and calling the documented value stale is a known trap.
     """
-    identities = (_pair_identity(a, b) for a, b in combinations(seqs, 2))
-    sampled = list(islice((v for v in identities if v is not None), max_pairs))
-    if not sampled:
-        return 0.0
-    # A plain running total, as before: from Python 3.12 sum() compensates float
+    # A plain running total on purpose: from Python 3.12 sum() compensates float
     # error and would move the last bits of the logged value.
-    total = 0.0
-    for value in sampled:
-        total += value
-    return 100.0 * total / len(sampled)
+    total, pairs = 0.0, 0
+    for a, b in combinations(seqs, 2):
+        identity = _pair_identity(a, b)
+        if identity is None:
+            continue
+        total += identity
+        pairs += 1
+        if pairs == max_pairs:
+            break
+    return 100.0 * total / pairs if pairs else 0.0
 
 
 def alignment_quality(afa: Path) -> str:
