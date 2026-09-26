@@ -597,22 +597,29 @@ confidence_vs_evidence_plot <- function(combined) {
 # tree_layout.py (Bio.Phylo), so no R tree library is needed; tree_column() and
 # compose_with_tree() in plot2sort/tree_axis.R draw and align it.
 
+# TRUE when there are no rows, or a needed column is missing.
+.lacks_columns <- function(df, needed) nrow(df) == 0L || !all(needed %in% names(df))
+
+# The rows keyed to a tree tip. The ADR-011 tip-label trap: a locus keyed by a
+# name the tree does not carry must be dropped, not silently drawn at whatever
+# y position match() returns.
+.on_tips <- function(d, key, tips) {
+  d[as.character(d[[key]]) %in% tips$tip, , drop = FALSE]
+}
+
 # Horizontal confidence bars whose rows are fixed by a tree. `key` is the column
 # the tips correspond to (`taxon_call`); the function is level-agnostic, since
 # the taxon tree's tips are whatever ranks the calls resolved to.
 tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
                                  title, subtitle) {
-  tips <- read_tree_part(tree_dir, tree_name, "tips")
-  segs <- read_tree_part(tree_dir, tree_name, "segments")
-  if (is.null(tips)) {
-    return(empty_plot(sprintf("No %s tree available", tree_name)))
-  }
-  if (nrow(combined) == 0L || !"confidence_num" %in% names(combined) ||
-      !key %in% names(combined)) {
+  tree <- read_tree(tree_dir, tree_name)
+  if (is.null(tree)) return(empty_plot(sprintf("No %s tree available", tree_name)))
+  if (.lacks_columns(combined, c("confidence_num", key))) {
     return(empty_plot("No confidence values"))
   }
-  d <- combined %>% filter(!is.na(.data$confidence_num))
-  d <- d[as.character(d[[key]]) %in% tips$tip, , drop = FALSE]
+  tips <- tree$tips
+  segs <- tree$segments
+  d <- .on_tips(combined %>% filter(!is.na(.data$confidence_num)), key, tips)
   if (nrow(d) == 0L) return(empty_plot("No loci matching the tree tips"))
   if (!"source" %in% names(d)) d$source <- "ltr-flanked"
 
@@ -648,18 +655,14 @@ tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
 # than adding a mode flag, so each stays readable.
 tree_composition_plot <- function(combined, tree_dir, tree_name, key, fill_col,
                                   title, subtitle, colours = NULL) {
-  tips <- read_tree_part(tree_dir, tree_name, "tips")
-  segs <- read_tree_part(tree_dir, tree_name, "segments")
-  if (is.null(tips)) {
-    return(empty_plot(sprintf("No %s tree available", tree_name)))
-  }
-  if (nrow(combined) == 0L || !key %in% names(combined) ||
-      !fill_col %in% names(combined)) {
+  tree <- read_tree(tree_dir, tree_name)
+  if (is.null(tree)) return(empty_plot(sprintf("No %s tree available", tree_name)))
+  if (.lacks_columns(combined, c(key, fill_col))) {
     return(empty_plot(sprintf("No %s values", fill_col)))
   }
-  # The ADR-011 tip-label trap: a locus keyed by a name the tree does not carry
-  # must be dropped, not silently drawn at whatever y position match() returns.
-  d <- combined[as.character(combined[[key]]) %in% tips$tip, , drop = FALSE]
+  tips <- tree$tips
+  segs <- tree$segments
+  d <- .on_tips(combined, key, tips)
   if (nrow(d) == 0L) return(empty_plot("No loci matching the tree tips"))
 
   d$.y <- tips$y[match(as.character(d[[key]]), tips$tip)]

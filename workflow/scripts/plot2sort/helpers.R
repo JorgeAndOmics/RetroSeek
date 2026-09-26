@@ -29,6 +29,11 @@ order_by_count <- function(df, col, weight = NULL) {
 }
 
 
+# TRUE when `top_n` asks for a cut: a positive number, not NULL or NA.
+.keeps_top_n <- function(top_n) {
+  !is.null(top_n) && !is.na(top_n) && top_n > 0L
+}
+
 # Keep only the top-N strata of `col` by count (or summed `weight`); fold the
 # rest into a single labelled "Other (k)" stratum that records how many strata
 # were collapsed. `top_n = NULL | NA | <=0` short-circuits and returns `df`
@@ -38,8 +43,7 @@ order_by_count <- function(df, col, weight = NULL) {
 # should re-aggregate after calling this so duplicate "Other" rows fold.
 collapse_long_tail <- function(df, col, top_n, other_label = "Other",
                                weight = NULL) {
-  if (is.null(top_n) || is.na(top_n) || top_n <= 0L) return(df)
-  if (nrow(df) == 0L) return(df)
+  if (!.keeps_top_n(top_n) || nrow(df) == 0L) return(df)
   ranking <- order_by_count(df, col, weight = weight)
   if (length(ranking) <= top_n) return(df)
   keep <- ranking[seq_len(top_n)]
@@ -82,6 +86,17 @@ empty_plot <- function(label = "No data") {
 }
 
 
+# TRUE for NULL or an empty string: nothing to print.
+.is_blank <- function(x) is.null(x) || !nzchar(x)
+
+# The subtitle with `lead` (a genome, a probe set) in front, "Lead. Subtitle";
+# either alone when the other is blank.
+.lead_subtitle <- function(lead, subtitle) {
+  if (.is_blank(lead)) return(subtitle)
+  if (.is_blank(subtitle)) return(lead)
+  paste0(lead, ". ", subtitle)
+}
+
 # Title and subtitle for a plot, in the house style (style.R): left-aligned,
 # sentence case. `subset_label` names what the page is about (a genome, a probe
 # set, a segment); it leads the subtitle rather than being glued onto the title
@@ -90,15 +105,7 @@ empty_plot <- function(label = "No data") {
 # `warning_caption`, when supplied, stamps a caveat that travels with the page.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
                        warning_caption = NULL) {
-  lead <- if (!is.null(subset_label) && nzchar(subset_label)) subset_label else NULL
-  full_subtitle <- if (!is.null(lead) && !is.null(subtitle) && nzchar(subtitle)) {
-    paste0(lead, ". ", subtitle)
-  } else if (!is.null(lead)) {
-    lead
-  } else {
-    subtitle
-  }
-  p <- p + labs(title = title, subtitle = full_subtitle) +
+  p <- p + labs(title = title, subtitle = .lead_subtitle(subset_label, subtitle)) +
     # A void-theme page (sankey, placeholder) is otherwise transparent, which some
     # viewers compose on black and which hides the title.
     theme(plot.background = element_rect(fill = .PAPER, colour = NA))
@@ -113,13 +120,9 @@ add_titles <- function(p, title, subtitle, subset_label = NULL,
 # builder's existing subtitle from the ggplot object and appends to it; the
 # subtitle theme set by add_titles() then styles the whole line uniformly.
 stamp_tier_note <- function(p, tier) {
-  if (is.null(tier) || !nzchar(tier)) return(p)
+  if (.is_blank(tier)) return(p)
   existing <- p$labels$subtitle
-  combined <- if (!is.null(existing) && nzchar(existing)) {
-    paste0(existing, "\n", tier)
-  } else {
-    tier
-  }
+  combined <- if (.is_blank(existing)) tier else paste0(existing, "\n", tier)
   p + labs(subtitle = combined)
 }
 
@@ -129,7 +132,7 @@ stamp_tier_note <- function(p, tier) {
 # add_titles() (stage_plot_generator builders) and plot2sort.R's emit()
 # wrapper, so the entry-explosion caveat looks identical everywhere.
 stamp_warning_caption <- function(p, caption) {
-  if (is.null(caption) || !nzchar(caption)) return(p)
+  if (.is_blank(caption)) return(p)
   p +
     labs(caption = caption) +
     theme(plot.caption = element_text(hjust = 0, face = "bold",
@@ -137,6 +140,12 @@ stamp_warning_caption <- function(p, caption) {
                                       margin = margin(t = 8)))
 }
 
+
+# "name=strategy" when a column aggregates to several values per locus, else NULL.
+.multi_value <- function(name, strategy) {
+  if (is.null(strategy) || !strategy %in% c("list", "concatenate")) return(NULL)
+  sprintf("%s=%s", name, strategy)
+}
 
 # Build the entry-explosion warning caption from a parsed config, or return
 # NULL when `virus`/`label` use a singular aggregation strategy. `list` and
@@ -147,11 +156,7 @@ stamp_warning_caption <- function(p, caption) {
 aggregation_warning <- function(cfg) {
   agg <- cfg$parameters$aggregation
   if (is.null(agg)) return(NULL)
-  multi <- c("list", "concatenate")
-  offenders <- c(
-    if (!is.null(agg$virus) && agg$virus %in% multi) sprintf("virus=%s", agg$virus),
-    if (!is.null(agg$label) && agg$label %in% multi) sprintf("label=%s", agg$label)
-  )
+  offenders <- c(.multi_value("virus", agg$virus), .multi_value("label", agg$label))
   if (length(offenders) == 0L) return(NULL)
   sprintf(paste0("Caution: multi-value aggregation is active (%s), so plot counts ",
                  "may be inflated by entry explosion."),

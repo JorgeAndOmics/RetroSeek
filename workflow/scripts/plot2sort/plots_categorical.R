@@ -149,6 +149,26 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
 }
 
 
+# Hits per square: the user's value, raised to the automatic one when it would
+# draw more than `target_squares` squares. `auto` says whether it was raised.
+.waffle_unit <- function(unit_hits, total_hits, target_squares) {
+  user_unit <- if (is.null(unit_hits)) NA_integer_ else as.integer(unit_hits)
+  auto_unit <- max(1L, as.integer(ceiling(total_hits / target_squares)))
+  auto <- is.na(user_unit) || user_unit < auto_unit
+  list(hits = if (auto) auto_unit else user_unit, auto = auto)
+}
+
+# "1 square = N hits", noting when the scale was chosen automatically.
+.waffle_caption <- function(unit_hits, auto, total_hits) {
+  unit_caption <- if (unit_hits > 1L) {
+    sprintf("1 square = %d hits", unit_hits)
+  } else {
+    "1 square = 1 hit"
+  }
+  if (!auto || unit_hits <= 1L) return(unit_caption)
+  sprintf("%s (auto-scaled from %d total hits)", unit_caption, total_hits)
+}
+
 # Waffle chart - virus proportions. Each square represents `unit_hits` ranges.
 # `unit_hits = NULL` (or any value that would yield more than `target_squares`
 # total tiles) auto-derives a unit so the waffle stays legible. waffle::waffle()
@@ -169,26 +189,15 @@ waffle_virus_plot <- function(data, unit_hits = NULL,
     dplyr::arrange(dplyr::desc(count), virus)
   total_hits <- sum(counts$count)
 
-  user_unit <- if (is.null(unit_hits)) NA_integer_ else as.integer(unit_hits)
-  auto_unit <- max(1L, as.integer(ceiling(total_hits / target_squares)))
-  unit_hits <- if (is.na(user_unit) || user_unit < auto_unit) auto_unit else user_unit
-  auto_applied <- is.na(user_unit) || user_unit < auto_unit
+  unit <- .waffle_unit(unit_hits, total_hits, target_squares)
+  unit_hits <- unit$hits
 
   counts <- counts %>%
     dplyr::mutate(squares = pmax(1L, as.integer(count %/% unit_hits)))
   square_vec <- stats::setNames(counts$squares, counts$virus)
   if (is.null(colours)) colours <- virus_colours(counts$virus, counts$label, counts$count)
 
-  unit_caption <- if (unit_hits > 1L) {
-    sprintf("1 square = %d hits", unit_hits)
-  } else {
-    "1 square = 1 hit"
-  }
-  caption <- if (auto_applied && unit_hits > 1L) {
-    sprintf("%s (auto-scaled from %d total hits)", unit_caption, total_hits)
-  } else {
-    unit_caption
-  }
+  caption <- .waffle_caption(unit_hits, unit$auto, total_hits)
 
   p <- waffle::waffle(square_vec,
                       rows       = max(1L, floor(sqrt(sum(square_vec)))),
