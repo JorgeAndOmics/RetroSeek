@@ -41,7 +41,7 @@ def _rule_rows(lines: list[str]) -> tuple[dict[str, int], bool]:
     counts: dict[str, int] = {}
     for line in lines:
         fields = line.split()
-        if fields[:1] == ["total"]:
+        if fields and fields[0] == "total":
             return counts, True
         if len(fields) == 2 and fields[1].isdigit():
             counts[fields[0]] = int(fields[1])
@@ -55,13 +55,11 @@ def job_counts(dry_run: str) -> dict[str, int]:
     table's "total" line, or at the next header once rows were counted. Empty
     when nothing would run.
     """
-    counts: dict[str, int] = {}
     for section in _job_stats_sections(dry_run):
         rows, reached_total = _rule_rows(section)
-        counts.update(rows)
-        if reached_total or counts:
-            break
-    return counts
+        if rows or reached_total:
+            return rows
+    return {}
 
 
 def first_reasons(dry_run: str) -> dict[str, str]:

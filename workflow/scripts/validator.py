@@ -56,7 +56,7 @@ def _value_at(config: dict[str, object], path: tuple[str, ...]) -> object:
     """The value at a key path, or None when any key on the way is missing."""
     node: object = config
     for key in path:
-        node = node.get(key) if isinstance(node, dict) and key in node else None
+        node = node.get(key) if isinstance(node, dict) else None
         if node is None:
             return None
     return node
@@ -65,7 +65,7 @@ def _value_at(config: dict[str, object], path: tuple[str, ...]) -> object:
 def retired_key_messages(config: dict[str, object]) -> list[str]:
     """One message per retired key present in `config`, naming its replacement.
 
-    A retired key set to an empty value counts as absent.
+    A retired key set to null (a bare `key:` in YAML) counts as absent.
     """
     return [
         f"Config key `{'.'.join(path)}` was retired; delete it. Replaced by: "
