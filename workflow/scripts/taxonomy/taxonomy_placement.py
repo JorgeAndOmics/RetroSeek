@@ -27,6 +27,7 @@ import taxonomy_lca as tlca
 from Bio import SeqIO
 
 from external import run_tool
+from log import PipelineError
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +121,16 @@ def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
     with per_query_tsv.open(encoding="utf-8") as fh:
         header = fh.readline().rstrip("\n").split("\t")
         idx = {name: i for i, name in enumerate(header)}
-        name_i = idx.get("name", 0)
-        path_i = idx.get("taxopath", len(header) - 1)
-        # confidence: prefer aLWR, then LWR, else 0
-        conf_i = idx.get("aLWR", idx.get("LWR"))
+        # A renamed column would otherwise read the wrong field, or give every
+        # placement confidence 0, without an error.
+        if not {"name", "taxopath"} <= idx.keys() or not {"aLWR", "LWR"} & idx.keys():
+            raise PipelineError(
+                f"{per_query_tsv} lacks the name, taxopath and aLWR/LWR columns "
+                f"(header: {' '.join(header)})",
+                hint="the gappa version may have changed its per-query output",
+            )
+        name_i, path_i = idx["name"], idx["taxopath"]
+        conf_i = idx.get("aLWR", idx.get("LWR"))  # prefer aLWR, then LWR
         unreadable = 0
         for line in fh:
             f = line.rstrip("\n").split("\t")

@@ -466,3 +466,14 @@ def test_clean_solo_lists_log_no_warning(
     with caplog.at_level("WARNING"):
         parse_solo_list(path)
     assert caplog.text == ""
+
+
+def test_rows_missing_columns_are_reported_blank_lines_are_not(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = tmp_path / "s.txt"
+    path.write_text("\n\t\t\nchr1\t1\t20\nchr1\t1\t20\tchr1:1..20\tlib\t0.5\n")
+    with caplog.at_level("WARNING"):
+        solos = parse_solo_list(path)
+    assert len(solos) == 1
+    assert "1 of 2 solo rows" in caplog.text

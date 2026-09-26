@@ -23,7 +23,6 @@ Main components:
 import logging
 import tempfile
 import time
-from collections.abc import Container
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -111,15 +110,18 @@ def _accession(hit_def: str | None) -> str:
     return raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
 
 
-def _unused_identifier(accession_id: str, taken: Container[str]) -> str:
-    """A random 6-character identifier whose ``{accession}-{identifier}`` key is free.
+def _unused_identifier(used: set[str]) -> str:
+    """A random 6-character identifier not yet given to a hit of this genome.
 
-    One accession carries many HSPs, and with thousands on one chromosome two
-    random draws can repeat; a repeated key would replace the earlier hit.
+    Every probe of a genome shares one key space ({accession}-{identifier}), and
+    RetroSeeker objects compare equal by identifier, so a repeated draw would
+    either replace an earlier hit or make two hits indistinguishable. The new
+    identifier is recorded in ``used``.
     """
     while True:
         identifier = utils.random_string_generator(6)
-        if f"{accession_id}-{identifier}" not in taken:
+        if identifier not in used:
+            used.add(identifier)
             return identifier
 
 
@@ -128,14 +130,14 @@ def _hit_object(
     subject: str,
     alignment: Any,
     hsp: Any,
-    taken: Container[str],
+    used: set[str],
 ) -> tuple[str, RetroSeeker]:
     """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
 
-    The key is ``{accession}-{identifier}``, unique among the keys in ``taken``.
+    The key is ``{accession}-{identifier}``; the identifier is new to ``used``.
     """
     accession_id = _accession(alignment.hit_def)
-    random_string = _unused_identifier(accession_id, taken)
+    random_string = _unused_identifier(used)
     new_instance = RetroSeeker(
         label=str(instance.label),
         virus=str(instance.virus),
@@ -151,7 +153,10 @@ def _hit_object(
 
 
 def blaster_parser(
-    result: str, instance: RetroSeeker, subject: str
+    result: str,
+    instance: RetroSeeker,
+    subject: str,
+    used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
     """
         Parameters
@@ -159,6 +164,8 @@ def blaster_parser(
         :param result: The result of [blaster] function.
         :param instance: The RetroSeeker instance containing information about the query.
         :param subject: The particular genome against whose database it's being BLASTed.
+        :param used_identifiers: Identifiers already given to this genome's hits; new
+            ones are added. Pass the same set for every probe of a genome.
 
     Returns
     -------
@@ -172,6 +179,7 @@ def blaster_parser(
     CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
     """
     alignment_dict: dict[str, RetroSeeker] = {}
+    used = set() if used_identifiers is None else used_identifiers
     # blast_formatter reads the ASN.1 archive from a file; the file is removed
     # whatever happens. Any failure below stops the job: a half-parsed genome
     # would otherwise look like one with fewer hits.
@@ -184,9 +192,7 @@ def blaster_parser(
         for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
             for alignment in record.alignments:
                 for hsp in alignment.hsps:
-                    key, hit = _hit_object(
-                        instance, subject, alignment, hsp, alignment_dict
-                    )
+                    key, hit = _hit_object(instance, subject, alignment, hsp, used)
                     alignment_dict[key] = hit
     finally:
         Path(tmp_asn_path).unlink(missing_ok=True)
@@ -200,6 +206,7 @@ def _blast_task(
     subject: str,
     input_database_path: str | Path,
     num_threads: int,
+    used_identifiers: set[str] | None = None,
 ) -> dict[str, RetroSeeker] | None:
     """
     Run BLAST command for the Entrez-retrieved sequences against the species database. This function is used as a task
@@ -229,7 +236,7 @@ def _blast_task(
         input_database_path=input_database_path,
         num_threads=num_threads,
     )
-    return blaster_parser(blast_result, instance, subject)
+    return blaster_parser(blast_result, instance, subject, used_identifiers)
 
 
 def blast_executor(
@@ -255,6 +262,7 @@ def blast_executor(
             :returns: A dictionary containing the parsed BLAST results
     """
     full_parsed_results: dict[str, RetroSeeker] = {}
+    used_identifiers: set[str] = set()  # one key space for all probes of a genome
 
     # disable=None: no bar when stderr is not a terminal (under the launcher),
     # where its carriage returns would flood the run log.
@@ -268,6 +276,7 @@ def blast_executor(
                 subject=genome,
                 input_database_path=input_database_path,
                 num_threads=num_threads,
+                used_identifiers=used_identifiers,
             ):
                 full_parsed_results |= result
                 key_identifier = f"{value.accession}-{value.identifier}"

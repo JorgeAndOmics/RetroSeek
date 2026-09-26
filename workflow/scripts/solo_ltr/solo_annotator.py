@@ -173,7 +173,9 @@ def parse_library_locus(library_id: str) -> tuple[str, int, int] | None:
 
 
 def _solo_from_fields(fields: list[str]) -> SoloLTR | None:
-    """One solo from a six-column row, or None when a number does not parse."""
+    """One solo from a six-column row; None when it is short or a number does not parse."""
+    if len(fields) < 6:
+        return None
     try:
         start, end = int(fields[1]), int(fields[2])
         coverage = float(fields[5])
@@ -196,12 +198,13 @@ def parse_solo_list(path: Path) -> list[SoloLTR]:
     if not path.exists():
         return []
     with path.open() as handle:
-        parsed = [_solo_from_fields(fields) for fields in tab_rows(handle, 6)]
+        rows = [f for f in tab_rows(handle, 1) if "".join(f).strip()]  # no blanks
+    parsed = [_solo_from_fields(fields) for fields in rows]
     solos = [solo for solo in parsed if solo is not None]
     if len(solos) < len(parsed):
         logger.warning(
-            "%s: %d of %d solo rows have unreadable coordinates or coverage and "
-            "were skipped; check the solo list's column layout",
+            "%s: %d of %d solo rows are short or have unreadable coordinates or "
+            "coverage and were skipped; check the solo list's column layout",
             path.name,
             len(parsed) - len(solos),
             len(parsed),

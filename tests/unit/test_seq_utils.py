@@ -296,3 +296,34 @@ class TestBlasterParserReadsEveryHsp:
             hits = seq_utils.blaster_parser("archive", query, "Toyus_toyus")
         assert sorted(hits) == ["CM1.1-AAAAAA", "CM1.1-BBBBBB", "CM2.1-CCCCCC"]
         assert all(key.endswith(o.identifier) for key, o in hits.items())
+
+    def test_identifiers_stay_unique_across_the_probes_of_a_genome(self) -> None:
+        """Every probe of a genome shares one key space: two probes hitting the
+        same chromosome must not reuse an identifier either."""
+        import seq_utils
+        import utils
+
+        def probe(name: str) -> RetroSeeker:
+            return RetroSeeker(
+                label=name,
+                virus=name,
+                abbreviation=name,
+                species=None,
+                probe="POL",
+                accession="Q",
+                identifier=name,
+            )
+
+        report = SimpleNamespace(stdout=self.XML.read_text())
+        draws = iter(["A", "B", "C", "A", "B", "D", "E", "F"])
+        with (
+            patch.object(seq_utils, "blaster", return_value="archive"),
+            patch.object(seq_utils, "run_tool", return_value=report),
+            patch.object(utils, "random_string_generator", lambda n: next(draws)),
+        ):
+            hits = seq_utils.blast_executor(
+                {"p1": probe("P1"), "p2": probe("P2")}, "tblastn", "db", 1, "Toyus"
+            )
+        identifiers = [o.identifier for o in hits.values()]
+        assert len(hits) == 6
+        assert sorted(identifiers) == ["A", "B", "C", "D", "E", "F"]

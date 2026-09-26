@@ -18,6 +18,8 @@ import taxonomy_classify_loci as tcl
 import taxonomy_lca as tlca
 import taxonomy_placement as tplace
 
+from log import PipelineError
+
 # Default (retroviral-genus) axis used by most tests - matches the fallback taxonomy.
 _AXIS = {
     "Alpharetrovirus",
@@ -284,6 +286,23 @@ class TestGappaParse:
             parsed = tplace._parse_gappa(tsv)
         assert [parsed[q][1] for q in ("L0|POL", "L1|POL", "L2|POL")] == [0.0, 0.0, 0.5]
         assert "2 of 3" in caplog.text
+
+    @pytest.mark.parametrize(
+        "header",
+        ["query\taLWR\ttaxopath", "name\taLWR\tpath", "name\tfract\ttaxopath"],
+    )
+    def test_a_header_without_its_columns_stops_the_job(
+        self, tmp_path, header: str
+    ) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(header + "\nL0|POL\t0.5\tRetroviridae\n")
+        with pytest.raises(PipelineError, match=r"per_query\.tsv"):
+            tplace._parse_gappa(tsv)
+
+    def test_lwr_alone_is_enough(self, tmp_path) -> None:
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text("name\tLWR\ttaxopath\nL0|POL\t0.7\tRetroviridae\n")
+        assert tplace._parse_gappa(tsv) == {"L0|POL": ("Retroviridae", 0.7)}
 
     def test_clean_table_logs_nothing(self, tmp_path, caplog) -> None:
         tsv = tmp_path / "per_query.tsv"
