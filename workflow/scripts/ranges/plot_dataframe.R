@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
 # ranges / plot_dataframe.R
 # -----------------------------------------------------------------------------
-# Build the per-row tibble consumed by plot2sort.R / circle_plot_generator.R /
-# pair_detector.R. Replaces the pre-refactor three-file fanout (main /
-# accessory / full) with a single tibble carrying a `probe_type` column.
+# Build the per-row tibble consumed by plot2sort.R and pair_detector.R.
+# Replaces the pre-refactor three-file fanout (main / accessory / full) with a
+# single tibble carrying a `probe_type` column.
 
 suppressMessages({
   library(GenomicRanges)

@@ -249,6 +249,15 @@ class TestRetiredKeys:
         assert len(messages) == 1
         assert "logging" in messages[0]
 
+    def test_retired_circle_plot_threshold_is_named(self) -> None:
+        """The circle-plot stage was removed; its display cutoff went with it."""
+        import validator as v
+
+        config = {"plots": {"circle_plot_bitscore_threshold": 0}}
+        messages = v.retired_key_messages(config)
+        assert len(messages) == 1
+        assert "plots.circle_plot_bitscore_threshold" in messages[0]
+
     def test_a_current_config_has_no_retired_keys(self) -> None:
         import validator as v
 

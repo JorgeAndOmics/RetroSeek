@@ -70,7 +70,6 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - Intuitive CLI delegating to Snakemake - resume from checkpoints after interruption, compose with any Snakemake flag.
 
 > **Feature maturity:** `--hotspot-detection` is *experimental* - functional but lightly tested and subject to change.
-> `--generate-circle-plots` is **currently broken**: it reads per-locus metrics that a later refactor replaced, and fails at plot time.
 
 ## Requirements
 
@@ -107,11 +106,10 @@ they run as one Snakemake workflow, in dependency order.
 | | `--pair-detection` | Probe-pair (e.g. GAG-ENV) detection per species |
 | | `--placement-trees` | Placement evidence: heat-trees and co-phylogeny |
 | Figures | `--generate-global-plots` | Homology, integration and structure PDFs |
-| | `--generate-circle-plots` | Per-genome circle plots (currently broken) |
 
 | Option | Meaning |
 |---|---|
-| `--downstream` | Every Analysis and Figures stage (except circle plots) |
+| `--downstream` | Every Analysis and Figures stage |
 | `-skp`, `--skip-validation` | Skip the slow NCBI checks and prompts; the fast checks always run |
 | `--allow-heavy` | Let a heavy search run although its stage was not requested |
 | `--stop-on-error` | Stop at the first failed job (by default the rest finish) |

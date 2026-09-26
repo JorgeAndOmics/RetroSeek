@@ -6,10 +6,9 @@ are checked mechanically:
 1. No em dash or en dash anywhere in the project, tracked or not (local notes,
    notebooks and CLAUDE.md included). The owner's rule, without exceptions.
 2. No colour written as a hex literal outside plot2sort/style.R, which is the
-   single source of every colour. Two documented exceptions: placement_figures.py
+   single source of every colour. One documented exception: placement_figures.py
    mirrors the few house colours gappa needs (a separate test pins the mirror to
-   style.R), and circle_plot_generator.R, a stage that is broken and not yet
-   restyled (dev backlog).
+   style.R).
 3. No dash or arrow used as punctuation inside the string literals of the
    plotting scripts: a page says "Removed: flanks", never "- flanks" or "a -> b".
 """
@@ -38,7 +37,6 @@ _DASHES = ("\u2014", "\u2013")  # em dash, en dash
 _HEX_ALLOWED = {
     SCRIPTS / "plot2sort" / "style.R",
     SCRIPTS / "taxonomy" / "placement_figures.py",
-    SCRIPTS / "circle_plot_generator.R",
 }
 _HEX = re.compile(r"""["']#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?["']""")
 

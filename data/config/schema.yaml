@@ -110,7 +110,6 @@ plots_schema:
   sankey_top_n: any(int(min=1), null(), required=False)
   sankey_other_label: str(required=False)
   waffle_unit_hits: any(int(min=1), null(), required=False)
-  circle_plot_bitscore_threshold: num(min=0)
   per_stratum: num(min=0, required=False)
 
 execution_schema:
