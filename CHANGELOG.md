@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree_layout.py` warns when a supplied species tree has uninformative branch
   lengths, so a cladogram is not mistaken for a timetree.
 
+### Changed
+
+- biopython pinned at 1.88 (was 1.87), verified by rerunning every downstream
+  stage on the model genomes and comparing the tables: all identical. The one
+  visible change is in `{genome}.solos.treefile`, the pruned solo-LTR tree,
+  whose branch lengths are now written at full precision (`0.11677255`) where
+  1.87's Newick writer rounded to five decimals; no stage reads that file.
+
 ### Fixed
 
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
