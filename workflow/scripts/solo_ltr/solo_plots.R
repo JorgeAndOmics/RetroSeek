@@ -573,8 +573,9 @@ read_optional <- function(path) {
 }
 
 # The key pages' colour list: the three fates, in words.
-.fate_key <- function() stats::setNames(unname(.FATE_COLOUR[.FATE_LEVELS]),
-                                        display_label(.FATE_LEVELS))
+.fate_key <- function() {
+  stats::setNames(unname(.FATE_COLOUR[.FATE_LEVELS]), display_label(.FATE_LEVELS))
+}
 
 
 # Two modes, because Snakemake renders one PDF per genome in parallel and the

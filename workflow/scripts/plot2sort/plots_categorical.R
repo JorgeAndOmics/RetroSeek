@@ -219,6 +219,9 @@ waffle_virus_plot <- function(data, unit_hits = NULL,
     theme(legend.position = "right")
   add_titles(p,
              title    = "Ranges per virus",
-             subtitle = "Each square is a fixed number of merged ranges; each virus a shade of its lineage's colour.",
+             subtitle = paste(
+               "Each square is a fixed number of merged ranges; each virus a shade of",
+               "its lineage's colour."
+             ),
              subset_label = subset_label)
 }

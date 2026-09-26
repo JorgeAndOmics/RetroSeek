@@ -47,7 +47,10 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Hits merged into each locus (M1)",
-    subtitle = "Raw hits collapsed into each first-reduced locus, for all loci and for the LTR-overlapping ones.",
+    subtitle = paste(
+      "Raw hits collapsed into each first-reduced locus,",
+      "for all loci and for the LTR-overlapping ones."
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

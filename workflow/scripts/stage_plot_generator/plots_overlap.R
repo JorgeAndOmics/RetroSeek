@@ -28,7 +28,10 @@ overlap_degree_plot <- function(overlap_df, subset_label = NULL,
   add_titles(
     p,
     title    = "How much the loci overlap before reduction",
-    subtitle = "The number of other unreduced loci each locus overlaps: the redundancy that reduction collapses.",
+    subtitle = paste(
+      "The number of other unreduced loci each locus overlaps:",
+      "the redundancy that reduction collapses."
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -71,12 +74,12 @@ reduction_fold_plot <- function(hits_df, reduced_df, subset_label = NULL,
     hits_df %>%
       dplyr::count(probe, name = "count") %>%
       dplyr::mutate(stage = "unreduced")
-  } else NULL
+  }  # NULL when there are no unreduced hits
   red <- if (nrow(reduced_df) > 0L) {
     reduced_df %>%
       dplyr::count(probe, name = "count") %>%
       dplyr::mutate(stage = "reduced")
-  } else NULL
+  }  # NULL when there are no reduced loci
   d <- dplyr::bind_rows(unred, red) %>%
     dplyr::mutate(stage = factor(stage, levels = c("reduced", "unreduced")))
   ordered_probe <- rev(order_by_count(d, "probe", weight = "count"))

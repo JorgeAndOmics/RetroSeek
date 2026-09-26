@@ -74,7 +74,11 @@ main <- function() {
       "Generate the homology stage PDF from RetroSeek per-genome Parquet results"
   )
   parser$add_argument("--input",  required = TRUE,
-                      help = "Directory with the per-genome ranges-analysis tables; reads {genome}.final_loci.parquet (carries a probe_type column: main | accessory).")
+                      help = paste(
+                        "Directory with the per-genome ranges-analysis tables; reads",
+                        "{genome}.final_loci.parquet (carries a probe_type column:",
+                        "main | accessory)."
+                      ))
   parser$add_argument("--out_pdf", required = TRUE,
                       help = "The stage PDF: a key page, then the homology pages.")
   parser$add_argument("--config", required = TRUE,

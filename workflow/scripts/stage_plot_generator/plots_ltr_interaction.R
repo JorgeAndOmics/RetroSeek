@@ -135,7 +135,10 @@ strand_concordance_plot <- function(ltr_int_df, subset_label = NULL,
   add_titles(
     .probe_rows(p),
     title    = "Strand agreement with the enclosing element",
-    subtitle = "Among loci inside a retrotransposon; an opposite-strand hit is likely a chance overlap.",
+    subtitle = paste(
+      "Among loci inside a retrotransposon;",
+      "an opposite-strand hit is likely a chance overlap."
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

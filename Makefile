@@ -27,8 +27,6 @@ reference: ## Build the genus-classification reference (CONFIG=path/to/config.ya
 lint: ## Run ruff lint on Python sources
 	ruff check $(PY_SRC) $(PY_TESTS)
 
-# Not yet part of `check`: the R sources still carry the baseline findings recorded
-# at the quality setup. It joins `check` once they are cleared.
 lint-r: ## Run lintr on R sources (config: .lintr.R)
 	Rscript -e 'l <- lintr::lint_dir("workflow"); print(l); quit(status = length(l) > 0)'
 
@@ -55,7 +53,7 @@ test-snakemake: ## Dry-run the genome-prep DAG (no probe CSV / network needed)
 	snakemake --configfile data/config/config.yaml -n --cores 1 genome_downloader blast_db_generator ltr_index_generator
 
 # -- combined gate ---------------------------------------
-check: lint format-check typecheck test ## Run all quality gates (use before commit)
+check: lint lint-r format-check typecheck test ## Run all quality gates (use before commit)
 
 # -- cleanup ---------------------------------------------
 clean: ## Remove Python and R caches

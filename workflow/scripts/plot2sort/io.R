@@ -37,7 +37,10 @@ verify_required_columns <- function(df, required_cols, source_label = "input") {
   missing <- setdiff(required_cols, colnames(df))
   if (length(missing) > 0L) {
     stop(sprintf(
-      "plot2sort: %s missing required column(s): %s. Rebuild ranges_analysis outputs: the plot dataframe contract may have changed.",
+      paste(
+        "plot2sort: %s missing required column(s): %s. Rebuild ranges_analysis",
+        "outputs: the plot dataframe contract may have changed."
+      ),
       source_label, paste(missing, collapse = ", ")
     ))
   }

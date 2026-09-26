@@ -132,7 +132,7 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
-test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr-flanked precedence)", {
+test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus", {
   combined <- tribble(
     ~species, ~source,    ~seqname, ~start, ~end,   ~id,
     "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",

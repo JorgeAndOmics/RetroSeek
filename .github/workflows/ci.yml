@@ -61,6 +61,7 @@ jobs:
           create-args: >-
             r-base=4.3
             r-testthat
+            r-lintr
             r-tidyverse
             r-arrow
             r-purrr
@@ -81,5 +82,7 @@ jobs:
             bioconductor-plyranges
             bioconductor-rtracklayer
           cache-environment: true
+      - name: Lint R sources
+        run: Rscript -e 'l <- lintr::lint_dir("workflow"); print(l); quit(status = length(l) > 0)'
       - name: Run testthat suite
         run: Rscript -e 'testthat::test_dir("workflow/tests/testthat", stop_on_failure = TRUE)'

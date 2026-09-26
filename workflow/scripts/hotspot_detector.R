@@ -164,8 +164,13 @@ log_job(args$log, "hotspot_detector")
         group_by %in% colnames(S4Vectors::mcols(hits))) {
     return(group_by)
   }
-  log_warn("hotspot.group_by is '%s' but the input has no such column; pooling all loci instead",
-           group_by)
+  log_warn(
+    paste(
+      "hotspot.group_by is '%s' but the input has no such column;",
+      "pooling all loci instead"
+    ),
+    group_by
+  )
   "none"
 }
 

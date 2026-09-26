@@ -88,7 +88,10 @@ sankey_label_probe_plot <- function(data, top_n = NULL, other_label = "Other",
                    axis_titles = c("Lineage", "Probe"),
                    top_n = top_n, other_label = other_label,
                    title    = "From lineages to probes",
-                   subtitle = "Merged ranges from each lineage to the probe that found them, coloured by lineage.",
+                   subtitle = paste(
+                     "Merged ranges from each lineage to the probe that found them,",
+                     "coloured by lineage."
+                   ),
                    subset_label = subset_label, ctx = ctx)
 }
 
@@ -100,6 +103,9 @@ sankey_species_label_plot <- function(data, top_n = NULL, other_label = "Other",
                    axis_titles = c("Host", "Lineage"),
                    top_n = top_n, other_label = other_label,
                    title    = "From hosts to lineages",
-                   subtitle = "Merged ranges from each host to the lineage of the probe virus, coloured by lineage.",
+                   subtitle = paste(
+                     "Merged ranges from each host to the lineage of the probe virus,",
+                     "coloured by lineage."
+                   ),
                    subset_label = subset_label, ctx = ctx)
 }

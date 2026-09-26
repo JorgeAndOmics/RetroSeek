@@ -43,7 +43,10 @@ concordance_plot <- function(hits_df, subset_label = NULL,
   add_titles(
     .probe_rows(p),
     title    = "Where homology loci sit relative to LTR elements",
-    subtitle = "Each probe's first-reduced loci, by their position relative to LTRdigest retrotransposons.",
+    subtitle = paste(
+      "Each probe's first-reduced loci, by their position relative to LTRdigest",
+      "retrotransposons."
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -85,7 +88,10 @@ probe_yield_plot <- function(hits_df, subset_label = NULL,
   add_titles(
     .probe_rows(p),
     title    = "What each probe yields",
-    subtitle = "Loci found by homology, and those that also overlap an LTR element: the candidates.",
+    subtitle = paste(
+      "Loci found by homology, and those that also overlap an LTR element:",
+      "the candidates."
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

@@ -43,7 +43,10 @@ load_genome_for_hotspot <- function(fasta_path) {
   chrom_names <- normalise_chrom_names(headers_raw)
   if (any(is.na(chrom_names))) {
     stop(sprintf(
-      "load_genome_for_hotspot(): %d of %d FASTA headers in %s carry no name at all (empty or whitespace-only). Check the FASTA.",
+      paste(
+        "load_genome_for_hotspot(): %d of %d FASTA headers in %s carry no name at all",
+        "(empty or whitespace-only). Check the FASTA."
+      ),
       sum(is.na(chrom_names)), length(chrom_names), fasta_path
     ))
   }
@@ -63,7 +66,11 @@ load_hits_gff <- function(gff_path) {
   hits <- rtracklayer::import(gff_path, format = "gff3")
   if (!"label" %in% colnames(S4Vectors::mcols(hits))) {
     stop(sprintf(
-      "Input GFF3 %s does not contain a 'label' metadata column, so the raw-hit tier cannot be read. Regenerate the track via ranges_analysis, or use hotspot.input=catalog.",
+      paste(
+        "Input GFF3 %s does not contain a 'label' metadata column, so the raw-hit tier",
+        "cannot be read. Regenerate the track via ranges_analysis, or use",
+        "hotspot.input=catalog."
+      ),
       gff_path
     ))
   }
@@ -86,7 +93,10 @@ load_hits_gff <- function(gff_path) {
   missing <- setdiff(c("species", "seqname", "start", "end"), colnames(df))
   if (length(missing) > 0L) {
     stop(sprintf(
-      "Catalog %s is missing required column(s): %s. Re-run taxonomy_plot_generator to regenerate it.",
+      paste(
+        "Catalog %s is missing required column(s): %s.",
+        "Re-run taxonomy_plot_generator to regenerate it."
+      ),
       catalog_path, paste(missing, collapse = ", ")
     ), call. = FALSE)
   }
@@ -131,7 +141,10 @@ load_hits_gff <- function(gff_path) {
   df <- df[as.character(df$source) == source, , drop = FALSE]
   if (nrow(df) == 0L) {
     stop(sprintf(
-      "No '%s' loci for genome '%s' in %s. Set hotspot.source to 'both' or check the tier.",
+      paste(
+        "No '%s' loci for genome '%s' in %s.",
+        "Set hotspot.source to 'both' or check the tier."
+      ),
       source, genome, catalog_path
     ), call. = FALSE)
   }

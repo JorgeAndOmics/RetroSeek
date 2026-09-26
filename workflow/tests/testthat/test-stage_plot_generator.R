@@ -137,30 +137,40 @@ test_that("warning_caption is accepted and still yields a ggplot", {
 
 # --------------- overlap + LTR-interaction builders (new) ---------------
 
-.ov_df <- function() tibble::tibble(seqnames = "chr1", start = c(100, 150),
-                                    end = c(400, 500), width = c(301L, 351L),
-                                    strand = "+", probe = c("GAG", "POL"),
-                                    virus = "HIV", label = "L",
-                                    overlap_degree = c(1L, 1L),
-                                    max_reciprocal_fraction = c(0.8, 0.7))
+.ov_df <- function() {
+  tibble::tibble(seqnames = "chr1", start = c(100, 150),
+                 end = c(400, 500), width = c(301L, 351L),
+                 strand = "+", probe = c("GAG", "POL"),
+                 virus = "HIV", label = "L",
+                 overlap_degree = c(1L, 1L),
+                 max_reciprocal_fraction = c(0.8, 0.7))
+}
 
-.li_df <- function() tibble::tibble(seqnames = "chr1", start = c(100, 5000),
-                                    end = c(400, 5100), strand = c("+", "-"),
-                                    probe = c("GAG", "POL"), virus = "HIV",
-                                    distance_to_nearest_retro = c(0, 600),
-                                    feature_class = c("domain_overlap",
-                                                      "flanking_ltr"),
-                                    relative_position_in_retro = c(0.3, NA),
-                                    strand_concordant = c(TRUE, NA),
-                                    enclosing_retro_width = c(500L, NA))
+.li_df <- function() {
+  tibble::tibble(seqnames = "chr1", start = c(100, 5000),
+                 end = c(400, 5100), strand = c("+", "-"),
+                 probe = c("GAG", "POL"), virus = "HIV",
+                 distance_to_nearest_retro = c(0, 600),
+                 feature_class = c("domain_overlap",
+                                   "flanking_ltr"),
+                 relative_position_in_retro = c(0.3, NA),
+                 strand_concordant = c(TRUE, NA),
+                 enclosing_retro_width = c(500L, NA))
+}
 
-.pd_df  <- function() tibble::tibble(hit_probe = c("GAG", "POL", "POL"),
-                                     domain_name = c("RVT_1", "RVT_1", "rve"))
-.cov_df <- function() tibble::tibble(metric = c("total_bp_unreduced",
-                                                "total_bp_reduced"),
-                                     value = c(50000, 32000))
-.ltr_struct_df <- function() tibble::tibble(width = c(5000L, 8000L),
-                                            n_overlapping_hits = c(2L, 5L))
+.pd_df <- function() {
+  tibble::tibble(hit_probe = c("GAG", "POL", "POL"),
+                 domain_name = c("RVT_1", "RVT_1", "rve"))
+}
+.cov_df <- function() {
+  tibble::tibble(metric = c("total_bp_unreduced",
+                            "total_bp_reduced"),
+                 value = c(50000, 32000))
+}
+.ltr_struct_df <- function() {
+  tibble::tibble(width = c(5000L, 8000L),
+                 n_overlapping_hits = c(2L, 5L))
+}
 
 test_that("overlap builders return ggplots", {
   expect_s3_class(overlap_degree_plot(.ov_df()), "ggplot")

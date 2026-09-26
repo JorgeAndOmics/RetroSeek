@@ -92,7 +92,7 @@ test_that("score_windows_nb adds mu_nb / pval_nb / qval_nb columns", {
   expect_equal(nrow(scored), nrow(df))
 })
 
-test_that("score_windows_nb's planted hotspot rows have markedly smaller p-values than the median", {
+test_that("planted hotspot rows score far below the median p-value", {
   df <- .fake_window_df(n = 400L, baseline_rate = 1,
                         hotspot_rows = c(50, 51, 200, 201),
                         hotspot_count = 50L)
@@ -128,7 +128,7 @@ test_that("score_windows_nb produces NA p-values when the fit was insufficient_d
   expect_true(all(is.na(scored$pval_nb)))
 })
 
-test_that("score_windows_nb yields NA p-values for a failed fit (NB -> NA, no Poisson fallback)", {
+test_that("a failed fit gives NA p-values, with no Poisson fallback", {
   df <- .fake_window_df(n = 50L, baseline_rate = 1)
   # Simulate the "failed" status: a fit object carrying no model.
   failed_fit <- list(
