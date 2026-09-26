@@ -105,76 +105,99 @@ def _is_separator(cells: list[str]) -> bool:
 # -- Parsing -------------------------------------------------------------
 
 
-def parse_docs(path: Path = DEFAULT_DOCS_PATH) -> DocIndex:
-    """Parse the configuration reference into a :class:`DocIndex`."""
-    fields: dict[str, FieldDoc] = {}
-    sections: list[str] = []
-    section_anchor: dict[str, str] = {}
-    current_section = ""
-    current_anchor = ""
-    in_field_table = False
+def _field_cells(cells: list[str]) -> tuple[str, str, str]:
+    """(type, default, meaning) of a field row, by the table's column count.
 
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.rstrip()
+    4+ columns ``Key | Type | Default | Meaning`` (a meaning may hold pipes);
+    3 columns ``Key | Type | Default``; 2 columns ``Key | Meaning``.
+    """
+    if len(cells) >= 4:
+        return cells[1], cells[2], "|".join(cells[3:])
+    if len(cells) == 3:
+        return cells[1], cells[2], ""
+    return "", "", cells[1]
 
+
+class _IndexBuilder:
+    """Reads the reference line by line, remembering the heading it is under."""
+
+    def __init__(self) -> None:
+        self.fields: dict[str, FieldDoc] = {}
+        self.sections: list[str] = []
+        self.section_anchor: dict[str, str] = {}
+        self.section = ""
+        self.anchor = ""
+        self.in_field_table = False
+
+    def feed(self, line: str) -> None:
+        """Take one line: a heading, a blank line, a table row, or prose."""
         heading = re.match(r"(#+)\s+(.*)", line)
         if heading:
-            level, text = len(heading.group(1)), heading.group(2).strip()
-            current_anchor = _anchor(text)
-            if level == 2:
-                current_section = _strip_md(text)
-                if current_section not in section_anchor:
-                    sections.append(current_section)
-                    section_anchor[current_section] = current_anchor
-            in_field_table = False
-            continue
+            self._heading(len(heading.group(1)), heading.group(2).strip())
+        elif not line.strip():
+            self.in_field_table = False
+        elif line.lstrip().startswith("|"):
+            self._table_row(_split_row(line))
 
-        if not line.strip():
-            in_field_table = False
-            continue
+    def _heading(self, level: int, text: str) -> None:
+        self.anchor = _anchor(text)
+        if level == 2:
+            self.section = _strip_md(text)
+            if self.section not in self.section_anchor:
+                self.sections.append(self.section)
+                self.section_anchor[self.section] = self.anchor
+        self.in_field_table = False
 
-        if not line.lstrip().startswith("|"):
-            continue
-
-        cells = _split_row(line)
+    def _table_row(self, cells: list[str]) -> None:
         if _is_separator(cells):
-            continue
+            return
         if cells[0] == "Key":  # header row of a field table
-            in_field_table = True
-            continue
-        if not in_field_table or not cells[0].startswith("`"):
-            continue
-
+            self.in_field_table = True
+            return
+        if not self.in_field_table or not cells[0].startswith("`"):
+            return
         key = cells[0].strip("`").strip()
-        if len(cells) >= 4:
-            type_, default, meaning = cells[1], cells[2], "|".join(cells[3:])
-        elif len(cells) == 3:
-            type_, default, meaning = cells[1], cells[2], ""
-        else:  # 2-column: Key | Meaning
-            type_, default, meaning = "", "", cells[1]
-
-        fields[key] = FieldDoc(
+        type_, default, meaning = _field_cells(cells)
+        self.fields[key] = FieldDoc(
             key=key,
             type=_strip_md(type_),
             default=_strip_md(default),
             meaning=_strip_md(meaning),
-            section=current_section,
-            anchor=current_anchor,
+            section=self.section,
+            anchor=self.anchor,
         )
 
-    return DocIndex(fields=fields, sections=sections, section_anchor=section_anchor)
+    def index(self) -> DocIndex:
+        return DocIndex(
+            fields=self.fields,
+            sections=self.sections,
+            section_anchor=self.section_anchor,
+        )
+
+
+def parse_docs(path: Path = DEFAULT_DOCS_PATH) -> DocIndex:
+    """Parse the configuration reference into a :class:`DocIndex`."""
+    builder = _IndexBuilder()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        builder.feed(raw.rstrip())
+    return builder.index()
 
 
 def flatten_config(data: Any, prefix: str = "") -> dict[str, Any]:
-    """Flatten nested config dicts to dotted keys -> leaf value."""
+    """Flatten nested config dicts to dotted keys -> leaf value.
+
+    Anything that is not a dict flattens to nothing; an empty nested dict adds
+    no key.
+    """
+    if not isinstance(data, dict):
+        return {}
     out: dict[str, Any] = {}
-    if isinstance(data, dict):
-        for key, value in data.items():
-            dotted = f"{prefix}.{key}" if prefix else str(key)
-            if isinstance(value, dict):
-                out.update(flatten_config(value, dotted))
-            else:
-                out[dotted] = value
+    for key, value in data.items():
+        dotted = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            out.update(flatten_config(value, dotted))
+        else:
+            out[dotted] = value
     return out
 
 

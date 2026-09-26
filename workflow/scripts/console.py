@@ -141,14 +141,18 @@ class Tally:
             self._close_error_block()
 
         if event := parse_event(line):
-            if event.level == "WARN":
-                self.warnings.append(event)
-            elif event.level == "ERROR":
-                self.errors[(event.step, event.genome)] = event.message
+            self._record(event)
         elif progress := parse_progress(line):
             self.progress = progress
         elif match := _ERROR_IN_RULE.match(line):
             self._open = {"rule": match.group(1), "genome": "all", "log": ""}
+
+    def _record(self, event: Event) -> None:
+        """Keep a warning for the summary, and the last error of each (step, genome)."""
+        if event.level == "WARN":
+            self.warnings.append(event)
+        elif event.level == "ERROR":
+            self.errors[(event.step, event.genome)] = event.message
 
     def finish(self) -> None:
         """Close an error block the stream ended inside."""

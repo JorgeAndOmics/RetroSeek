@@ -28,8 +28,9 @@ _REASON_LINE = re.compile(r"^\s+reason: (.+)$")
 def job_counts(dry_run: str) -> dict[str, int]:
     """Jobs per rule from the first "Job stats" table of a dry run.
 
-    Snakemake prints the table again at the end, so only the first is read.
-    Empty when nothing would run.
+    Snakemake prints the table again at the end, so reading stops at the next
+    header once rows were counted, or at the table's "total" line. Empty when
+    nothing would run.
     """
     counts: dict[str, int] = {}
     inside = False
@@ -39,10 +40,8 @@ def job_counts(dry_run: str) -> dict[str, int]:
                 break
             inside = True
             continue
-        if not inside:
-            continue
-        fields = line.split()
-        if fields and fields[0] == "total":
+        fields = line.split() if inside else []
+        if fields[:1] == ["total"]:
             break
         if len(fields) == 2 and fields[1].isdigit():
             counts[fields[0]] = int(fields[1])
