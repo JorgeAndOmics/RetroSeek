@@ -222,37 +222,6 @@ class RetroSeeker:
         self.HSP = HSP_object
         self.strand = self.extract_strand_from_HSP(self.HSP)
 
-    def get_genbank(self, output_type: str | None = None) -> Any:
-        """Return the GenBank record of the object, or a temporary file holding it.
-
-        If no output_type is provided, it returns the stored GenBank record. If
-        output_type is set to 'tempfile', it returns the path to a temporary file
-        holding the record's text.
-
-        CAUTION! The GenBank record is already a SeqRecord object. If output_type is set to 'seqrecord', it will raise
-        an error. Use only default or 'tempfile' output_type.
-
-            Parameters
-            ----------
-                :param output_type: Optional(str): The type of output to return. Choose 'seqrecord' or 'tempfile'.
-
-        Returns:
-            -------
-                :returns: The FASTA file content.
-                Raises PipelineError, naming the probe, if its GenBank record was never fetched.
-
-        Raises:
-            ------
-                :raise Error: If output_type is not 'tempfile'.
-
-        """
-        self._require_genbank()
-        if output_type:
-            return self.extract_seq2rec(
-                seq_obj=str(self.genbank), obj_type="genbank", output_type=output_type
-            )
-        return self.genbank
-
     def set_genbank(self, genbank_obj: str) -> None:
         """Parse and store a GenBank record, and derive its FASTA and GFF from it.
 
@@ -296,18 +265,6 @@ class RetroSeeker:
                 seq_obj=self.fasta, obj_type="fasta", output_type=output_type
             )
         return self.fasta
-
-    def get_gff(self) -> Any:
-        """Returns the GFF file associated with the object.
-
-        Returns:
-            -------
-                :returns: The GFF file content.
-                Raises PipelineError, naming the probe, if its GenBank record was never fetched.
-
-        """
-        self._require_genbank()
-        return self.gff
 
     def _require_genbank(self) -> None:
         """Stop, naming the probe, when its NCBI record was never fetched."""
@@ -356,36 +313,6 @@ class RetroSeeker:
             info += f"Complete Record: {self.alignment.hit_def}\n"  # type: ignore[union-attr]
 
         return info
-
-    def display_alignment(self) -> str | None:
-        """Displays human-readable information about the object's alignment.
-
-        Returns:
-            -------
-                :returns: str or None: The instance's Alignment information.
-
-        """
-        return f"Alignment:\n {self.alignment}\n"
-
-    def display_HSP(self) -> str | None:
-        """Displays human-readable information about the object's HSP.
-
-        Returns:
-            -------
-                :returns: str or None: The instance's HSP information.
-
-        """
-        return f"HSP:\n {self.HSP}\n"
-
-    def display_genbank(self) -> str | None:
-        """Displays human-readable information about the object's Genbank record.
-
-        Returns:
-            -------
-                :returns: str or None: The instance's Genbank information.
-
-        """
-        return f"Genbank:\n {self.genbank}\n"
 
     def display_fasta(self) -> str | None:
         """Return the FASTA text under a "Fasta:" line."""
