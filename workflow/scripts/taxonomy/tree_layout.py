@@ -76,17 +76,12 @@ def _ancestry(node: str, parent: dict[str, str | None]) -> list[str]:
     return chain
 
 
-def from_taxonomy(taxonomy_tsv: Path, tips: list[str]) -> Tree | None:
-    """Build a cladogram of ``tips`` from the taxonomy hierarchy.
+def _warn_absent_calls(tips: list[str], known: list[str]) -> None:
+    """Log the calls that taxonomy.tsv does not know, placeholders aside.
 
-    Only the observed taxa and the ancestors connecting them are kept, so the
-    tree shows the study's actual axis rather than the whole reference.
-    Returns None when nothing can be placed.
+    "unclassified" and "unassigned_at_<rank>" never appear in taxonomy.tsv by
+    design, so they are no reason to warn.
     """
-    parent, _rank = load_hierarchy(taxonomy_tsv)
-    known = [t for t in tips if t in parent]
-    # Placeholders are not taxa: "unclassified" and "unassigned_at_<rank>" never
-    # appear in taxonomy.tsv by design, so they are no reason to warn.
     missing = sorted(
         t
         for t in set(tips) - set(known)
@@ -98,6 +93,47 @@ def from_taxonomy(taxonomy_tsv: Path, tips: list[str]) -> Tree | None:
             len(missing),
             ", ".join(missing[:10]),
         )
+
+
+def _children_within(
+    keep: set[str], parent: dict[str, str | None]
+) -> dict[str | None, list[str]]:
+    """Each kept node's kept children, in name order; kept roots under None."""
+    children: dict[str | None, list[str]] = {}
+    for node in sorted(keep):  # sorted => deterministic
+        up = parent.get(node)
+        children.setdefault(up if up in keep else None, []).append(node)
+    return children
+
+
+def _clade(
+    name: str, children: dict[str | None, list[str]], tip_set: set[str]
+) -> Clade:
+    """The clade rooted at ``name``, built recursively from ``children``."""
+    kids = [k for k in children.get(name, []) if k != name]
+    if not kids:
+        return Clade(name=name, branch_length=1.0)
+    sub = [_clade(k, children, tip_set) for k in kids]
+    # Mixed-rank axis (ADR-008): a taxon can be BOTH an observed call and an
+    # ancestor of other calls - e.g. loci resolved only to `Retroviridae`
+    # alongside loci resolved to `Gammaretrovirus`. It then needs its own tip
+    # (so its bar has a row) *and* its internal node (so its descendants hang
+    # off it). The internal node stays unnamed to avoid a duplicate label.
+    if name in tip_set:
+        sub.insert(0, Clade(name=name, branch_length=1.0))
+    return Clade(name=None, branch_length=1.0, clades=sub)
+
+
+def from_taxonomy(taxonomy_tsv: Path, tips: list[str]) -> Tree | None:
+    """Build a cladogram of ``tips`` from the taxonomy hierarchy.
+
+    Only the observed taxa and the ancestors connecting them are kept, so the
+    tree shows the study's actual axis rather than the whole reference.
+    Returns None when nothing can be placed.
+    """
+    parent, _rank = load_hierarchy(taxonomy_tsv)
+    known = [t for t in tips if t in parent]
+    _warn_absent_calls(tips, known)
     if not known:
         return None
 
@@ -105,37 +141,19 @@ def from_taxonomy(taxonomy_tsv: Path, tips: list[str]) -> Tree | None:
     keep: set[str] = set()
     for t in known:
         keep.update(_ancestry(t, parent))
-
-    children: dict[str | None, list[str]] = {}
-    for node in sorted(keep):  # sorted => deterministic
-        children.setdefault(
-            parent.get(node) if parent.get(node) in keep else None, []
-        ).append(node)
-
-    tip_set = set(known)
-
-    def build(name: str) -> Clade:
-        kids = [k for k in children.get(name, []) if k != name]
-        if not kids:
-            return Clade(name=name, branch_length=1.0)
-        sub = [build(k) for k in kids]
-        # Mixed-rank axis (ADR-008): a taxon can be BOTH an observed call and an
-        # ancestor of other calls - e.g. loci resolved only to `Retroviridae`
-        # alongside loci resolved to `Gammaretrovirus`. It then needs its own tip
-        # (so its bar has a row) *and* its internal node (so its descendants hang
-        # off it). The internal node stays unnamed to avoid a duplicate label.
-        if name in tip_set:
-            sub.insert(0, Clade(name=name, branch_length=1.0))
-        return Clade(name=None, branch_length=1.0, clades=sub)
-
+    children = _children_within(keep, parent)
     roots = children.get(None, [])
     if not roots:
         return None
-    top = (
-        build(roots[0])
-        if len(roots) == 1
-        else Clade(name=None, branch_length=1.0, clades=[build(r) for r in roots])
-    )
+    tip_set = set(known)
+    if len(roots) == 1:
+        top = _clade(roots[0], children, tip_set)
+    else:
+        top = Clade(
+            name=None,
+            branch_length=1.0,
+            clades=[_clade(r, children, tip_set) for r in roots],
+        )
     return Tree(root=top, rooted=True)
 
 
@@ -163,13 +181,13 @@ def build_alias_index(
     frames key on the catalog's ``species`` column, and ``stem`` for the
     co-phylogeny, whose ERV tree tips are genome stems.
     """
-    index: dict[str, str] = {}
-    for stem, display in (species_map or {}).items():
-        target = str(display if canonical == "display" else stem)
-        for spelling in (stem, display):
-            if spelling:
-                index[_normalize(str(spelling))] = target
-    return index
+    use_display = canonical == "display"
+    return {
+        _normalize(str(spelling)): str(display if use_display else stem)
+        for stem, display in (species_map or {}).items()
+        for spelling in (stem, display)
+        if spelling
+    }
 
 
 def uninformative_branch_lengths(tree: Tree) -> bool:
@@ -194,6 +212,33 @@ def uninformative_branch_lengths(tree: Tree) -> bool:
     return all(float(x).is_integer() for x in lengths)
 
 
+def _match_tips(
+    tree: Tree, tips: list[str], aliases: dict[str, str] | None
+) -> dict[str, str]:
+    """Tree tip label -> the study's display name, for every tip that matches."""
+    want = {_normalize(t): t for t in tips}
+    # Aliases fill gaps rather than override: an exact display-name match on the
+    # tip always wins over an indirect one.
+    for key, canonical in (aliases or {}).items():
+        if canonical in tips:
+            want.setdefault(key, canonical)
+    matched: dict[str, str] = {}
+    for leaf in tree.get_terminals():
+        key = _normalize(leaf.name or "")
+        if key in want:
+            matched[leaf.name] = want[key]
+    return matched
+
+
+def _prune_and_rename(tree: Tree, matched: dict[str, str]) -> None:
+    """Drop the tips outside the study and relabel the rest with display names."""
+    for leaf in list(tree.get_terminals()):
+        if leaf.name not in matched:
+            tree.prune(leaf)
+    for leaf in tree.get_terminals():
+        leaf.name = matched.get(leaf.name, leaf.name)
+
+
 def from_newick(
     newick: Path, tips: list[str], aliases: dict[str, str] | None = None
 ) -> Tree:
@@ -207,21 +252,11 @@ def from_newick(
 
     Reports unmatched names in BOTH directions: a species missing from the tree
     silently vanishes from the figure otherwise, and that is exactly the kind of
-    silent data loss this pipeline fails loudly on elsewhere.
+    silent data loss this pipeline fails loudly on elsewhere. Raises
+    PipelineError when no tip matches at all.
     """
     tree = Phylo.read(str(newick), "newick")
-    want = {_normalize(t): t for t in tips}
-    # Aliases fill gaps rather than override: an exact display-name match on the
-    # tip always wins over an indirect one.
-    for key, canonical in (aliases or {}).items():
-        if canonical in tips:
-            want.setdefault(key, canonical)
-    matched: dict[str, str] = {}  # tip label -> display name
-    for leaf in tree.get_terminals():
-        key = _normalize(leaf.name or "")
-        if key in want:
-            matched[leaf.name] = want[key]
-
+    matched = _match_tips(tree, tips, aliases)
     unmatched_species = sorted(set(tips) - set(matched.values()))
     if unmatched_species:
         logger.warning(
@@ -234,12 +269,7 @@ def from_newick(
             f"species tree {newick} shares no tip with the study's species",
             hint="make its tip labels match the config `species:` display names",
         )
-
-    for leaf in list(tree.get_terminals()):
-        if leaf.name not in matched:
-            tree.prune(leaf)
-    for leaf in tree.get_terminals():
-        leaf.name = matched.get(leaf.name, leaf.name)
+    _prune_and_rename(tree, matched)
     if uninformative_branch_lengths(tree):
         # Information, not a warning: the figures use only the tree's order and
         # topology, and square a cladogram off on purpose.
@@ -254,6 +284,41 @@ def from_newick(
 
 
 # ---------------------------------------------------------------------- layout
+def _set_x(clade: Clade, x: float) -> None:
+    """Set ``clade.x`` and, below it, each child's x as its parent's plus its edge.
+
+    A missing branch length counts as a unit edge. Called on the root with 0, so
+    the root's own branch length is never drawn.
+    """
+    clade.x = x
+    for child in clade.clades:
+        bl = child.branch_length
+        _set_x(child, x + (1.0 if bl is None else float(bl)))
+
+
+def _set_y(clade: Clade) -> float:
+    """y of an internal clade: the mean y of its children (tips already have y)."""
+    if clade.is_terminal():
+        return float(clade.y)
+    ys = [_set_y(c) for c in clade.clades]
+    clade.y = sum(ys) / len(ys)
+    return float(clade.y)
+
+
+def _segments(tree: Tree) -> list[tuple[float, ...]]:
+    """Per internal clade, a vertical spine and one horizontal arm per child."""
+    segments: list[tuple[float, ...]] = []
+    for clade in tree.find_clades():
+        if clade.is_terminal():
+            continue
+        ys = [c.y for c in clade.clades]
+        segments.append((clade.x, min(ys), clade.x, max(ys)))  # vertical spine
+        segments.extend(  # horizontal arms
+            (clade.x, child.y, child.x, child.y) for child in clade.clades
+        )
+    return segments
+
+
 def layout(
     tree: Tree, align_tips: bool
 ) -> tuple[list[tuple[float, ...]], list[tuple[Any, ...]]]:
@@ -267,43 +332,15 @@ def layout(
     tree.ladderize()
     for i, t in enumerate(tree.get_terminals(), 1):
         t.y = float(i)
+    _set_x(tree.root, 0.0)
+    _set_y(tree.root)
 
-    def set_x(clade: Clade, x0: float) -> None:
-        bl = clade.branch_length
-        bl = 1.0 if bl is None else float(bl)
-        clade.x = x0 + (0.0 if clade is tree.root else bl)
-        for child in clade.clades:
-            set_x(child, clade.x)
-
-    tree.root.x = 0.0
-    for child in tree.root.clades:
-        set_x(child, 0.0)
-
-    def set_y(clade: Clade) -> float:
-        if clade.is_terminal():
-            return float(clade.y)
-        ys = [set_y(c) for c in clade.clades]
-        clade.y = sum(ys) / len(ys)
-        return float(clade.y)
-
-    set_y(tree.root)
-
-    max_x = max(c.x for c in tree.find_clades())
     if align_tips:
+        max_x = max(c.x for c in tree.find_clades())
         for t in tree.get_terminals():
             t.x = max_x
-
-    segments: list[tuple[float, ...]] = []
-    for clade in tree.find_clades():
-        if clade.is_terminal():
-            continue
-        ys = [c.y for c in clade.clades]
-        segments.append((clade.x, min(ys), clade.x, max(ys)))  # vertical spine
-        segments.extend(  # horizontal arms
-            (clade.x, child.y, child.x, child.y) for child in clade.clades
-        )
     tips = [(t.name, t.x, t.y) for t in tree.get_terminals()]
-    return segments, tips
+    return _segments(tree), tips
 
 
 def write(
@@ -330,6 +367,17 @@ def write(
 
 
 # ------------------------------------------------------------------------- CLI
+def _observed_in(path: Path, column: str) -> set[str]:
+    """Distinct non-empty values of ``column`` in one loci/orphan table."""
+    table = pq.read_table(path)  # read first: a corrupt table fails loudly either way
+    if column == "species":
+        # `species` is not a table column - it is the filename stem.
+        return {path.name.split(".")[0]}
+    if column not in table.column_names:
+        return set()
+    return {str(v) for v in table.column(column).to_pylist() if v}
+
+
 def _observed(parquet_dir: Path, column: str) -> list[str]:
     """Distinct non-empty values of ``column`` across the loci/orphan tables.
 
@@ -339,14 +387,7 @@ def _observed(parquet_dir: Path, column: str) -> list[str]:
     seen: set[str] = set()
     for pattern in ("*.loci.parquet", "*.orphans.parquet"):
         for path in sorted(parquet_dir.glob(pattern)):
-            table = pq.read_table(path)
-            if column == "species":
-                # `species` is not a table column - it is the filename stem.
-                seen.add(path.name.split(".")[0])
-                continue
-            if column not in table.column_names:
-                continue
-            seen.update(str(v) for v in table.column(column).to_pylist() if v)
+            seen |= _observed_in(path, column)
     return sorted(seen)
 
 

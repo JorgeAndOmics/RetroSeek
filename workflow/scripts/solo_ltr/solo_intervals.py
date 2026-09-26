@@ -54,6 +54,14 @@ def merge_intervals(
     return merged
 
 
+def _gap(other: tuple[int, int], start: int, end: int) -> int:
+    """Bases between the closed interval ``other`` and [start, end]; 0 on overlap."""
+    other_start, other_end = other
+    if other_start <= end and other_end >= start:
+        return 0
+    return other_start - end if other_start > end else start - other_end
+
+
 class IntervalIndex:
     """Exact overlap and nearest-distance queries over one sequence's intervals.
 
@@ -89,18 +97,8 @@ class IntervalIndex:
         in a repeat-dense region a genuine solo can sit near an unrelated orphan by
         chance, so the distance belongs in a column where it can be inspected.
         """
-        if not self.merged:
-            return None
         i = bisect.bisect_right(self._starts, end) - 1
-        best: int | None = None
         # The interval at or before the query, and the one after it. With disjoint
         # ascending intervals these are the only two candidates for nearest.
-        for j in (i, i + 1):
-            if not 0 <= j < len(self.merged):
-                continue
-            other_start, other_end = self.merged[j]
-            if other_start <= end and other_end >= start:
-                return 0
-            gap = other_start - end if other_start > end else start - other_end
-            best = gap if best is None else min(best, gap)
-        return best
+        neighbours = [self.merged[j] for j in (i, i + 1) if 0 <= j < len(self.merged)]
+        return min((_gap(other, start, end) for other in neighbours), default=None)
