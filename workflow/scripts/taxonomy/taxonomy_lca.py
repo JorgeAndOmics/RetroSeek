@@ -4,8 +4,7 @@ Resolves the taxonomic identity of an ERV locus from the *set* of axis taxa
 (any rank; ADR-008) supported by its evidence, using a lowest-common-ancestor
 (LCA) walk over a data-derived taxonomy.
 
-Motivation
-----------
+Motivation:
 RetroSeek detection produces, per locus, a cloud of cross-genus probe hits
 (retroviral ``pol``/RT is conserved across genera, so one genomic ERV is
 homologous to many reference viruses at once). The legacy taxon assignment either

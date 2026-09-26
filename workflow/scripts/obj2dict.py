@@ -120,23 +120,21 @@ def _species_name(species: str) -> str:
 
 
 def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
-    """Extracts all structured attributes from a probe Object for tabular export.
+    """Flatten one probe object into a table row for export.
 
-        Parameters
-        ----------
-            :param obj: A single Object instance representing a probe. Must have `.genbank`, `.alignment`, and `.HSP` as optional attributes.
+    Args:
+        obj: One RetroSeeker object. Its `genbank`, `alignment` and `HSP` may
+            each be unset.
 
     Returns:
-        -------
-            :returns: data: A dictionary mapping field names to scalar values, ready for DataFrame construction. It includes:
-                - Basic metadata from the Object itself
-                - GenBank fields (if `.genbank` is not None)
-                - Alignment metadata (if `.alignment` is not None)
-                - BLAST HSP features (if `.HSP` is not None)
+        A dictionary mapping column names to values, ready for DataFrame
+        construction. Every row has the same columns: the object's own
+        metadata (with the accession cut to its first word) and species
+        display name, then the GenBank, alignment and HSP columns, which are
+        None when that record is unset.
 
     Raises:
-        ------
-            :raises AttributeError: If the Object structure does not expose required attributes.
+        AttributeError: If the object lacks an attribute a column is read from.
     """
     # Defensive accession cleanup: older pickles (pre-seq_utils-fix) stored
     # the full BLAST hit_def ("CM138268.1 Molossus molossus chromosome 3,

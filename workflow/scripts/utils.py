@@ -32,14 +32,10 @@ def pickler(
     dill is used (not stdlib ``pickle``) because some pipeline objects
     embed BioPython records that stdlib pickle cannot serialise.
 
-    Parameters
-    ----------
-    data:
-        Any dill-serialisable object.
-    output_directory_path:
-        Directory to write the pickle file into.
-    output_file_name:
-        Basename of the pickle file (including extension).
+    Args:
+        data: Any dill-serialisable object.
+        output_directory_path: Directory to write the pickle file into.
+        output_file_name: Basename of the pickle file (including extension).
     """
     target = Path(output_directory_path) / output_file_name
     with target.open("wb") as handle:
@@ -49,23 +45,16 @@ def pickler(
 def unpickler(input_directory_path: str | Path, input_file_name: str) -> Any:
     """Load a dill pickle from ``<input_directory_path>/<input_file_name>``.
 
-    Parameters
-    ----------
-    input_directory_path:
-        Directory containing the pickle.
-    input_file_name:
-        Basename of the pickle file.
+    Args:
+        input_directory_path: Directory containing the pickle.
+        input_file_name: Basename of the pickle file.
 
     Returns:
-    -------
-    Any
         The deserialised payload.
 
     Raises:
-    ------
-    Exception
-        If the file cannot be opened or dill fails to load it; the path
-        is included in the message to aid debugging.
+        Exception: If the file cannot be opened or dill fails to load it; the
+            message names the file, and the original error is chained.
     """
     file_path = Path(input_directory_path) / input_file_name
     try:

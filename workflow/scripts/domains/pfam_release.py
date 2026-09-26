@@ -62,10 +62,16 @@ def release_record(
 ) -> tuple[str, bool]:
     """Build the record text, and whether the local download is the pinned release.
 
-    :param release: the pinned release, e.g. "38.2".
-    :param version_text: EBI's Pfam.version for that release.
-    :param local_md5_text: md5sum.txt saved by the downloader next to Pfam-A.hmm.
-    :param release_md5_text: the pinned release's md5_checksums.
+    Args:
+        release: The pinned release, e.g. "38.2".
+        version_text: EBI's Pfam.version for that release.
+        local_md5_text: The md5sum.txt saved by the downloader next to
+            Pfam-A.hmm.
+        release_md5_text: The pinned release's md5_checksums.
+
+    Returns:
+        The record text, and True when the local Pfam-A.hmm.gz checksum matches
+        the pinned release's (False when either checksum is missing).
     """
     local = checksum_for(local_md5_text, HMM_ARCHIVE)
     matches = local is not None and local == checksum_for(release_md5_text, HMM_ARCHIVE)

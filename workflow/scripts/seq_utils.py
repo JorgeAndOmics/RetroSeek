@@ -53,22 +53,21 @@ def blaster(
     empty output stops the job with a PipelineError, since the archive is
     written even when nothing matches.
 
-        Parameters
-        ----------
-            :param instance: The Object instance containing information about the query.
-            :param command: The command to run BLAST.
-            :param input_database_path: The path to the database.
-            :param subject: The particular genome against whose database it's being BLASTed
-            :param _outfmt: The output format for the BLAST results. Default is 11.
-            :param num_threads: The number of threads to use. Default is 1.
+    Args:
+        instance: The probe to search with; its sequence is the BLAST query.
+        command: The BLAST program to run, e.g. "tblastn".
+        input_database_path: The folder that holds one BLAST database per
+            genome, or the database itself when `subject` is empty.
+        subject: The genome whose database is searched, which is also the name
+            of its database under `input_database_path`.
+        num_threads: The number of threads BLAST may use.
+        _outfmt: The BLAST output format. Defaults to "11" (ASN.1 archive).
 
     Returns:
-        -------
-            :returns: The output of the BLAST search, captured from std_out.
+        The BLAST output, captured from standard output.
 
     Raises:
-        ------
-            :raise Exception: If an error occurs while running BLAST.
+        PipelineError: If BLAST is missing, fails, or gives no output.
     """
     input_path = (
         str(Path(input_database_path) / subject / subject)
@@ -166,24 +165,23 @@ def blaster_parser(
     RetroSeeker carrying the query's metadata, keyed by
     ``{accession}-{identifier}``.
 
-        Parameters
-        ----------
-        :param result: The result of [blaster] function.
-        :param instance: The RetroSeeker instance containing information about the query.
-        :param subject: The particular genome against whose database it's being BLASTed.
-        :param used_identifiers: Identifiers already given to this genome's hits; new
+    CAUTION: This function is designed to parse only the output of [blaster].
+
+    Args:
+        result: The ASN.1 archive returned by [blaster].
+        instance: The probe that was searched; its metadata is copied to each
+            hit.
+        subject: The genome that was searched; used as the hit's species when
+            the probe has none.
+        used_identifiers: Identifiers already given to this genome's hits; new
             ones are added. Pass the same set for every probe of a genome.
 
     Returns:
-    -------
-        :returns: A dictionary containing the parsed results of the [blaster] function:
-        alignment_dict[f'{alignment.id}-{random_string}'] = Object, one per HSP.
+        A dictionary with one RetroSeeker per HSP, keyed by
+        ``{accession}-{identifier}``. It is empty when there are no hits.
 
     Raises:
-    ------
-        :raise PipelineError: If blast_formatter cannot read the archive.
-
-    CAUTION!: This function is specifically designed to parse the output of the [blaster] function.
+        PipelineError: If blast_formatter cannot read the archive.
     """
     alignment_dict: dict[str, RetroSeeker] = {}
     used = set() if used_identifiers is None else used_identifiers
@@ -219,22 +217,21 @@ def _blast_task(
 
     One task of blast_executor: [blaster] followed by [blaster_parser].
 
-        Parameters
-        ----------
-            :param instance: The Object instance containing information about the query.
-            :param command: The type of BLAST to run
-            :param subject: The species to run BLAST against. Scientific name joined by '_'
-            :param input_database_path: The path to the database.
-            :param num_threads: The number of threads to use. Default is 1.
+    Args:
+        instance: The probe to search with.
+        command: The BLAST program to run, e.g. "tblastn".
+        subject: The genome to search: its scientific name joined by "_".
+        input_database_path: The folder that holds one BLAST database per
+            genome.
+        num_threads: The number of threads BLAST may use.
+        used_identifiers: Identifiers already given to this genome's hits; new
+            ones are added.
 
     Returns:
-        -------
-            :returns: A dictionary containing the BLAST results parsed by [blaster_parser] function
+        The probe's hits as parsed by [blaster_parser].
 
     Raises:
-        ------
-            :raises Exception: If the BLAST process fails
-
+        PipelineError: If BLAST or blast_formatter fails.
     """
     blast_result = blaster(
         instance=instance,
@@ -258,17 +255,22 @@ def blast_executor(
     All probes of the genome share one set of hit identifiers. Returns None
     (after a CRITICAL log line) when no probe has a hit.
 
-        Parameters
-        ----------
-            :param object_dict: A dictionary containing object pairs
-            :param command: The type of BLAST to run
-            :param input_database_path: The path to the input database (species, virus...)
-            :param num_threads: The number of threads to use. Default is 1.
-            :param genome: Optional: A genome to run BLAST against (Mammals, Virus...), in order to locate the relevant database. Scientific name joined by '_'. If no genome is provided, it just runs the query dictionary against the specified database.
+    Args:
+        object_dict: The probes to search with, as RetroSeeker objects.
+        command: The BLAST program to run, e.g. "tblastn".
+        input_database_path: The folder that holds one BLAST database per
+            genome, or the database itself when `genome` is empty.
+        num_threads: The number of threads BLAST may use.
+        genome: The genome to search: its scientific name joined by "_", which
+            locates its database. When empty, the probes are searched against
+            `input_database_path` directly.
 
     Returns:
-        -------
-            :returns: A dictionary containing the parsed BLAST results
+        All hits of all probes, keyed by ``{accession}-{identifier}``, or None
+        when there are none.
+
+    Raises:
+        PipelineError: If BLAST or blast_formatter fails.
     """
     full_parsed_results: dict[str, RetroSeeker] = {}
     used_identifiers: set[str] = set()  # one key space for all probes of a genome
@@ -314,17 +316,20 @@ def blast_retriever(
     It delegates to [blast_executor]; retrieving GenBank records is done
     separately by [gb_executor].
 
-        Parameters
-        ----------
-            :param object_dict: A dictionary of objects
-            :param command: The BLAST command to run.
-            :param genome: The species to search for. Retrieved from defaults.
-            :param input_database_path: The path to the local database (species, virus...).
-            :param num_threads: The number of threads to use. Default is 1.
+    Args:
+        object_dict: The probes to search with, as RetroSeeker objects.
+        command: The BLAST program to run, e.g. "tblastn".
+        genome: The genome to search: its scientific name joined by "_".
+        input_database_path: The folder that holds one BLAST database per
+            genome.
+        num_threads: The number of threads BLAST may use.
 
     Returns:
-        -------
-            :returns: A dictionary with the post-BLAST merged and retrieved sequences from the online database.
+        All hits of all probes, keyed by ``{accession}-{identifier}``, or None
+        when there are none.
+
+    Raises:
+        PipelineError: If BLAST or blast_formatter fails.
     """
     return blast_executor(
         object_dict=object_dict,
@@ -342,26 +347,26 @@ def gb_fetcher(
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
     _entrez_email: str = defaults.ENTREZ_EMAIL,
 ) -> RetroSeeker:
-    """Fetch the GenBank results for a given sequence and appends it to the objects.
+    """Fetch the GenBank record for one object from Entrez and attach it.
 
-        Parameters
-        ----------
-            :param instance: The Object instance containing information about the query.
-            :param online_database: The database to fetch the sequence from.
-            :param _attempt: The number of current attempts to fetch the sequence. Default is 1.
-            :param max_attempts: The maximum number of attempts to fetch the sequence. Default is 3.
-            :param _entrez_email: The email to use for the Entrez API. Default is retrieved from defaults.
+    When the object has an HSP, only the aligned stretch of the subject
+    sequence is fetched. A failed fetch is retried after 2, 4, 8, ... seconds;
+    once `max_attempts` is reached the failure is logged and the object is
+    returned without a record. No exception reaches the caller.
+
+    Args:
+        instance: The object whose accession is fetched.
+        online_database: The Entrez database to fetch from, e.g. "protein".
+        _attempt: The number of the current attempt. Defaults to 1.
+        max_attempts: The number of attempts before giving up. Defaults to
+            the configured max_retrieval_attempts (3 when unset).
+        _entrez_email: The email address sent to Entrez. Defaults to the
+            configured entrez_email.
 
     Returns:
-        -------
-            :returns: The Object instance with the fetched sequence appended. The function
-            returns the instance whether it has been updated or not. If the sequence could not be fetched,
-            the instance will be returned as is. If the sequence was fetched, the instance will be updated
-            with the GenBank record. See [incomplete_dict_cleaner] function to remove incomplete objects.
-
-    Raises:
-        ------
-            :raise Exception: If an error occurs while fetching the sequence.
+        The same object, with its GenBank record set when the fetch
+        succeeded and unchanged otherwise. See [incomplete_dict_cleaner] in
+        utils.py to remove objects left without a record.
     """
     Entrez.email = _entrez_email  # type: ignore[assignment]
 
@@ -402,21 +407,18 @@ def gb_executor(
     online_database: str,
     max_attempts: int = defaults.MAX_RETRIEVAL_ATTEMPTS,
 ) -> dict[str, RetroSeeker] | None:
-    """Fetches GenBank sequences for the objects in an object dictionary using single-thread execution.
+    """Fetch the GenBank record of every object in a dictionary, one at a time.
 
-        Parameters
-        ----------
-            :param object_dict: A dictionary containing object pairs.
-            :param online_database: The database to retrieve the sequences from.
-            :param max_attempts: The maximum number of attempts to fetch the sequence. Retrieves from defaults.
+    Args:
+        object_dict: The objects to fetch records for.
+        online_database: The Entrez database to fetch from, e.g. "protein".
+        max_attempts: The number of attempts per object before giving up.
+            Defaults to the configured max_retrieval_attempts.
 
     Returns:
-        -------
-            :returns: full_retrieved_results: A dictionary containing the input objects + the fetched GenBank sequences
-
-    Raises:
-        ------
-            :raises Exception: If an error occurs while fetching the sequences
+        The same objects keyed by ``{accession}-{identifier}``, each with its
+        GenBank record when the fetch succeeded, or None (after a CRITICAL log
+        line) when `object_dict` is empty.
     """
     full_retrieved_results = {}
 

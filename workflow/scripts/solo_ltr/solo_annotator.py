@@ -1,15 +1,13 @@
 """Annotate native solo-LTR calls with RetroSeek's per-locus taxonomy.
 
-What a solo LTR is here
------------------------
+What a solo LTR is here:
 When a provirus's two flanking LTRs recombine homologously, the internal region
 is excised and a single LTR is left at the integration site. Each solo LTR marks
 one ancestral integration whose provirus is gone, so they extend the ERV
 inventory into events the probe-based search cannot see - there is no retroviral
 protein left at the locus to find.
 
-Where they come from
---------------------
+Where they come from:
 ``solo_finder.py`` (ADR-017), which blasts the LTR arms of ERV-bearing elements
 against the genome and subtracts the hits that are not solos. Its output is six
 tab-separated columns::
@@ -21,8 +19,7 @@ same six columns, and is ported unchanged apart from this note: the six-column
 table is the seam between detection and annotation, so replacing the detector
 behind it required no change here. That is also why its tests carried over intact.
 
-How a solo inherits a taxon
----------------------------
+How a solo inherits a taxon:
 The detector names each solo after the genomic span of the element whose LTR arm
 caught it, in the shape ``{chr}:{start}..{end}#LTR/{element}``. The library ID is
 therefore a **coordinate**, not an opaque ``family1``, which makes the mapping
@@ -53,8 +50,7 @@ definition, so it cannot have contributed a bait arm. (``ltr-flanked`` here is t
 catalog's source *value*, which ADR-016 left unchanged when it renamed the track
 directory from ``valid`` to ``element_hits``.)
 
-Outputs
--------
+Outputs:
 ``{genome}.gff3``
     The solo-LTR track, one feature per solo, taxonomy in the attributes.
 ``{genome}.solo_ltr.csv`` / ``.parquet``
@@ -65,8 +61,7 @@ Outputs
     of LTR-flanked loci in that group. Grouping follows ADR-012's vocabulary:
     ``segment`` (default), ``taxon_call`` or ``none``.
 
-Interpreting the ratio
-----------------------
+Interpreting the ratio:
 A high solo/intact ratio means many of a lineage's integrations have had time to
 recombine away, so the ratio orders lineages by relative age. It is a crude
 proxy: solo LTRs degrade faster than intact elements, integration preferences

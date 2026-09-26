@@ -56,8 +56,10 @@ _LEVEL_NAMES = {logging.WARNING: "WARN", logging.CRITICAL: "ERROR"}
 class LineFormatter(logging.Formatter):
     """Formats a record as `HH:MM:SS LEVEL step genome | message`, per line.
 
-    :param step: the rule or script name, one word.
-    :param genome: the genome the job works on, or None for all genomes.
+    Args:
+        step: The rule or script name, one word.
+        genome: The genome the job works on, or None for all genomes (shown
+            as "all").
     """
 
     def __init__(self, step: str, genome: str | None) -> None:
@@ -99,10 +101,14 @@ def setup_logging(
     Configures the root logger, so library modules that only call
     `logging.getLogger(__name__)` follow the same format.
 
-    :param step: the rule or script name shown on each line.
-    :param genome: the genome this job works on, or None for all.
-    :param log_file: the job log (Snakemake's `log:`), appended to; its folder is
-        created. Without it, messages go to stderr only.
+    Args:
+        step: The rule or script name shown on each line.
+        genome: The genome this job works on, or None for all.
+        log_file: The job log (Snakemake's `log:`), appended to; its folder is
+            created. Without it, messages go to stderr only.
+
+    Raises:
+        ValueError: If RETROSEEK_VERBOSITY is set to an unknown verbosity.
     """
     verbosity = os.environ.get("RETROSEEK_VERBOSITY")
     formatter = LineFormatter(step, genome)
@@ -147,8 +153,9 @@ def job_logging(log_file: Path | None, step: str) -> None:
 class PipelineError(Exception):
     """A failure the script understands: what went wrong, and what fixes it.
 
-    :param message: what went wrong, in the user's terms.
-    :param hint: the action that usually fixes it, or "" if there is none.
+    Args:
+        message: What went wrong, in the user's terms.
+        hint: The action that usually fixes it, or "" if there is none.
     """
 
     def __init__(self, message: str, hint: str = "") -> None:

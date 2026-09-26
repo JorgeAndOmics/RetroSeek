@@ -38,12 +38,13 @@ logger = logging.getLogger(__name__)
 
 
 def standardize_fasta_extensions(fasta_dir_path: str | Path) -> None:
-    """Standardize extensions of all FASTA files in the provided directory to .fa.
+    """Rename every .fasta, .fna or .fas file in a directory to .fa.
 
-    Parameters
-    ----------
-    fasta_dir_path : str
-        Path to the directory containing FASTA files with various extensions (.fasta, .fna, .fas).
+    The match ignores case. Each file is renamed in place, so an existing
+    file with the new name is replaced.
+
+    Args:
+        fasta_dir_path: The directory holding the FASTA files.
     """
     pattern = re.compile(r"\.(fasta|fna|fas)$", re.IGNORECASE)
 

@@ -235,8 +235,9 @@ def summary_lines(
 class Screen:
     """Draws events, a progress bar and the summary on the terminal.
 
-    :param file: where to draw (default stdout).
-    :param verbosity: quiet, normal or verbose.
+    Args:
+        verbosity: "quiet", "normal" or "verbose".
+        file: Where to draw. Defaults to stdout.
     """
 
     def __init__(self, verbosity: str, file: IO[str] | None = None) -> None:
