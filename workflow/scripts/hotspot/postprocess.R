@@ -253,7 +253,7 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 #' Orphan loci carry a blank confidence, which reads as NA.
 .locus_confidence <- function(mc, locus_i) {
   if (!"confidence" %in% colnames(mc)) return(NULL)
-  suppressWarnings(as.numeric(mc$confidence[locus_i]))
+  suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: blank -> NA
 }
 
 #' A loci column at the overlapping loci, as character; NULL when absent.
