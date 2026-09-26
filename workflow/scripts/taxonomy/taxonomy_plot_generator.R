@@ -597,17 +597,8 @@ confidence_vs_evidence_plot <- function(combined) {
 # tree_layout.py (Bio.Phylo), so no R tree library is needed; tree_column() and
 # compose_with_tree() in plot2sort/tree_axis.R draw and align it.
 
-# The tree's tips and segments, or a placeholder page when the tree is missing,
-# there are no loci, or a needed column is absent.
-.tree_or_placeholder <- function(combined, tree_dir, tree_name, needed, empty_label) {
-  tips <- read_tree_part(tree_dir, tree_name, "tips")
-  segs <- read_tree_part(tree_dir, tree_name, "segments")
-  if (is.null(tips)) return(empty_plot(sprintf("No %s tree available", tree_name)))
-  if (nrow(combined) == 0L || !all(needed %in% names(combined))) {
-    return(empty_plot(empty_label))
-  }
-  list(tips = tips, segs = segs)
-}
+# TRUE when there are no rows, or a needed column is missing.
+.lacks_columns <- function(df, needed) nrow(df) == 0L || !all(needed %in% names(df))
 
 # The rows keyed to a tree tip. The ADR-011 tip-label trap: a locus keyed by a
 # name the tree does not carry must be dropped, not silently drawn at whatever
@@ -621,11 +612,13 @@ confidence_vs_evidence_plot <- function(combined) {
 # the taxon tree's tips are whatever ranks the calls resolved to.
 tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
                                  title, subtitle) {
-  tree <- .tree_or_placeholder(combined, tree_dir, tree_name,
-                               c("confidence_num", key), "No confidence values")
-  if (inherits(tree, "ggplot")) return(tree)
+  tree <- read_tree(tree_dir, tree_name)
+  if (is.null(tree)) return(empty_plot(sprintf("No %s tree available", tree_name)))
+  if (.lacks_columns(combined, c("confidence_num", key))) {
+    return(empty_plot("No confidence values"))
+  }
   tips <- tree$tips
-  segs <- tree$segs
+  segs <- tree$segments
   d <- .on_tips(combined %>% filter(!is.na(.data$confidence_num)), key, tips)
   if (nrow(d) == 0L) return(empty_plot("No loci matching the tree tips"))
   if (!"source" %in% names(d)) d$source <- "ltr-flanked"
@@ -662,11 +655,13 @@ tree_confidence_plot <- function(combined, tree_dir, tree_name, key,
 # than adding a mode flag, so each stays readable.
 tree_composition_plot <- function(combined, tree_dir, tree_name, key, fill_col,
                                   title, subtitle, colours = NULL) {
-  tree <- .tree_or_placeholder(combined, tree_dir, tree_name, c(key, fill_col),
-                               sprintf("No %s values", fill_col))
-  if (inherits(tree, "ggplot")) return(tree)
+  tree <- read_tree(tree_dir, tree_name)
+  if (is.null(tree)) return(empty_plot(sprintf("No %s tree available", tree_name)))
+  if (.lacks_columns(combined, c(key, fill_col))) {
+    return(empty_plot(sprintf("No %s values", fill_col)))
+  }
   tips <- tree$tips
-  segs <- tree$segs
+  segs <- tree$segments
   d <- .on_tips(combined, key, tips)
   if (nrow(d) == 0L) return(empty_plot("No loci matching the tree tips"))
 

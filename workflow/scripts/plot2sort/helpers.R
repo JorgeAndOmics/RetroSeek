@@ -29,6 +29,11 @@ order_by_count <- function(df, col, weight = NULL) {
 }
 
 
+# TRUE when `top_n` asks for a cut: a positive number, not NULL or NA.
+.keeps_top_n <- function(top_n) {
+  !is.null(top_n) && !is.na(top_n) && top_n > 0L
+}
+
 # Keep only the top-N strata of `col` by count (or summed `weight`); fold the
 # rest into a single labelled "Other (k)" stratum that records how many strata
 # were collapsed. `top_n = NULL | NA | <=0` short-circuits and returns `df`
@@ -36,11 +41,6 @@ order_by_count <- function(df, col, weight = NULL) {
 #
 # Note: returns a possibly-non-aggregated frame; callers that grouped on `col`
 # should re-aggregate after calling this so duplicate "Other" rows fold.
-# TRUE when `top_n` asks for a cut: a positive number, not NULL or NA.
-.keeps_top_n <- function(top_n) {
-  !is.null(top_n) && !is.na(top_n) && top_n > 0L
-}
-
 collapse_long_tail <- function(df, col, top_n, other_label = "Other",
                                weight = NULL) {
   if (!.keeps_top_n(top_n) || nrow(df) == 0L) return(df)
@@ -86,12 +86,6 @@ empty_plot <- function(label = "No data") {
 }
 
 
-# Title and subtitle for a plot, in the house style (style.R): left-aligned,
-# sentence case. `subset_label` names what the page is about (a genome, a probe
-# set, a segment); it leads the subtitle rather than being glued onto the title
-# with a dash, so titles stay short and identical across genomes. Genome stems
-# must already be readable names here (display_species), never file names.
-# `warning_caption`, when supplied, stamps a caveat that travels with the page.
 # TRUE for NULL or an empty string: nothing to print.
 .is_blank <- function(x) is.null(x) || !nzchar(x)
 
@@ -103,6 +97,12 @@ empty_plot <- function(label = "No data") {
   paste0(lead, ". ", subtitle)
 }
 
+# Title and subtitle for a plot, in the house style (style.R): left-aligned,
+# sentence case. `subset_label` names what the page is about (a genome, a probe
+# set, a segment); it leads the subtitle rather than being glued onto the title
+# with a dash, so titles stay short and identical across genomes. Genome stems
+# must already be readable names here (display_species), never file names.
+# `warning_caption`, when supplied, stamps a caveat that travels with the page.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
                        warning_caption = NULL) {
   p <- p + labs(title = title, subtitle = .lead_subtitle(subset_label, subtitle)) +
@@ -120,13 +120,9 @@ add_titles <- function(p, title, subtitle, subset_label = NULL,
 # builder's existing subtitle from the ggplot object and appends to it; the
 # subtitle theme set by add_titles() then styles the whole line uniformly.
 stamp_tier_note <- function(p, tier) {
-  if (is.null(tier) || !nzchar(tier)) return(p)
+  if (.is_blank(tier)) return(p)
   existing <- p$labels$subtitle
-  combined <- if (!is.null(existing) && nzchar(existing)) {
-    paste0(existing, "\n", tier)
-  } else {
-    tier
-  }
+  combined <- if (.is_blank(existing)) tier else paste0(existing, "\n", tier)
   p + labs(subtitle = combined)
 }
 
@@ -136,7 +132,7 @@ stamp_tier_note <- function(p, tier) {
 # add_titles() (stage_plot_generator builders) and plot2sort.R's emit()
 # wrapper, so the entry-explosion caveat looks identical everywhere.
 stamp_warning_caption <- function(p, caption) {
-  if (is.null(caption) || !nzchar(caption)) return(p)
+  if (.is_blank(caption)) return(p)
   p +
     labs(caption = caption) +
     theme(plot.caption = element_text(hjust = 0, face = "bold",
@@ -145,18 +141,18 @@ stamp_warning_caption <- function(p, caption) {
 }
 
 
-# Build the entry-explosion warning caption from a parsed config, or return
-# NULL when `virus`/`label` use a singular aggregation strategy. `list` and
-# `concatenate` produce multi-value cells: `concatenate` explodes one locus
-# into N plot rows (count inflation); `list` leaves a compound "A; B; C"
-# category label. Either way the aggregate plots are not statistically
-# meaningful. Used by plot2sort.R and stage_plot_generator.R.
 # "name=strategy" when a column aggregates to several values per locus, else NULL.
 .multi_value <- function(name, strategy) {
   if (is.null(strategy) || !strategy %in% c("list", "concatenate")) return(NULL)
   sprintf("%s=%s", name, strategy)
 }
 
+# Build the entry-explosion warning caption from a parsed config, or return
+# NULL when `virus`/`label` use a singular aggregation strategy. `list` and
+# `concatenate` produce multi-value cells: `concatenate` explodes one locus
+# into N plot rows (count inflation); `list` leaves a compound "A; B; C"
+# category label. Either way the aggregate plots are not statistically
+# meaningful. Used by plot2sort.R and stage_plot_generator.R.
 aggregation_warning <- function(cfg) {
   agg <- cfg$parameters$aggregation
   if (is.null(agg)) return(NULL)

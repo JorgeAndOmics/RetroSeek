@@ -27,13 +27,15 @@ read_tree_part <- function(dir, name, part) {
   if (nrow(df) == 0L) NULL else df
 }
 
-# The host tree as list(tips, segments), or NULL when none is configured.
-read_species_tree <- function(dir) {
-  if (.no_dir(dir)) return(NULL)
-  tips <- read_tree_part(dir, "species", "tips")
+# A tree as list(tips, segments), or NULL when it has no tips (none configured).
+read_tree <- function(dir, name) {
+  tips <- read_tree_part(dir, name, "tips")
   if (is.null(tips)) return(NULL)
-  list(tips = tips, segments = read_tree_part(dir, "species", "segments"))
+  list(tips = tips, segments = read_tree_part(dir, name, "segments"))
 }
+
+# The host tree as list(tips, segments), or NULL when none is configured.
+read_species_tree <- function(dir) read_tree(dir, "species")
 
 # Every species, bottom row first (the order a flipped discrete axis draws them),
 # in the canonical order. ALL canonical species are returned, not only those with

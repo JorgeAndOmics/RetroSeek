@@ -149,11 +149,6 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
 }
 
 
-# Waffle chart - virus proportions. Each square represents `unit_hits` ranges.
-# `unit_hits = NULL` (or any value that would yield more than `target_squares`
-# total tiles) auto-derives a unit so the waffle stays legible. waffle::waffle()
-# degrades badly past a few thousand squares - without this guard,
-# production-scale inputs render as an unreadable block.
 # Hits per square: the user's value, raised to the automatic one when it would
 # draw more than `target_squares` squares. `auto` says whether it was raised.
 .waffle_unit <- function(unit_hits, total_hits, target_squares) {
@@ -174,6 +169,11 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
   sprintf("%s (auto-scaled from %d total hits)", unit_caption, total_hits)
 }
 
+# Waffle chart - virus proportions. Each square represents `unit_hits` ranges.
+# `unit_hits = NULL` (or any value that would yield more than `target_squares`
+# total tiles) auto-derives a unit so the waffle stays legible. waffle::waffle()
+# degrades badly past a few thousand squares - without this guard,
+# production-scale inputs render as an unreadable block.
 waffle_virus_plot <- function(data, unit_hits = NULL,
                               target_squares = 400L,
                               subset_label = NULL, colours = NULL) {

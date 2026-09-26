@@ -292,16 +292,15 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   d <- copy(tips)
   d[, fate := factor(class_to_fate[class], levels = .FATE_LEVELS)]
 
-  get <- function(key) .summary_metric(summary_dt, key)
   subtitle <- sprintf(paste(
     "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
     "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
     "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
     "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."),
-    nrow(d), 100 * get("solos_near_seed_fraction"),
-    100 * get("arm_sisterhood_fraction"),
-    100 * get("same_class_sister_observed"),
-    100 * get("same_class_sister_null_mean"), get("enrichment"))
+    nrow(d), 100 * .summary_metric(summary_dt, "solos_near_seed_fraction"),
+    100 * .summary_metric(summary_dt, "arm_sisterhood_fraction"),
+    100 * .summary_metric(summary_dt, "same_class_sister_observed"),
+    100 * .summary_metric(summary_dt, "same_class_sister_null_mean"), .summary_metric(summary_dt, "enrichment"))
 
   p <- ggplot() +
     { if (!is.null(segs) && nrow(segs)) {
@@ -324,12 +323,11 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
 #' Without the null this number is uninterpretable, because any structured tree
 #' shows some clustering. Both bars are therefore always drawn together.
 tree_enrichment_plot <- function(summary_dt, species) {
-  get <- function(key) .summary_metric(summary_dt, key)
-  observed <- get("same_class_sister_observed")
-  null_mean <- get("same_class_sister_null_mean")
-  null_sd <- get("same_class_sister_null_sd")
-  control <- get("arm_sisterhood_fraction")
-  seed_control <- get("solos_near_seed_fraction")
+  observed <- .summary_metric(summary_dt, "same_class_sister_observed")
+  null_mean <- .summary_metric(summary_dt, "same_class_sister_null_mean")
+  null_sd <- .summary_metric(summary_dt, "same_class_sister_null_sd")
+  control <- .summary_metric(summary_dt, "arm_sisterhood_fraction")
+  seed_control <- .summary_metric(summary_dt, "solos_near_seed_fraction")
   if (is.na(observed) || is.na(null_mean)) return(empty_plot("No tree statistics"))
 
   d <- data.table(
