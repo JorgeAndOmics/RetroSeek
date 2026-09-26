@@ -271,3 +271,28 @@ class TestBlasterParserReadsEveryHsp:
             ("CM2.1", 10, "+", "Toyus_toyus", "POL", "ALV"),
         ]
         assert all(o.alignment.hit_def.startswith(o.accession) for o in hits.values())
+
+    def test_a_repeated_random_identifier_does_not_drop_a_hit(self) -> None:
+        """Keys are {accession}-{6 random characters}; a repeated draw on one
+        accession used to replace the earlier hit without a word."""
+        import seq_utils
+        import utils
+
+        query = RetroSeeker(
+            label="ALV",
+            virus="Avian leukosis virus",
+            abbreviation="ALV",
+            species=None,
+            probe="POL",
+            accession="Q1",
+            identifier="x",
+        )
+        report = SimpleNamespace(stdout=self.XML.read_text())
+        draws = iter(["AAAAAA", "AAAAAA", "BBBBBB", "CCCCCC"])
+        with (
+            patch.object(seq_utils, "run_tool", return_value=report),
+            patch.object(utils, "random_string_generator", lambda n: next(draws)),
+        ):
+            hits = seq_utils.blaster_parser("archive", query, "Toyus_toyus")
+        assert sorted(hits) == ["CM1.1-AAAAAA", "CM1.1-BBBBBB", "CM2.1-CCCCCC"]
+        assert all(key.endswith(o.identifier) for key, o in hits.items())

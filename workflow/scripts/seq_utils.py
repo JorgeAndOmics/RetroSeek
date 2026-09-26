@@ -23,6 +23,7 @@ Main components:
 import logging
 import tempfile
 import time
+from collections.abc import Container
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -110,16 +111,31 @@ def _accession(hit_def: str | None) -> str:
     return raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
 
 
+def _unused_identifier(accession_id: str, taken: Container[str]) -> str:
+    """A random 6-character identifier whose ``{accession}-{identifier}`` key is free.
+
+    One accession carries many HSPs, and with thousands on one chromosome two
+    random draws can repeat; a repeated key would replace the earlier hit.
+    """
+    while True:
+        identifier = utils.random_string_generator(6)
+        if f"{accession_id}-{identifier}" not in taken:
+            return identifier
+
+
 def _hit_object(
-    instance: RetroSeeker, subject: str, alignment: Any, hsp: Any
+    instance: RetroSeeker,
+    subject: str,
+    alignment: Any,
+    hsp: Any,
+    taken: Container[str],
 ) -> tuple[str, RetroSeeker]:
     """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
 
-    The key is ``{accession}-{random 6 characters}``: one accession can carry
-    several HSPs, so the accession alone is not unique.
+    The key is ``{accession}-{identifier}``, unique among the keys in ``taken``.
     """
     accession_id = _accession(alignment.hit_def)
-    random_string = utils.random_string_generator(6)
+    random_string = _unused_identifier(accession_id, taken)
     new_instance = RetroSeeker(
         label=str(instance.label),
         virus=str(instance.virus),
@@ -168,7 +184,9 @@ def blaster_parser(
         for record in NCBIXML.parse(xml_handle):  # type: ignore[no-untyped-call]
             for alignment in record.alignments:
                 for hsp in alignment.hsps:
-                    key, hit = _hit_object(instance, subject, alignment, hsp)
+                    key, hit = _hit_object(
+                        instance, subject, alignment, hsp, alignment_dict
+                    )
                     alignment_dict[key] = hit
     finally:
         Path(tmp_asn_path).unlink(missing_ok=True)
