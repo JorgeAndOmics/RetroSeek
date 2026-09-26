@@ -27,10 +27,14 @@ source(file.path(.script_dir, "species_segmenter", "segment.R"))
 # 1. Parse Command-Line Arguments
 # =============================================================================
 parser <- ArgumentParser(description = "Split a Parquet dataset by species")
-parser$add_argument("--input_file", required = TRUE, help = "Path to input Parquet file.")
-parser$add_argument("--parquet_dir", required = TRUE, help = "Directory for pipeline-internal Parquet outputs.")
-parser$add_argument("--csv_dir", required = TRUE, help = "Directory for user-facing CSV outputs.")
-parser$add_argument("--config_file", required = TRUE, help = "Path to configuration YAML file.")
+parser$add_argument("--input_file", required = TRUE,
+                    help = "Path to input Parquet file.")
+parser$add_argument("--parquet_dir", required = TRUE,
+                    help = "Directory for pipeline-internal Parquet outputs.")
+parser$add_argument("--csv_dir", required = TRUE,
+                    help = "Directory for user-facing CSV outputs.")
+parser$add_argument("--config_file", required = TRUE,
+                    help = "Path to configuration YAML file.")
 parser$add_argument(
   "--species",
   required = TRUE,
@@ -114,7 +118,8 @@ main <- function(args) {
   }
 
   log_ok("%s hits split over %s genomes (%s without hits)",
-         format(nrow(data), big.mark = ","), format(length(all_species), big.mark = ","),
+         format(nrow(data), big.mark = ","),
+         format(length(all_species), big.mark = ","),
          format(length(missing_species), big.mark = ","))
 }
 

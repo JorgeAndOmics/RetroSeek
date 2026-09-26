@@ -104,7 +104,8 @@ test_that("attach_probe_category reads joined text", {
 })
 
 test_that("attach_probe_category reads a CharacterList", {
-  probe <- IRanges::CharacterList(list("POL", c("POL", "REX"), character(0), c("", "REX")))
+  probe <- IRanges::CharacterList(list("POL", c("POL", "REX"), character(0),
+                                       c("", "REX")))
   out <- attach_probe_category(.probe_gr(probe), c("POL"))
   expect_equal(S4Vectors::mcols(out)$probe_category,
                c("main", "mixed", NA, "accessory"))

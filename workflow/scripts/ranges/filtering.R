@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / filtering.R
+# Module ranges/filtering.R
 # -----------------------------------------------------------------------------
 # Threshold-based filtering of the BLAST GRanges. Per-probe minimum lengths
 # are looked up by abbreviation; unknown probes get a fallback of 0 (no length
@@ -13,7 +13,8 @@ suppressMessages({
 
 # Apply width / bitscore / identity thresholds. Width is checked against the
 # probe-specific minimum length from `probe_min_length` (named integer vector).
-filter_blast_gr <- function(gr, probe_min_length, bitscore_threshold, identity_threshold) {
+filter_blast_gr <- function(gr, probe_min_length, bitscore_threshold,
+                            identity_threshold) {
   probe_chr <- as.character(S4Vectors::mcols(gr)$probe)
   per_row_min_w <- ifelse(
     !is.na(probe_min_length[probe_chr]),

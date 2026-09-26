@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / exporters.R
+# Module ranges/exporters.R
 # -----------------------------------------------------------------------------
 # Output writers: GFF3 tracks, BED6, parquet plot dataframe, YAML manifest.
 # All functions produce empty-but-valid files when given empty GRanges so
@@ -45,7 +45,8 @@ bed_exporter <- function(track, path) {
     return(invisible(path))
   }
   m <- S4Vectors::mcols(track)
-  name_col <- if ("ID" %in% names(m)) as.character(m$ID) else paste0("range_", seq_along(track))
+  name_col <- if ("ID" %in% names(m)) as.character(m$ID) else
+    paste0("range_", seq_along(track))
   score_col <- if ("max_bitscore" %in% names(m)) {
     as.numeric(m$max_bitscore)
   } else if ("bitscore" %in% names(m)) {
@@ -107,7 +108,8 @@ write_table <- function(df, parquet_path = NULL, csv_path = NULL) {
 # back to "unknown" when not in a git working tree (e.g. installed packages).
 resolve_generator_version <- function() {
   ver <- tryCatch(
-    suppressWarnings(system2("git", c("rev-parse", "--short", "HEAD"),  # not a git tree: expected
+    suppressWarnings(system2("git",  # not a git tree: expected
+                             c("rev-parse", "--short", "HEAD"),
                              stdout = TRUE, stderr = FALSE)),
     error = function(e) character(0)
   )

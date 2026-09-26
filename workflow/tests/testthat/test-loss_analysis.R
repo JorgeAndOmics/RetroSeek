@@ -32,7 +32,7 @@ test_that("build_loss_funnel orders stages and computes step retention", {
 
   # step retention is value / parent value
   filt <- f %>% filter(metric == "filtered_blast_hits")
-  expect_equal(filt$step_retained, 0.6)            # 600 / 1000
+  expect_equal(filt$step_retained, 0.6)            # that is 600 / 1000
 
   # the ltr-flanked stage descends from FIRST reduction (the spine), not the
   # global reduction. The former `candidate_ranges` step was retired by ADR-016:

@@ -16,7 +16,7 @@ suppressMessages({
   library(yaml)
 })
 
-source("../../scripts/ranges/exporters.R")   # file_md5()
+source("../../scripts/ranges/exporters.R")   # provides file_md5
 source("../../scripts/utils/chrom_names.R")
 source("../../scripts/hotspot/io.R")
 
@@ -32,7 +32,8 @@ source("../../scripts/hotspot/io.R")
   path <- file.path(dir, "Test_species.manifest.yaml")
   emit_hotspot_manifest(
     inputs  = list(fasta = fasta, hits = hits, config = config),
-    outputs = list(csv = "a.csv", parquet = "a.parquet", gff3 = "a.gff3", bed = "a.bed"),
+    outputs = list(csv = "a.csv", parquet = "a.parquet", gff3 = "a.gff3",
+                   bed = "a.bed"),
     opts = list(window_size = 500000), species = "Test_species",
     species_name = "Test species", fit_diagnostics = list(),
     counts = list(total_hits = 3L), generator_version = "RetroSeek/test",

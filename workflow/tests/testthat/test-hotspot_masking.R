@@ -95,8 +95,8 @@ test_that("effective_bp_per_window handles the short last-tile correctly", {
 test_that("pool_small_scaffolds keeps long chromosomes and pools short ones", {
   seqlengths <- c(chr1 = 1e8, chr2 = 5e7, scaffold_a = 5000, scaffold_b = 2000)
   out <- pool_small_scaffolds(seqlengths,
-                               window_size = 10000L,
-                               min_factor = 10L)
+                              window_size = 10000L,
+                              min_factor = 10L)
   # Threshold = 10000 * 10 = 100000. chr1, chr2 keep their names.
   # scaffolds < 100000 -> "Unplaced".
   expect_equal(unname(out), c("chr1", "chr2", "Unplaced", "Unplaced"))
@@ -106,7 +106,7 @@ test_that("pool_small_scaffolds keeps long chromosomes and pools short ones", {
 test_that("pool_small_scaffolds with min_factor=1 keeps all chroms >= window_size", {
   seqlengths <- c(chr1 = 10000, chr2 = 9999)
   out <- pool_small_scaffolds(seqlengths,
-                               window_size = 10000L,
-                               min_factor = 1L)
+                              window_size = 10000L,
+                              min_factor = 1L)
   expect_equal(unname(out), c("chr1", "Unplaced"))
 })

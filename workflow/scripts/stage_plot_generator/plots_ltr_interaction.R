@@ -61,9 +61,11 @@ position_within_provirus_plot <- function(ltr_int_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Where each probe lands inside an element",
-    subtitle = sprintf(paste("Position of each locus along the retrotransposon that contains",
-                             "it, strand-aware. Probes with fewer than 5 such loci left out (%d)."),
-                       sum(counts$n < 5L)),
+    subtitle = sprintf(
+      paste("Position of each locus along the retrotransposon that contains",
+            "it, strand-aware. Probes with fewer than 5 such loci left out (%d)."),
+      sum(counts$n < 5L)
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -99,7 +101,8 @@ ltr_feature_breakdown_plot <- function(ltr_int_df, subset_label = NULL,
   add_titles(
     .probe_rows(p),
     title    = "How close each probe's loci come to an LTR element",
-    subtitle = "Overlapping a Pfam domain assigned to the probe is the validation signal.",
+    subtitle =
+      "Overlapping a Pfam domain assigned to the probe is the validation signal.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -166,7 +169,8 @@ probe_domain_heatmap <- function(probe_domain_df, subset_label = NULL,
   p <- ggplot(d, aes(x = domain_name, y = hit_probe, fill = count)) +
     geom_tile(colour = .PAPER, linewidth = 0.6) +
     scale_colour_identity() +
-    scale_fill_ramp(trans = "log10", labels = scales::label_comma(), name = "Overlaps") +
+    scale_fill_ramp(trans = "log10", labels = scales::label_comma(),
+                    name = "Overlaps") +
     labs(x = "Pfam domain", y = "Probe of the tBLASTn locus") +
     # Pfam names are long: the one place a tilted axis label is the lesser evil.
     theme(panel.grid = element_blank(),
@@ -179,9 +183,11 @@ probe_domain_heatmap <- function(probe_domain_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Probes against the Pfam domains they overlap",
-    subtitle = sprintf(paste("The %d domains overlapped most often, the rest pooled, log colour",
-                             "scale. A probe meeting its own domains is the validation agreement."),
-                       .TOP_DOMAINS),
+    subtitle = sprintf(
+      paste("The %d domains overlapped most often, the rest pooled, log colour",
+            "scale. A probe meeting its own domains is the validation agreement."),
+      .TOP_DOMAINS
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

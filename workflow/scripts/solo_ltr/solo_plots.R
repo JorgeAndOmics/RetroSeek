@@ -168,7 +168,8 @@ length_scatter_plot <- function(candidates, species, min_hit_length) {
                              "accepts short partial matches and over-reports solos",
                              "by an order of magnitude."), min_hit_length),
     subset_label = species
-  ) + labs(x = "Candidate length (bp, log scale)", y = "Percent identity", colour = NULL)
+  ) + labs(x = "Candidate length (bp, log scale)", y = "Percent identity",
+           colour = NULL)
 }
 
 
@@ -191,7 +192,8 @@ orphan_distance_plot <- function(candidates, species, orphan_pad) {
     title = "Distance from each candidate to the nearest orphan locus",
     subtitle = sprintf(paste("Dashed line: the %s bp proviral distance. Candidates",
                              "inside it are monoLTRs beside surviving coding",
-                             "sequence, not solos."), format(orphan_pad, big.mark = ",")),
+                             "sequence, not solos."),
+                       format(orphan_pad, big.mark = ",")),
     subset_label = species
   ) + labs(x = "Distance to nearest orphan (bp, log scale)", y = "Candidate loci")
 }
@@ -204,7 +206,8 @@ orphan_distance_plot <- function(candidates, species, orphan_pad) {
 chromosome_density_plot <- function(candidates, species, top_n = 25) {
   if (!nrow(candidates)) return(empty_plot("No candidates"))
   counts <- candidates[, .N, by = .(seqname, fate)]
-  keep <- counts[, .(total = sum(N)), by = seqname][order(-total)][seq_len(min(top_n, .N))]
+  keep <- counts[, .(total = sum(N)),
+                 by = seqname][order(-total)][seq_len(min(top_n, .N))]
   d <- counts[seqname %in% keep$seqname]
   d[, seqname := factor(seqname, levels = keep$seqname)]
   d[, fate := factor(fate, levels = .FATE_LEVELS)]
@@ -292,22 +295,27 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   d <- copy(tips)
   d[, fate := factor(class_to_fate[class], levels = .FATE_LEVELS)]
 
-  subtitle <- sprintf(paste(
-    "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
-    "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
-    "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
-    "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."),
+  subtitle <- sprintf(
+    paste(
+      "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
+      "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
+      "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
+      "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."
+    ),
     nrow(d), 100 * .summary_metric(summary_dt, "solos_near_seed_fraction"),
     100 * .summary_metric(summary_dt, "arm_sisterhood_fraction"),
     100 * .summary_metric(summary_dt, "same_class_sister_observed"),
-    100 * .summary_metric(summary_dt, "same_class_sister_null_mean"), .summary_metric(summary_dt, "enrichment"))
+    100 * .summary_metric(summary_dt, "same_class_sister_null_mean"),
+    .summary_metric(summary_dt, "enrichment")
+  )
 
-  p <- ggplot() +
-    { if (!is.null(segs) && nrow(segs)) {
-        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
-                                      xend = .data$xend, yend = .data$yend),
-                     colour = .GREY_MID, linewidth = 0.15)
-      } } +
+  p <- ggplot() + {
+    if (!is.null(segs) && nrow(segs)) {
+      geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                    xend = .data$xend, yend = .data$yend),
+                   colour = .GREY_MID, linewidth = 0.15)
+    }
+  } +
     geom_point(data = d, aes(x = .data$x, y = .data$y, colour = .data$fate),
                size = 0.7) +
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
@@ -348,13 +356,15 @@ tree_enrichment_plot <- function(summary_dt, species) {
   add_titles(
     p,
     title = "Do the three fates cluster on the tree?",
-    subtitle = sprintf(paste("Tips whose sister group shares their class, against a",
-                             "null that permutes the labels on a fixed topology.",
-                             "\nControls: %.0f%% of solos sit beside the arm that caught",
-                             "them; %.0f%% of elements have their two arms as sisters",
-                             "(young bursts of near-identical copies blur this one)."),
-                       100 * ifelse(is.na(seed_control), 0, seed_control),
-                       100 * ifelse(is.na(control), 0, control)),
+    subtitle = sprintf(
+      paste("Tips whose sister group shares their class, against a",
+            "null that permutes the labels on a fixed topology.",
+            "\nControls: %.0f%% of solos sit beside the arm that caught",
+            "them; %.0f%% of elements have their two arms as sisters",
+            "(young bursts of near-identical copies blur this one)."),
+      100 * ifelse(is.na(seed_control), 0, seed_control),
+      100 * ifelse(is.na(control), 0, control)
+    ),
     subset_label = species
   ) + labs(x = NULL, y = "Tips with a same-class sister")
 }
@@ -432,11 +442,14 @@ family_census_plot <- function(families, species, top_n = 30) {
   if (!nrow(d)) return(empty_plot("No families with solos"))
   n_no_intact <- sum(d$kind == "no_intact")
   solos_no_intact <- sum(d[kind == "no_intact", n_solo])
-  subtitle <- sprintf(paste(
-    "%d families contain solos; %d of them have no intact member and hold %d of",
-    "the %d sampled solos.\nShowing the %d largest. A family is a clade of the",
-    "evidence tree whose members are all within the configured distance."),
-    nrow(d), n_no_intact, solos_no_intact, sum(d$n_solo), min(top_n, nrow(d)))
+  subtitle <- sprintf(
+    paste(
+      "%d families contain solos; %d of them have no intact member and hold %d of",
+      "the %d sampled solos.\nShowing the %d largest. A family is a clade of the",
+      "evidence tree whose members are all within the configured distance."
+    ),
+    nrow(d), n_no_intact, solos_no_intact, sum(d$n_solo), min(top_n, nrow(d))
+  )
 
   d <- d[order(-n_tips)][seq_len(min(top_n, .N))]
   long <- melt(d, id.vars = c("family", "kind"),
@@ -474,23 +487,27 @@ solo_tree_plot <- function(tips, segs, species, n_colours = 8) {
   d[, colour := factor(colour, levels = c(top, "Other"))]
   palette <- c(category_colours(top), Other = .GREY_OTHER)
 
-  p <- ggplot() +
-    { if (!is.null(segs) && nrow(segs)) {
-        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
-                                      xend = .data$xend, yend = .data$yend),
-                     colour = .GREY_MID, linewidth = 0.2)
-      } } +
+  p <- ggplot() + {
+    if (!is.null(segs) && nrow(segs)) {
+      geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                    xend = .data$xend, yend = .data$yend),
+                   colour = .GREY_MID, linewidth = 0.2)
+    }
+  } +
     geom_point(data = d, aes(x = .data$x, y = .data$y, colour = .data$colour),
                size = 1.1) +
     scale_colour_manual(values = palette) +
     theme_retroseek_blank() +
     theme(legend.position = "right")
-  add_titles(p, title = "The solo-only tree",
-             subtitle = sprintf(paste(
-               "The evidence tree pruned to its %d sampled solos; the largest %d",
-               "families coloured.\nSolos sharing a colour belong to one LTR family."),
-               nrow(d), length(top)),
-             subset_label = species) +
+  add_titles(
+    p, title = "The solo-only tree",
+    subtitle = sprintf(
+      paste("The evidence tree pruned to its %d sampled solos; the largest %d",
+            "families coloured.\nSolos sharing a colour belong to one LTR family."),
+      nrow(d), length(top)
+    ),
+    subset_label = species
+  ) +
     labs(colour = "Family")
 }
 
@@ -501,9 +518,14 @@ solo_tree_plot <- function(tips, segs, species, n_colours = 8) {
 #' still has one. Branch lengths are kept, so a long branch is a diverged copy.
 family_subtrees_plot <- function(tips, segs, families, species) {
   if (is.null(tips) || !nrow(tips)) return(empty_plot("No families to show"))
-  labels <- families[, .(family, panel = sprintf(
-    "%s, %s\n%d solos, %d monoLTRs, %d intact flanks",
-    family, tolower(.KIND_LABELS[kind]), n_solo, n_mono, n_flank), kind)]
+  labels <- families[, .(
+    family,
+    panel = sprintf(
+      "%s, %s\n%d solos, %d monoLTRs, %d intact flanks",
+      family, tolower(.KIND_LABELS[kind]), n_solo, n_mono, n_flank
+    ),
+    kind
+  )]
   order_ <- labels[order(kind == "with_intact", family), panel]
   d <- merge(tips, labels, by = "family")
   d[, fate := factor(c(FLANK = "intact_flank", SOLO = "solo",
@@ -521,11 +543,13 @@ family_subtrees_plot <- function(tips, segs, families, species) {
     facet_wrap(~ panel, scales = "free") +
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek_blank()
-  add_titles(p, title = "The largest LTR families, with and without an intact member",
-             subtitle = paste("Each panel is one family cut from the evidence tree. \"No",
-                              "intact member\" means none among the sampled elements:",
-                              "every solo has an intact relative at 95% identity or more."),
-             subset_label = species) +
+  add_titles(
+    p, title = "The largest LTR families, with and without an intact member",
+    subtitle = paste("Each panel is one family cut from the evidence tree. \"No",
+                     "intact member\" means none among the sampled elements:",
+                     "every solo has an intact relative at 95% identity or more."),
+    subset_label = species
+  ) +
     labs(colour = NULL)
 }
 
@@ -543,7 +567,8 @@ read_optional <- function(path) {
 .resolve_script_dir <- function() {
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
-  if (length(file_arg)) return(dirname(normalizePath(sub("^--file=", "", file_arg[1]))))
+  if (length(file_arg))
+    return(dirname(normalizePath(sub("^--file=", "", file_arg[1]))))
   getwd()
 }
 
@@ -559,10 +584,12 @@ read_optional <- function(path) {
 main <- function() {
   script_dir <- .resolve_script_dir()
   source(file.path(script_dir, "..", "utils", "log.R"))  # the line contract (ADR-021)
-  source(file.path(script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
+  # style.R: palette, theme, labels, stage PDFs.
+  source(file.path(script_dir, "..", "plot2sort", "style.R"))
   source(file.path(script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(script_dir, "..", "plot2sort", "io.R"))
-  source(file.path(script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
+  # tree_axis.R: species rows, host tree.
+  source(file.path(script_dir, "..", "plot2sort", "tree_axis.R"))
   use_retroseek_style()
 
   parser <- ArgumentParser(description = "Solo-LTR figure panel (ADR-017)")
@@ -573,12 +600,15 @@ main <- function() {
                       help = "Render this genome's PDF; omit for the summary.")
   parser$add_argument("--report", default = NULL,
                       help = "Summary mode only: where to write the report CSV.")
-  parser$add_argument("--species_tree_dir", default = "",
-                      help = "Summary mode: the host tree coordinates (species_tree_layout.py).")
+  parser$add_argument(
+    "--species_tree_dir", default = "",
+    help = "Summary mode: the host tree coordinates (species_tree_layout.py)."
+  )
   parser$add_argument("--log", default = NULL,
                       help = "job log file; the Snakemake log: path")
   args <- parser$parse_args()
-  log_job(args$log, if (is.null(args$genome)) "solo_plot_summary" else "solo_plot_generator")
+  log_job(args$log,
+          if (is.null(args$genome)) "solo_plot_summary" else "solo_plot_generator")
   run_main(function() draw(args))
 }
 
@@ -624,13 +654,16 @@ draw <- function(args) {
     }
     key <- key_page(
       sprintf("Solo LTRs in %s", species),
-      paste("A solo LTR is what a provirus leaves behind when its two LTRs recombine",
-            "and excise everything between them. This stage finds every copy of a",
-            "known retroviral LTR and removes the copies that are something else:",
-            "flanks of intact elements, and lone LTRs beside surviving coding sequence.",
-            "What remains are the solos. The later pages show the LTR evidence tree",
-            "and the LTR families cut from it."),
-      colours = .fate_key(), pages = page_titles(plots))
+      paste(
+        "A solo LTR is what a provirus leaves behind when its two LTRs recombine",
+        "and excise everything between them. This stage finds every copy of a",
+        "known retroviral LTR and removes the copies that are something else:",
+        "flanks of intact elements, and lone LTRs beside surviving coding sequence.",
+        "What remains are the solos. The later pages show the LTR evidence tree",
+        "and the LTR families cut from it."
+      ),
+      colours = .fate_key(), pages = page_titles(plots)
+    )
     save_stage_pdf(c(list(key), plots), args$out_pdf)
     log_ok("wrote %s, %d pages", basename(args$out_pdf), length(plots) + 1L)
     return(invisible(NULL))
@@ -662,13 +695,15 @@ draw <- function(args) {
   tree <- read_species_tree(args$species_tree_dir)
   order <- display_species(names(species_map), species_map)
   pages <- list(solo_intact_ratio_plot(report, tree, order),
-                class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree, order))
+                class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree,
+                                       order))
   key <- key_page(
     "Solo LTRs across genomes",
     paste("The solo-LTR stage for every genome side by side, genomes on rows in the",
           "host-tree order used by every RetroSeek figure. Per-genome detail is in",
           "each genome's own PDF."),
-    colours = .fate_key(), pages = page_titles(pages))
+    colours = .fate_key(), pages = page_titles(pages)
+  )
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(nrow(report)))
   fwrite(report, args$report)

@@ -40,17 +40,22 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile))
+      return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
-source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
-source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
-source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
+# Line contract, run_main (ADR-021).
+source(file.path(.script_dir, "..", "utils", "log.R"))
+# Palette, theme, labels, stage PDFs.
+source(file.path(.script_dir, "..", "plot2sort", "style.R"))
+# empty_plot, add_titles.
+source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
+# Species rows, host tree.
+source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -87,8 +92,8 @@ add_structure_companions <- function(df) {
   if (nrow(df) == 0L) return(df)
   df %>%
     mutate(
-      completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank -> NA
-      n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank -> NA
+      completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank: NA
+      n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank: NA
       canonical_order = toupper(as.character(.data$canonical_order)) == "TRUE",
       span_bp         = as.numeric(.data$end) - as.numeric(.data$start) + 1
     )
@@ -109,13 +114,27 @@ add_structure_companions <- function(df) {
 # ----------------------------------------------------------------------------
 structure_panel_registry <- function() {
   list(
-    list(name = "structure_class", build = function(d, ctx) structure_class_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "completeness", build = function(d, ctx) completeness_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "n_main_genes", build = function(d, ctx) n_main_genes_plot(d), data = "loci", segment = TRUE),
-    list(name = "gene_combinations", build = function(d, ctx) gene_combinations_plot(d), data = "loci", segment = TRUE),
-    list(name = "canonical_order", build = function(d, ctx) canonical_order_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "length_distribution", build = function(d, ctx) length_distribution_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "composition_heatmap", build = function(d, ctx) composition_heatmap_plot(d), data = "loci", segment = TRUE)
+    list(name = "structure_class",
+         build = function(d, ctx) structure_class_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "completeness",
+         build = function(d, ctx) completeness_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "n_main_genes",
+         build = function(d, ctx) n_main_genes_plot(d),
+         data = "loci", segment = TRUE),
+    list(name = "gene_combinations",
+         build = function(d, ctx) gene_combinations_plot(d),
+         data = "loci", segment = TRUE),
+    list(name = "canonical_order",
+         build = function(d, ctx) canonical_order_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "length_distribution",
+         build = function(d, ctx) length_distribution_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "composition_heatmap",
+         build = function(d, ctx) composition_heatmap_plot(d),
+         data = "loci", segment = TRUE)
   )
 }
 
@@ -135,11 +154,13 @@ structure_class_plot <- function(loci, ctx = NULL) {
     return(empty_plot("No loci"))
   }
   d <- loci %>%
-    mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS)) %>%
+    mutate(structure_class = factor(.data$structure_class,
+                                    levels = .STRUCTURE_LEVELS)) %>%
     count(.data$species, .data$structure_class, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
     geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
-    scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label, drop = FALSE) +
+    scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
+                      drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
   p <- add_titles(p, "Structural class per host",
@@ -157,8 +178,10 @@ completeness_plot <- function(loci, ctx = NULL) {
     geom_histogram(bins = 20, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
     scale_x_continuous(labels = scales::percent) +
     labs(x = "Main genes present", y = "Loci")
-  p <- add_titles(p, "How complete the elements are",
-                  "The share of main genes present in each LTR-flanked locus, per host.")
+  p <- add_titles(
+    p, "How complete the elements are",
+    "The share of main genes present in each LTR-flanked locus, per host."
+  )
   species_facets(p, ctx)
 }
 
@@ -191,10 +214,12 @@ gene_combinations_plot <- function(loci) {
     counts <- bind_rows(
       counts[seq_len(.TOP_COMBINATIONS), ],
       tibble(genes_present = sprintf("Other (%d combinations)", nrow(rest)),
-             n = sum(rest$n)))
+             n = sum(rest$n))
+    )
   }
   counts <- counts %>%
-    mutate(genes_present = factor(.data$genes_present, levels = rev(.data$genes_present)),
+    mutate(genes_present = factor(.data$genes_present,
+                                  levels = rev(.data$genes_present)),
            other = grepl("^Other", .data$genes_present))
   p <- ggplot(counts, aes(x = .data$genes_present, y = .data$n, fill = .data$other)) +
     geom_col(width = 0.7, show.legend = FALSE) +
@@ -205,9 +230,11 @@ gene_combinations_plot <- function(loci) {
     # Gene symbols take italics.
     theme(axis.text.y = element_text(face = "italic"),
           panel.grid.major.y = element_blank())
-  add_titles(p, "Which genes occur together",
-             sprintf(paste("The %d most common combinations of main and diagnostic genes",
-                           "found in one locus; the rest pooled."), .TOP_COMBINATIONS))
+  add_titles(
+    p, "Which genes occur together",
+    sprintf(paste("The %d most common combinations of main and diagnostic genes",
+                  "found in one locus; the rest pooled."), .TOP_COMBINATIONS)
+  )
 }
 
 # Canonical versus rearranged main-gene order, per host.
@@ -222,8 +249,10 @@ canonical_order_plot <- function(loci, ctx = NULL) {
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
-  p <- add_titles(p, "Gene order",
-                  "Main genes in the configured order along the element, or rearranged.")
+  p <- add_titles(
+    p, "Gene order",
+    "Main genes in the configured order along the element, or rearranged."
+  )
   on_rows(p, d$species, ctx)
 }
 
@@ -261,22 +290,27 @@ composition_heatmap_plot <- function(loci) {
     labs(x = NULL, y = NULL) +
     theme(panel.grid = element_blank(),
           axis.text.x = element_text(face = "italic"))
-  add_titles(p, "Genes kept by each lineage",
-             "LTR-flanked loci with a confident call, by lineage and by gene recovered.")
+  add_titles(
+    p, "Genes kept by each lineage",
+    "LTR-flanked loci with a confident call, by lineage and by gene recovered."
+  )
 }
 
 
 # ----------------------------------------------------------------------------
-# main()
+# Entry point
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
-    description = "Generate RetroSeek ERV-like structural panel (taxon-founded assembly)"
+    description =
+      "Generate RetroSeek ERV-like structural panel (taxon-founded assembly)"
   )
   parser$add_argument("--input", required = TRUE,
                       help = "Directory with per-genome <genome>.loci.parquet tables.")
-  parser$add_argument("--out_pdf", required = TRUE,
-                      help = "The stage PDF: a key page, then one page per panel entry.")
+  parser$add_argument(
+    "--out_pdf", required = TRUE,
+    help = "The stage PDF: a key page, then one page per panel entry."
+  )
   parser$add_argument("--config", required = TRUE,
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--species_tree_dir", required = FALSE, default = "",
@@ -303,11 +337,16 @@ main <- function() {
     paste("What the LTR-flanked elements are made of: how many of their main genes",
           "survive, in which combinations and order, and how long the elements are.",
           "Hosts are rows in the order of the host tree."),
-    colours = stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR))),
-    pages = page_titles(pages))
+    colours = stats::setNames(unname(.STRUCTURE_COLOUR),
+                              display_label(names(.STRUCTURE_COLOUR))),
+    pages = page_titles(pages)
+  )
   n_rows <- max(length(ctx$species_order), length(unique(loci$species)))
-  save_stage_pdf(c(list(key), pages), args$out_pdf,
-                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
+  save_stage_pdf(
+    c(list(key), pages), args$out_pdf,
+    height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18)
+  )
+
   log_ok("wrote %s, %s pages, %s loci", basename(args$out_pdf),
          format(length(pages) + 1L, big.mark = ","), format(nrow(loci), big.mark = ","))
 }

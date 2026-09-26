@@ -59,7 +59,8 @@ test_that("find_pairs widening max_gap captures the distant pair", {
 
 test_that("find_pairs computes coord / bio / span distances", {
   pairs <- find_pairs(.fake_ranges(), probe_to_pair = "ENV", max_gap = 200L)
-  expect_true(all(c("coord_distance", "bio_distance", "span_distance") %in% names(pairs)))
+  expect_true(all(c("coord_distance", "bio_distance", "span_distance") %in%
+                    names(pairs)))
 
   # GAG @ 1200 vs ENV @ 1000: coord_distance = |1000 - 1200| = 200
   gag <- pairs[pairs$other.probe == "GAG", ]

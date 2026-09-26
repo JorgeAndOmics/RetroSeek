@@ -73,7 +73,8 @@ seq_colours <- function(n) {
 }
 div_colours <- function(n) {
   grDevices::colorRampPalette(
-    c(.TOL_MUTED[["rose"]], "#F7F7F7", .TOL_MUTED[["indigo"]]))(max(n, 1L))
+    c(.TOL_MUTED[["rose"]], "#F7F7F7", .TOL_MUTED[["indigo"]])
+  )(max(n, 1L))
 }
 
 # A single data series with no category meaning (one bar per species, a lone
@@ -84,7 +85,8 @@ div_colours <- function(n) {
 # level means "no evidence at all" it is grey, not the lightest step.
 .STRUCTURE_COLOUR <- stats::setNames(seq_colours(4)[4:2], c("full", "partial", "gene"))
 .CONFIDENCE_COLOUR <- c(HC = seq_colours(4)[4], LC = seq_colours(4)[2])
-.RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2], c("genus", "subfamily", "family")),
+.RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2],
+                                  c("genus", "subfamily", "family")),
                   none = .GREY_OTHER)
 .DOMAIN_TIER_COLOUR <- c(domain_selected = seq_colours(4)[4],
                          domain_unlisted = seq_colours(4)[2],
@@ -111,7 +113,8 @@ div_colours <- function(n) {
 .SPUMA_COLOUR <- stats::setNames(
   grDevices::colorRampPalette(.SPUMA_SHADES)(6),
   c("Spumaretrovirus", "Simiispumavirus", "Felispumavirus", "Equispumavirus",
-    "Bovispumavirus", "Prosimiispumavirus"))
+    "Bovispumavirus", "Prosimiispumavirus")
+)
 
 # ERV classes (Jern/Blomberg) are defined by the genus they resemble, so each
 # wears that genus's colour: Class I gamma-like, II beta-like, III spumaviral.
@@ -200,7 +203,8 @@ scale_fill_ramp <- function(...) {
     colours = seq_colours(9), ...,
     guide = ggplot2::guide_colourbar(barwidth = grid::unit(14, "lines"),
                                      barheight = grid::unit(0.6, "lines"),
-                                     title.position = "top"))
+                                     title.position = "top")
+  )
 }
 
 # Colours for an open-ended categorical variable with no fixed meaning (probes,
@@ -243,7 +247,8 @@ display_species <- function(values, species_map = NULL) {
   values <- as.character(values)
   vapply(values, function(v) {
     nm <- if (!is.null(species_map)) species_map[[v]] else NULL
-    if (is.null(nm) || !nzchar(as.character(nm))) gsub("_", " ", v) else as.character(nm)
+    if (is.null(nm) || !nzchar(as.character(nm))) gsub("_", " ", v)
+    else as.character(nm)
   }, character(1), USE.NAMES = FALSE)
 }
 
@@ -397,7 +402,8 @@ save_stage_pdf <- function(pages, path, width = .PAGE_WIDTH, height = .PAGE_HEIG
 # the host tree carries its title on the composition, not on the panel.
 page_titles <- function(pages) {
   vapply(pages, function(p) {
-    title <- if (inherits(p, "patchwork")) p$patches$annotation$title else p$labels$title
+    title <- if (inherits(p, "patchwork")) p$patches$annotation$title
+    else p$labels$title
     if (is.null(title)) "" else as.character(title)
   }, character(1), USE.NAMES = FALSE)
 }
@@ -443,8 +449,9 @@ key_page <- function(title, description, colours = character(0), pages = charact
     x <- if (length(colours)) 0.5 else 0
     listing <- paste(sprintf("%2d. %s", seq_along(pages) + 1L, pages), collapse = "\n")
     p <- p + heading(x, "Pages") +
-      ggplot2::annotate("text", x = x, y = 0.93, label = listing, hjust = 0, vjust = 1,
-                        size = 3.8, family = .FONT, colour = .INK_SOFT, lineheight = 1.3)
+      ggplot2::annotate("text", x = x, y = 0.93, label = listing, hjust = 0,
+                        vjust = 1, size = 3.8, family = .FONT, colour = .INK_SOFT,
+                        lineheight = 1.3)
   }
   p
 }

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot / io.R
+# Module hotspot/io.R
 # -----------------------------------------------------------------------------
 # Loaders + config-readers for hotspot_detector.R. Each function returns plain
 # R structures (named integer vectors, GRanges, lists) and does no analysis -

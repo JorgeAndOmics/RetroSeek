@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / stage_dataframe.R
+# Module ranges/stage_dataframe.R
 # -----------------------------------------------------------------------------
 # Build the per-genome "middle stage" dataframes consumed by
 # stage_plot_generator.R. Where plot_dataframe.R characterises the final
@@ -209,9 +209,11 @@ build_stage_overlap_df <- function(gr_virus) {
   if (length(gr_virus) == 0L) return(empty)
 
   hits <- GenomicRanges::findOverlaps(gr_virus, gr_virus, ignore.strand = TRUE)
-  q <- S4Vectors::queryHits(hits); s <- S4Vectors::subjectHits(hits)
+  q <- S4Vectors::queryHits(hits)
+  s <- S4Vectors::subjectHits(hits)
   keep <- q != s
-  q <- q[keep]; s <- s[keep]
+  q <- q[keep]
+  s <- s[keep]
   overlap_degree <- tabulate(q, nbins = length(gr_virus))
   max_rec <- numeric(length(gr_virus))
   if (length(q) > 0L) {
@@ -238,10 +240,11 @@ build_stage_overlap_df <- function(gr_virus) {
 
 # One row per gr_virus locus, characterising its interaction with the nearest
 # LTRdigest retrotransposon. `feature_class` refines the homology concordance
-# with a `domain_overlap` level (overlaps any LTRdigest Pfam domain); `relative_position_in_retro` is the strand-aware 5'->3'
-# position [0,1] of the locus midpoint within its enclosing retrotransposon
-# (NA when not inside); `strand_concordant` compares the hit strand to the
-# enclosing element's (NA when not inside; `*` retro strand counts as concordant).
+# with a `domain_overlap` level (overlaps any LTRdigest Pfam domain);
+# `relative_position_in_retro` is the strand-aware 5'->3' position [0,1] of the
+# locus midpoint within its enclosing retrotransposon (NA when not inside);
+# `strand_concordant` compares the hit strand to the enclosing element's (NA
+# when not inside; `*` retro strand counts as concordant).
 build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
                                            all_domains,
                                            flanking_window = .STAGE_FLANKING_WINDOW) {
@@ -279,7 +282,8 @@ build_stage_ltr_interaction_df <- function(gr_virus, retrotransposons,
     rstart <- BiocGenerics::start(retrotransposons)[rsub]
     rwidth <- BiocGenerics::width(retrotransposons)[rsub]
     rstr   <- as.character(BiocGenerics::strand(retrotransposons))[rsub]
-    mid    <- (BiocGenerics::start(gr_virus)[idx] + BiocGenerics::end(gr_virus)[idx]) / 2
+    mid    <- (BiocGenerics::start(gr_virus)[idx] +
+                 BiocGenerics::end(gr_virus)[idx]) / 2
     frac   <- pmin(1, pmax(0, (mid - rstart) / rwidth))
     rel_pos[idx] <- ifelse(rstr == "-", 1 - frac, frac)
     hstr <- as.character(BiocGenerics::strand(gr_virus))[idx]
@@ -324,8 +328,12 @@ build_stage_probe_domain_df <- function(gr_virus, all_domains) {
   ov <- GenomicRanges::findOverlaps(gr_virus, all_domains, ignore.strand = TRUE)
   if (length(ov) == 0L) return(empty)
   tibble::tibble(
-    hit_probe   = as.character(S4Vectors::mcols(gr_virus)$probe)[S4Vectors::queryHits(ov)],
-    domain_name = as.character(S4Vectors::mcols(all_domains)$name)[S4Vectors::subjectHits(ov)]
+    hit_probe   = as.character(S4Vectors::mcols(gr_virus)$probe)[
+      S4Vectors::queryHits(ov)
+    ],
+    domain_name = as.character(S4Vectors::mcols(all_domains)$name)[
+      S4Vectors::subjectHits(ov)
+    ]
   )
 }
 

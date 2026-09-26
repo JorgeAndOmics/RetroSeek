@@ -58,12 +58,13 @@ species_order <- function(present, tree = NULL, fallback_order = NULL) {
 # The tree column: grey topology, italic species names as the row labels.
 # `ylim` is shared with the data panel so the two line up row for row.
 tree_column <- function(tips, segs, ylim) {
-  ggplot() +
-    { if (!is.null(segs)) {
-        geom_segment(data = segs, aes(x = .data$x, y = .data$y,
-                                      xend = .data$xend, yend = .data$yend),
-                     colour = .GREY_MID, linewidth = 0.45, lineend = "round")
-      } } +
+  ggplot() + {
+    if (!is.null(segs)) {
+      geom_segment(data = segs, aes(x = .data$x, y = .data$y,
+                                    xend = .data$xend, yend = .data$yend),
+                   colour = .GREY_MID, linewidth = 0.45, lineend = "round")
+    }
+  } +
     geom_text(data = tips, aes(x = .data$x, y = .data$y, label = .data$tip),
               hjust = -0.06, size = 3.4, colour = .INK, fontface = "italic",
               family = .FONT) +
@@ -101,7 +102,8 @@ compose_with_tree <- function(tree, panel, widths = c(1.1, 3)) {
 #
 # Without a tree the species labels stay on the panel, in italics. With a tree,
 # the tree prints them and the panel's own labels are switched off.
-species_rows <- function(panel, species, tree = NULL, fallback_order = NULL, axis = "x") {
+species_rows <- function(panel, species, tree = NULL, fallback_order = NULL,
+                         axis = "x") {
   levels <- species_order(species, tree, fallback_order)
   species_text <- theme(axis.text.y = element_text(face = "italic", hjust = 1),
                         axis.title.y = element_blank())
@@ -153,7 +155,8 @@ panel_ctx <- function(cfg, species_tree_dir = "", tree_dir = "") {
   confidence_min <- cfg$classification$confidence_min
   list(
     species_tree   = read_species_tree(species_tree_dir),
-    species_order  = if (length(species)) display_species(names(species), species) else NULL,
+    species_order  =
+      if (length(species)) display_species(names(species), species) else NULL,
     tree_dir       = tree_dir,
     confidence_min = if (is.null(confidence_min)) 0.5 else confidence_min
   )
@@ -166,7 +169,8 @@ panel_ctx <- function(cfg, species_tree_dir = "", tree_dir = "") {
 # turned into a factor in canonical order, which is what facet_grid lays out.
 # A species with no data has no row here, since a facet cannot be empty.
 species_facets <- function(panel, ctx = NULL, scales = "free_y") {
-  top_first <- rev(species_order(panel$data$species, ctx$species_tree, ctx$species_order))
+  top_first <- rev(species_order(panel$data$species, ctx$species_tree,
+                                 ctx$species_order))
   panel$data$species <- factor(panel$data$species, levels = top_first)
   panel +
     facet_grid(rows = vars(.data$species), switch = "y", scales = scales) +

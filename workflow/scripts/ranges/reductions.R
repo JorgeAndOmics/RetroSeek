@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / reductions.R
+# Module ranges/reductions.R
 # -----------------------------------------------------------------------------
 # Two-stage reduction of the filtered BLAST GRanges:
 #   1. `reduce_first(gr, ...)`: merge overlapping ranges per (probe, virus)
@@ -47,11 +47,11 @@ attach_tiebreak_rank <- function(gr, primary_col, identity_col, evalue_col) {
     -as.numeric(mc[[primary_col]]),
     -as.numeric(mc$query_coverage),
     -as.numeric(mc[[identity_col]]),
-     as.numeric(mc[[evalue_col]]),
-     as.character(GenomicRanges::seqnames(gr)),
-     GenomicRanges::start(gr),
-     GenomicRanges::end(gr),
-     as.character(mc$label),
+    as.numeric(mc[[evalue_col]]),
+    as.character(GenomicRanges::seqnames(gr)),
+    GenomicRanges::start(gr),
+    GenomicRanges::end(gr),
+    as.character(mc$label),
     method = "radix"
   )
   rank <- integer(length(ord))

@@ -39,13 +39,43 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
 # missing its column silently degrades to empty_plot() rather than erroring -
 # the exact failure this file already guards against.
 .write_catalog <- function(path) {
+  # One record per paragraph, its lines aligned under the header lines.
   tribble(
-    ~species,  ~source,       ~seqname, ~start,  ~end,    ~strand, ~taxon_call,       ~rank,   ~segment,          ~segment_rank, ~resolved, ~confidence, ~confidence_tag, ~erv_class, ~structure_class, ~domain_tier,      ~oversized, ~canonical_order, ~completeness, ~n_main_genes, ~genes_present, ~is_mosaic, ~mosaic_composition,               ~n_blastx_hits, ~method,     ~id,
-    "Sp one",  "ltr-flanked", "chr1",   "1000",  "9000",  "+",     "Gammaretrovirus", "genus", "Gammaretrovirus", "genus",       "True",    "0.980",     "HC",            "I",        "full",           "domain_selected", "False",    "True",           "1.000",       "3",           "GAG,POL,ENV",  "False",    "",                                "12",           "placement", "L0",
-    "Sp one",  "orphan",      "chr1",   "20000", "20800", "-",     "Gammaretrovirus", "genus", "Gammaretrovirus", "genus",       "True",    "0.400",     "LC",            "I",        "gene",           "non_domain",      "False",    "False",          "0.333",       "1",           "POL",          "False",    "",                                "3",            "lca",       "L1",
-    "Sp two",  "ltr-flanked", "chr2",   "5000",  "14000", "+",     "Gammaretrovirus", "genus", "Gammaretrovirus", "genus",       "True",    "0.910",     "HC",            "I",        "partial",        "domain_unlisted", "False",    "True",           "0.667",       "2",           "GAG,POL",      "True",     "GAG:Betaretrovirus;POL:Gammaretrovirus", "9",      "placement", "L2",
-    "Sp two",  "ltr-flanked", "chr2",   "40000", "48000", "-",     "Betaretrovirus",  "genus", "Betaretrovirus",  "genus",       "True",    "0.750",     "HC",            "II",       "partial",        "domain_selected", "False",    "False",          "0.667",       "2",           "POL,ENV",      "False",    "",                                "7",            "lca",       "L3",
-    "Sp one",  "orphan",      "chr3",   "100",   "900",   "+",     "Betaretrovirus",  "genus", "Betaretrovirus",  "genus",       "True",    "0.550",     "HC",            "II",       "gene",           "non_domain",      "False",    "False",          "0.333",       "1",           "ENV",          "False",    "",                                "0",            "lca",       "L4"
+    ~species, ~source,       ~seqname, ~start,  ~end,    ~strand, ~taxon_call,
+    ~rank,   ~segment,          ~segment_rank, ~resolved, ~confidence, ~confidence_tag,
+    ~erv_class, ~structure_class, ~domain_tier,      ~oversized, ~canonical_order,
+    ~completeness, ~n_main_genes, ~genes_present, ~is_mosaic,
+    ~mosaic_composition,                      ~n_blastx_hits, ~method,     ~id,
+
+    "Sp one", "ltr-flanked", "chr1",   "1000",  "9000",  "+",     "Gammaretrovirus",
+    "genus", "Gammaretrovirus", "genus",       "True",    "0.980",     "HC",
+    "I",        "full",           "domain_selected", "False",    "True",
+    "1.000",       "3",           "GAG,POL,ENV",  "False",
+    "",                                       "12",           "placement", "L0",
+
+    "Sp one", "orphan",      "chr1",   "20000", "20800", "-",     "Gammaretrovirus",
+    "genus", "Gammaretrovirus", "genus",       "True",    "0.400",     "LC",
+    "I",        "gene",           "non_domain",      "False",    "False",
+    "0.333",       "1",           "POL",          "False",
+    "",                                       "3",            "lca",       "L1",
+
+    "Sp two", "ltr-flanked", "chr2",   "5000",  "14000", "+",     "Gammaretrovirus",
+    "genus", "Gammaretrovirus", "genus",       "True",    "0.910",     "HC",
+    "I",        "partial",        "domain_unlisted", "False",    "True",
+    "0.667",       "2",           "GAG,POL",      "True",
+    "GAG:Betaretrovirus;POL:Gammaretrovirus", "9",            "placement", "L2",
+
+    "Sp two", "ltr-flanked", "chr2",   "40000", "48000", "-",     "Betaretrovirus",
+    "genus", "Betaretrovirus",  "genus",       "True",    "0.750",     "HC",
+    "II",       "partial",        "domain_selected", "False",    "False",
+    "0.667",       "2",           "POL,ENV",      "False",
+    "",                                       "7",            "lca",       "L3",
+
+    "Sp one", "orphan",      "chr3",   "100",   "900",   "+",     "Betaretrovirus",
+    "genus", "Betaretrovirus",  "genus",       "True",    "0.550",     "HC",
+    "II",       "gene",           "non_domain",      "False",    "False",
+    "0.333",       "1",           "ENV",          "False",
+    "",                                       "0",            "lca",       "L4"
   ) %>% write_csv(path)
   path
 }
@@ -64,7 +94,8 @@ test_that("resolved stays character, so the builders' 'True' filter still matche
 test_that("the numeric companions the reused builders expect are present", {
   catalog <- load_catalog(.write_catalog(tempfile(fileext = ".csv")))
 
-  expect_true(all(c("confidence_num", "n_hits", "completeness_num") %in% names(catalog)))
+  expect_true(all(c("confidence_num", "n_hits", "completeness_num") %in%
+                    names(catalog)))
   expect_equal(catalog$confidence_num, c(0.98, 0.4, 0.91, 0.75, 0.55))
   expect_equal(catalog$n_hits, c(12L, 3L, 9L, 7L, 0L))
 })

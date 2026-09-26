@@ -68,11 +68,13 @@ reduction_fold_plot <- function(hits_df, reduced_df, subset_label = NULL,
                                 warning_caption = NULL) {
   if (nrow(hits_df) == 0L && nrow(reduced_df) == 0L) return(empty_plot())
   unred <- if (nrow(hits_df) > 0L) {
-    hits_df %>% dplyr::count(probe, name = "count") %>%
+    hits_df %>%
+      dplyr::count(probe, name = "count") %>%
       dplyr::mutate(stage = "unreduced")
   } else NULL
   red <- if (nrow(reduced_df) > 0L) {
-    reduced_df %>% dplyr::count(probe, name = "count") %>%
+    reduced_df %>%
+      dplyr::count(probe, name = "count") %>%
       dplyr::mutate(stage = "reduced")
   } else NULL
   d <- dplyr::bind_rows(unred, red) %>%
@@ -89,7 +91,8 @@ reduction_fold_plot <- function(hits_df, reduced_df, subset_label = NULL,
   add_titles(
     .probe_rows(p),
     title    = "How far reduction collapses each probe",
-    subtitle = "Loci before (per virus) and after (per probe, globally reduced) the reduction.",
+    subtitle =
+      "Loci before (per virus) and after (per probe, globally reduced) the reduction.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -103,21 +106,25 @@ coverage_before_after_plot <- function(coverage_df, subset_label = NULL,
   if (nrow(coverage_df) == 0L) return(empty_plot())
   keys <- c(total_bp_unreduced = "unreduced", total_bp_reduced = "reduced")
   d <- coverage_df %>%
-    dplyr::mutate(stage = factor(unname(keys[metric]), levels = c("reduced", "unreduced")))
+    dplyr::mutate(stage = factor(unname(keys[metric]),
+                                 levels = c("reduced", "unreduced")))
 
   p <- ggplot(d, aes(x = stage, y = value, fill = stage)) +
     geom_col(width = 0.6, show.legend = FALSE) +
-    geom_text(aes(label = scales::comma(value)), hjust = -0.1, size = 3.2, family = .FONT) +
+    geom_text(aes(label = scales::comma(value)), hjust = -0.1, size = 3.2,
+              family = .FONT) +
     coord_flip() +
     scale_x_discrete(labels = .REDUCE_LABELS) +
     scale_fill_manual(values = .REDUCE_FILL()) +
-    scale_y_continuous(labels = scales::label_comma(), expand = expansion(mult = c(0, 0.2))) +
+    scale_y_continuous(labels = scales::label_comma(),
+                       expand = expansion(mult = c(0, 0.2))) +
     labs(x = NULL, y = "Total range length (bp)") +
     theme(panel.grid.major.y = element_blank())
   add_titles(
     p,
     title    = "Total range length before and after reduction",
-    subtitle = "Locus widths summed; the drop is the overlapping length the reduction removed.",
+    subtitle =
+      "Locus widths summed; the drop is the overlapping length the reduction removed.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

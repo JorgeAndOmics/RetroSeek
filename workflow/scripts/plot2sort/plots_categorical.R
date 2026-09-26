@@ -35,10 +35,13 @@ bar_plot <- function(data, subset_label = NULL, ctx = NULL) {
     scale_fill_taxon(data$label, data$count) +
     scale_y_continuous(labels = scales::label_comma()) +
     labs(x = NULL, y = "Merged ranges", fill = NULL)
-  p <- add_titles(p,
-                  title    = "Ranges per host, by lineage",
-                  subtitle = "Merged ranges per host, by the lineage of the probe virus that found them.",
-                  subset_label = subset_label)
+  p <- add_titles(
+    p,
+    title    = "Ranges per host, by lineage",
+    subtitle =
+      "Merged ranges per host, by the lineage of the probe virus that found them.",
+    subset_label = subset_label
+  )
   on_rows(p, data$species, ctx)
 }
 
@@ -73,9 +76,11 @@ bar_virus_plot <- function(data, top_n = 15L, subset_label = NULL, ctx = NULL,
     guides(fill = guide_legend(ncol = 3))
   p <- add_titles(p,
                   title    = "Ranges per host, by virus",
-                  subtitle = sprintf(paste("The %d probe viruses finding the most ranges, the rest",
-                                           "pooled. Each virus is a shade of its lineage's colour."),
-                                     top_n),
+                  subtitle = sprintf(
+                    paste("The %d probe viruses finding the most ranges, the rest",
+                          "pooled. Each virus is a shade of its lineage's colour."),
+                    top_n
+                  ),
                   subset_label = subset_label)
   on_rows(p, data$species, ctx)
 }
@@ -88,7 +93,8 @@ balloon_virus_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
   d <- data %>%
     group_by(species, abbreviation, label) %>%
     summarise(count = sum(count), .groups = "drop")
-  totals <- d %>% group_by(virus = abbreviation) %>%
+  totals <- d %>%
+    group_by(virus = abbreviation) %>%
     summarise(n = sum(count), label = dplyr::first(label), .groups = "drop")
   d$abbreviation <- factor(d$abbreviation, levels = .virus_levels(totals))
 
@@ -104,8 +110,10 @@ balloon_virus_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
           panel.grid.major = element_line(colour = .GRID, linewidth = 0.3))
   p <- add_titles(p,
                   title    = "Ranges per virus and host",
-                  subtitle = paste("Bubble area is the number of merged ranges; colour the virus's",
-                                   "lineage. All probes of the set pooled."),
+                  subtitle = paste(
+                    "Bubble area is the number of merged ranges; colour the virus's",
+                    "lineage. All probes of the set pooled."
+                  ),
                   subset_label = subset_label)
   on_rows(p, d$species, ctx, axis = "y")
 }
@@ -185,7 +193,8 @@ waffle_virus_plot <- function(data, unit_hits = NULL,
 
   counts <- data %>%
     dplyr::group_by(virus) %>%
-    dplyr::summarise(count = dplyr::n(), label = dplyr::first(label), .groups = "drop") %>%
+    dplyr::summarise(count = dplyr::n(), label = dplyr::first(label),
+                     .groups = "drop") %>%
     dplyr::arrange(dplyr::desc(count), virus)
   total_hits <- sum(counts$count)
 
@@ -195,7 +204,8 @@ waffle_virus_plot <- function(data, unit_hits = NULL,
   counts <- counts %>%
     dplyr::mutate(squares = pmax(1L, as.integer(count %/% unit_hits)))
   square_vec <- stats::setNames(counts$squares, counts$virus)
-  if (is.null(colours)) colours <- virus_colours(counts$virus, counts$label, counts$count)
+  if (is.null(colours))
+    colours <- virus_colours(counts$virus, counts$label, counts$count)
 
   caption <- .waffle_caption(unit_hits, unit$auto, total_hits)
 

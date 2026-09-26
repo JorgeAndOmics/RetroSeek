@@ -35,7 +35,8 @@ test_that("the ratio page puts every configured species on rows, in config order
 test_that("the composition page colours each fate with its house colour", {
   candidates <- data.table(
     species = c("Homo sapiens", "Homo sapiens", "Mus musculus"),
-    fate = c("solo", "intact_flank", "mono_ltr_at_orphan"))
+    fate = c("solo", "intact_flank", "mono_ltr_at_orphan")
+  )
   p <- class_composition_plot(candidates, tree = NULL, order = .order)
   built <- ggplot_build(p)$data[[1]]
   expect_setequal(unique(built$fill), unname(.FATE_COLOUR))
@@ -44,7 +45,8 @@ test_that("the composition page colours each fate with its house colour", {
 test_that("with a host tree the ratio page is composed beside it", {
   tree <- list(
     tips = data.frame(tip = rev(.order), x = 1, y = 1:3),
-    segments = data.frame(x = 0, y = 1, xend = 0, yend = 3))
+    segments = data.frame(x = 0, y = 1, xend = 0, yend = 3)
+  )
   expect_s3_class(solo_intact_ratio_plot(.report, tree = tree, order = .order),
                   "patchwork")
 })
@@ -53,7 +55,8 @@ test_that("funnel labels are words, never dash separators", {
   funnel <- data.table(
     stage = c("raw_hits", "accepted_hits", "merged_candidates",
               "intact_flank", "mono_ltr_at_orphan", "solo"),
-    count = c(1000, 800, 500, 100, 50, 350))
+    count = c(1000, 800, 500, 100, 50, 350)
+  )
   p <- funnel_plot(funnel, "Homo sapiens")
   labels <- levels(p$data$label)
   expect_false(any(grepl("^- | - |->", labels)))
@@ -63,5 +66,5 @@ test_that("funnel labels are words, never dash separators", {
 test_that("empty inputs give a placeholder page rather than an error", {
   expect_s3_class(solo_intact_ratio_plot(.report[0]), "ggplot")
   expect_s3_class(class_composition_plot(data.table(species = character(),
-                                                     fate = character())), "ggplot")
+                                                    fate = character())), "ggplot")
 })

@@ -20,12 +20,15 @@ test_that("tile_genome_for_hotspot produces full-width tiles for a genome divisi
   expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 10000L))
 })
 
-test_that("tile_genome_for_hotspot's last tile is shorter when chrom is not divisible", {
-  out <- tile_genome_for_hotspot(c(chr1 = 25000L), window_size = 10000L)
-  expect_equal(length(out), 3L)
-  # last tile shorter: 25000 - 20000 = 5000
-  expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 5000L))
-})
+test_that(
+  "tile_genome_for_hotspot's last tile is shorter when chrom is not divisible",
+  {
+    out <- tile_genome_for_hotspot(c(chr1 = 25000L), window_size = 10000L)
+    expect_equal(length(out), 3L)
+    # last tile shorter: 25000 - 20000 = 5000
+    expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 5000L))
+  }
+)
 
 test_that("tile_genome_for_hotspot tiles each chromosome independently", {
   out <- tile_genome_for_hotspot(c(chr1 = 15000L, chr2 = 20000L), window_size = 10000L)

@@ -20,16 +20,32 @@ source("../../scripts/plot2sort.R")
 
 # Synthetic plot dataframe shaped like ranges_analysis output. Single source of
 # truth so each test can mutate / filter as needed without redefining columns.
+# Each row spans two lines so the table fits the line length.
 .fake_plot_df <- function() {
   tibble::tribble(
-    ~species, ~probe, ~label,        ~virus, ~abbreviation, ~max_bitscore, ~query_coverage, ~probe_type,
-    "S1",     "POL",  "Lentivirus",  "HIV",  "HIV",         300,           0.85,            "main",
-    "S1",     "POL",  "Lentivirus",  "HIV",  "HIV",         310,           0.90,            "main",
-    "S1",     "POL",  "Lentivirus",  "HIV",  "HIV",         290,           0.80,            "main",
-    "S1",     "GAG",  "Lentivirus",  "HIV",  "HIV",         150,           0.55,            "main",
-    "S2",     "POL",  "Deltaretro",  "HTLV", "HTLV",        200,           0.65,            "main",
-    "S2",     "ENV",  "Deltaretro",  "HTLV", "HTLV",        180,           0.60,            "main",
-    "S3",     "VIF",  "Spumavirus",  "FFV",  "FFV",         100,           0.45,            "accessory"
+    ~species, ~probe, ~label,       ~virus, ~abbreviation,
+    ~max_bitscore, ~query_coverage, ~probe_type,
+
+    "S1",     "POL",  "Lentivirus", "HIV",  "HIV",
+    300,           0.85,            "main",
+
+    "S1",     "POL",  "Lentivirus", "HIV",  "HIV",
+    310,           0.90,            "main",
+
+    "S1",     "POL",  "Lentivirus", "HIV",  "HIV",
+    290,           0.80,            "main",
+
+    "S1",     "GAG",  "Lentivirus", "HIV",  "HIV",
+    150,           0.55,            "main",
+
+    "S2",     "POL",  "Deltaretro", "HTLV", "HTLV",
+    200,           0.65,            "main",
+
+    "S2",     "ENV",  "Deltaretro", "HTLV", "HTLV",
+    180,           0.60,            "main",
+
+    "S3",     "VIF",  "Spumavirus", "FFV",  "FFV",
+    100,           0.45,            "accessory"
   )
 }
 
@@ -156,7 +172,7 @@ test_that("bar_plot puts hosts on rows in the configured order, not by count", {
   df <- tibble::tibble(
     species = c("S1", "S2", "S3", "S2"),
     label   = c("L1", "L1", "L1", "L2"),
-    count   = c(  5,    3,    1,    4)
+    count   = c(5,    3,    1,    4)
   )
   ctx <- list(species_order = c("S3", "S1", "S2"))
   p <- bar_plot(df, ctx = ctx)
@@ -180,7 +196,7 @@ test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
     species = rep("S1", 4),
     virus   = c("HIV", "MLV", "BLV", "FFV"),
     label   = c("Lentivirus", "Gammaretrovirus", "Deltaretrovirus", "Spumaretrovirus"),
-    count   = c(  40,    30,    20,   10)
+    count   = c(40,    30,    20,    10)
   )
   p <- bar_virus_plot(df, top_n = 2L)   # keep HIV, MLV; fold BLV+FFV -> "Other (2)"
   expect_s3_class(p, "ggplot")
@@ -192,9 +208,12 @@ test_that("bar_virus_plot stacks by virus and folds the long tail into Other", {
 # ----------------------- balloon_virus_species_plot -----------------------
 
 test_that("balloon plot returns empty placeholder on zero-row input", {
-  p <- balloon_virus_species_plot(tibble::tibble(
-    species = character(0), virus = character(0), probe = character(0),
-    label = character(0), abbreviation = character(0), count = integer(0)))
+  p <- balloon_virus_species_plot(
+    tibble::tibble(
+      species = character(0), virus = character(0), probe = character(0),
+      label = character(0), abbreviation = character(0), count = integer(0)
+    )
+  )
   expect_s3_class(p, "ggplot")
   expect_equal(p$labels$title, "No data")
 })
@@ -202,11 +221,11 @@ test_that("balloon plot returns empty placeholder on zero-row input", {
 test_that("balloon plot hosts are rows in the configured order", {
   df <- tibble::tibble(
     species      = c("S1", "S2", "S3"),
-    virus        = c("HIV","HTLV","FFV"),
-    probe        = c("POL","POL","POL"),
-    label        = c("Lentivirus","Deltaretrovirus","Spumaretrovirus"),
-    abbreviation = c("HIV","HTLV","FFV"),
-    count        = c(  10,    50,    1)
+    virus        = c("HIV", "HTLV", "FFV"),
+    probe        = c("POL", "POL", "POL"),
+    label        = c("Lentivirus", "Deltaretrovirus", "Spumaretrovirus"),
+    abbreviation = c("HIV", "HTLV", "FFV"),
+    count        = c(10, 50, 1)
   )
   p <- balloon_virus_species_plot(df, ctx = list(species_order = c("S1", "S2", "S3")))
   expect_equal(p$scales$get_scales("y")$limits, c("S3", "S2", "S1"))
@@ -246,8 +265,8 @@ test_that("raincloud_bitscore_plot accepts x_scale = 'log10' without erroring", 
 .sankey_input <- function() {
   tibble::tibble(
     species = c("S1", "S2", "S3", "S4", "S5"),
-    probe   = c("POL","POL","GAG","ENV","VIF"),
-    count   = c(  10,   8,    5,    3,    1)
+    probe   = c("POL", "POL", "GAG", "ENV", "VIF"),
+    count   = c(10, 8, 5, 3, 1)
   )
 }
 
@@ -273,14 +292,14 @@ test_that("sankey_species_probe_plot collapses long tail when top_n is set", {
   p <- sankey_species_probe_plot(.sankey_input(), top_n = 2)
   # Two species kept (S1, S2 by count); three folded into Other (3).
   expect_true("Other (3)" %in% as.character(p$data$species))
-  expect_lte(length(unique(p$data$species)), 3L)   # S1 + S2 + Other
+  expect_lte(length(unique(p$data$species)), 3L)   # S1, S2 and Other
 })
 
 test_that("sankey_label_probe_plot orders both axes by count", {
   df <- tibble::tibble(
-    label = c("L_big","L_big","L_med","L_small"),
-    probe = c("POL","GAG","POL","ENV"),
-    count = c( 100, 30, 50, 5)
+    label = c("L_big", "L_big", "L_med", "L_small"),
+    probe = c("POL", "GAG", "POL", "ENV"),
+    count = c(100, 30, 50, 5)
   )
   # Label totals: L_big = 130, L_med = 50, L_small = 5
   # Probe totals: POL = 150, GAG = 30, ENV = 5
@@ -291,9 +310,9 @@ test_that("sankey_label_probe_plot orders both axes by count", {
 
 test_that("sankey_species_label_plot orders hosts by config and lineages by count", {
   df <- tibble::tibble(
-    species = c("S_big","S_med","S_small"),
-    label   = c("L_alpha","L_alpha","L_beta"),
-    count   = c( 100,    50,    1)
+    species = c("S_big", "S_med", "S_small"),
+    label   = c("L_alpha", "L_alpha", "L_beta"),
+    count   = c(100, 50, 1)
   )
   ctx <- list(species_order = c("S_small", "S_med", "S_big"))
   p <- sankey_species_label_plot(df, ctx = ctx)
@@ -400,14 +419,17 @@ test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap"
 
 # ------------------------- title / subtitle injection ---------------------
 
-test_that("add_titles leads the subtitle with subset_label, never a dash in the title", {
-  # House style: titles stay identical across subsets; what the page is about
-  # leads the subtitle instead of being glued to the title with " - ".
-  p <- ggplot2::ggplot()
-  q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
-  expect_equal(q$labels$title,    "Foo")
-  expect_equal(q$labels$subtitle, "Main. Bar")
-})
+test_that(
+  "add_titles leads the subtitle with subset_label, never a dash in the title",
+  {
+    # House style: titles stay identical across subsets; what the page is about
+    # leads the subtitle instead of being glued to the title with " - ".
+    p <- ggplot2::ggplot()
+    q <- add_titles(p, title = "Foo", subtitle = "Bar", subset_label = "Main")
+    expect_equal(q$labels$title,    "Foo")
+    expect_equal(q$labels$subtitle, "Main. Bar")
+  }
+)
 
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
   p <- ggplot2::ggplot()

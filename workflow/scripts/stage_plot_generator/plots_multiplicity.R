@@ -18,7 +18,8 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
   if (nrow(hits_df) == 0L) return(empty_plot())
   tiers <- dplyr::bind_rows(
     hits_df %>% dplyr::transmute(n_hits, tier = "original"),
-    hits_df %>% dplyr::filter(is_ltr_flanked) %>%
+    hits_df %>%
+      dplyr::filter(is_ltr_flanked) %>%
       dplyr::transmute(n_hits, tier = "candidate")
   ) %>%
     dplyr::mutate(tier = factor(tier, levels = c("original", "candidate"))) %>%
@@ -28,17 +29,20 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
     dplyr::ungroup()
 
   p <- ggplot(tiers, aes(x = n_hits, y = share, fill = tier)) +
-    geom_col(position = position_dodge(width = 0.8, preserve = "single"), width = 0.75) +
+    geom_col(position = position_dodge(width = 0.8, preserve = "single"),
+             width = 0.75) +
     # A tick per value while there are few, so the first bar (1 hit) is labelled.
     scale_x_continuous(breaks = function(lim) {
-      if (diff(lim) <= 12) seq(ceiling(lim[1]), floor(lim[2])) else scales::breaks_pretty()(lim)
+      if (diff(lim) <= 12) seq(ceiling(lim[1]), floor(lim[2])) else
+        scales::breaks_pretty()(lim)
     }) +
     scale_y_continuous(labels = scales::percent) +
     scale_fill_manual(values = c(original = .GREY_MID,
                                  candidate = .TIER_COLOUR[["ltr-flanked"]]),
                       labels = c(original = "Every first-reduced locus",
                                  candidate = "Overlapping an LTR element")) +
-    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Share of the tier's loci", fill = NULL) +
+    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Share of the tier's loci",
+         fill = NULL) +
     theme(panel.grid.major.x = element_blank())
   add_titles(
     p,

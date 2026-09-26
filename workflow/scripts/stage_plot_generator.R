@@ -37,7 +37,8 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile,
+                                                            mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
@@ -62,11 +63,12 @@ source(file.path(.script_dir, "stage_plot_generator", "plots_ltr_interaction.R")
 
 
 # ----------------------------------------------------------------------------
-# main()
+# Entry point
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
-    description = "Generate the RetroSeek integration stage PDF (homology + LTR integration)"
+    description =
+      "Generate the RetroSeek integration stage PDF (homology + LTR integration)"
   )
   parser$add_argument("--input", required = TRUE,
                       help = paste("Directory with per-genome ranges-analysis parquet",
@@ -121,7 +123,8 @@ main <- function() {
     page(probe_yield_plot(stage$hits, warning_caption = warn), original),
     page(ltr_feature_breakdown_plot(stage$ltr_int, warning_caption = warn), original),
     page(distance_to_retro_plot(stage$ltr_int, warning_caption = warn), original),
-    page(position_within_provirus_plot(stage$ltr_int, warning_caption = warn), original),
+    page(position_within_provirus_plot(stage$ltr_int, warning_caption = warn),
+         original),
     page(strand_concordance_plot(stage$ltr_int, warning_caption = warn), original),
     page(probe_domain_heatmap(stage$probe_domain, warning_caption = warn), original),
     # The LTR elements themselves.
@@ -145,13 +148,18 @@ main <- function() {
           "LTRdigest find: where the loci sit relative to the elements, what the",
           "elements carry, and how the reductions collapse overlapping loci. The",
           "last line of each subtitle names the range tier the page shows."),
-    colours = c(`LTR-flanked, or overlapping an LTR element` = .TIER_COLOUR[["ltr-flanked"]],
-                `Before reduction, or not selected` = .GREY_MID,
-                `After reduction, or the flagged subset` = .DATA_COLOUR),
-    pages = page_titles(pages))
+    colours = c(
+      `LTR-flanked, or overlapping an LTR element` = .TIER_COLOUR[["ltr-flanked"]],
+      `Before reduction, or not selected` = .GREY_MID,
+      `After reduction, or the flagged subset` = .DATA_COLOUR
+    ),
+    pages = page_titles(pages)
+  )
   n_rows <- max(length(ctx$species_order), length(unique(counts_df$genome)))
   save_stage_pdf(c(list(key), pages), args$out_pdf,
-                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
+                 height = page_height_for(
+                   n_rows, per_species = cfg$plots$per_stratum %||% 0.18
+                 ))
   log_ok("wrote %s, %s pages", basename(args$out_pdf),
          format(length(pages) + 1L, big.mark = ","))
 }

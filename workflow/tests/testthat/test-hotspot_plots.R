@@ -30,7 +30,8 @@ source(file.path(.dir, "hotspot", "plots.R"))
 
 .hotspots <- function() {
   gr <- GRanges("chr1", IRanges(1, 500000))
-  mcols(gr) <- data.frame(label = "Betaretrovirus", count = 12L, hotspot_id = "G_HS_00001",
+  mcols(gr) <- data.frame(label = "Betaretrovirus", count = 12L,
+                          hotspot_id = "G_HS_00001",
                           n_loci = 14L, n_full = 3L, n_partial = 5L, n_gene = 6L)
   gr
 }
@@ -38,7 +39,8 @@ source(file.path(.dir, "hotspot", "plots.R"))
 .seqlengths <- c(chr1 = 2e6, chr2 = 2e6)
 
 test_that("every hotspot page builds from real input", {
-  expect_s3_class(plot_manhattan(.windows(), 0.05, "Mus musculus", "Betaretrovirus"), "gg")
+  expect_s3_class(plot_manhattan(.windows(), 0.05, "Mus musculus", "Betaretrovirus"),
+                  "gg")
   expect_s3_class(plot_karyotype(.seqlengths, .hotspots(), "Mus musculus"), "gg")
   expect_s3_class(plot_qq(.windows(), "Mus musculus", "Betaretrovirus"), "gg")
   expect_s3_class(plot_summary_panel(.hotspots(), .seqlengths, "Mus musculus"), "gg")

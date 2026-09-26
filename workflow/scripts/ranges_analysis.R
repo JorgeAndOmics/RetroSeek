@@ -54,7 +54,9 @@ source(file.path(.script_dir, "ranges", "exporters.R"))
 # ----------------------------------------------------------------------------
 # CLI
 # ----------------------------------------------------------------------------
-parser <- ArgumentParser(description = "Process tBLASTn and LTRdigest integration overlaps")
+parser <- ArgumentParser(
+  description = "Process tBLASTn and LTRdigest integration overlaps"
+)
 parser$add_argument("--fasta",                    required = TRUE)
 parser$add_argument("--blast",                    required = TRUE)
 parser$add_argument("--ltrdigest",                required = TRUE)
@@ -92,7 +94,9 @@ log_job(args$log, "ranges_analysis")
 # Pipeline counts (written as the per-genome counts table in Phase 8)
 # ----------------------------------------------------------------------------
 .counts <- list()
-record_count <- function(key, value) { .counts[[key]] <<- value }
+record_count <- function(key, value) {
+  .counts[[key]] <<- value
+}
 
 
 # ----------------------------------------------------------------------------
@@ -124,7 +128,8 @@ main <- function(args) {
   log_section("Phase 2: building BLAST GRanges and applying filters")
   gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
   .pre_n <- length(gr)
-  gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold, opts$identity_threshold)
+  gr <- filter_blast_gr(gr, opts$probe_min_length, opts$bitscore_threshold,
+                        opts$identity_threshold)
   gr <- attach_min_gapwidth(gr, opts$probe_min_length)
   record_count("filtered_blast_hits",  length(gr))
   log_info("%d of %d hits kept", length(gr), .pre_n)
@@ -178,9 +183,11 @@ main <- function(args) {
   # ADR-009 stopped valid from filtering anything, the distinction had no content.
   log_section("Phase 6: annotating ltr-flanked (valid) hits")
   element_hits         <- annotate_ltr_flanked_hits(
-    find_candidate_hits(gr_virus,  retrotransposons), retrotransposons)
+    find_candidate_hits(gr_virus,  retrotransposons), retrotransposons
+  )
   element_hits_reduced <- annotate_ltr_flanked_hits(
-    find_candidate_hits(gr_global, retrotransposons), retrotransposons)
+    find_candidate_hits(gr_global, retrotransposons), retrotransposons
+  )
   record_count("element_hits_ranges",               length(element_hits))
   record_count("element_hits_ranges_reduced",       length(element_hits_reduced))
 
@@ -202,7 +209,8 @@ main <- function(args) {
   .orphan_parent    <- as.character(S4Vectors::mcols(orphan_hits)$Parent)
   .orphan_oversized <- as.character(S4Vectors::mcols(orphan_hits)$oversized)
   record_count("orphan_clusters",    length(unique(.orphan_parent)))
-  record_count("orphans_oversized",  length(unique(.orphan_parent[.orphan_oversized == "True"])))
+  record_count("orphans_oversized",
+               length(unique(.orphan_parent[.orphan_oversized == "True"])))
 
   # NOTE: the composite ERV "assembly" tier is no longer built here. It is now a
   # view of the genus-classified loci produced by the taxonomy_classify stage
@@ -221,11 +229,16 @@ main <- function(args) {
     element_hits_reduced, probes$df_sum, opts$main_probes,
     opts$agg_virus, opts$agg_concat_separator
   )
-  gr_virus               <- attach_probe_category(gr_virus,             opts$main_probes, opts$agg_concat_separator)
-  gr_global              <- attach_probe_category(gr_global,            opts$main_probes, opts$agg_concat_separator)
-  element_hits             <- attach_probe_category(element_hits,           opts$main_probes, opts$agg_concat_separator)
-  element_hits_reduced     <- attach_probe_category(element_hits_reduced,   opts$main_probes, opts$agg_concat_separator)
-  orphan_hits        <- attach_probe_category(orphan_hits,      opts$main_probes, opts$agg_concat_separator)
+  gr_virus             <- attach_probe_category(gr_virus,             opts$main_probes,
+                                                opts$agg_concat_separator)
+  gr_global            <- attach_probe_category(gr_global,            opts$main_probes,
+                                                opts$agg_concat_separator)
+  element_hits         <- attach_probe_category(element_hits,         opts$main_probes,
+                                                opts$agg_concat_separator)
+  element_hits_reduced <- attach_probe_category(element_hits_reduced, opts$main_probes,
+                                                opts$agg_concat_separator)
+  orphan_hits          <- attach_probe_category(orphan_hits,          opts$main_probes,
+                                                opts$agg_concat_separator)
 
 
   # ----------------------------------------------------------------------------
@@ -245,9 +258,10 @@ main <- function(args) {
   # into single non-overlapping multi-gene orphan loci, like LTR-flanked proviruses.
   track_exporter(orphan_hits,        args$orphans_ranges,         gen_ver)
 
-  track_exporter(element_hits,             args$element_hits_ranges,             gen_ver)
-  track_exporter(element_hits_reduced,     args$element_hits_ranges_reduced,     gen_ver)
-  bed_exporter(  element_hits_reduced,     sub("\\.gff3$", ".bed", args$element_hits_ranges_reduced))
+  track_exporter(element_hits,         args$element_hits_ranges,         gen_ver)
+  track_exporter(element_hits_reduced, args$element_hits_ranges_reduced, gen_ver)
+  bed_exporter(element_hits_reduced,
+               sub("\\.gff3$", ".bed", args$element_hits_ranges_reduced))
 
   track_exporter(flanking_ltrs,          args$flanking_ltr_ranges,      gen_ver)
 
@@ -257,8 +271,8 @@ main <- function(args) {
   # Per-genome ranges-analysis tables - each written as parquet (pipeline-internal)
   # + CSV (user-facing), named {genome}.{table}.{parquet,csv}.
   .table_path <- function(table, ext) {
-    dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir
-           else                  args$ranges_analysis_csv_dir
+    dir <- if (ext == "parquet") args$ranges_analysis_parquet_dir else
+      args$ranges_analysis_csv_dir
     file.path(dir, sprintf("%s.%s.%s", args$genome, table, ext))
   }
   write_one <- function(table, df) {

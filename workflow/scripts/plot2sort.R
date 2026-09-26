@@ -30,7 +30,7 @@ suppressMessages({
   library(tidyverse)    # Data manipulation and visualisation
   library(yaml)         # YAML config
   library(ggalluvial)   # Sankey / alluvial geoms
-  library(ggdist)       # Raincloud / halfeye / dots
+  library(ggdist)       # Raincloud, halfeye and dots geoms
   library(scales)       # Axis labellers
 })
 
@@ -45,15 +45,18 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile))
+      return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
-source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
+# log.R: the line contract and run_main (ADR-021).
+# style.R: palette, theme, labels and stage PDFs.
+source(file.path(.script_dir, "utils", "log.R"))
+source(file.path(.script_dir, "plot2sort", "style.R"))
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
 source(file.path(.script_dir, "plot2sort", "tree_axis.R"))  # species rows, host tree
@@ -63,11 +66,12 @@ source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
 
 
 # ----------------------------------------------------------------------------
-# main()
+# Entry point
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
-    description = "Generate the homology stage PDF from RetroSeek per-genome Parquet results"
+    description =
+      "Generate the homology stage PDF from RetroSeek per-genome Parquet results"
   )
   parser$add_argument("--input",  required = TRUE,
                       help = "Directory with the per-genome ranges-analysis tables; reads {genome}.final_loci.parquet (carries a probe_type column: main | accessory).")
@@ -87,7 +91,7 @@ main <- function() {
   x_scale     <- cfg$plots$bitscore_x_scale %||% "linear"
   top_n       <- cfg$plots$sankey_top_n            # NULL = show all
   other_label <- cfg$plots$sankey_other_label %||% "Other"
-  unit_hits   <- cfg$plots$waffle_unit_hits        # NULL -> auto-derive
+  unit_hits   <- cfg$plots$waffle_unit_hits        # NULL means derive it automatically
   log_section(sprintf("RetroSeek homology plots (output: %s)", args$out_pdf))
 
   # Multi-value aggregation warning: when virus/label use list/concatenate,
@@ -180,10 +184,13 @@ main <- function() {
           "and in which hosts. Every page shows the valid tier after global",
           "reduction. The main probe set comes first, then the accessory set."),
     colours = stats::setNames(unname(taxon_colours(genera)[genera]), genera),
-    pages = page_titles(pages))
+    pages = page_titles(pages)
+  )
   n_rows <- max(length(ctx$species_order), length(unique(all.full$species)))
-  save_stage_pdf(c(list(key), pages), args$out_pdf,
-                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
+  save_stage_pdf(
+    c(list(key), pages), args$out_pdf,
+    height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18)
+  )
   log_ok("wrote %s, %s pages", basename(args$out_pdf),
          format(length(pages) + 1L, big.mark = ","))
 }

@@ -26,8 +26,9 @@ extract_region_fasta <- function(genome, bed) {
   if (nrow(bed) == 0L) return(Biostrings::DNAStringSet())
   pieces <- vapply(seq_len(nrow(bed)), function(i) {
     chr <- genome[[bed$chrom[i]]]  # errors on an absent seqname, mirroring bedtools
+    # BED starts are 0-based; subseq() takes 1-based inclusive positions.
     sub <- Biostrings::subseq(chr,
-                              start = bed$start0[i] + 1L,  # BED 0-based -> 1-based inclusive
+                              start = bed$start0[i] + 1L,
                               end = bed$end[i])
     if (identical(bed$strand[i], "-")) sub <- Biostrings::reverseComplement(sub)
     as.character(sub)
@@ -44,14 +45,17 @@ main <- function() {
   script_file <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE))
   source(file.path(dirname(script_file), "..", "utils", "log.R"))
   parser <- ArgumentParser(
-    description = "Strand-aware region FASTA extraction (Biostrings; replaces bedtools getfasta)"
+    description =
+      "Strand-aware region FASTA extraction (Biostrings; replaces bedtools getfasta)"
   )
   parser$add_argument("--genome", required = TRUE, help = "genome FASTA")
   parser$add_argument("--bed", required = TRUE,
                       help = "regions BED6 (chrom, start0, end, name, score, strand)")
   parser$add_argument("--out", required = TRUE, help = "output FASTA")
-  parser$add_argument("--log", default = NULL,
-                      help = "job log file; the Snakemake log: path of the calling rule")
+  parser$add_argument(
+    "--log", default = NULL,
+    help = "job log file; the Snakemake log: path of the calling rule"
+  )
   args <- parser$parse_args()
   log_job(args$log, "extract_region_fasta")
   run_main(function() extract(args))
@@ -69,7 +73,9 @@ extract <- function(args) {
   bed <- utils::read.table(
     args$bed, sep = "\t", stringsAsFactors = FALSE,
     col.names = c("chrom", "start0", "end", "name", "score", "strand"),
-    colClasses = c("character", "integer", "integer", "character", "character", "character")
+    colClasses = c("character", "integer", "integer", "character", "character",
+                   "character")
+
   )
   regions <- extract_region_fasta(genome, bed)
   Biostrings::writeXStringSet(regions, args$out)

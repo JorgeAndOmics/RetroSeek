@@ -43,17 +43,22 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile))
+      return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
-source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
-source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))  # empty_plot, add_titles
-source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))  # species rows, host tree
+# Line contract, run_main (ADR-021).
+source(file.path(.script_dir, "..", "utils", "log.R"))
+# Palette, theme, labels, stage PDFs.
+source(file.path(.script_dir, "..", "plot2sort", "style.R"))
+# empty_plot, add_titles.
+source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
+# Species rows, host tree.
+source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
 
 
 # ----------------------------------------------------------------------------
@@ -131,13 +136,15 @@ build_report <- function(combined) {
   cols <- c("source", "dimension", "level", "count")
   if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   per_source <- function(df, src) {
-    taxon <- df %>% filter(.data$resolved == "True") %>%
+    taxon <- df %>%
+      filter(.data$resolved == "True") %>%
       count(level = .data$taxon_call, name = "count") %>%
       mutate(dimension = "taxon")
     conf <- df %>%
       count(level = .data$confidence_tag, name = "count") %>%
       mutate(dimension = "confidence")
-    method <- df %>% filter(.data$resolved == "True") %>%
+    method <- df %>%
+      filter(.data$resolved == "True") %>%
       count(level = .data$method, name = "count") %>%
       mutate(dimension = "method")
     summary <- tibble(
@@ -193,31 +200,77 @@ build_report <- function(combined) {
 # Registry order is page order in taxonomy.pdf.
 panel_registry <- function() {
   list(
-    list(name = "taxon_composition", build = function(d, ctx) taxon_composition_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "lineage_composition", build = function(d, ctx) lineage_composition_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "taxon_by_source", build = function(d, ctx) taxon_by_source_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "rank_resolution", build = function(d, ctx) rank_resolution_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "method_mix", build = function(d, ctx) method_mix_plot(d, ctx), data = "loci", segment = TRUE),
+    list(name = "taxon_composition",
+         build = function(d, ctx) taxon_composition_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "lineage_composition",
+         build = function(d, ctx) lineage_composition_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "taxon_by_source",
+         build = function(d, ctx) taxon_by_source_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "rank_resolution",
+         build = function(d, ctx) rank_resolution_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "method_mix",
+         build = function(d, ctx) method_mix_plot(d, ctx),
+         data = "loci", segment = TRUE),
     # erv_class is a function of genus, so within one segment it is constant.
-    list(name = "erv_class_composition", build = function(d, ctx) erv_class_composition_plot(d, ctx), data = "loci", segment = FALSE),
-    list(name = "source_yield", build = function(d, ctx) source_yield_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "structure_class_composition", build = function(d, ctx) structure_class_composition_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "structure_by_tier", build = function(d, ctx) structure_by_tier_plot(d), data = "combined", segment = TRUE),
-    list(name = "domain_tier_composition", build = function(d, ctx) domain_tier_composition_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "confidence", build = function(d, ctx) confidence_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "confidence_count", build = function(d, ctx) confidence_count_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "confidence_gradient", build = function(d, ctx) confidence_gradient_plot(d, ctx), data = "combined", segment = TRUE),
-    list(name = "confidence_density", build = function(d, ctx) confidence_density_plot(d, ctx$confidence_min), data = "combined", segment = TRUE),
-    list(name = "evidence_depth", build = function(d, ctx) evidence_depth_plot(d), data = "combined", segment = TRUE),
-    list(name = "confidence_vs_evidence", build = function(d, ctx) confidence_vs_evidence_plot(d), data = "combined", segment = TRUE),
+    list(name = "erv_class_composition",
+         build = function(d, ctx) erv_class_composition_plot(d, ctx),
+         data = "loci", segment = FALSE),
+    list(name = "source_yield",
+         build = function(d, ctx) source_yield_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "structure_class_composition",
+         build = function(d, ctx) structure_class_composition_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "structure_by_tier",
+         build = function(d, ctx) structure_by_tier_plot(d),
+         data = "combined", segment = TRUE),
+    list(name = "domain_tier_composition",
+         build = function(d, ctx) domain_tier_composition_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "confidence",
+         build = function(d, ctx) confidence_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "confidence_count",
+         build = function(d, ctx) confidence_count_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "confidence_gradient",
+         build = function(d, ctx) confidence_gradient_plot(d, ctx),
+         data = "combined", segment = TRUE),
+    list(name = "confidence_density",
+         build = function(d, ctx) confidence_density_plot(d, ctx$confidence_min),
+         data = "combined", segment = TRUE),
+    list(name = "evidence_depth",
+         build = function(d, ctx) evidence_depth_plot(d),
+         data = "combined", segment = TRUE),
+    list(name = "confidence_vs_evidence",
+         build = function(d, ctx) confidence_vs_evidence_plot(d),
+         data = "combined", segment = TRUE),
     # The taxonomy cladogram is a single tip within one segment.
-    list(name = "taxon_confidence_tree", build = function(d, ctx) taxon_confidence_tree_plot(d, ctx$tree_dir), data = "combined", segment = FALSE),
-    list(name = "taxon_tier_tree", build = function(d, ctx) taxon_tier_tree_plot(d, ctx$tree_dir), data = "combined", segment = FALSE),
-    list(name = "mosaic_burden", build = function(d, ctx) mosaic_burden_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "mosaic_composition_by_species", build = function(d, ctx) mosaic_composition_by_species_plot(d, ctx), data = "loci", segment = TRUE),
-    list(name = "mosaic_alluvial", build = function(d, ctx) mosaic_alluvial_plot(d), data = "loci", segment = TRUE),
-    list(name = "mosaic_taxon_pairs", build = function(d, ctx) mosaic_taxon_pairs_plot(d), data = "loci", segment = TRUE),
-    list(name = "mosaic_gene_discordance", build = function(d, ctx) mosaic_gene_discordance_plot(d), data = "loci", segment = TRUE)
+    list(name = "taxon_confidence_tree",
+         build = function(d, ctx) taxon_confidence_tree_plot(d, ctx$tree_dir),
+         data = "combined", segment = FALSE),
+    list(name = "taxon_tier_tree",
+         build = function(d, ctx) taxon_tier_tree_plot(d, ctx$tree_dir),
+         data = "combined", segment = FALSE),
+    list(name = "mosaic_burden",
+         build = function(d, ctx) mosaic_burden_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "mosaic_composition_by_species",
+         build = function(d, ctx) mosaic_composition_by_species_plot(d, ctx),
+         data = "loci", segment = TRUE),
+    list(name = "mosaic_alluvial",
+         build = function(d, ctx) mosaic_alluvial_plot(d),
+         data = "loci", segment = TRUE),
+    list(name = "mosaic_taxon_pairs",
+         build = function(d, ctx) mosaic_taxon_pairs_plot(d),
+         data = "loci", segment = TRUE),
+    list(name = "mosaic_gene_discordance",
+         build = function(d, ctx) mosaic_gene_discordance_plot(d),
+         data = "loci", segment = TRUE)
   )
 }
 
@@ -254,9 +307,9 @@ add_numeric_companions <- function(df) {
   df %>%
     mutate(
       # Blank for loci without a call; NA is the intended reading.
-      confidence_num   = suppressWarnings(as.numeric(.data$confidence)),  # blank -> NA
-      n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),  # blank -> NA
-      completeness_num = suppressWarnings(as.numeric(.data$completeness))  # blank -> NA
+      confidence_num   = suppressWarnings(as.numeric(.data$confidence)),  # blank: NA
+      n_hits           = suppressWarnings(as.integer(.data$n_blastx_hits)),  # blank: NA
+      completeness_num = suppressWarnings(as.numeric(.data$completeness))  # blank: NA
     )
 }
 
@@ -279,8 +332,10 @@ taxon_composition_plot <- function(loci, ctx = NULL) {
     scale_fill_taxon(counts$taxon_call, counts$n) +
     scale_y_continuous(labels = scales::comma) +
     labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
-  p <- add_titles(p, "Viral lineages per host",
-                  "LTR-flanked loci with a confident call, by the lineage they resolve to.")
+  p <- add_titles(
+    p, "Viral lineages per host",
+    "LTR-flanked loci with a confident call, by the lineage they resolve to."
+  )
   on_rows(p, counts$species, ctx)
 }
 
@@ -397,10 +452,12 @@ structure_class_composition_plot <- function(combined, ctx = NULL) {
   d <- combined %>%
     mutate(structure_class = factor(.data$structure_class, levels = .STRUCTURE_LEVELS))
   counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n,
+                          fill = .data$structure_class)) +
     geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
-    scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label, drop = FALSE) +
+    scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
+                      drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of loci", fill = NULL)
   p <- add_titles(p, "Structural class per host",
@@ -428,14 +485,17 @@ structure_by_tier_plot <- function(combined) {
   steps <- sort(unique(shares$completeness))
   shares$completeness <- factor(scales::percent(shares$completeness, accuracy = 1),
                                 levels = scales::percent(steps, accuracy = 1))
-  p <- ggplot(shares, aes(x = .data$completeness, y = .data$share, fill = .data$source)) +
+  p <- ggplot(shares, aes(x = .data$completeness, y = .data$share,
+                          fill = .data$source)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.75) +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = "Main genes present", y = "Share of the tier's loci", fill = NULL) +
     theme(panel.grid.major.x = element_blank())
-  add_titles(p, "Structural completeness by tier",
-             "LTR-flanked elements carry more of their genes; orphans are mostly single markers.")
+  add_titles(
+    p, "Structural completeness by tier",
+    "LTR-flanked elements carry more of their genes; orphans are mostly single markers."
+  )
 }
 
 # Domain support of LTR-flanked loci: the recall the labelling preserves.
@@ -448,7 +508,8 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
   counts <- d %>% count(.data$species, .data$domain_tier, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$domain_tier)) +
     geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
-    scale_fill_manual(values = .DOMAIN_TIER_COLOUR, labels = display_label, drop = FALSE) +
+    scale_fill_manual(values = .DOMAIN_TIER_COLOUR, labels = display_label,
+                      drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
   p <- add_titles(p, "Domain support of LTR-flanked loci",
@@ -464,7 +525,8 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
   if (!"source" %in% names(combined)) combined$source <- "ltr-flanked"
   counts <- combined %>%
     count(.data$species, .data$source, .data$confidence_tag, name = "n")
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$confidence_tag)) +
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n,
+                          fill = .data$confidence_tag)) +
     geom_col(position = position, width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .CONFIDENCE_COLOUR, labels = display_label) +
@@ -500,7 +562,8 @@ confidence_gradient_plot <- function(combined, ctx = NULL) {
   if (!"source" %in% names(d)) d$source <- "ltr-flanked"
   brks <- seq(0, 1, by = 0.05)
   d <- d %>% mutate(
-    bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE, right = FALSE),
+    bin = cut(.data$confidence_num, breaks = brks, include.lowest = TRUE,
+              right = FALSE),
     mid = brks[as.integer(.data$bin)] + 0.025
   )
   counts <- d %>% count(.data$species, .data$source, .data$bin, .data$mid, name = "n")
@@ -511,8 +574,10 @@ confidence_gradient_plot <- function(combined, ctx = NULL) {
     scale_fill_ramp(limits = c(0, 1), name = "Confidence") +
     scale_y_continuous(labels = scales::comma) +
     labs(x = NULL, y = "Loci")
-  p <- add_titles(p, "Confidence distribution per host",
-                  "Loci stacked from low to high confidence, in steps of 0.05, by tier.")
+  p <- add_titles(
+    p, "Confidence distribution per host",
+    "Loci stacked from low to high confidence, in steps of 0.05, by tier."
+  )
   on_rows(p, counts$species, ctx)
 }
 
@@ -778,8 +843,10 @@ mosaic_alluvial_plot <- function(loci) {
     scale_fill_taxon(counts$taxon, counts$n) +
     labs(x = NULL, y = "Gene calls in mosaic loci", fill = NULL) +
     theme(panel.grid.major.x = element_blank())
-  add_titles(p, "Genes and the lineages they call in mosaic loci",
-             "Each flow is one gene of a mosaic locus, running to the lineage it resolves to.")
+  add_titles(
+    p, "Genes and the lineages they call in mosaic loci",
+    "Each flow is one gene of a mosaic locus, running to the lineage it resolves to."
+  )
 }
 
 # Recombination partners: within mosaic loci, how often each unordered pair of
@@ -829,7 +896,8 @@ mosaic_gene_discordance_plot <- function(loci) {
     geom_text(aes(label = scales::comma(.data$n)), hjust = -0.2, size = 3.2,
               family = .FONT) +
     coord_flip() +
-    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
+    scale_y_continuous(labels = scales::percent,
+                       expand = expansion(mult = c(0, 0.12))) +
     labs(x = NULL, y = "Share of calls differing from the locus majority") +
     theme(panel.grid.major.y = element_blank())
   add_titles(p, "Which genes break from their locus",
@@ -853,7 +921,7 @@ taxonomy_key_colours <- function(combined) {
 
 
 # ----------------------------------------------------------------------------
-# main()
+# Entry point
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(
@@ -861,8 +929,10 @@ main <- function() {
   )
   parser$add_argument("--input", required = TRUE,
                       help = "Directory with per-genome <genome>.loci.parquet tables.")
-  parser$add_argument("--out_pdf", required = TRUE,
-                      help = "The stage PDF: a key page, then one page per panel entry.")
+  parser$add_argument(
+    "--out_pdf", required = TRUE,
+    help = "The stage PDF: a key page, then one page per panel entry."
+  )
   parser$add_argument("--config", required = TRUE,
                       help = "YAML config file with plot parameters.")
   parser$add_argument("--report_csv", required = TRUE,
@@ -896,23 +966,31 @@ main <- function() {
   }
   combined <- bind_rows(loci, orphans)
   combined <- add_numeric_companions(combined)
-  log_section(sprintf("Loaded %d ltr-flanked loci + %d recovered orphans across %d species",
-                      nrow(loci), nrow(orphans), length(unique(combined$species))))
+  log_section(sprintf(
+    "Loaded %d ltr-flanked loci + %d recovered orphans across %d species",
+    nrow(loci), nrow(orphans), length(unique(combined$species))
+  ))
 
   ctx <- panel_ctx(cfg, args$species_tree_dir %||% "", tree_dir = args$tree_dir %||% "")
   pages <- render_panel(panel_registry(), loci, combined, ctx)
   key <- key_page(
     "ERV taxonomy",
-    paste("What lineage each ERV locus belongs to, how it was called and how sure the",
-          "call is, for LTR-flanked elements and recovered orphans. Hosts are rows in",
-          "the order of the host tree; each viral lineage keeps one colour across every",
-          "RetroSeek figure, and lineages not resolved to a genus are grey."),
-    colours = taxonomy_key_colours(combined), pages = page_titles(pages))
+    paste(
+      "What lineage each ERV locus belongs to, how it was called and how sure the",
+      "call is, for LTR-flanked elements and recovered orphans. Hosts are rows in",
+      "the order of the host tree; each viral lineage keeps one colour across every",
+      "RetroSeek figure, and lineages not resolved to a genus are grey."
+    ),
+
+    colours = taxonomy_key_colours(combined), pages = page_titles(pages)
+  )
   # One page height for the whole PDF: tall enough for the most rows any page has.
   n_rows <- max(length(ctx$species_order), length(unique(combined$species)),
                 length(unique(combined$taxon_call)))
-  save_stage_pdf(c(list(key), pages), args$out_pdf,
-                 height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18))
+  save_stage_pdf(
+    c(list(key), pages), args$out_pdf,
+    height = page_height_for(n_rows, per_species = cfg$plots$per_stratum %||% 0.18)
+  )
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
   # split by tier. Concordant with the plots (same combined frame).
@@ -943,7 +1021,9 @@ main <- function() {
            args$out_pdf, length(pages) + 1L, args$report_csv, args$catalog_csv)
   log_ok("catalog of %s loci (%s LTR-flanked, %s orphans), %s pages",
          format(nrow(catalog), big.mark = ","), format(nrow(loci), big.mark = ","),
-         format(nrow(orphans), big.mark = ","), format(length(pages) + 1L, big.mark = ","))
+         format(nrow(orphans), big.mark = ","),
+         format(length(pages) + 1L, big.mark = ","))
+
 }
 
 
