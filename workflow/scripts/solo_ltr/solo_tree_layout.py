@@ -148,6 +148,7 @@ def write_views(
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: write the solo tree views and log the family census."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--treefile", type=Path, required=True)
     parser.add_argument("--table-prefix", type=Path, required=True)

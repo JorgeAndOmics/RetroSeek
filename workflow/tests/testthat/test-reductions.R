@@ -74,17 +74,20 @@ test_that("attach_tiebreak_rank adds a per-row rank following the key chain", {
   expect_equal(which.min(rk), 3L)
 })
 
-test_that("attach_tiebreak_rank gives each logical row the same rank under any input order", {
-  rank_of_winner <- function(idx) {
-    gr <- attach_tiebreak_rank(.fake_blast_gr(idx), "bitscore", "identity", "evalue")
-    mc <- S4Vectors::mcols(gr)
-    # The chain winner is the row with bitscore 100 AND query_coverage 0.9.
-    mc$tiebreak_rank[mc$bitscore == 100 & mc$query_coverage == 0.9]
+test_that(
+  "attach_tiebreak_rank gives each logical row the same rank under any input order",
+  {
+    rank_of_winner <- function(idx) {
+      gr <- attach_tiebreak_rank(.fake_blast_gr(idx), "bitscore", "identity", "evalue")
+      mc <- S4Vectors::mcols(gr)
+      # The chain winner is the row with bitscore 100 AND query_coverage 0.9.
+      mc$tiebreak_rank[mc$bitscore == 100 & mc$query_coverage == 0.9]
+    }
+    expect_equal(rank_of_winner(c(1, 2, 3, 4)), 4L)
+    expect_equal(rank_of_winner(c(4, 3, 2, 1)), 4L)
+    expect_equal(rank_of_winner(c(2, 4, 1, 3)), 4L)
   }
-  expect_equal(rank_of_winner(c(1, 2, 3, 4)), 4L)
-  expect_equal(rank_of_winner(c(4, 3, 2, 1)), 4L)
-  expect_equal(rank_of_winner(c(2, 4, 1, 3)), 4L)
-})
+)
 
 test_that("attach_tiebreak_rank returns an empty GRanges with the column present", {
   out <- attach_tiebreak_rank(.fake_blast_gr()[FALSE], "bitscore", "identity", "evalue")
@@ -121,13 +124,16 @@ test_that("reduce_first 'best' pick is invariant to input row order", {
 
 # ------------- reduce_first n_hits - per-merged-range contributor count ------
 
-test_that("reduce_first n_hits counts per-merged-range contributors (lengths, not length)", {
-  gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
-  # POL/HIV {10-60} has 2 contributing raw hits (rows 1,2); {500-600} has 1
-  # (row 4); POL/HTLV {30-70} has 1 (row 3). Total raw hits = 4.
-  expect_equal(sort(S4Vectors::mcols(gv)$n_hits), c(1L, 1L, 2L))
-  expect_equal(sum(S4Vectors::mcols(gv)$n_hits), 4L)
-})
+test_that(
+  "reduce_first n_hits counts per-merged-range contributors (lengths, not length)",
+  {
+    gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
+    # POL/HIV {10-60} has 2 contributing raw hits (rows 1,2); {500-600} has 1
+    # (row 4); POL/HTLV {30-70} has 1 (row 3). Total raw hits = 4.
+    expect_equal(sort(S4Vectors::mcols(gv)$n_hits), c(1L, 1L, 2L))
+    expect_equal(sum(S4Vectors::mcols(gv)$n_hits), 4L)
+  }
+)
 
 
 # ------------------------- reduce_global n_loci (M2) ------------------------
@@ -146,11 +152,14 @@ test_that("n_loci sums to the number of gr_virus loci collapsed", {
   expect_equal(sum(S4Vectors::mcols(gg)$n_loci), length(gv))
 })
 
-test_that("n_loci is distinct from n_hits - at least one global locus collapses >1 locus", {
-  gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
-  gg <- reduce_global(gv, .agg_opts())
-  # The chr1:10-70 global locus merges the POL/HIV and POL/HTLV loci.
-  expect_true(any(S4Vectors::mcols(gg)$n_loci > 1L))
-  # n_hits rolls up raw hits; n_loci counts loci - n_hits >= n_loci per locus.
-  expect_true(all(S4Vectors::mcols(gg)$n_hits >= S4Vectors::mcols(gg)$n_loci))
-})
+test_that(
+  "n_loci is distinct from n_hits - at least one global locus collapses >1 locus",
+  {
+    gv <- reduce_first(.fake_blast_gr(), "virus", .agg_opts())
+    gg <- reduce_global(gv, .agg_opts())
+    # The chr1:10-70 global locus merges the POL/HIV and POL/HTLV loci.
+    expect_true(any(S4Vectors::mcols(gg)$n_loci > 1L))
+    # n_hits rolls up raw hits; n_loci counts loci - n_hits >= n_loci per locus.
+    expect_true(all(S4Vectors::mcols(gg)$n_hits >= S4Vectors::mcols(gg)$n_loci))
+  }
+)

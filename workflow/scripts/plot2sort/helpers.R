@@ -79,7 +79,8 @@ empty_plot <- function(label = "No data") {
     labs(title = label) +
     theme(
       plot.title.position = "plot",
-      plot.title      = element_text(hjust = 0, face = "bold", size = 15, colour = .INK_SOFT),
+      plot.title      = element_text(hjust = 0, face = "bold", size = 15,
+                                     colour = .INK_SOFT),
       plot.background = element_rect(fill = .PAPER, colour = NA),
       plot.margin     = margin(14, 18, 12, 14)
     )

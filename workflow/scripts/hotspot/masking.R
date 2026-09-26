@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot / masking.R
+# Module hotspot/masking.R
 # -----------------------------------------------------------------------------
 # Build the N-run mask for the genome, compute per-window callable bp, and
 # pool small scaffolds into a single chromosome stratum so the NB GLM does not

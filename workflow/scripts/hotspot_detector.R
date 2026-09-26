@@ -50,9 +50,11 @@ suppressMessages({
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "utils", "log.R"))          # line contract, run_main (ADR-021)
-source(file.path(.script_dir, "plot2sort", "style.R"))    # palette, theme, stage PDFs
-source(file.path(.script_dir, "plot2sort", "helpers.R"))  # empty_plot, add_titles
+# log.R holds the line contract and run_main (ADR-021), style.R the palette,
+# theme and stage PDFs, helpers.R empty_plot and add_titles.
+source(file.path(.script_dir, "utils", "log.R"))
+source(file.path(.script_dir, "plot2sort", "style.R"))
+source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "utils",            "chrom_names.R"))
 source(file.path(.script_dir, "hotspot", "io.R"))
 source(file.path(.script_dir, "hotspot", "masking.R"))
@@ -74,8 +76,10 @@ parser$add_argument("--hits",             required = TRUE,
                     help = paste("Input events: catalog.csv (hotspot.input=catalog)",
                                  "or a raw-hit GFF3 track (hotspot.input=original)"))
 parser$add_argument("--config",           required = TRUE, help = "Project YAML config")
-parser$add_argument("--parquet_dir",      required = TRUE,
-                    help = "Output dir for pipeline-internal {species}.parquet / .manifest.yaml")
+parser$add_argument(
+  "--parquet_dir", required = TRUE,
+  help = "Output dir for pipeline-internal {species}.parquet / .manifest.yaml"
+)
 parser$add_argument("--csv_dir",          required = TRUE,
                     help = "Output dir for user-facing {species}.csv")
 parser$add_argument("--track_output_dir", required = TRUE,
@@ -157,11 +161,16 @@ log_job(args$log, "hotspot_detector")
 # rather than erroring - a missing covariate must not abort a detection run.
 .group_column <- function(hits, group_by) {
   if (identical(group_by, "none") ||
-      group_by %in% colnames(S4Vectors::mcols(hits))) {
+        group_by %in% colnames(S4Vectors::mcols(hits))) {
     return(group_by)
   }
-  log_warn("hotspot.group_by is '%s' but the input has no such column; pooling all loci instead",
-           group_by)
+  log_warn(
+    paste(
+      "hotspot.group_by is '%s' but the input has no such column;",
+      "pooling all loci instead"
+    ),
+    group_by
+  )
   "none"
 }
 
@@ -175,8 +184,10 @@ log_job(args$log, "hotspot_detector")
 # p-values: information, not something to act on.
 .log_fit_status <- function(label, status) {
   if (identical(status, "insufficient_data")) {
-    log_info("%s: too few non-zero windows to fit the model; its windows get NA p-values",
-             label)
+    log_info(
+      "%s: too few non-zero windows to fit the model; its windows get NA p-values",
+      label
+    )
   } else if (identical(status, "failed")) {
     log_warn(paste("%s: the NB GLM did not converge, so its windows get NA p-values;",
                    "a larger hotspot.window_size usually lets it fit"), label)
@@ -194,7 +205,7 @@ log_job(args$log, "hotspot_detector")
   .log_fit_status(label, fit$status)
 
   scored <- score_windows_nb(win_df, fit)
-  # Postprocess: select -> merge -> recompute -> min-hits
+  # Postprocess: select, then merge, then recompute, then apply min-hits.
   significant <- select_significant_windows(scored, opts$pvalue_threshold)
   merged      <- merge_adjacent_hotspots(significant, gap = opts$merge_gap)
   merged      <- recompute_merged_pvalue(merged, fit)
@@ -243,7 +254,8 @@ log_job(args$log, "hotspot_detector")
   if (length(all_hotspots) > 0L) {
     .comp <- S4Vectors::mcols(all_hotspots)
     log_info("composition: %d loci (full %d, partial %d, gene %d)",
-             sum(.comp$n_loci), sum(.comp$n_full), sum(.comp$n_partial), sum(.comp$n_gene))
+             sum(.comp$n_loci), sum(.comp$n_full), sum(.comp$n_partial),
+             sum(.comp$n_gene))
   }
   list(windows = all_windows_df, hotspots = all_hotspots)
 }
@@ -346,18 +358,24 @@ log_job(args$log, "hotspot_detector")
   key <- key_page(
     sprintf("Integration hotspots in %s", plot_species),
     paste(
-      sprintf(paste("Windows of the genome holding more %s loci than a negative binomial",
-                    "model expects, merged into hotspots (q below %s). %d hotspots were",
-                    "called. The composition page shows what each is made of."),
-              opts$input, format(opts$pvalue_threshold), length(result$hotspots)),
+      sprintf(
+        paste("Windows of the genome holding more %s loci than a negative binomial",
+              "model expects, merged into hotspots (q below %s). %d hotspots were",
+              "called. The composition page shows what each is made of."),
+        opts$input, format(opts$pvalue_threshold), length(result$hotspots)
+      ),
       if (length(untested)) {
-        sprintf("Too few loci to test: %s.", paste(display_label(untested), collapse = ", "))
-      }),
+        sprintf("Too few loci to test: %s.",
+                paste(display_label(untested), collapse = ", "))
+      }
+    ),
     colours = stats::setNames(unname(.STRUCTURE_COLOUR),
                               display_label(names(.STRUCTURE_COLOUR))),
-    pages = page_titles(pages))
+    pages = page_titles(pages)
+  )
   save_stage_pdf(c(list(key), pages),
-                 file.path(args$pdf_output_dir, paste0(inputs$species, ".hotspots.pdf")))
+                 file.path(args$pdf_output_dir,
+                           paste0(inputs$species, ".hotspots.pdf")))
 }
 
 # -----------------------------------------------------------------------------

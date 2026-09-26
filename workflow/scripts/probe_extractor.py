@@ -1,6 +1,4 @@
-"""
-Probe Extractor Script
-======================
+"""Probe extractor: fetch the probe sequences from NCBI and pickle them.
 
 This script parses a CSV table containing probe gene metadata, retrieves their
 corresponding sequences from an online database (e.g., NCBI GenBank), and serializes
@@ -52,23 +50,22 @@ logger = logging.getLogger(__name__)
 # 1. CSV Table Parser
 # =============================================================================
 def table_parser(input_csv_file: str | Path) -> dict[str, RetroSeeker]:
-    """
-    Parses a CSV file containing probe gene metadata and returns a dictionary of Object instances.
+    """Read the probe CSV into one RetroSeeker object per probe.
 
-        Parameters
-        ----------
-            :param input_csv_file: Path to the input CSV file containing probe metadata.
-                                   Expected columns: Label, Name, Abbreviation, Probe, Accession.
+    Each probe is upper-cased and given a random 6-character identifier. A
+    repeated accession keeps only its last row.
 
-        Returns
-        -------
-            :returns: probe_dict: A dictionary mapping accession IDs to `RetroSeeker` instances that encapsulate probe metadata.
+    Args:
+        input_csv_file: Path to the probe CSV. Expected columns: Label, Name,
+            Abbreviation, Probe, Accession.
 
-        Raises
-        ------
-            :raises FileNotFoundError: If the specified CSV file does not exist.
-            :raises pd.errors.ParserError: If the CSV content is malformed.
-            :raises KeyError: If required columns are missing from the CSV.
+    Returns:
+        A dictionary mapping each accession to its RetroSeeker object.
+
+    Raises:
+        FileNotFoundError: If the CSV file does not exist.
+        pandas.errors.ParserError: If the CSV content is malformed.
+        KeyError: If a required column is missing from the CSV.
     """
     # Read the CSV file into a DataFrame
     probe_table = pd.read_csv(input_csv_file)

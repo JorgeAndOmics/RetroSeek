@@ -134,14 +134,18 @@ def test_solo_thresholds_come_from_config_not_literals(project_root: Path) -> No
     ["pfam_subset_builder", "domain_scanner_setup", "domain_scanner"],
 )
 def test_domain_evidence_rule_present(project_root: Path, rule_name: str) -> None:
-    """The domain scan must stay in the workflow: without it every locus falls
-    back to domain_source=not_scanned."""
+    """The domain scan rule must stay in the workflow.
+
+    Without it every locus falls back to domain_source=not_scanned.
+    """
     assert rule_name in _all_rules(project_root)
 
 
 def test_domain_scan_does_not_rerun_ltrdigest(project_root: Path) -> None:
-    """ADR-015 keeps LTRdigest untouched. The scan must read the finished tracks,
-    never re-invoke gt ltrdigest, which costs ~24 h per genome."""
+    """The domain scan reads finished LTRdigest tracks, never reruns gt ltrdigest.
+
+    ADR-015 keeps LTRdigest untouched: rerunning it costs ~24 h per genome.
+    """
     text = (project_root / "workflow" / "Snakefile").read_text(encoding="utf-8")
     start = text.index("rule domain_scanner_setup:")
     end = text.index("rule domain_scanner:")
@@ -149,8 +153,11 @@ def test_domain_scan_does_not_rerun_ltrdigest(project_root: Path) -> None:
 
 
 def test_classification_consumes_the_domain_scan(project_root: Path) -> None:
-    """Both tiers must be wired to the scan, or orphans silently regress to the
-    hard-coded non_domain default this ADR removed."""
+    """Both classification tiers must be wired to the domain scan.
+
+    Otherwise orphans silently regress to the hard-coded non_domain default
+    this ADR removed.
+    """
     text = (project_root / "workflow" / "Snakefile").read_text(encoding="utf-8")
     assert text.count("--domains-parquet") == 2
     assert text.count("--domains-scanned") == 2
@@ -162,8 +169,11 @@ def _rule_block(project_root: Path, start: str, end: str) -> str:
 
 
 def test_pfam_download_is_pinned_to_a_release(project_root: Path) -> None:
-    """`current_release` changes under our feet: an older download once lacked 6
-    accessions of the curated table and stopped the domain scan (ADR-019)."""
+    """The Pfam download must name a fixed release, not `current_release`.
+
+    `current_release` changes under our feet: an older download once lacked 6
+    accessions of the curated table and stopped the domain scan (ADR-019).
+    """
     downloader = _rule_block(
         project_root, "rule pfam_hmm_downloader:", "rule pfam_release_recorder:"
     )
@@ -172,8 +182,11 @@ def test_pfam_download_is_pinned_to_a_release(project_root: Path) -> None:
 
 
 def test_pfam_downloader_outputs_are_unchanged(project_root: Path) -> None:
-    """A new output would rerun the downloader, and a new Pfam-A.hmm makes every
-    LTRdigest output stale (about a day per genome)."""
+    """The Pfam downloader keeps exactly its two outputs.
+
+    A new output would rerun the downloader, and a new Pfam-A.hmm makes every
+    LTRdigest output stale (about a day per genome).
+    """
     downloader = _rule_block(
         project_root, "rule pfam_hmm_downloader:", "rule pfam_release_recorder:"
     )
@@ -202,8 +215,11 @@ def test_pfam_release_record_is_made_with_the_domain_scan(project_root: Path) ->
 
 
 def test_retired_domain_regex_config_is_gone(project_root: Path) -> None:
-    """`config.domains` and `parameters.hit_domain_mode` were retired by ADR-015;
-    a reintroduced block would silently resurrect the name-regex labelling."""
+    """The retired domain regex settings stay out of the config and schema.
+
+    `config.domains` and `parameters.hit_domain_mode` were retired by ADR-015;
+    a reintroduced block would silently resurrect the name-regex labelling.
+    """
     config = (project_root / "data" / "config" / "config.yaml").read_text(
         encoding="utf-8"
     )
@@ -431,9 +447,12 @@ def test_solo_blaster_threads_are_configurable(project_root: Path) -> None:
 
 
 def test_heavy_rules_keep_their_commands(project_root: Path) -> None:
-    """Heavy rules (and the blast checkpoint) must not change: a changed command
-    reruns them on every genome, about a day each for LTRdigest (ADR-020/021).
-    The per-job log layout is therefore added to every rule except these."""
+    """Heavy rules (and the blast checkpoint) keep their shell commands unchanged.
+
+    A changed command reruns them on every genome, about a day each for
+    LTRdigest (ADR-020/021). The per-job log layout is therefore added to every
+    rule except these.
+    """
     text = _read_snakefile(project_root)
     for rule in sorted(stages.HEAVY_RULES):
         start = re.search(rf"^(?:rule|checkpoint) {rule}:", text, flags=re.MULTILINE)

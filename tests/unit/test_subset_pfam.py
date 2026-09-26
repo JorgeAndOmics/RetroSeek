@@ -133,8 +133,11 @@ def test_empty_table_is_an_error_not_an_empty_library(
 
 
 def test_name_map_covers_every_model(hmm_file: Path, tmp_path: Path) -> None:
-    """The map is built from the FULL library: it must resolve LTRdigest names
-    for families that are not in the curated subset."""
+    """The name map covers every model in the full Pfam library.
+
+    It must resolve LTRdigest names for families that are not in the curated
+    subset.
+    """
     out = tmp_path / "names.tsv"
     n = subset_pfam.write_name_map(hmm_file, out)
     assert n == 3

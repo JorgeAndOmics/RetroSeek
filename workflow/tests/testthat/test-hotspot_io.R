@@ -37,23 +37,26 @@ test_that("read_hotspot_options returns documented defaults when the config is e
   expect_equal(opts$unplaced_min_factor, 10L)
 })
 
-test_that("read_hotspot_options reads operational knobs from the top-level hotspot section", {
-  config <- list(
-    parameters = list(seed = 1234),
-    hotspot = list(
-      input                = "original",
-      window_size          = 5000,
-      merge_gap            = 100,
-      strata_by_chromosome = FALSE
+test_that(
+  "read_hotspot_options reads operational knobs from the top-level hotspot section",
+  {
+    config <- list(
+      parameters = list(seed = 1234),
+      hotspot = list(
+        input                = "original",
+        window_size          = 5000,
+        merge_gap            = 100,
+        strata_by_chromosome = FALSE
+      )
     )
-  )
-  opts <- read_hotspot_options(config)
-  expect_equal(opts$seed, 1234L)            # seed still comes from parameters
-  expect_equal(opts$input, "original")
-  expect_equal(opts$window_size, 5000L)
-  expect_equal(opts$merge_gap, 100L)
-  expect_false(opts$strata_by_chromosome)
-})
+    opts <- read_hotspot_options(config)
+    expect_equal(opts$seed, 1234L)            # seed still comes from parameters
+    expect_equal(opts$input, "original")
+    expect_equal(opts$window_size, 5000L)
+    expect_equal(opts$merge_gap, 100L)
+    expect_false(opts$strata_by_chromosome)
+  }
+)
 
 
 # --------------------------- assert_hits_on_genome --------------------------
@@ -68,14 +71,17 @@ test_that("assert_hits_on_genome aborts on a GenBank-vs-RefSeq accession mismatc
                regexp = "map to a genome contig")
 })
 
-test_that("assert_hits_on_genome passes (frac == 1) when hit seqnames match the genome", {
-  hits <- GenomicRanges::GRanges(
-    seqnames = c("CM040288.1", "CM040289.1"),
-    ranges   = IRanges::IRanges(start = c(100, 500), end = c(200, 600))
-  )
-  seqlengths <- c("CM040288.1" = 1e6, "CM040289.1" = 2e6)
-  expect_equal(assert_hits_on_genome(hits, seqlengths), 1)
-})
+test_that(
+  "assert_hits_on_genome passes (frac == 1) when hit seqnames match the genome",
+  {
+    hits <- GenomicRanges::GRanges(
+      seqnames = c("CM040288.1", "CM040289.1"),
+      ranges   = IRanges::IRanges(start = c(100, 500), end = c(200, 600))
+    )
+    seqlengths <- c("CM040288.1" = 1e6, "CM040289.1" = 2e6)
+    expect_equal(assert_hits_on_genome(hits, seqlengths), 1)
+  }
+)
 
 
 # --------------------------- load_hits_gff (label assertion) ---------------
@@ -134,7 +140,8 @@ test_that("load_hits_gff returns the imported GRanges when label is present", {
 }
 
 test_that("load_catalog_loci matches a genome stem to its display name", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   path <- .write_catalog(tmp)
   gr <- load_catalog_loci(path, "Mus_musculus",
                           list(Mus_musculus = "Mus musculus"), "both")
@@ -144,7 +151,8 @@ test_that("load_catalog_loci matches a genome stem to its display name", {
 })
 
 test_that("load_catalog_loci filters to the requested tier", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   path <- .write_catalog(tmp)
   gr <- load_catalog_loci(path, "Mus_musculus",
                           list(Mus_musculus = "Mus musculus"), "ltr-flanked")
@@ -154,14 +162,16 @@ test_that("load_catalog_loci filters to the requested tier", {
 
 test_that("load_catalog_loci counts one row per locus, not per gene", {
   # The whole point of ADR-012: a multi-gene provirus is ONE event here.
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   gr <- load_catalog_loci(.write_catalog(tmp), "Mus_musculus",
                           list(Mus_musculus = "Mus musculus"), "both")
   expect_equal(length(gr), nrow(unique(as.data.frame(gr)[, c("seqnames", "start")])))
 })
 
 test_that("load_catalog_loci fails loud when a genome matches no rows", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   path <- .write_catalog(tmp)
   # Silence here would be indistinguishable from 'this genome has no ERVs'.
   expect_error(load_catalog_loci(path, "Gallus_gallus", NULL, "both"),
@@ -169,7 +179,8 @@ test_that("load_catalog_loci fails loud when a genome matches no rows", {
 })
 
 test_that("load_catalog_loci fails loud when the tier is empty", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   path <- .write_catalog(tmp)
   expect_error(
     load_catalog_loci(path, "Homo_sapiens", list(Homo_sapiens = "Homo sapiens"),

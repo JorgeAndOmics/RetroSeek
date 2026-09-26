@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot / models.R
+# Module hotspot/models.R
 # -----------------------------------------------------------------------------
 # Per-label enrichment model: a Negative-Binomial GLM on per-window counts,
 # mask-aware via an offset and optionally chromosome-stratified.
@@ -49,7 +49,7 @@ suppressMessages({
     warning = function(w) {
       msg <- conditionMessage(w)
       if (grepl("iteration limit reached", msg, ignore.case = TRUE) ||
-          grepl("alternation limit reached", msg, ignore.case = TRUE)) {
+            grepl("alternation limit reached", msg, ignore.case = TRUE)) {
         caught_theta_warning <<- TRUE
       }
       invokeRestart("muffleWarning")

@@ -1,4 +1,4 @@
-"""Guard: every tracked text file must be ASCII-only.
+r"""Guard: every tracked text file must be ASCII-only.
 
 This is not style policing. `yaml::read_yaml` -> `readLines` HALTS on a byte that
 is invalid in the read encoding and returns the file TRUNCATED at that point, with
@@ -12,7 +12,7 @@ The only exemptions are proper nouns: people, labs and cited authors. A name is
 data, not punctuation, and none sits on a parsing path. They are matched as
 SUBSTRINGS, so a stray accented letter outside a name is still caught.
 
-NOTE: the allowlist below is written with \\u escapes so that THIS file stays
+NOTE: the allowlist below is written with \u escapes so that THIS file stays
 pure ASCII and satisfies its own invariant.
 """
 
@@ -102,7 +102,10 @@ def test_config_files_are_strictly_ascii_with_no_exemptions() -> None:
 
 @pytest.mark.parametrize("noun", ALLOWED_PROPER_NOUNS)
 def test_allowlist_entries_are_still_used(noun: str) -> None:
-    """A stale allowlist entry silently widens the exemption - drop it when the
-    name it protects is gone."""
+    """Every allowlist entry still appears somewhere in the repo.
+
+    A stale entry silently widens the exemption: drop it when the name it
+    protects is gone.
+    """
     used = any(noun in p.read_text(encoding="utf-8") for p in _tracked_text_files())
     assert used, f"allowlist entry {noun!r} no longer appears in the repo; remove it"

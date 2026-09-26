@@ -9,10 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Code-quality measurement**: Qlty (`.qlty/qlty.toml`) checks Python and shell and
-  measures function complexity against a limit of 8; `make lint-r` runs lintr with
-  the same limit on the R sources (`.lintr.R`). Measurement only: no existing
-  code was changed.
+- **Code-quality gates**: Qlty (`.qlty/qlty.toml`) measures function complexity
+  against a limit of 8, and every function in `workflow/scripts` (Python and R)
+  now meets it. `make check` also runs lintr on the R sources (`.lintr.R`, zero
+  findings) and ruff's Google-style docstring rules, and `make test-py` enforces
+  a coverage floor (68%). Every refactor behind this was checked against the
+  model genomes' outputs: identical tables, tracks and rendered figures.
+- The hotspot detector has an end-to-end test on a toy genome, replacing a test
+  that was always skipped.
 - **Phylogenetic placement evidence is now published** (ADR-014). EPA-ng places
   every locus onto the retroviral reference tree on each run; the resulting
   `.jplace` was written into `data/tmp/`, documented as cleared between runs.
@@ -41,6 +45,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BLAST hits could overwrite each other.** Each hit was keyed by its accession
+  and six random characters; a repeated draw on one chromosome replaced the
+  earlier hit without a word (about 2 hits expected lost across the model
+  genomes, nearly all in *Mus musculus*). Identifiers are now unique per genome.
+- A gappa table whose header lacks `name`, `taxopath` and `aLWR`/`LWR` now stops
+  the classification instead of being read from the wrong columns; unreadable
+  confidences are reported instead of silently read as 0.
+- Unreadable or short rows in a solo-LTR list are reported instead of dropped in
+  silence.
+- LTR-flanked annotation no longer crashes when a genome has candidate hits but no
+  LTR element.
+- Probe categories (main, accessory, mixed) are computed for the whole column at
+  once: 300 times faster on list-aggregated columns, same values.
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
   `green_light` called bare `input()`, so a run with no terminal attached (CI, a
   scheduler, `nohup`) died with `EOFError` before Snakemake started. Both now use

@@ -32,7 +32,8 @@
   # Strata stack in factor order, first level on top.
   axis_levels <- function(axis) {
     values <- as.character(data[[axis]])
-    if (!identical(axis, "species")) return(order_by_count(data, axis, weight = "count"))
+    if (!identical(axis, "species"))
+      return(order_by_count(data, axis, weight = "count"))
     top_first <- rev(species_order(values, ctx$species_tree, ctx$species_order))
     kept <- top_first[top_first %in% values]
     c(kept[!grepl("^Other", kept)], kept[grepl("^Other", kept)])
@@ -68,22 +69,29 @@
 sankey_species_probe_plot <- function(data, top_n = NULL, other_label = "Other",
                                       subset_label = NULL, ctx = NULL, colours = NULL) {
   if (is.null(colours)) colours <- probe_colours(data$probe)
-  .sankey_two_axis(data, "species", "probe", fill_axis = "probe",
-                   colours = colours, axis_titles = c("Host", "Probe"),
-                   top_n = top_n, other_label = other_label,
-                   title    = "From hosts to probes",
-                   subtitle = "Merged ranges from each host to the probe that found them, coloured by probe.",
-                   subset_label = subset_label, ctx = ctx)
+  .sankey_two_axis(
+    data, "species", "probe", fill_axis = "probe",
+    colours = colours, axis_titles = c("Host", "Probe"),
+    top_n = top_n, other_label = other_label,
+    title    = "From hosts to probes",
+    subtitle =
+      "Merged ranges from each host to the probe that found them, coloured by probe.",
+    subset_label = subset_label, ctx = ctx
+  )
 }
 
 
 sankey_label_probe_plot <- function(data, top_n = NULL, other_label = "Other",
                                     subset_label = NULL, ctx = NULL, colours = NULL) {
   .sankey_two_axis(data, "label", "probe", fill_axis = "label",
-                   colours = taxon_colours(data$label), axis_titles = c("Lineage", "Probe"),
+                   colours = taxon_colours(data$label),
+                   axis_titles = c("Lineage", "Probe"),
                    top_n = top_n, other_label = other_label,
                    title    = "From lineages to probes",
-                   subtitle = "Merged ranges from each lineage to the probe that found them, coloured by lineage.",
+                   subtitle = paste(
+                     "Merged ranges from each lineage to the probe that found them,",
+                     "coloured by lineage."
+                   ),
                    subset_label = subset_label, ctx = ctx)
 }
 
@@ -91,9 +99,13 @@ sankey_label_probe_plot <- function(data, top_n = NULL, other_label = "Other",
 sankey_species_label_plot <- function(data, top_n = NULL, other_label = "Other",
                                       subset_label = NULL, ctx = NULL, colours = NULL) {
   .sankey_two_axis(data, "species", "label", fill_axis = "label",
-                   colours = taxon_colours(data$label), axis_titles = c("Host", "Lineage"),
+                   colours = taxon_colours(data$label),
+                   axis_titles = c("Host", "Lineage"),
                    top_n = top_n, other_label = other_label,
                    title    = "From hosts to lineages",
-                   subtitle = "Merged ranges from each host to the lineage of the probe virus, coloured by lineage.",
+                   subtitle = paste(
+                     "Merged ranges from each host to the lineage of the probe virus,",
+                     "coloured by lineage."
+                   ),
                    subset_label = subset_label, ctx = ctx)
 }

@@ -23,8 +23,8 @@ test_that("extract_region_fasta cuts the right span and respects strand", {
   )
   out <- extract_region_fasta(genome, bed)
   expect_equal(names(out), c("plus", "minus"))
-  expect_equal(as.character(out[["plus"]]), "AAAA")             # [1,4] forward
-  expect_equal(as.character(out[["minus"]]), "GGGG")            # [5,8]=CCCC -> revcomp GGGG
+  expect_equal(as.character(out[["plus"]]), "AAAA")   # [1,4] forward
+  expect_equal(as.character(out[["minus"]]), "GGGG")  # [5,8]=CCCC -> revcomp GGGG
 })
 
 test_that("extract_region_fasta is empty-safe", {

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot / postprocess.R
+# Module hotspot/postprocess.R
 # -----------------------------------------------------------------------------
 # Convert per-window scored tibbles into hotspot regions:
 #   1. Select windows whose qval is below threshold.
@@ -252,7 +252,7 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 #' Numeric confidence at the overlapping loci; NULL when the column is absent.
 .locus_confidence <- function(mc, locus_i) {
   if (!"confidence" %in% colnames(mc)) return(NULL)
-  suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: blank -> NA
+  suppressWarnings(as.numeric(mc$confidence[locus_i]))  # orphans: a blank becomes NA
 }
 
 #' A loci column at the overlapping loci, as character; NULL when absent.

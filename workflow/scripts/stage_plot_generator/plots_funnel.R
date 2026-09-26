@@ -30,7 +30,8 @@ refinement_funnel_plot <- function(counts_df, subset_label = NULL,
   add_titles(
     p,
     title    = "The refinement funnel per genome",
-    subtitle = "Ranges left after quality filtering, the first reduction, and the LTR overlap.",
+    subtitle =
+      "Ranges left after quality filtering, the first reduction, and the LTR overlap.",
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

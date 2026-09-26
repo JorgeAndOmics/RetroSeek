@@ -1,4 +1,4 @@
-"""Per-genome phylogenetic figures and quality tables from placement evidence.
+r"""Per-genome phylogenetic figures and quality tables from placement evidence.
 
 Consumes the published `.jplace` files (see `taxonomy_placement.export_placement`)
 and turns each into figures that answer questions the catalog cannot:
@@ -27,8 +27,7 @@ is unreadable past a few hundred (Mus musculus places 5,690 in the LTR-flanked
 tier alone). Heat-trees accumulate mass onto branches and stay legible at any
 count.
 
-The empty case matters
-----------------------
+The empty case matters:
 ``gappa examine heat-tree`` does not return quietly on a placement-free file. It
 aborts with ``Invalid Color Normalization with min >= max`` and dumps core,
 because it builds a colour scale from an empty mass range. A genome can
@@ -36,12 +35,10 @@ legitimately place nothing, so every gappa call is gated on the placement count
 and an empty-state SVG is written instead - the same idea as ``empty_plot()`` in
 the R plot generators.
 
-CLI
----
-::
+Command line:
 
-    python placement_figures.py \\
-        --jplace <path> --out-dir <dir> --stem <genome>.<tier>.<gene> \\
+    python placement_figures.py \
+        --jplace <path> --out-dir <dir> --stem <genome>.<tier>.<gene> \
         [--mass-norm absolute|relative] [--skip-edpl] [--skip-lwr]
 """
 

@@ -15,6 +15,8 @@
 # through; the unit tests, built on a real 9.24 dry run, flag that change.
 # =============================================================================
 
+"""The heavy-rule guard (ADR-020): stop a run that would wake a heavy rule."""
+
 from __future__ import annotations
 
 import re

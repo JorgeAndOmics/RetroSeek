@@ -1,6 +1,4 @@
-"""
-Phylogenetic placement of marker sequences (POL/GAG) onto a reference tree
-=========================================================================
+"""Phylogenetic placement of marker sequences (POL/GAG) onto a reference tree.
 
 `place()` takes a batch of per-locus marker proteins for one gene plus that gene's
 pinned tree package, and returns a taxon call (+ rank + confidence + taxopath) per
@@ -21,6 +19,7 @@ import json
 import logging
 import re
 import shutil
+from collections.abc import Iterable
 from pathlib import Path
 
 import taxonomy_lca as tlca
@@ -103,8 +102,11 @@ def _align_queries(
 
 
 def _confidence(fields: list[str], conf_i: int | None) -> float | None:
-    """The row's confidence as a number: 0 when the column is absent, None when
-    the cell is there but not a number."""
+    """The row's confidence as a number, 0 when absent, None when unreadable.
+
+    It is 0 when the column (or the cell) is absent, and None when the cell is
+    there but not a number.
+    """
     if conf_i is None or conf_i >= len(fields):
         return 0.0
     try:
@@ -113,34 +115,53 @@ def _confidence(fields: list[str], conf_i: int | None) -> float | None:
         return None
 
 
+def _gappa_columns(header: list[str], per_query_tsv: Path) -> tuple[int, int, int]:
+    """Indices of the name, taxopath and confidence (aLWR, else LWR) columns.
+
+    Raises PipelineError when one is missing: a renamed column would otherwise
+    read the wrong field, or give every placement confidence 0, without an error.
+    """
+    idx = {name: i for i, name in enumerate(header)}
+    if not {"name", "taxopath"} <= idx.keys() or not {"aLWR", "LWR"} & idx.keys():
+        raise PipelineError(
+            f"{per_query_tsv} lacks the name, taxopath and aLWR/LWR columns "
+            f"(header: {' '.join(header)})",
+            hint="the gappa version may have changed its per-query output",
+        )
+    conf_i = idx["aLWR"] if "aLWR" in idx else idx["LWR"]  # prefer aLWR
+    return idx["name"], idx["taxopath"], conf_i
+
+
+def _gappa_rows(
+    lines: Iterable[str], name_i: int, path_i: int, conf_i: int
+) -> tuple[dict[str, tuple[str, float]], int]:
+    """query_id -> (taxopath, confidence), and how many confidences were unreadable.
+
+    An unreadable confidence reads as 0, so the placement still counts but never
+    looks confident. Rows too short to hold the taxopath are skipped.
+    """
+    out: dict[str, tuple[str, float]] = {}
+    unreadable = 0
+    for line in lines:
+        f = line.rstrip("\n").split("\t")
+        if len(f) <= path_i:
+            continue
+        conf = _confidence(f, conf_i)
+        unreadable += conf is None
+        out[f[name_i]] = (f[path_i], 0.0 if conf is None else conf)
+    return out, unreadable
+
+
 def _parse_gappa(per_query_tsv: Path) -> dict[str, tuple[str, float]]:
     """Parse gappa examine assign output -> query_id -> (taxopath, confidence)."""
-    out: dict[str, tuple[str, float]] = {}
     if not per_query_tsv.exists():
-        return out
+        return {}
     with per_query_tsv.open(encoding="utf-8") as fh:
         header = fh.readline().rstrip("\n").split("\t")
-        idx = {name: i for i, name in enumerate(header)}
-        # A renamed column would otherwise read the wrong field, or give every
-        # placement confidence 0, without an error.
-        if not {"name", "taxopath"} <= idx.keys() or not {"aLWR", "LWR"} & idx.keys():
-            raise PipelineError(
-                f"{per_query_tsv} lacks the name, taxopath and aLWR/LWR columns "
-                f"(header: {' '.join(header)})",
-                hint="the gappa version may have changed its per-query output",
-            )
-        name_i, path_i = idx["name"], idx["taxopath"]
-        conf_i = idx.get("aLWR", idx.get("LWR"))  # prefer aLWR, then LWR
-        unreadable = 0
-        for line in fh:
-            f = line.rstrip("\n").split("\t")
-            if len(f) > path_i:
-                conf = _confidence(f, conf_i)
-                unreadable += conf is None
-                out[f[name_i]] = (f[path_i], 0.0 if conf is None else conf)
+        columns = _gappa_columns(header, per_query_tsv)
+        out, unreadable = _gappa_rows(fh, *columns)
     if unreadable:
-        # Read as 0, so the placement still counts but never looks confident;
-        # the warning keeps a changed gappa format from passing unnoticed.
+        # The warning keeps a changed gappa format from passing unnoticed.
         logger.warning(
             "%s: %d of %d placements have a confidence that is not a number; read as 0",
             per_query_tsv.name,
@@ -223,8 +244,7 @@ def _epa_then_gappa(
 def place(
     queries: dict[str, str], ref_dir: Path, gene: str, workdir: Path
 ) -> dict[str, dict[str, str]]:
-    """
-    Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
+    """Place query markers for `gene`; return query_id -> {taxon_call, rank, confidence}.
 
     taxon_call = deepest node of the assigned taxopath that is in the taxonomy
     (an axis taxon if resolved, else a higher rank); rank via taxonomy_lca.rank_of.

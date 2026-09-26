@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / validation.R
+# Module ranges/validation.R
 # -----------------------------------------------------------------------------
 # Refinement steps applied to the reduced BLAST GRanges:
 #
@@ -112,13 +112,16 @@ annotate_ltr_flanked_hits <- function(gr_candidates, retrotransposons) {
     return(gr_candidates)
   }
 
-  ov    <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons, ignore.strand = FALSE)
+  ov    <- GenomicRanges::findOverlaps(gr_candidates, retrotransposons,
+                                       ignore.strand = FALSE)
   qhits <- S4Vectors::queryHits(ov)
   shits <- S4Vectors::subjectHits(ov)
   ov_widths <- IRanges::width(GenomicRanges::pintersect(
-    gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE))
+    gr_candidates[qhits], retrotransposons[shits], ignore.strand = TRUE
+  ))
   S4Vectors::mcols(gr_candidates)$Parent <- .widest_overlap(
-    qhits, ov_widths, as.character(retrotransposons$ID)[shits], length(gr_candidates))
+    qhits, ov_widths, as.character(retrotransposons$ID)[shits], length(gr_candidates)
+  )
   gr_candidates
 }
 

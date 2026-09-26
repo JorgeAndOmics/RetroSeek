@@ -1,7 +1,6 @@
-"""Normalize genome FASTA filenames to canonical ``{genome}.fa`` via symlink.
+r"""Normalize genome FASTA filenames to canonical ``{genome}.fa`` via symlink.
 
-Why this exists
----------------
+Why this exists:
 Genome FASTAs arrive at RetroSeek with several plausible extensions:
 ``.fa`` (legacy), ``.fna`` (NCBI Datasets - the common case), ``.fasta``
 (manual download convention), and ``.ffn`` (older GenBank exports).
@@ -15,8 +14,7 @@ Strategy: symlink. Repeat invocations are idempotent - a correct
 symlink is left in place; a stale one is replaced atomically. A real
 ``.fa`` file is never overwritten.
 
-Ambiguity policy
-----------------
+Ambiguity policy:
 Extension preference, in order: ``fa`` > ``fna`` > ``fasta`` > ``ffn``.
 
 If ``.fa`` is absent and *exactly one* of the other three is present,
@@ -27,12 +25,10 @@ Silent preference would mask the case where a working `.fna` from
 NCBI Datasets accidentally coexists with an older `.fasta` from a
 prior pipeline that pointed at a different genome.
 
-CLI
----
-::
+Command line:
 
-    python genome_fasta_normalizer.py \\
-        --genome-name <str> \\
+    python genome_fasta_normalizer.py \
+        --genome-name <str> \
         --species-dir <path>     # SPECIES_DB
         --output <path>          # SPECIES_DB / {genome}.fa
 """
@@ -56,12 +52,18 @@ def pick_canonical_source(species_dir: Path, genome: str) -> Path:
     Walks ``EXT_PREFERENCE`` in order. ``.fa`` always wins when present.
     For the non-``.fa`` extensions, refuses if more than one is present.
 
-    Raises
-    ------
-    FileNotFoundError
-        No file with any of the four extensions exists for ``genome``.
-    RuntimeError
-        Two or more non-``.fa`` variants coexist (user must disambiguate).
+    Args:
+        species_dir: The folder that holds the genome FASTA files.
+        genome: The genome name, which is the FASTA file's stem.
+
+    Returns:
+        The path of the FASTA file to link ``{genome}.fa`` to.
+
+    Raises:
+        FileNotFoundError: If no file with any of the four extensions exists
+            for ``genome``.
+        RuntimeError: If two or more non-``.fa`` variants coexist (the user
+            must disambiguate).
     """
     fa_path = species_dir / f"{genome}.fa"
     if fa_path.exists():

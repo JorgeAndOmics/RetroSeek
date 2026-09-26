@@ -100,8 +100,11 @@ class TestRankOf:
 
 
 class TestMixedRankAxis:
-    """Rank-agnostic LCA (ADR-008): the engine resolves axis taxa at whatever rank
-    they sit, and backs off to their true common ancestor across ranks."""
+    """Rank-agnostic LCA (ADR-008) over an axis that mixes ranks.
+
+    The engine resolves axis taxa at whatever rank they sit, and backs off to
+    their true common ancestor across ranks.
+    """
 
     def test_family_and_genus_axis_resolve_each_at_own_rank(self, tmp_path) -> None:
         # An axis spanning a non-retroviral family (Bornaviridae) and a retroviral

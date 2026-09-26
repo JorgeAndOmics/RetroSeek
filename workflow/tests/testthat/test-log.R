@@ -163,7 +163,9 @@ test_that("a multi-line warning becomes one line, so it counts once", {
   withr::local_envvar(RETROSEEK_VERBOSITY = "normal")
   log_setup("s", "g")
   out <- .capture_stderr(run_main(function() {
-    warning("Each of the 2 combined objects has sequence levels not in the other:\n  - in 'x': chr9\n  Make sure to always combine objects based on the same reference")
+    warning("Each of the 2 combined objects has sequence levels not in the other:
+  - in 'x': chr9
+  Make sure to always combine objects based on the same reference")
   }, quit_on_error = FALSE))
   warns <- grep(" WARN ", out, value = TRUE)
   expect_length(warns, 1)

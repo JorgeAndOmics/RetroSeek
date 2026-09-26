@@ -119,6 +119,7 @@ class Candidate:
 
     @property
     def length(self) -> int:
+        """Candidate length in bp (both ends inclusive)."""
         return self.end - self.start + 1
 
     def absorb(self, hit: Hit) -> None:
@@ -145,6 +146,8 @@ class ClassifiedCandidate:
 
 @dataclass
 class Result:
+    """The classified candidates of one genome and the funnel counts behind them."""
+
     candidates: list[ClassifiedCandidate]
     funnel: Counter[str]
 
@@ -514,6 +517,10 @@ def count_intact_loci(loci_csv: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: call one genome's solo LTRs and write every output.
+
+    Writes the solo list, the candidate tables, the funnel and the manifest.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--hits", type=Path, required=True, help="gzipped blastn tabular output"

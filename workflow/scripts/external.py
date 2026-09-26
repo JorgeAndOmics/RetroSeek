@@ -10,6 +10,8 @@
 # launcher parses (ADR-021).
 # =============================================================================
 
+"""Run an external tool, stopping with a PipelineError when it fails."""
+
 from __future__ import annotations
 
 import logging
@@ -29,8 +31,17 @@ def run_tool(
 ) -> subprocess.CompletedProcess[str]:
     """Run `cmd` and return its result, or stop with a PipelineError.
 
-    :param cmd: the command, tool first.
-    :param stdout: a file to write the tool's output to; captured when None.
+    Args:
+        cmd: The command, tool first.
+        stdout: A file to write the tool's output to; captured when None.
+
+    Returns:
+        The finished process, with the tool's output in `stdout` when it was
+        captured.
+
+    Raises:
+        PipelineError: If the tool is not installed or exits with a non-zero
+            code; its error output then goes to the job log.
     """
     try:
         result = subprocess.run(

@@ -39,32 +39,38 @@ source(file.path(.script_dir, "granges_build.R"))
 }
 
 
-test_that("build_blast_gr attaches per-hit query_coverage when probe_lengths provided", {
-  blast_df <- .fake_blast_df(
-    viruses   = c("ALV", "RSV"),
-    probes    = c("POL", "POL"),
-    align_len = c(100L, 200L)
-  )
-  probe_lengths <- c("ALV|POL" = 500L, "RSV|POL" = 1000L)
-  gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
-  qcov <- S4Vectors::mcols(gr)$query_coverage
+test_that(
+  "build_blast_gr attaches per-hit query_coverage when probe_lengths provided",
+  {
+    blast_df <- .fake_blast_df(
+      viruses   = c("ALV", "RSV"),
+      probes    = c("POL", "POL"),
+      align_len = c(100L, 200L)
+    )
+    probe_lengths <- c("ALV|POL" = 500L, "RSV|POL" = 1000L)
+    gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
+    qcov <- S4Vectors::mcols(gr)$query_coverage
 
-  expect_length(qcov, 2L)
-  expect_equal(qcov[1], 100 / 500)   # 0.2
-  expect_equal(qcov[2], 200 / 1000)  # 0.2
-})
+    expect_length(qcov, 2L)
+    expect_equal(qcov[1], 100 / 500)   # 0.2
+    expect_equal(qcov[2], 200 / 1000)  # 0.2
+  }
+)
 
 
-test_that("query_coverage is clamped to [0, 1] when align_length exceeds probe length", {
-  blast_df <- .fake_blast_df(
-    viruses   = c("ALV"),
-    probes    = c("POL"),
-    align_len = c(5000L)            # absurdly large vs probe
-  )
-  probe_lengths <- c("ALV|POL" = 500L)
-  gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
-  expect_equal(S4Vectors::mcols(gr)$query_coverage, 1)
-})
+test_that(
+  "query_coverage is clamped to [0, 1] when align_length exceeds probe length",
+  {
+    blast_df <- .fake_blast_df(
+      viruses   = c("ALV"),
+      probes    = c("POL"),
+      align_len = c(5000L)            # absurdly large vs probe
+    )
+    probe_lengths <- c("ALV|POL" = 500L)
+    gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
+    expect_equal(S4Vectors::mcols(gr)$query_coverage, 1)
+  }
+)
 
 
 test_that("query_coverage is NA for (virus, probe) keys missing from probe_lengths", {
@@ -106,7 +112,7 @@ test_that("query_coverage matches the (virus, probe) key on heterogeneous input"
   )
   gr <- build_blast_gr(blast_df, probe_lengths = probe_lengths)
   qcov <- S4Vectors::mcols(gr)$query_coverage
-  expect_equal(qcov, c(50/500, 75/300, 60/400, 90/900))
+  expect_equal(qcov, c(50 / 500, 75 / 300, 60 / 400, 90 / 900))
 })
 
 
@@ -133,13 +139,16 @@ source(file.path(.script_dir, "validation.R"))
   list(retros = retros, candidates = candidates)
 }
 
-test_that("annotate_ltr_flanked_hits keeps all candidates and attaches greatest-overlap Parent", {
-  f <- .parent_fixture()
-  out <- annotate_ltr_flanked_hits(f$candidates, f$retros)
-  expect_equal(length(out), length(f$candidates))   # nothing discarded
-  expect_equal(as.character(S4Vectors::mcols(out)$Parent),
-               c("retroA", "retroA", "retroB", "retroC"))
-})
+test_that(
+  "annotate_ltr_flanked_hits keeps all candidates and attaches greatest-overlap Parent",
+  {
+    f <- .parent_fixture()
+    out <- annotate_ltr_flanked_hits(f$candidates, f$retros)
+    expect_equal(length(out), length(f$candidates))   # nothing discarded
+    expect_equal(as.character(S4Vectors::mcols(out)$Parent),
+                 c("retroA", "retroA", "retroB", "retroC"))
+  }
+)
 
 test_that("annotate_ltr_flanked_hits emits no domain label", {
   # The catalog owns domain_tier now; a second one here would be a trap.
@@ -253,8 +262,8 @@ test_that("cluster_orphan_hits flags clusters wider than the max-provirus cap", 
     "chr1", IRanges::IRanges(c(100, 150), c(5000, 5100)), strand = "+",
     probe = c("POL", "GAG")
   )
-  over  <- cluster_orphan_hits(hits, max_provirus_len = 1000L)     # span > cap
-  under <- cluster_orphan_hits(hits, max_provirus_len = 100000L)   # span < cap
+  over  <- cluster_orphan_hits(hits, max_provirus_len = 1000L)     # span above the cap
+  under <- cluster_orphan_hits(hits, max_provirus_len = 100000L)   # span below the cap
   expect_true(all(as.character(S4Vectors::mcols(over)$oversized)  == "True"))
   expect_true(all(as.character(S4Vectors::mcols(under)$oversized) == "False"))
 })
@@ -284,17 +293,23 @@ source(file.path(.script_dir, "io.R"))
   ))
 }
 
-test_that("read_pipeline_options accepts a config with probe_min_length + main_probes", {
-  opts <- read_pipeline_options(.min_valid_config())
-  expect_equal(unname(opts$probe_min_length[["POL"]]), 400L)
-  expect_equal(opts$main_probes, c("POL", "GAG"))
-})
+test_that(
+  "read_pipeline_options accepts a config with probe_min_length + main_probes",
+  {
+    opts <- read_pipeline_options(.min_valid_config())
+    expect_equal(unname(opts$probe_min_length[["POL"]]), 400L)
+    expect_equal(opts$main_probes, c("POL", "GAG"))
+  }
+)
 
-test_that("read_pipeline_options STOPS when probe_min_length is missing (truncated config)", {
-  cfg <- .min_valid_config()
-  cfg$parameters$probe_min_length <- NULL          # emulate truncation above this key
-  expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
-})
+test_that(
+  "read_pipeline_options STOPS when probe_min_length is missing (truncated config)",
+  {
+    cfg <- .min_valid_config()
+    cfg$parameters$probe_min_length <- NULL          # emulate truncation above this key
+    expect_error(read_pipeline_options(cfg), "truncated or mis-encoded")
+  }
+)
 
 test_that("read_pipeline_options STOPS when main_probes is missing", {
   cfg <- .min_valid_config()
@@ -303,19 +318,25 @@ test_that("read_pipeline_options STOPS when main_probes is missing", {
 })
 
 
-test_that("share_seqlevels gives both objects every sequence name, keeping their order", {
-  # Hits and LTR elements sit on different scaffolds. Comparing two GRanges with
-  # different sequence levels warns every time (36 noise warnings per model-5
-  # run); sharing the levels removes the cause. Each object keeps its own level
-  # order first, because GRanges sort by it and output row order must not move.
-  hits <- GenomicRanges::GRanges(c("chr2", "chr1"), IRanges::IRanges(c(1, 1), width = 10))
-  elements <- GenomicRanges::GRanges(c("scaf9", "chr1"), IRanges::IRanges(c(5, 5), width = 10))
-  shared <- share_seqlevels(hits, elements)
+test_that(
+  "share_seqlevels gives both objects every sequence name, keeping their order",
+  {
+    # Hits and LTR elements sit on different scaffolds. Comparing two GRanges with
+    # different sequence levels warns every time (36 noise warnings per model-5
+    # run); sharing the levels removes the cause. Each object keeps its own level
+    # order first, because GRanges sort by it and output row order must not move.
+    hits <- GenomicRanges::GRanges(c("chr2", "chr1"),
+                                   IRanges::IRanges(c(1, 1), width = 10))
+    elements <- GenomicRanges::GRanges(c("scaf9", "chr1"),
+                                       IRanges::IRanges(c(5, 5), width = 10))
+    shared <- share_seqlevels(hits, elements)
 
-  expect_setequal(GenomeInfoDb::seqlevels(shared$a), c("chr1", "chr2", "scaf9"))
-  expect_setequal(GenomeInfoDb::seqlevels(shared$b), c("chr1", "chr2", "scaf9"))
-  expect_equal(GenomeInfoDb::seqlevels(shared$a)[1:2], GenomeInfoDb::seqlevels(hits))
-  expect_equal(GenomeInfoDb::seqlevels(shared$b)[1:2], GenomeInfoDb::seqlevels(elements))
-  expect_silent(GenomicRanges::findOverlaps(shared$a, shared$b))
-  expect_equal(as.character(GenomicRanges::seqnames(shared$a)), c("chr2", "chr1"))
-})
+    expect_setequal(GenomeInfoDb::seqlevels(shared$a), c("chr1", "chr2", "scaf9"))
+    expect_setequal(GenomeInfoDb::seqlevels(shared$b), c("chr1", "chr2", "scaf9"))
+    expect_equal(GenomeInfoDb::seqlevels(shared$a)[1:2], GenomeInfoDb::seqlevels(hits))
+    expect_equal(GenomeInfoDb::seqlevels(shared$b)[1:2],
+                 GenomeInfoDb::seqlevels(elements))
+    expect_silent(GenomicRanges::findOverlaps(shared$a, shared$b))
+    expect_equal(as.character(GenomicRanges::seqnames(shared$a)), c("chr2", "chr1"))
+  }
+)

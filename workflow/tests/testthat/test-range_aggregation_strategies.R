@@ -23,14 +23,17 @@ test_that("list strategy returns a CharacterList of length 1 with all unique val
   expect_setequal(out[[1]], c("POL", "GAG"))
 })
 
-test_that("concatenate strategy joins unique values in sorted order with the separator", {
-  out <- aggregate_values(c("POL", "GAG", "POL"),
-                          strategy = "concatenate",
-                          separator = "; ")
-  expect_type(out, "character")
-  expect_length(out, 1L)
-  expect_equal(out, "GAG; POL")  # alphabetical order
-})
+test_that(
+  "concatenate strategy joins unique values in sorted order with the separator",
+  {
+    out <- aggregate_values(c("POL", "GAG", "POL"),
+                            strategy = "concatenate",
+                            separator = "; ")
+    expect_type(out, "character")
+    expect_length(out, 1L)
+    expect_equal(out, "GAG; POL")  # alphabetical order
+  }
+)
 
 test_that("concatenate strategy respects a custom separator", {
   out <- aggregate_values(c("POL", "GAG"),
@@ -65,12 +68,15 @@ test_that("majority strategy returns the most frequent value", {
   expect_equal(out, "POL")
 })
 
-test_that("majority strategy breaks ties alphabetically (table() sort is stable on order)", {
-  # With two POL and two GAG, sort() on table() puts the higher count first.
-  # Here both are tied -> the specific tie-break behaviour is R's - assert one wins.
-  out <- aggregate_values(c("POL", "POL", "GAG", "GAG"), strategy = "majority")
-  expect_true(out %in% c("POL", "GAG"))
-})
+test_that(
+  "majority strategy breaks ties alphabetically (table() sort is stable on order)",
+  {
+    # With two POL and two GAG, sort() on table() puts the higher count first.
+    # Here both are tied -> the specific tie-break behaviour is R's - assert one wins.
+    out <- aggregate_values(c("POL", "POL", "GAG", "GAG"), strategy = "majority")
+    expect_true(out %in% c("POL", "GAG"))
+  }
+)
 
 test_that("first strategy returns the alphabetical first unique value", {
   out <- aggregate_values(c("POL", "GAG", "ENV"), strategy = "first")
@@ -119,10 +125,12 @@ test_that("aggregate_values picks the row the tiebreaker vector points at", {
   # values of that column straight in as a numeric vector.
   bitscore <- c(100, 200, 50)
   values   <- c("POL", "GAG", "ENV")
-  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = bitscore), "GAG")
+  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = bitscore),
+               "GAG")
 
   identity <- c(90, 80, 70)
-  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = identity), "POL")
+  expect_equal(aggregate_values(values, strategy = "best", tiebreaker = identity),
+               "POL")
 })
 
 

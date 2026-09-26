@@ -1,6 +1,4 @@
-"""
-Build a per-gene reference tree package for phylogenetic placement
-=================================================================
+"""Build a per-gene reference tree package for phylogenetic placement.
 
 For one gene (e.g. POL, GAG), builds the artifacts EPA-ng/gappa need, from the
 gene's subset of the taxon-comprehensive reference:
@@ -109,7 +107,7 @@ def _mean_pairwise_identity(seqs: list[str], max_pairs: int = 40) -> float:
 
 
 def alignment_quality(afa: Path) -> str:
-    """n seqs, columns, % gap, mean pairwise %identity (sampled) - a quality flag."""
+    """N seqs, columns, % gap, mean pairwise %identity (sampled) - a quality flag."""
     seqs = [str(r.seq) for r in SeqIO.parse(str(afa), "fasta")]  # type: ignore[no-untyped-call]
     ncol = len(seqs[0]) if seqs else 0
     gap = sum(s.count("-") for s in seqs) / max(1, len(seqs) * ncol)
@@ -127,6 +125,7 @@ def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: build the placement tree package for one gene."""
     p = argparse.ArgumentParser(description="Build a per-gene placement tree package")
     p.add_argument("gene", help="marker gene, e.g. POL or GAG")
     p.add_argument(

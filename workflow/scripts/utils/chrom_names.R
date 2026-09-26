@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# utils / chrom_names.R
+# Module utils/chrom_names.R
 # -----------------------------------------------------------------------------
 # FASTA-header normaliser, sourced by hotspot_detector.R. Returns the first
 # whitespace-delimited token of each header, the same length as the input, so it

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / granges_build.R
+# Module ranges/granges_build.R
 # -----------------------------------------------------------------------------
 # Convert tabular / GFF3 inputs into well-typed GRanges objects with the
 # metadata the downstream phases expect. Pure construction - no filtering or
@@ -40,7 +40,8 @@ build_blast_gr <- function(blast_df, probe_lengths = NULL) {
   S4Vectors::mcols(gr)$virus        <- blast_df$virus
   S4Vectors::mcols(gr)$bitscore     <- blast_df$hsp_bits
   # Percent identity over the alignment length.
-  S4Vectors::mcols(gr)$identity     <- (blast_df$hsp_identity / blast_df$hsp_align_length) * 100
+  S4Vectors::mcols(gr)$identity     <- (blast_df$hsp_identity /
+                                          blast_df$hsp_align_length) * 100
   S4Vectors::mcols(gr)$species      <- blast_df$species
   S4Vectors::mcols(gr)$probe        <- blast_df$probe
   S4Vectors::mcols(gr)$evalue       <- blast_df$hsp_evalue

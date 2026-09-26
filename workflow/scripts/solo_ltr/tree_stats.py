@@ -317,6 +317,7 @@ def write_csvs(summary: dict[str, Any], summary_csv: Path, adjacency_csv: Path) 
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: compute the tree statistics and write both CSVs."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--treefile", type=Path, required=True)
     parser.add_argument("--out-summary-csv", type=Path, required=True)

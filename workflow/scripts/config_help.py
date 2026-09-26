@@ -87,10 +87,10 @@ def _anchor(heading: str) -> str:
 
 
 def _split_row(line: str) -> list[str]:
-    """Split a Markdown table row into stripped cells (on *unescaped* pipes).
+    r"""Split a Markdown table row into stripped cells (on *unescaped* pipes).
 
-    Cells may contain ``\\|`` to mean a literal pipe (e.g. enum types like
-    ``virus \\| label``); those must not be treated as column delimiters.
+    Cells may contain ``\|`` to mean a literal pipe (e.g. enum types like
+    ``virus \| label``); those must not be treated as column delimiters.
     """
     inner = line.strip()
     inner = inner.removeprefix("|").removesuffix("|")

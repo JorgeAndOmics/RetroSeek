@@ -14,11 +14,9 @@
 # launcher from `display.verbosity`, decides which reach stderr:
 #   quiet / normal -> OK and up; verbose -> everything; unset -> INFO and up.
 #
-# Usage, once near the top of a script:
-#   source(file.path(script_dir, "utils", "log.R"))
-#   log_setup("hotspot_detector", args$genome, args$log)
-#   log_section("Phase 1: reading inputs")
-#   log_ok("%d hotspots", n)
+# Usage: a script sources this file once near its top, calls log_setup() with
+# its step name, genome and log path, then writes through log_section(),
+# log_info(), log_warn() and log_ok() as it goes.
 #
 # Messages use sprintf() when arguments follow, so "100% done" alone is safe.
 # Each line is written with one cat() call so parallel jobs never tear it.
@@ -107,7 +105,8 @@ log_job <- function(log_file, step) {
     log_setup(step)
   } else {
     genome <- tools::file_path_sans_ext(basename(log_file))
-    log_setup(basename(dirname(log_file)), if (genome == "all") NULL else genome, log_file)
+    log_setup(basename(dirname(log_file)), if (genome == "all") NULL else genome,
+              log_file)
   }
   log_info("started: %s", paste(commandArgs(), collapse = " "))
 }

@@ -31,6 +31,8 @@
 # join across processes.
 # =============================================================================
 
+"""Scan every catalogued locus, in both tiers, for Pfam domains by one procedure."""
+
 from __future__ import annotations
 
 import argparse
@@ -146,6 +148,7 @@ def parse_domtblout(path: Path) -> list[dict[str, Any]]:
 
 # --------------------------------------------------------- orchestration
 def run(cmd: list[str]) -> None:
+    """Log and run a command; a non-zero exit raises CalledProcessError."""
     logger.info("running: %s", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
@@ -167,6 +170,7 @@ def write_locus_bed(loci: list[dict[str, Any]], bed: Path) -> None:
 
 
 def read_fasta(path: Path) -> dict[str, str]:
+    """Read a FASTA file into {header: sequence}, joining wrapped lines."""
     seqs: dict[str, str] = {}
     name: str | None = None
     chunks: list[str] = []
@@ -299,6 +303,7 @@ def _run_loci(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    """Command-line entry: scan one genome's loci, in both tiers, for Pfam domains."""
     parser = argparse.ArgumentParser(
         description="Scan catalogued loci for Pfam domains"
     )

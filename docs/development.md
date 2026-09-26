@@ -59,9 +59,9 @@ Three layers:
 
 ## Code style
 
-- **Python**: ruff (lint + format), mypy strict, Google-style docstrings. Configured in [`pyproject.toml`](../pyproject.toml). Target version 3.10.
-- **R**: tidyverse style via `styler`, lint via `lintr` (`make lint-r`, configured in [`.lintr.R`](../.lintr.R): line length 88 like ruff). Both installed in the env. `make lint-r` is not yet part of `make check`: the R sources still carry older findings, and it joins the gate once they are cleared.
-- **Complexity**: at most 8 per function, in both languages. [Qlty](https://qlty.sh) measures the Python side (`qlty smells`, `qlty metrics --functions`, configured in [`.qlty/qlty.toml`](../.qlty/qlty.toml), which reuses the ruff settings above); lintr's `cyclocomp_linter` measures the R side. Functions written before this limit are not failures on their own, but a function you change must not get more complex.
+- **Python**: ruff (lint + format, including the Google-style docstring rules), mypy strict. Configured in [`pyproject.toml`](../pyproject.toml). Target version 3.10. Tests need no docstrings (their names state the behaviour), and `__init__` / dunder methods are documented through their class. `make test-py` enforces a coverage floor (`fail_under` in `pyproject.toml`) that only ever rises.
+- **R**: lint via `lintr` (`make lint-r`, part of `make check`, configured in [`.lintr.R`](../.lintr.R): line length 88 like ruff, snake_case names with SNAKE_CASE file-level constants). Aligned assignment blocks and one-line guards (`if (is.null(x)) return(NULL)`) are house style, so `styler` is not run over the code: it would undo both.
+- **Complexity**: at most 8 per function, in both languages. [Qlty](https://qlty.sh) measures the Python side (`qlty smells`, `qlty metrics --functions`, configured in [`.qlty/qlty.toml`](../.qlty/qlty.toml), which reuses the ruff settings above); lintr's `cyclocomp_linter` measures the R side. Every function in `workflow/scripts` meets it; a change must keep it that way.
 - **Figures**: every plot follows the house style in [`visual_style.md`](visual_style.md): colours, theme, words and output from `workflow/scripts/plot2sort/style.R`, species on rows through `plot2sort/tree_axis.R`, one PDF per stage. `tests/unit/test_visual_style.py` fails on a stray colour, a foreign palette or a dash used as punctuation.
 - **Bash**: POSIX-compatible where possible; `shellcheck` if available.
 

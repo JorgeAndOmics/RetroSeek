@@ -144,8 +144,11 @@ def test_krd_cmd_is_scoped_too(tmp_path: Path) -> None:
 # topology comparison
 # ---------------------------------------------------------------------
 def test_bipartitions_returns_the_nontrivial_splits() -> None:
-    """A split is one side of an internal branch; trivial single-tip splits are
-    excluded because every tree shares them and they carry no signal."""
+    """Bipartitions are the splits at internal branches, without single tips.
+
+    A split is one side of an internal branch; trivial single-tip splits are
+    excluded because every tree shares them and they carry no signal.
+    """
     splits = bipartitions(HOST)
     assert frozenset({"Antrozous_pallidus", "Molossus_molossus"}) in splits
     assert frozenset({"Homo_sapiens", "Mus_musculus"}) in splits
@@ -160,8 +163,10 @@ def test_identical_topologies_are_fully_congruent() -> None:
 
 
 def test_the_real_result_is_discordant() -> None:
-    """The measured ERV tree nests Mus inside the bats, which the host tree does
-    not - so this must not be reported as congruent."""
+    """The measured ERV tree is reported as not congruent with the host tree.
+
+    The ERV tree nests Mus inside the bats, which the host tree does not.
+    """
     result = congruence(HOST, ERV)
     assert result["congruent"] is False
     assert result["rf_distance"] > 0
@@ -315,7 +320,7 @@ def test_route_squash_outputs_leaves_the_krd_table_alone(tmp_path: Path) -> None
 
 
 def test_route_squash_outputs_tolerates_a_missing_cluster_tree(tmp_path: Path) -> None:
-    """gappa writes nothing when a tier has too few samples; must not raise."""
+    """Gappa writes nothing when a tier has too few samples; must not raise."""
     out, trees, mass = tmp_path / "t", tmp_path / "trees", tmp_path / "mass"
     out.mkdir()
 

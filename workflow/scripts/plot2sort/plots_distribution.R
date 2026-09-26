@@ -40,8 +40,10 @@ density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
   }
   add_titles(p,
              title    = "Bitscore density",
-             subtitle = paste("The strongest HSP bitscore of each merged range, by probe.",
-                              "Dashed lines: the quartiles."),
+             subtitle = paste(
+               "The strongest HSP bitscore of each merged range, by probe.",
+               "Dashed lines: the quartiles."
+             ),
              subset_label = subset_label)
 }
 
@@ -64,10 +66,13 @@ raincloud_bitscore_plot <- function(data, x_scale = "linear",
     theme(axis.text.y = element_text(face = "italic"),
           panel.grid.major.y = element_blank())
   p <- if (identical(x_scale, "log10")) p + scale_x_log10() else p
-  add_titles(p,
-             title    = "Bitscore per probe",
-             subtitle = "The strongest HSP bitscore of each merged range: density, box and ranges.",
-             subset_label = subset_label)
+  add_titles(
+    p,
+    title    = "Bitscore per probe",
+    subtitle =
+      "The strongest HSP bitscore of each merged range: density, box and ranges.",
+    subset_label = subset_label
+  )
 }
 
 
@@ -93,7 +98,9 @@ query_coverage_plot <- function(data, subset_label = NULL, colours = NULL) {
          fill = "Probe", colour = "Probe")
   add_titles(p,
              title    = "How much of each probe the hits cover",
-             subtitle = paste("Alignment length over probe length, per range and probe.",
-                              "100% is a full-length match."),
+             subtitle = paste(
+               "Alignment length over probe length, per range and probe.",
+               "100% is a full-length match."
+             ),
              subset_label = subset_label)
 }

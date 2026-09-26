@@ -44,7 +44,8 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile))
+      return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
@@ -213,7 +214,8 @@ segments_main <- function() {
          overview),
     file.path(plot_root, "overview.pdf"),
     height = page_height_for(nrow(summary_tbl),
-                             per_species = cfg$plots$per_stratum %||% 0.18))
+                             per_species = cfg$plots$per_stratum %||% 0.18)
+  )
 
   # Per-segment tables and pages. The registry is resolved once: it is the same
   # declaration the full panels use, filtered to entries that mean something for
@@ -221,9 +223,11 @@ segments_main <- function() {
   # cladogram collapses to one tip).
   panel <- segment_panel(c(panel_registry(), structure_panel_registry()), panel_mode)
   ctx <- panel_ctx(cfg, args$species_tree_dir %||% "", tree_dir = args$tree_dir %||% "")
-  height <- page_height_for(max(length(ctx$species_order), length(unique(catalog$species))),
+  height <- page_height_for(max(length(ctx$species_order),
+                                length(unique(catalog$species))),
                             per_species = cfg$plots$per_stratum %||% 0.18)
-  log_section(sprintf("Panel mode '%s': %d pages per segment", panel_mode, length(panel)))
+  log_section(sprintf("Panel mode '%s': %d pages per segment",
+                      panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {
     sub <- catalog %>% filter(as.character(.data$segment) == seg)
     stem <- safe_name(seg)
@@ -239,7 +243,8 @@ segments_main <- function() {
       sprintf(paste("The taxonomy and structure pages, restricted to the %s loci",
                     "of this lineage. Hosts are rows in the order of the host tree."),
               scales::comma(nrow(sub))),
-      colours = tiers, pages = page_titles(pages))
+      colours = tiers, pages = page_titles(pages)
+    )
     save_stage_pdf(c(list(key), pages), file.path(plot_root, paste0(stem, ".pdf")),
                    height = height)
   }
@@ -252,8 +257,11 @@ segments_main <- function() {
 
 if (sys.nframe() == 0L) {
   .script_dir <- .resolve_script_dir()
-  source(file.path(.script_dir, "..", "utils", "log.R"))  # line contract, run_main (ADR-021)
-  source(file.path(.script_dir, "..", "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
+  # Line contract, run_main (ADR-021).
+  source(file.path(.script_dir, "..", "utils", "log.R"))
+  # Palette, theme, labels, stage PDFs.
+  source(file.path(.script_dir, "..", "plot2sort", "style.R"))
+
   source(file.path(.script_dir, "..", "plot2sort", "helpers.R"))
   source(file.path(.script_dir, "..", "plot2sort", "tree_axis.R"))
   # Reuse the taxonomy panel's builders rather than duplicating them. This also

@@ -36,16 +36,22 @@ select = [
     "ARG",    # flake8-unused-arguments
     "PL",     # Pylint
     "PERF",   # Perflint
+    "D",      # pydocstyle, Google convention (below)
 ]
 ignore = [
     "E501",    # line length handled by formatter
     "PLR0913", # too many arguments
     "PLR0917", # too many positional arguments: PLR0913's sibling, enforced under "PL" since ruff 0.16
     "PLR2004", # magic values in comparisons
+    "D105",    # dunder methods: their behaviour is the protocol's, documented by Python
+    "D107",    # __init__: Google style documents construction in the class docstring
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ARG", "PLR2004"]
+# Test names state the behaviour under test, so tests need no docstrings; the
+# docstring FORMAT rules still apply to the ones they have.
+"tests/**/*.py" = ["ARG", "PLR2004", "D100", "D101", "D102", "D103", "D104"]
+"workflow/tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104"]
 "workflow/Snakefile" = ["F821"]  # Snakemake-injected globals
 
 [tool.ruff.lint.pydocstyle]
@@ -126,6 +132,10 @@ branch = true
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
+# The floor only rises: 65% at the quality setup (2026-09-26), 68.85% after the
+# campaign's characterization tests. `make test-py` enforces it; CI runs a
+# faster subset without coverage.
+fail_under = 68
 show_missing = true
 skip_empty = true
 exclude_lines = [

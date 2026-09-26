@@ -50,6 +50,7 @@ class Arm(NamedTuple):
 
     @property
     def length(self) -> int:
+        """Arm length in bp (both ends inclusive)."""
         return self.end - self.start + 1
 
     @property
@@ -129,6 +130,10 @@ def write_bed(arms: list[Arm], path: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: write the bait BED for one genome.
+
+    A genome with no arm long enough gets an empty BED and a warning.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--flanking-ltr-gff3", type=Path, required=True)
     parser.add_argument("--loci-csv", type=Path, required=True)

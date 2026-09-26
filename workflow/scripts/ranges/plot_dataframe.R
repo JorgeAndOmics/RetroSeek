@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# ranges / plot_dataframe.R
+# Module ranges/plot_dataframe.R
 # -----------------------------------------------------------------------------
 # Build the per-row tibble consumed by plot2sort.R and pair_detector.R.
 # Replaces the pre-refactor three-file fanout (main / accessory / full) with a
@@ -76,7 +76,8 @@ attach_probe_category <- function(gr, main_set, concat_separator = "; ") {
   probes <- if (inherits(probe_col, "CharacterList")) {
     probe_col
   } else {
-    IRanges::CharacterList(strsplit(as.character(probe_col), concat_separator, fixed = TRUE))
+    IRanges::CharacterList(strsplit(as.character(probe_col), concat_separator,
+                                    fixed = TRUE))
   }
   # nzchar() has no CharacterList method; nchar() does, but reads NA as NA
   # where nzchar(NA) is TRUE, so an NA probe is kept explicitly.
@@ -88,7 +89,8 @@ attach_probe_category <- function(gr, main_set, concat_separator = "; ") {
 .probe_categories <- function(probes, main_set) {
   n_all <- lengths(probes)
   n_main <- sum(probes %in% main_set)
-  category <- ifelse(n_main == n_all, "main", ifelse(n_main == 0L, "accessory", "mixed"))
+  category <- ifelse(n_main == n_all, "main",
+                     ifelse(n_main == 0L, "accessory", "mixed"))
   category[n_all == 0L] <- NA_character_
   category
 }

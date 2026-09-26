@@ -145,28 +145,31 @@ test_that("assign_hotspot_ids stamps zero-padded IDs prefixed by species", {
                  "Antrozous_pallidus_HS_00002"))
 })
 
-test_that("attach_hotspot_id_to_windows propagates IDs to overlapping windows and NA elsewhere", {
-  win_df <- tibble::tibble(
-    chrom = c("chr1", "chr1", "chr1"),
-    chrom_stratum = "chr1",
-    start = c(1L, 1001L, 8001L),
-    end   = c(1000L, 2000L, 9000L),
-    count = c(5L, 3L, 0L),
-    effective_bp = 1000L,
-    label = "Ungrouped",
-    qval_nb = c(0.001, 0.005, 0.5),
-    pval_nb = c(0.0005, 0.001, 0.4),
-    mu_nb   = c(1, 1, 1)
-  )
-  rows <- list(
-    chrom = c("chr1", "chr1"), start = c(1L, 1001L),
-    end = c(1000L, 2000L), count = c(5L, 3L)
-  )
-  merged <- merge_adjacent_hotspots(.fake_significant_df(rows))
-  merged <- assign_hotspot_ids(merged, species = "X")
-  attached <- attach_hotspot_id_to_windows(win_df, merged)
-  expect_equal(attached$hotspot_id, c("X_HS_00001", "X_HS_00001", NA_character_))
-})
+test_that(
+  "attach_hotspot_id_to_windows propagates IDs to overlapping windows and NA elsewhere",
+  {
+    win_df <- tibble::tibble(
+      chrom = c("chr1", "chr1", "chr1"),
+      chrom_stratum = "chr1",
+      start = c(1L, 1001L, 8001L),
+      end   = c(1000L, 2000L, 9000L),
+      count = c(5L, 3L, 0L),
+      effective_bp = 1000L,
+      label = "Ungrouped",
+      qval_nb = c(0.001, 0.005, 0.5),
+      pval_nb = c(0.0005, 0.001, 0.4),
+      mu_nb   = c(1, 1, 1)
+    )
+    rows <- list(
+      chrom = c("chr1", "chr1"), start = c(1L, 1001L),
+      end = c(1000L, 2000L), count = c(5L, 3L)
+    )
+    merged <- merge_adjacent_hotspots(.fake_significant_df(rows))
+    merged <- assign_hotspot_ids(merged, species = "X")
+    attached <- attach_hotspot_id_to_windows(win_df, merged)
+    expect_equal(attached$hotspot_id, c("X_HS_00001", "X_HS_00001", NA_character_))
+  }
+)
 
 
 # ---------------- annotate_hotspot_composition (ADR-012) ----------------

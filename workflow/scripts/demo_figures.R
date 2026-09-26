@@ -51,18 +51,22 @@ suppressMessages({
 # lives.
 .resolve_script_dir <- function() {
   for (frame in rev(sys.frames())) {
-    if (!is.null(frame$ofile)) return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
+    if (!is.null(frame$ofile))
+      return(dirname(normalizePath(frame$ofile, mustWork = FALSE)))
   }
   file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) > 0L) return(dirname(sub("^--file=", "", file_arg[1])))
   "scripts"
 }
 .script_dir <- .resolve_script_dir()
-source(file.path(.script_dir, "utils", "log.R"))  # line contract, run_main (ADR-021)
-source(file.path(.script_dir, "plot2sort", "style.R"))  # palette, theme, labels, stage PDFs
+# log.R: the line contract and run_main (ADR-021).
+# style.R: palette, theme, labels and stage PDFs.
+source(file.path(.script_dir, "utils", "log.R"))
+source(file.path(.script_dir, "plot2sort", "style.R"))
 source(file.path(.script_dir, "plot2sort", "helpers.R"))
 source(file.path(.script_dir, "plot2sort", "io.R"))
-source(file.path(.script_dir, "plot2sort", "tree_axis.R"))  # species rows (builders use it)
+# tree_axis.R: species rows (the builders use it).
+source(file.path(.script_dir, "plot2sort", "tree_axis.R"))
 source(file.path(.script_dir, "plot2sort", "plots_distribution.R"))
 source(file.path(.script_dir, "plot2sort", "plots_categorical.R"))
 source(file.path(.script_dir, "plot2sort", "plots_sankey.R"))
@@ -102,19 +106,23 @@ apply_map <- function(x, map) {
 anonymise <- function(df, maps) {
   if ("species" %in% names(df)) df$species <- apply_map(df$species, maps$species)
   if ("virus" %in% names(df)) df$virus <- apply_map(df$virus, maps$virus)
-  if ("abbreviation" %in% names(df)) df$abbreviation <- apply_map(df$abbreviation, maps$abbreviation)
+  if ("abbreviation" %in% names(df))
+    df$abbreviation <- apply_map(df$abbreviation, maps$abbreviation)
   if ("label" %in% names(df)) df$label <- apply_map(df$label, maps$label)
   df
 }
 
 
 # ----------------------------------------------------------------------------
-# main()
+# Entry point
 # ----------------------------------------------------------------------------
 main <- function() {
   parser <- ArgumentParser(description = "Regenerate anonymised README demo figures")
-  parser$add_argument("--input", default = "results/tables/ranges_analysis",
-                      help = "Dir with *.final_loci.parquet (taxon loci come from taxonomy_classification/)")
+  parser$add_argument(
+    "--input", default = "results/tables/ranges_analysis",
+    help =
+      "Dir with *.final_loci.parquet (taxon loci come from taxonomy_classification/)"
+  )
   parser$add_argument("--output", default = "data/images",
                       help = "Output directory for the demo PNGs")
   parser$add_argument("--config", default = "data/config/config.yaml",
@@ -145,9 +153,9 @@ main <- function() {
   }
 
   # ---- Load + anonymise -----------------------------------------------------
-  all.full <- load_plot_dataframes(args$input)
+  all_full <- load_plot_dataframes(args$input)
   verify_required_columns(
-    all.full,
+    all_full,
     c("probe_type", "species", "virus", "probe", "label",
       "abbreviation", "max_bitscore", "query_coverage"),
     source_label = "input parquets"
@@ -155,17 +163,17 @@ main <- function() {
 
   # Maps built from the FULL value sets so every panel uses the same scheme.
   maps <- list(
-    species      = make_label_map(all.full$species,      "Species"),
-    virus        = make_label_map(all.full$virus,        "Provirus"),
-    abbreviation = make_label_map(all.full$abbreviation, "Pv"),
-    label        = make_label_map(all.full$label,        "Lineage")
+    species      = make_label_map(all_full$species,      "Species"),
+    virus        = make_label_map(all_full$virus,        "Provirus"),
+    abbreviation = make_label_map(all_full$abbreviation, "Pv"),
+    label        = make_label_map(all_full$label,        "Lineage")
   )
-  all.full <- anonymise(all.full, maps)
-  all.main <- all.full %>% dplyr::filter(probe_type == "main")
+  all_full <- anonymise(all_full, maps)
+  all_main <- all_full %>% dplyr::filter(probe_type == "main")
 
 
-  all.counted_probe <- group_count(all.full)
-  main.counted_probe <- group_count(all.main)
+  all_counted_probe <- group_count(all_full)
+  main_counted_probe <- group_count(all_main)
 
   pair_counts <- function(df, ax_a, ax_b) {
     df %>%
@@ -176,21 +184,21 @@ main <- function() {
   # ---- Six README figures ---------------------------------------------------
   # 1. Sankey A: species -> probe
   emit("sankey_a.png",
-       sankey_species_probe_plot(pair_counts(main.counted_probe, "species", "probe"),
+       sankey_species_probe_plot(pair_counts(main_counted_probe, "species", "probe"),
                                  top_n = top_n, other_label = other_label,
                                  subset_label = "Main"))
   # 2. Waffle: provirus proportions
   emit("waffle.png",
-       waffle_virus_plot(all.main, unit_hits = unit_hits, subset_label = "Main"))
+       waffle_virus_plot(all_main, unit_hits = unit_hits, subset_label = "Main"))
   # 3. Bubble / balloon: provirus x species
   emit("balloon.png",
-       balloon_virus_species_plot(main.counted_probe, subset_label = "Main"))
+       balloon_virus_species_plot(main_counted_probe, subset_label = "Main"))
   # 4. Raincloud: bitscore distribution by probe
   emit("raincloud.png",
-       raincloud_bitscore_plot(all.main, x_scale = x_scale, subset_label = "Main"))
+       raincloud_bitscore_plot(all_main, x_scale = x_scale, subset_label = "Main"))
   # 5. Range counts per species (bar, stacked by lineage)
   emit("bar.png",
-       bar_plot(all.counted_probe, subset_label = "All probes"))
+       bar_plot(all_counted_probe, subset_label = "All probes"))
 
   # 6. ERV-like composition heatmap: taxon x gene, from the taxon-founded loci
   #    table (taxonomy_classify output). Taxon + gene names are public taxonomy,

@@ -199,9 +199,12 @@ class TestAssembleStructure:
 
 
 class TestAxisResolution:
-    """ADR-008: 'resolved' = the call landed on a declared axis taxon, at whatever
-    rank, replacing the old rank=='genus' test. Off-axis LCA-backoffs are recorded
-    (taxon_call + rank) but not marked resolved."""
+    """A call is resolved when it lands on a declared axis taxon (ADR-008).
+
+    The axis taxon may sit at any rank; there is no rank=='genus' test.
+    Off-axis LCA-backoffs are recorded (taxon_call + rank) but not marked
+    resolved.
+    """
 
     def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
         return {
@@ -313,9 +316,12 @@ class TestGappaParse:
 
 
 class TestPlaceableQuery:
-    """A placement query must overlap the reference at >= _MIN_PLACEMENT_SITES
-    standard-AA columns; degenerate rows (all-gap, all-X, or a single residue)
-    crash epa-ng ('no non-gap sites'), so they are dropped and fall back to LCA."""
+    """A placement query needs enough informative sites to reach epa-ng.
+
+    It must overlap the reference at >= _MIN_PLACEMENT_SITES standard-AA
+    columns; degenerate rows (all-gap, all-X, or a single residue) crash epa-ng
+    ('no non-gap sites'), so they are dropped and fall back to LCA.
+    """
 
     def test_informative_site_count_ignores_gaps_and_ambiguous(self) -> None:
         assert tplace._informative_site_count("--M-K-P--") == 3
@@ -341,9 +347,11 @@ class TestPlaceableQuery:
 
 
 class TestConfidenceTag:
-    """confidence_tag (HC/LC) is derived from the locus confidence vs a
-    user-adjustable threshold (classification.confidence_min, default 0.5),
-    for every method alike."""
+    """confidence_tag (HC/LC) compares locus confidence with a threshold.
+
+    The threshold is user-adjustable (classification.confidence_min, default
+    0.5) and applies to every method alike.
+    """
 
     def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
         return {
@@ -441,8 +449,10 @@ class TestBlastxEvidenceAndSource:
 
 class TestStructureClass:
     """ADR-009: discrete full / partial / gene structural class over gene content.
+
     A single main gene is 'gene'; a multi-gene locus is 'full' once completeness
-    clears structure_full_min, else 'partial'. Gene-content only, no LTR-pair term."""
+    clears structure_full_min, else 'partial'. Gene-content only, no LTR-pair term.
+    """
 
     def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
         return {
@@ -497,10 +507,12 @@ class TestStructureClass:
 
 
 class TestDomainEvidence:
-    """Domain evidence now comes from the scan (domains/scan_domains.py), joined on
-    `{seqname}|{parent}`, not from a `domain_tier=` attribute on the track.
+    """Domain evidence comes from the domain scan, joined on `{seqname}|{parent}`.
 
-    The column that matters most is `domain_source`: before this, 99.04% of
+    The scan is domains/scan_domains.py; a `domain_tier=` attribute on the track
+    is not read.
+
+    The column that matters most is `domain_source`: without it, 99.04% of
     `non_domain` rows meant "never assessed" and were indistinguishable from the
     292 that meant "assessed and empty".
     """
@@ -567,8 +579,11 @@ class TestDomainEvidence:
         assert loci[0]["domain_source"] == "not_scanned"
 
     def test_l1_domain_is_unlisted_not_selected(self, tmp_path: Path) -> None:
-        """The retired regex matched `ase` against Transposase_22 and called it
-        POL. Curation must place it in non_ltr, which is not a selected class."""
+        """An L1 transposase domain is unlisted, not a selected POL domain.
+
+        The retired regex matched `ase` against Transposase_22 and called it
+        POL. Curation must place it in non_ltr, which is not a selected class.
+        """
         loci = tcl.build_loci([self._feat("POL", "100", "200", "retro1")])
         args = self._scan(
             tmp_path,
@@ -616,8 +631,11 @@ class TestDomainEvidence:
 
 
 class TestOversized:
-    """ADR-010: the `oversized` flag (orphan overlap-cluster wider than any real
-    provirus) rides the orphan GFF3, carries through build_loci, and is emitted."""
+    """ADR-010: the `oversized` flag travels from orphan GFF3 to the output.
+
+    The flag marks an orphan overlap-cluster wider than any real provirus. It
+    rides the orphan GFF3, carries through build_loci, and is emitted.
+    """
 
     def _feat(self, oversized: str) -> dict[str, str]:
         return {

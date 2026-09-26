@@ -14,6 +14,8 @@
 # works without a config.
 # =============================================================================
 
+"""The launcher's stages in one table, and the command-line parser built from it."""
+
 from __future__ import annotations
 
 import argparse
@@ -24,13 +26,14 @@ from dataclasses import dataclass
 class Stage:
     """One launcher stage.
 
-    :param flag: the command-line flag, e.g. "--classify".
-    :param phase: the help section it is listed under (see PHASES).
-    :param targets: Snakemake target rules the stage asks for.
-    :param help: one line for `./RetroSeek -h`.
-    :param heavy: heavy rules this stage exists to run. Any other stage that would
-        run one of them is stopped by the guard (see guard.py).
-    :param tools: executables the stage calls, checked before a run starts.
+    Attributes:
+        flag: The command-line flag, e.g. "--classify".
+        phase: The help section it is listed under (see PHASES).
+        targets: Snakemake target rules the stage asks for.
+        help: One line for `./RetroSeek -h`.
+        heavy: Heavy rules this stage exists to run. Any other stage that
+            would run one of them is stopped by the guard (see guard.py).
+        tools: Executables the stage calls, checked before a run starts.
     """
 
     flag: str

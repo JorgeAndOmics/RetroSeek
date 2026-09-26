@@ -1,4 +1,4 @@
-"""Co-phylogeny: do ERV complements track host ancestry?
+r"""Co-phylogeny: do ERV complements track host ancestry?
 
 Takes the published `.jplace` files for one tier and builds a tree of the *host
 genomes* from their placement distributions, then sets that against the host
@@ -6,7 +6,7 @@ phylogeny.
 
     ERV-composition tree            host phylogeny
     (gappa analyze squash)          (input.species_tree)
-              \\                          /
+              \                          /
                `------ compared ---------'
                           |
               congruent  -> ERVs largely inherited vertically with their hosts
@@ -20,8 +20,7 @@ reference tree:
 ``analyze krd``      the pairwise Kantorovich-Rubinstein distances behind it
 ``analyze edgepca``  ordination, showing which branches drive the separation
 
-Three mechanics are easy to get wrong
--------------------------------------
+Three mechanics are easy to get wrong:
 **Output naming.** gappa names output files after the subcommand rather than
 after the data, so every ``analyze squash`` writes ``cluster.newick`` and every
 ``analyze krd`` writes ``krd_matrix.csv``. Both tiers share one ``--out-dir``,
@@ -46,12 +45,10 @@ the quantitative comparison can be made deliberately rather than by accident.
 Tiers are analysed separately: whether the weaker orphan tier tells the same
 story as the LTR-confirmed one is itself a useful check.
 
-CLI
----
-::
+Command line:
 
-    python placement_cophylogeny.py \\
-        --jplace <f1> <f2> ... --out-dir <dir> --tier ltr-flanked \\
+    python placement_cophylogeny.py \
+        --jplace <f1> <f2> ... --out-dir <dir> --tier ltr-flanked \
         [--host-tree <newick>] [--exponent 1]
 """
 

@@ -69,7 +69,8 @@ test_that("a species outside the canonical list is kept, not dropped", {
 
 
 test_that("without a tree the panel is flipped with italic species labels", {
-  p <- species_rows(.panel(c("Homo sapiens", "Mus musculus")), c("Homo sapiens", "Mus musculus"),
+  p <- species_rows(.panel(c("Homo sapiens", "Mus musculus")),
+                    c("Homo sapiens", "Mus musculus"),
                     fallback_order = c("Homo sapiens", "Mus musculus"))
   expect_true(inherits(p$coordinates, "CoordFlip"))
   expect_equal(p$theme$axis.text.y$face, "italic")
@@ -78,7 +79,8 @@ test_that("without a tree the panel is flipped with italic species labels", {
 
 test_that("with a tree the rows line up with the tips", {
   p <- species_rows(.panel(.tree$tips$tip), .tree$tips$tip, tree = .tree)
-  expect_equal(p[[2]]$scales$get_scales("x")$limits, .tree$tips$tip[order(.tree$tips$y)])
+  expect_equal(p[[2]]$scales$get_scales("x")$limits,
+               .tree$tips$tip[order(.tree$tips$y)])
   expect_equal(p[[1]]$scales$get_scales("y")$limits, c(0.4, 3.6))
 })
 
@@ -116,7 +118,8 @@ test_that("a panel already on rows keeps its own x axis text", {
 
 test_that("on_rows takes the tree and order from a panel ctx, and works without one", {
   ctx <- list(species_tree = NULL, species_order = c("Mus musculus", "Homo sapiens"))
-  p <- on_rows(.panel(c("Homo sapiens", "Mus musculus")), c("Homo sapiens", "Mus musculus"), ctx)
+  p <- on_rows(.panel(c("Homo sapiens", "Mus musculus")),
+               c("Homo sapiens", "Mus musculus"), ctx)
   expect_equal(p$scales$get_scales("x")$limits, c("Homo sapiens", "Mus musculus"))
   expect_s3_class(on_rows(.panel("Homo sapiens"), "Homo sapiens"), "ggplot")
   expect_s3_class(on_rows(.panel(c("Homo sapiens", "Mus musculus")),
@@ -142,7 +145,8 @@ test_that("panel_ctx carries the readable config order and the host tree", {
 test_that("render_panel feeds each entry the tier scope it declares", {
   reg <- list(
     list(name = "a", data = "loci", build = function(d, ctx) nrow(d)),
-    list(name = "b", data = "combined", build = function(d, ctx) nrow(d)))
+    list(name = "b", data = "combined", build = function(d, ctx) nrow(d))
+  )
   expect_equal(render_panel(reg, data.frame(x = 1), data.frame(x = 1:3), list()),
                list(1L, 3L))
 })

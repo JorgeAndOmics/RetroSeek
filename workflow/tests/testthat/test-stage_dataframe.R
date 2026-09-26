@@ -85,69 +85,72 @@ test_that("build_stage_hits_df returns a typed empty tibble for empty input", {
 
 # ----------------------------- build_stage_ltr_df ---------------------------
 
-test_that("build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotransposon", {
-  retros <- .fake_retros()
-  flank <- GenomicRanges::GRanges(
-    seqnames = "chr1",
-    ranges   = IRanges::IRanges(start = c(80, 240, 5700),
-                                end   = c(110, 260, 5740)),
-    strand   = "+"
-  )
-  S4Vectors::mcols(flank)$Parent <- c("retro_1", "retro_1", "retro_2")
-  doms <- GenomicRanges::GRanges(
-    seqnames = "chr1",
-    ranges   = IRanges::IRanges(start = c(120, 150), end = c(140, 170)),
-    strand   = "+"
-  )
-  S4Vectors::mcols(doms)$Parent <- c("retro_1", "retro_1")
-  S4Vectors::mcols(doms)$name   <- c("rve", "Transposase_22")
+test_that(
+  "build_stage_ltr_df counts LTRs, domains, TSDs and PPTs per retrotransposon",
+  {
+    retros <- .fake_retros()
+    flank <- GenomicRanges::GRanges(
+      seqnames = "chr1",
+      ranges   = IRanges::IRanges(start = c(80, 240, 5700),
+                                  end   = c(110, 260, 5740)),
+      strand   = "+"
+    )
+    S4Vectors::mcols(flank)$Parent <- c("retro_1", "retro_1", "retro_2")
+    doms <- GenomicRanges::GRanges(
+      seqnames = "chr1",
+      ranges   = IRanges::IRanges(start = c(120, 150), end = c(140, 170)),
+      strand   = "+"
+    )
+    S4Vectors::mcols(doms)$Parent <- c("retro_1", "retro_1")
+    S4Vectors::mcols(doms)$name   <- c("rve", "Transposase_22")
 
-  # ltr_data mixes three child types. Critically, target_site_duplication is
-  # parented to the *repeat_region*, not the LTR_retrotransposon - the join in
-  # build_stage_ltr_df must translate through retrotransposons$Parent. RR_tract
-  # and protein_match are parented to the LTR_retrotransposon directly. retro_1
-  # carries 2 TSD arms, 1 PPT and 3 Pfam domains; retro_2 has
-  # none of these.
-  ltr_data <- GenomicRanges::GRanges(
-    seqnames = "chr1",
-    ranges   = IRanges::IRanges(
-      start = c(78, 262, 130, 122, 152, 200),
-      end   = c(82, 266, 136, 142, 172, 210)
-    ),
-    strand   = "+"
-  )
-  S4Vectors::mcols(ltr_data)$type <- c(
-    "target_site_duplication", "target_site_duplication",
-    "RR_tract",
-    "protein_match", "protein_match", "protein_match"
-  )
-  S4Vectors::mcols(ltr_data)$Parent <- c(
-    "repeat_region_1", "repeat_region_1",   # TSD -> repeat_region namespace
-    "retro_1",                              # RR_tract -> LTR_retrotransposon
-    "retro_1", "retro_1", "retro_1"         # protein_match -> LTR_retrotransposon
-  )
+    # ltr_data mixes three child types. Critically, target_site_duplication is
+    # parented to the *repeat_region*, not the LTR_retrotransposon - the join in
+    # build_stage_ltr_df must translate through retrotransposons$Parent. RR_tract
+    # and protein_match are parented to the LTR_retrotransposon directly. retro_1
+    # carries 2 TSD arms, 1 PPT and 3 Pfam domains; retro_2 has
+    # none of these.
+    ltr_data <- GenomicRanges::GRanges(
+      seqnames = "chr1",
+      ranges   = IRanges::IRanges(
+        start = c(78, 262, 130, 122, 152, 200),
+        end   = c(82, 266, 136, 142, 172, 210)
+      ),
+      strand   = "+"
+    )
+    S4Vectors::mcols(ltr_data)$type <- c(
+      "target_site_duplication", "target_site_duplication",
+      "RR_tract",
+      "protein_match", "protein_match", "protein_match"
+    )
+    S4Vectors::mcols(ltr_data)$Parent <- c(
+      "repeat_region_1", "repeat_region_1", # TSD parent: the repeat_region namespace
+      "retro_1",                            # RR_tract parent: the LTR_retrotransposon
+      "retro_1", "retro_1", "retro_1"       # protein_match parent: LTR_retrotransposon
+    )
 
-  df <- build_stage_ltr_df(retros, flank, doms, ltr_data, .fake_gr_virus())
-  expect_equal(nrow(df), 2L)
-  r1 <- df[df$ID == "retro_1", ]
-  r2 <- df[df$ID == "retro_2", ]
+    df <- build_stage_ltr_df(retros, flank, doms, ltr_data, .fake_gr_virus())
+    expect_equal(nrow(df), 2L)
+    r1 <- df[df$ID == "retro_1", ]
+    r2 <- df[df$ID == "retro_2", ]
 
-  expect_equal(r1$n_flanking_ltrs, 2L)
-  expect_true(r1$has_both_ltrs)
-  expect_equal(r1$n_domains_total, 3L)         # all 3 protein_match features
-  expect_equal(r1$n_tsd, 2L)                   # both TSD arms, via repeat_region join
-  expect_true(r1$has_tsd)                      # would be FALSE under the namespace bug
-  expect_equal(r1$n_ppt, 1L)
-  expect_true(r1$has_ppt)
+    expect_equal(r1$n_flanking_ltrs, 2L)
+    expect_true(r1$has_both_ltrs)
+    expect_equal(r1$n_domains_total, 3L)        # all 3 protein_match features
+    expect_equal(r1$n_tsd, 2L)                  # both TSD arms, via repeat_region join
+    expect_true(r1$has_tsd)                     # would be FALSE under the namespace bug
+    expect_equal(r1$n_ppt, 1L)
+    expect_true(r1$has_ppt)
 
-  expect_equal(r2$n_flanking_ltrs, 1L)
-  expect_false(r2$has_both_ltrs)
-  expect_equal(r2$n_domains_total, 0L)
-  expect_equal(r2$n_tsd, 0L)
-  expect_false(r2$has_tsd)
-  expect_equal(r2$n_ppt, 0L)
-  expect_false(r2$has_ppt)
-})
+    expect_equal(r2$n_flanking_ltrs, 1L)
+    expect_false(r2$has_both_ltrs)
+    expect_equal(r2$n_domains_total, 0L)
+    expect_equal(r2$n_tsd, 0L)
+    expect_false(r2$has_tsd)
+    expect_equal(r2$n_ppt, 0L)
+    expect_false(r2$has_ppt)
+  }
+)
 
 test_that("build_stage_ltr_df returns a typed empty tibble for no retrotransposons", {
   empty <- .fake_retros()[FALSE]
@@ -203,9 +206,11 @@ test_that("build_stage_reduced_df returns a typed empty tibble for empty input",
 
 test_that("build_stage_overlap_df counts self-overlap degree + reciprocal fraction", {
   gv <- GenomicRanges::GRanges(
-    "chr1", IRanges::IRanges(c(100, 150, 9000), c(400, 500, 9300)), "+")
+    "chr1", IRanges::IRanges(c(100, 150, 9000), c(400, 500, 9300)), "+"
+  )
   S4Vectors::mcols(gv) <- S4Vectors::DataFrame(
-    probe = c("GAG", "POL", "ENV"), virus = "HIV", label = "L")
+    probe = c("GAG", "POL", "ENV"), virus = "HIV", label = "L"
+  )
   out <- build_stage_overlap_df(gv)
   expect_equal(out$overlap_degree, c(1L, 1L, 0L))
   expect_gt(out$max_reciprocal_fraction[1], 0)

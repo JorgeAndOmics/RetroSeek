@@ -151,8 +151,10 @@ def test_overlapping_hits_become_one_candidate(
 def test_the_candidate_keeps_the_best_identity_and_its_bait(
     thresholds: solo_finder.Thresholds,
 ) -> None:
-    """The representative bait decides which element the solo inherits taxonomy
-    from, so it must be the best-matching one, not merely the first seen."""
+    """The representative bait is the best-matching hit, not the first seen.
+
+    It decides which element the solo inherits taxonomy from.
+    """
     accepted = [
         solo_finder.Hit("weak", "chr1", 96.0, 400, 400, 1000, 1399),
         solo_finder.Hit("strong", "chr1", 99.5, 400, 400, 1100, 1499),
@@ -188,7 +190,7 @@ def test_candidates_on_different_sequences_never_merge() -> None:
 
 
 def test_reversed_subject_coordinates_are_normalised() -> None:
-    """blastn reports sstart > send for a minus-strand hit."""
+    """Blastn reports sstart > send for a minus-strand hit."""
     accepted = [solo_finder.Hit("b", "chr1", 99.0, 400, 400, 1399, 1000)]
     candidate = solo_finder.merge_candidates(accepted, gap=0)[0]
     assert (candidate.start, candidate.end) == (1000, 1399)

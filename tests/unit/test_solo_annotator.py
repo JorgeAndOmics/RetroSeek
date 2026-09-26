@@ -197,8 +197,11 @@ def test_solo_inherits_taxon_from_the_overlapping_library_element(
 def test_library_element_spanning_two_loci_picks_the_largest_overlap(
     tmp_path: Path,
 ) -> None:
-    """A wide library element can cover more than one locus; the call must be
-    deterministic rather than first-wins."""
+    """A library element covering several loci gets a deterministic call.
+
+    A wide library element can cover more than one locus; the call must be
+    deterministic rather than first-wins.
+    """
     loci = tmp_path / "multi.loci.csv"
     loci.write_text(
         LOCI_HEADER
@@ -251,8 +254,11 @@ def test_fallback_respects_the_distance_ceiling(tmp_path: Path, loci_csv: Path) 
 def test_library_path_wins_over_a_closer_neighbour(
     tmp_path: Path, loci_csv: Path
 ) -> None:
-    """Homology beats proximity: a solo sitting on top of L1 but whose library
-    entry came from L0 inherits L0."""
+    """Homology beats proximity when a solo inherits a locus.
+
+    A solo sitting on top of L1 but whose library entry came from L0 inherits
+    L0.
+    """
     solo_list = _write_solo_list(
         tmp_path / "s.txt", [("chr1", 90100, 90300, "chr1:1000..5000#LTR/Gypsy", 0.95)]
     )
@@ -269,7 +275,7 @@ def test_library_path_wins_over_a_closer_neighbour(
 def test_ratio_groups_by_segment_and_divides_by_intact_loci(
     tmp_path: Path, loci_csv: Path
 ) -> None:
-    """solo / intact per group, where intact is the ltr-flanked locus count.
+    """Solo / intact per group, where intact is the ltr-flanked locus count.
 
     Two Gammaretrovirus solos against one Gammaretrovirus locus gives 2.0.
     """

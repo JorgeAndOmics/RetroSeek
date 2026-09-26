@@ -128,8 +128,11 @@ def test_the_bed_name_carries_sequence_element_and_arm(
 def test_bed_rows_are_six_columns_on_the_plus_strand(
     gff3: Path, loci: Path, tmp_path: Path
 ) -> None:
-    """Bait is extracted as written, not reverse-complemented: blastn searches both
-    strands anyway, and forcing + keeps the arm's coordinates readable."""
+    """Bait is extracted as written (+ strand), not reverse-complemented.
+
+    blastn searches both strands anyway, and forcing + keeps the arm's
+    coordinates readable.
+    """
     parents = bait_builder.erv_bearing_parents(loci)
     arms = bait_builder.select_bait(
         bait_builder.parse_arms(gff3), parents, min_length=300

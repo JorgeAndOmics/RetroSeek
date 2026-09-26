@@ -61,10 +61,12 @@ class Family:
 
     @property
     def n_tips(self) -> int:
+        """Tips of all three classes in the family."""
         return self.n_flank + self.n_solo + self.n_mono
 
     @property
     def kind(self) -> str:
+        """no_solo without a solo; else with_intact or no_intact by flanking arms."""
         if self.n_solo == 0:
             return NO_SOLO
         return WITH_INTACT if self.n_flank else NO_INTACT

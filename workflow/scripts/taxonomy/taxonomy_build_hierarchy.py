@@ -1,6 +1,4 @@
-"""
-Build the taxonomy hierarchy from NCBI Taxonomy (no hard-coding)
-===============================================================
+"""Build the taxonomy hierarchy from NCBI Taxonomy (no hard-coding).
 
 Derives the parent->child hierarchy used by `taxonomy_lca` directly from NCBI
 Taxonomy, for whatever axis taxa appear in the reference table (any rank; ADR-008).
@@ -36,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def taxa_from_reference(ref_csv: Path) -> list[str]:
+    """The distinct axis taxa in the reference CSV's `taxon` column, sorted."""
     with ref_csv.open(encoding="utf-8") as fh:
         return sorted({r["taxon"] for r in csv.DictReader(fh)})
 
@@ -55,6 +54,11 @@ def lineage_for(taxon: str, email: str) -> list[tuple[str, str]] | None:
 
 
 def build(taxa: list[str], email: str) -> tuple[dict[str, str | None], dict[str, str]]:
+    """Merge the NCBI lineages of `taxa` into ({name: parent}, {name: rank}).
+
+    The root's parent is None. A taxon NCBI does not know is skipped with a
+    warning.
+    """
     # Full NCBI lineage of each axis taxon is kept (no subtree trim; ADR-008), so
     # `taxonomy_lca.lca` can resolve the true common ancestor of a mixed-rank axis.
     parent: dict[str, str | None] = {}
@@ -74,6 +78,10 @@ def build(taxa: list[str], email: str) -> tuple[dict[str, str | None], dict[str,
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: write taxonomy.tsv beside the reference CSV.
+
+    Stops with a PipelineError when no taxon of the reference resolves in NCBI.
+    """
     parser = argparse.ArgumentParser(
         description="Build taxonomy.tsv from NCBI Taxonomy."
     )

@@ -84,7 +84,7 @@ test_that("load_taxon_loci coerces structural columns + derives span_bp", {
   expect_type(loaded$completeness, "double")
   expect_type(loaded$n_main_genes, "integer")
   expect_true(is.logical(loaded$canonical_order))
-  expect_equal(loaded$span_bp, 501)            # 600 - 100 + 1
+  expect_equal(loaded$span_bp, 501)            # that is 600 - 100 + 1
 })
 
 

@@ -17,8 +17,10 @@ suppressMessages({
 .write_toy_genome <- function(path) {
   withr::local_seed(7)
   chrom <- function(name) {
-    bases <- paste(sample(c("A", "C", "G", "T"), 300000L, replace = TRUE), collapse = "")
-    c(paste0(">", name), substring(bases, seq(1L, 300000L, 60L), seq(60L, 300000L, 60L)))
+    bases <- paste(sample(c("A", "C", "G", "T"), 300000L, replace = TRUE),
+                   collapse = "")
+    c(paste0(">", name),
+      substring(bases, seq(1L, 300000L, 60L), seq(60L, 300000L, 60L)))
   }
   writeLines(c(chrom("chrA"), chrom("chrB"), chrom("chrC")), path)
 }
@@ -34,7 +36,8 @@ suppressMessages({
       start = rep(seq(1000L, 295000L, length.out = 20L), 3L)
     )
     dense <- data.frame(seqname = chrom,
-                        start = seq(cluster_start, cluster_start + 9000L, length.out = 40L))
+                        start = seq(cluster_start, cluster_start + 9000L,
+                                    length.out = 40L))
     cbind(rbind(spread, dense), segment = segment)
   }
   loci <- rbind(lineage("Gammaretrovirus", "chrB", 100000L),
@@ -50,7 +53,8 @@ suppressMessages({
 }
 
 test_that("the detector writes every output and calls each lineage's cluster", {
-  skip_if(identical(Sys.getenv("RETROSEEK_SKIP_SLOW_TESTS"), "1"), "slow end-to-end test")
+  skip_if(identical(Sys.getenv("RETROSEEK_SKIP_SLOW_TESTS"), "1"),
+          "slow end-to-end test")
   dir <- withr::local_tempdir()
   fasta <- file.path(dir, "Toyus_toyus.fa")
   catalog <- file.path(dir, "catalog.csv")
@@ -87,6 +91,8 @@ test_that("the detector writes every output and calls each lineage's cluster", {
   cluster <- function(chrom, from) {
     regions$seqnames == chrom & regions$start <= from + 10000 & regions$end >= from
   }
-  expect_equal(unique(regions$dominant_taxon[cluster("chrB", 100000)]), "Gammaretrovirus")
-  expect_equal(unique(regions$dominant_taxon[cluster("chrC", 200000)]), "Betaretrovirus")
+  expect_equal(unique(regions$dominant_taxon[cluster("chrB", 100000)]),
+               "Gammaretrovirus")
+  expect_equal(unique(regions$dominant_taxon[cluster("chrC", 200000)]),
+               "Betaretrovirus")
 })

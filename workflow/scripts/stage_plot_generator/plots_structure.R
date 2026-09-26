@@ -28,8 +28,10 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
     "Polypurine tract", "Target-site duplication"
   )
   d <- dplyr::bind_rows(
-    tibble::tibble(component = components[1], category = bucket(ltr_df$n_flanking_ltrs)),
-    tibble::tibble(component = components[2], category = bucket(ltr_df$n_domains_total)),
+    tibble::tibble(component = components[1],
+                   category = bucket(ltr_df$n_flanking_ltrs)),
+    tibble::tibble(component = components[2],
+                   category = bucket(ltr_df$n_domains_total)),
     tibble::tibble(component = components[3], category = yesno(ltr_df$has_ppt)),
     tibble::tibble(component = components[4], category = yesno(ltr_df$has_tsd))
   ) %>%
@@ -53,7 +55,8 @@ ltr_structure_components_plot <- function(ltr_df, subset_label = NULL,
             "polypurine tract in %.0f%%. The first two are near constant under the",
             "default LTRharvest settings."),
       100 * mean(ltr_df$has_both_ltrs), 100 * mean(ltr_df$has_tsd),
-      100 * mean(ltr_df$has_ppt)),
+      100 * mean(ltr_df$has_ppt)
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )
@@ -69,14 +72,15 @@ domain_composition_plot <- function(ltr_df, subset_label = NULL,
   if (nrow(ltr_df) == 0L) return(empty_plot())
   d <- ltr_df %>%
     dplyr::mutate(element_domains = dplyr::if_else(is.na(element_domains),
-                                                 "No domains", element_domains)) %>%
+                                                   "No domains", element_domains)) %>%
     dplyr::count(element_domains, name = "count") %>%
     collapse_long_tail("element_domains", top_n = top_n, weight = "count") %>%
     dplyr::group_by(element_domains) %>%
     dplyr::summarise(count = sum(count), .groups = "drop")
   ordered <- order_by_count(d, "element_domains", weight = "count")
   # Largest on top, "Other" at the bottom whatever its size.
-  ordered <- rev(c(ordered[!grepl("^Other", ordered)], ordered[grepl("^Other", ordered)]))
+  ordered <- rev(c(ordered[!grepl("^Other", ordered)],
+                   ordered[grepl("^Other", ordered)]))
   d <- d %>% dplyr::mutate(element_domains = factor(element_domains, levels = ordered),
                            other = grepl("^Other", element_domains))
 
@@ -92,8 +96,10 @@ domain_composition_plot <- function(ltr_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Pfam domain combinations",
-    subtitle = sprintf("The %d most common sets of Pfam domains per retrotransposon, the rest pooled.",
-                       top_n),
+    subtitle = sprintf(
+      "The %d most common sets of Pfam domains per retrotransposon, the rest pooled.",
+      top_n
+    ),
     subset_label    = subset_label,
     warning_caption = warning_caption
   )

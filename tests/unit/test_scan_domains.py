@@ -35,9 +35,12 @@ def test_negative_frames_translate_the_reverse_complement() -> None:
 
 
 def test_stop_codons_become_unknown_not_asterisk() -> None:
-    """`*` is a non-residue an alignment cannot cross, so a domain is broken at
+    """Stop codons translate to `X`, not `*`.
+
+    `*` is a non-residue an alignment cannot cross, so a domain is broken at
     every stop. Measured on the Homo LTR-flanked set, keeping `*` cost 246 loci
-    and 309 retroviral-diagnostic loci. See ADR-016."""
+    and 309 retroviral-diagnostic loci. See ADR-016.
+    """
     # ATG TAA GCC -> M * A
     got = scan_domains.six_frame_translations("ATGTAAGCC")[1]
     assert got == "MXA"
@@ -50,8 +53,11 @@ def test_short_sequence_yields_empty_strings_not_an_error() -> None:
 
 
 def test_query_fasta_roundtrips_locus_ids_containing_pipes(tmp_path: Path) -> None:
-    """Locus ids carry `|` already (`{id}|{gene}` elsewhere), so the frame suffix
-    must be split off from the right."""
+    """Locus ids that contain `|` survive the query FASTA round trip.
+
+    Locus ids carry `|` already (`{id}|{gene}` elsewhere), so the frame suffix
+    must be split off from the right.
+    """
     fasta = tmp_path / "q.faa"
     n = scan_domains.write_query_fasta(
         {"chr1|LTR_retrotransposon2": "ATGGCCATT"}, fasta

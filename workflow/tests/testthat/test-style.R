@@ -34,8 +34,10 @@ test_that("the categorical palette stays distinguishable under colour blindness"
 
 
 test_that("tiers and fates share colours, one per situation", {
-  expect_equal(unname(.FATE_COLOUR[["intact_flank"]]), unname(.TIER_COLOUR[["ltr-flanked"]]))
-  expect_equal(unname(.FATE_COLOUR[["mono_ltr_at_orphan"]]), unname(.TIER_COLOUR[["orphan"]]))
+  expect_equal(unname(.FATE_COLOUR[["intact_flank"]]),
+               unname(.TIER_COLOUR[["ltr-flanked"]]))
+  expect_equal(unname(.FATE_COLOUR[["mono_ltr_at_orphan"]]),
+               unname(.TIER_COLOUR[["orphan"]]))
   expect_equal(unname(.FATE_COLOUR[["solo"]]), unname(.TIER_COLOUR[["solo-ltr"]]))
   expect_length(unique(.TIER_COLOUR), 3)
 })
@@ -49,7 +51,8 @@ test_that("genus colours never reuse a tier colour", {
 
 test_that("a genus has the same colour whichever plot asks", {
   alone <- taxon_colours("Betaretrovirus")
-  crowded <- taxon_colours(c("Gammaretrovirus", "Lentivirus", "Betaretrovirus", "Other"))
+  crowded <- taxon_colours(c("Gammaretrovirus", "Lentivirus", "Betaretrovirus",
+                             "Other"))
   expect_equal(alone[["Betaretrovirus"]], crowded[["Betaretrovirus"]])
 })
 
@@ -111,16 +114,19 @@ test_that("a stage PDF embeds the house font", {
   skip_if_not(nzchar(Sys.which("pdffonts")), "pdffonts not installed")
   path <- withr::local_tempfile(fileext = ".pdf")
   p <- ggplot(data.frame(x = 1, y = 1), aes(x, y)) + geom_point() + theme_retroseek()
-  save_stage_pdf(list(key_page("Stage", "What it shows.", .TIER_COLOUR, "A page"), p), path)
+  save_stage_pdf(list(key_page("Stage", "What it shows.", .TIER_COLOUR, "A page"), p),
+                 path)
   fonts <- system2("pdffonts", path, stdout = TRUE)
   expect_true(any(grepl("IBMPlexSans", fonts)))
 })
 
 
 test_that("taxon legends run most abundant first, leftovers last", {
-  lv <- taxon_levels(c("Betaretrovirus", "Unassigned at genus", "Gammaretrovirus", "Other"),
+  lv <- taxon_levels(c("Betaretrovirus", "Unassigned at genus", "Gammaretrovirus",
+                       "Other"),
                      c(10, 99, 20, 50))
-  expect_equal(lv, c("Gammaretrovirus", "Betaretrovirus", "Unassigned at genus", "Other"))
+  expect_equal(lv, c("Gammaretrovirus", "Betaretrovirus", "Unassigned at genus",
+                     "Other"))
 })
 
 test_that("the blank theme really removes grid lines and axes", {
@@ -214,16 +220,23 @@ test_that("the probeset's foamy-virus label takes the spumavirus shades", {
   expect_equal(taxon_colours("Spumaretrovirinae")[["Spumaretrovirinae"]], .GREY_MID)
 })
 
-test_that("viruses wear shades of their genus colour, the first the genus colour itself", {
-  cols <- virus_colours(c("Mouse mammary tumor virus", "Jaagsiekte sheep retrovirus",
-                          "Feline leukemia virus", "Other (4)"),
-                        c("Betaretrovirus", "Betaretrovirus", "Gammaretrovirus", "Other"))
-  expect_equal(cols[["Jaagsiekte sheep retrovirus"]], .GENUS_COLOUR[["Betaretrovirus"]])
-  expect_false(cols[["Mouse mammary tumor virus"]] == .GENUS_COLOUR[["Betaretrovirus"]])
-  expect_equal(cols[["Feline leukemia virus"]], .GENUS_COLOUR[["Gammaretrovirus"]])
-  expect_equal(cols[["Other (4)"]], .GREY_OTHER)
-  expect_equal(anyDuplicated(unname(cols)), 0L)
-})
+test_that(
+  "viruses wear shades of their genus colour, the first the genus colour itself",
+  {
+    cols <- virus_colours(c("Mouse mammary tumor virus", "Jaagsiekte sheep retrovirus",
+                            "Feline leukemia virus", "Other (4)"),
+                          c("Betaretrovirus", "Betaretrovirus", "Gammaretrovirus",
+                            "Other"))
+    expect_equal(cols[["Jaagsiekte sheep retrovirus"]],
+                 .GENUS_COLOUR[["Betaretrovirus"]])
+    expect_false(cols[["Mouse mammary tumor virus"]] ==
+                   .GENUS_COLOUR[["Betaretrovirus"]])
+    expect_equal(cols[["Feline leukemia virus"]],
+                 .GENUS_COLOUR[["Gammaretrovirus"]])
+    expect_equal(cols[["Other (4)"]], .GREY_OTHER)
+    expect_equal(anyDuplicated(unname(cols)), 0L)
+  }
+)
 
 test_that("probe colours depend only on the probe set, not the order of the data", {
   expect_equal(probe_colours(c("POL", "GAG", "ENV", "POL")),

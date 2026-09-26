@@ -53,7 +53,7 @@ def test_every_tip_is_written_with_its_class_and_family(views: Path) -> None:
 
 
 def test_tips_occupy_one_row_each(views: Path) -> None:
-    """y is the row a tip is drawn on; two tips on one row would overprint."""
+    """Y is the row a tip is drawn on; two tips on one row would overprint."""
     tips = _read(views / "G.tree_tips.csv")
     assert sorted(float(t["y"]) for t in tips) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
 

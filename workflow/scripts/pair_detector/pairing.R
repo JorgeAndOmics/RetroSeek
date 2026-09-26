@@ -69,8 +69,10 @@ find_pairs <- function(ranges, probe_to_pair, max_gap) {
   pairs_df <- dplyr::mutate(pairs_df, coord_distance = abs(self.start - other.start))
 
   # Biological distance between strand-aware 5' ends.
-  pairs_df$self.5prime <- get_5prime(pairs_df$self.start, pairs_df$self.end, pairs_df$self.strand)
-  pairs_df$other.5prime <- get_5prime(pairs_df$other.start, pairs_df$other.end, pairs_df$other.strand)
+  pairs_df$self.5prime <- get_5prime(pairs_df$self.start, pairs_df$self.end,
+                                     pairs_df$self.strand)
+  pairs_df$other.5prime <- get_5prime(pairs_df$other.start, pairs_df$other.end,
+                                      pairs_df$other.strand)
   pairs_df$bio_distance <- abs(pairs_df$self.5prime - pairs_df$other.5prime)
   pairs_df <- dplyr::select(pairs_df, -self.5prime, -other.5prime)
 

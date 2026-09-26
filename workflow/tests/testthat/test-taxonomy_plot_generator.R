@@ -13,11 +13,19 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_plot_generator.R"))
 
 
 .fake_loci <- function(source) {
+  # One record per paragraph, its lines aligned under the header lines.
   tribble(
-    ~species, ~taxon_call,       ~rank,    ~resolved, ~confidence_tag, ~method,     ~is_mosaic, ~source,
-    "g1",     "Gammaretrovirus", "genus",  "True",    "HC",            "placement", "False",    source,
-    "g1",     "Betaretrovirus",  "genus",  "True",    "LC",            "lca",       "True",     source,
-    "g1",     "UNCLASSIFIED",    "none",   "False",   "LC",            "lca",       "False",    source
+    ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence_tag, ~method,
+    ~is_mosaic, ~source,
+
+    "g1",     "Gammaretrovirus", "genus", "True",    "HC",            "placement",
+    "False",    source,
+
+    "g1",     "Betaretrovirus",  "genus", "True",    "LC",            "lca",
+    "True",     source,
+
+    "g1",     "UNCLASSIFIED",    "none",  "False",   "LC",            "lca",
+    "False",    source
   )
 }
 
@@ -75,18 +83,31 @@ test_that("bucket_evidence handles empty and is robust to numeric input", {
 
 
 test_that("new plot builders return ggplot on data and empty_plot on empty", {
+  # One record per paragraph, its lines aligned under the header lines.
   combined <- tribble(
-    ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag, ~method,
-    ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes, ~structure_class, ~domain_tier, ~source,
-    "g1", "Gammaretrovirus", "genus", "True",  "0.95", "HC", "placement", "False", "8", "0.667", "2", "partial", "domain_selected", "ltr-flanked",
-    "g1", "UNCLASSIFIED",    "none",  "False", "0.00", "LC", "lca",       "False", "0", "0.333", "1", "gene",    "non_domain",      "ltr-flanked",
-    "g1", "Betaretrovirus",  "genus", "True",  "0.40", "LC", "lca",       "False", "3", "0.333", "1", "gene",    "non_domain",      "orphan"
+    ~species, ~taxon_call,       ~rank,   ~resolved, ~confidence, ~confidence_tag,
+    ~method,     ~is_mosaic, ~n_blastx_hits, ~completeness, ~n_main_genes,
+    ~structure_class, ~domain_tier,      ~source,
+
+    "g1",     "Gammaretrovirus", "genus", "True",    "0.95",      "HC",
+    "placement", "False",    "8",            "0.667",       "2",
+    "partial",        "domain_selected", "ltr-flanked",
+
+    "g1",     "UNCLASSIFIED",    "none",  "False",   "0.00",      "LC",
+    "lca",       "False",    "0",            "0.333",       "1",
+    "gene",           "non_domain",      "ltr-flanked",
+
+    "g1",     "Betaretrovirus",  "genus", "True",    "0.40",      "LC",
+    "lca",       "False",    "3",            "0.333",       "1",
+    "gene",           "non_domain",      "orphan"
   )
   # main() adds the numeric helper columns; mirror that here.
-  combined <- dplyr::mutate(combined,
+  combined <- dplyr::mutate(
+    combined,
     confidence_num = as.numeric(.data$confidence),
     n_hits = as.integer(.data$n_blastx_hits),
-    completeness_num = as.numeric(.data$completeness))
+    completeness_num = as.numeric(.data$completeness)
+  )
 
   builders <- list(
     evidence_depth_plot(combined),
@@ -111,12 +132,12 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
-test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr-flanked precedence)", {
+test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus", {
   combined <- tribble(
     ~species, ~source,    ~seqname, ~start, ~end,   ~id,
     "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1",
     "g1",     "orphan",   "chr1",   "1500", "1800", "O1",   # overlaps A1 -> drop
-    "g1",     "orphan",   "chr1",   "5000", "5300", "O2",   # clear -> keep
+    "g1",     "orphan",   "chr1",   "5000", "5300", "O2",   # no overlap, so keep
     "g1",     "orphan",   "chr2",   "1500", "1800", "O3"    # different seqname -> keep
   )
   out <- reconcile_catalog(combined)
@@ -124,7 +145,8 @@ test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus (ltr
   expect_true(all(out$source[out$id == "A1"] == "ltr-flanked"))
   # empty-safe + single-tier passthrough
   expect_equal(nrow(reconcile_catalog(combined[0, ])), 0L)
-  expect_equal(nrow(reconcile_catalog(combined[combined$source == "ltr-flanked", ])), 1L)
+  expect_equal(nrow(reconcile_catalog(combined[combined$source == "ltr-flanked", ])),
+               1L)
 })
 
 test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", {
@@ -171,7 +193,8 @@ test_that("mosaic sub-panel builders render on mosaic loci and are empty-safe", 
 }
 
 test_that("read_tree_part returns NULL for a missing or header-only file", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   expect_null(read_tree_part(tmp, "species", "tips"))     # no file at all
   readr::write_csv(tibble::tibble(tip = character(), x = numeric(), y = numeric()),
                    file.path(tmp, "species.tree_tips.csv"))
@@ -179,7 +202,8 @@ test_that("read_tree_part returns NULL for a missing or header-only file", {
 })
 
 test_that("tree panels degrade to a placeholder when no tree is configured", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   d <- .fake_loci("ltr-flanked")
   d$confidence_num <- 0.9
   expect_s3_class(taxon_confidence_tree_plot(d, tmp), "ggplot")
@@ -187,7 +211,8 @@ test_that("tree panels degrade to a placeholder when no tree is configured", {
 })
 
 test_that("a per-host page sits beside the host tree when one is configured", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   d <- .fake_loci("ltr-flanked")
   d$confidence_num <- c(0.9, 0.4)[seq_len(nrow(d)) %% 2 + 1]
   .write_tree_fixture(tmp, "species", unique(as.character(d$species)))
@@ -196,7 +221,8 @@ test_that("a per-host page sits beside the host tree when one is configured", {
 })
 
 test_that("taxon tree panel builds and is level-agnostic about tip rank", {
-  tmp <- tempfile(); dir.create(tmp)
+  tmp <- tempfile()
+  dir.create(tmp)
   d <- .fake_loci("ltr-flanked")
   d$confidence_num <- 0.8
   # Mixed-rank tips: a genus and a family side by side (ADR-008).
@@ -213,7 +239,7 @@ test_that("taxon tree panel builds and is level-agnostic about tip rank", {
 # ---------------------------------------------------------------------------
 .composition_loci <- function() {
   tribble(
-    ~species,           ~taxon_call,       ~segment,          ~source,       ~confidence,
+    ~species,          ~taxon_call,       ~segment,          ~source,       ~confidence,
     "Antrozous pallidus", "Gammaretrovirus", "Gammaretrovirus", "ltr-flanked", "0.9",
     "Antrozous pallidus", "Betaretrovirus",  "Betaretrovirus",  "orphan",      "0.8",
     "Antrozous pallidus", "Betaretrovirus",  "Betaretrovirus",  "orphan",      "0.7",
@@ -244,11 +270,15 @@ test_that("tree_composition_plot is empty-safe and tolerates a missing column", 
   .write_tree_fixture(dir, "species", c("Antrozous pallidus"))
   expect_s3_class(
     tree_composition_plot(.composition_loci()[0, ], dir, "species", "species",
-                          "segment", "t", "s"), "ggplot")
+                          "segment", "t", "s"),
+    "ggplot"
+  )
   # asking to fill by a column the frame does not carry must not error
   expect_s3_class(
     tree_composition_plot(.composition_loci(), dir, "species", "species",
-                          "not_a_column", "t", "s"), "ggplot")
+                          "not_a_column", "t", "s"),
+    "ggplot"
+  )
 })
 
 test_that("tree_composition_plot drops rows whose key is absent from the tree", {

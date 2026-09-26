@@ -14,18 +14,21 @@ source("../../scripts/hotspot/windowing.R")
 
 # --------------------------- tile_genome_for_hotspot -----------------------
 
-test_that("tile_genome_for_hotspot produces full-width tiles for a genome divisible by window_size", {
+test_that("tile_genome_for_hotspot tiles a genome divisible by window_size exactly", {
   out <- tile_genome_for_hotspot(c(chr1 = 30000L), window_size = 10000L)
   expect_equal(length(out), 3L)
   expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 10000L))
 })
 
-test_that("tile_genome_for_hotspot's last tile is shorter when chrom is not divisible", {
-  out <- tile_genome_for_hotspot(c(chr1 = 25000L), window_size = 10000L)
-  expect_equal(length(out), 3L)
-  # last tile shorter: 25000 - 20000 = 5000
-  expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 5000L))
-})
+test_that(
+  "tile_genome_for_hotspot's last tile is shorter when chrom is not divisible",
+  {
+    out <- tile_genome_for_hotspot(c(chr1 = 25000L), window_size = 10000L)
+    expect_equal(length(out), 3L)
+    # last tile shorter: 25000 - 20000 = 5000
+    expect_equal(BiocGenerics::width(out), c(10000L, 10000L, 5000L))
+  }
+)
 
 test_that("tile_genome_for_hotspot tiles each chromosome independently", {
   out <- tile_genome_for_hotspot(c(chr1 = 15000L, chr2 = 20000L), window_size = 10000L)
@@ -83,7 +86,7 @@ test_that("assemble_window_table builds a tibble with the expected columns", {
   expect_equal(unique(out$label), "Gammaretrovirus")
 })
 
-test_that("assemble_window_table falls back to the raw chrom name when stratum map is missing one", {
+test_that("assemble_window_table uses the raw chrom name the stratum map lacks", {
   windows <- GenomicRanges::GRanges(
     seqnames = "scaffold_99",
     ranges   = IRanges::IRanges(start = 1, end = 1000)

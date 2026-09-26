@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# hotspot / plots.R
+# Module hotspot/plots.R
 # -----------------------------------------------------------------------------
 # The hotspot detector's pages (NB GLM only), in the house style
 # (plot2sort/style.R, docs/visual_style.md; hotspot_detector.R sources style.R
@@ -70,10 +70,13 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
       band = factor(match(.data$chrom, offsets$chrom) %% 2L)
     )
   if (nrow(df) == 0L) return(empty_plot("No callable windows"))
-  p <- ggplot(df, aes(x = .data$cum_pos, y = .data$neg_log10_q, colour = .data$band)) +
+  p <- ggplot(df, aes(x = .data$cum_pos, y = .data$neg_log10_q,
+                      colour = .data$band)) +
     geom_point(size = 0.6, alpha = 0.8) +
-    geom_hline(yintercept = -log10(threshold), colour = .INK_SOFT, linetype = "dashed") +
-    scale_colour_manual(values = c(`0` = .DATA_COLOUR, `1` = .GREY_MID), guide = "none") +
+    geom_hline(yintercept = -log10(threshold), colour = .INK_SOFT,
+               linetype = "dashed") +
+    scale_colour_manual(values = c(`0` = .DATA_COLOUR, `1` = .GREY_MID),
+                        guide = "none") +
     scale_x_continuous(breaks = offsets$chrom_centre, labels = offsets$chrom,
                        expand = expansion(mult = 0.01)) +
     labs(x = NULL, y = expression(-log[10](q))) +
@@ -82,9 +85,11 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
           panel.grid.major.x = element_blank())
   add_titles(p, "Where integrations cluster",
-             sprintf(paste("%s loci per window, tested against a negative binomial model.",
-                           "Dashed line: q = %s."),
-                     label %||% "All", format(threshold)),
+             sprintf(
+               paste("%s loci per window, tested against a negative binomial model.",
+                     "Dashed line: q = %s."),
+               label %||% "All", format(threshold)
+             ),
              subset_label = species)
 }
 
@@ -124,11 +129,13 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL) {
     scale_y_continuous(breaks = NULL, expand = expansion(mult = 0)) +
     scale_x_continuous(labels = scales::comma_format(suffix = " Mb")) +
     labs(x = NULL, y = NULL) +
-    theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 7, face = "plain"),
+    theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 7,
+                                           face = "plain"),
           panel.grid.major.y = element_blank(),
           panel.spacing.y = unit(0.05, "lines"))
   add_titles(p, "Hotspots along the chromosomes",
-             sprintf("%d hotspots across %d sequences.", length(hotspots), length(seqlengths)),
+             sprintf("%d hotspots across %d sequences.", length(hotspots),
+                     length(seqlengths)),
              subset_label = species)
 }
 
@@ -145,11 +152,14 @@ plot_qq <- function(window_df, species = NULL, label = NULL) {
   plot <- ggplot(df, aes(x = .data$expected, y = .data$observed)) +
     geom_abline(slope = 1, intercept = 0, colour = .INK_SOFT, linetype = "dashed") +
     geom_point(size = 0.7, alpha = 0.7, colour = .DATA_COLOUR) +
-    labs(x = expression(Expected~~-log[10](p)), y = expression(Observed~~-log[10](p)))
+    labs(x = expression(Expected ~ ~-log[10](p)),
+         y = expression(Observed ~ ~-log[10](p)))
   add_titles(plot, "Is the model calibrated?",
-             sprintf(paste("%s windows: observed p-values against the uniform null. Points",
-                           "on the dashed line mean a calibrated model."),
-                     label %||% "All"),
+             sprintf(
+               paste("%s windows: observed p-values against the uniform null. Points",
+                     "on the dashed line mean a calibrated model."),
+               label %||% "All"
+             ),
              subset_label = species)
 }
 
@@ -184,8 +194,10 @@ plot_summary_panel <- function(hotspots, seqlengths, species = NULL) {
   (p_density / p_widths) +
     patchwork::plot_annotation(
       title = "Hotspot summary",
-      subtitle = paste(c(species, sprintf("%d hotspots.", length(hotspots))), collapse = ". "),
-      theme = theme_retroseek())
+      subtitle = paste(c(species, sprintf("%d hotspots.", length(hotspots))),
+                       collapse = ". "),
+      theme = theme_retroseek()
+    )
 }
 
 
@@ -203,7 +215,7 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
   if (length(hotspots) == 0L) return(empty_plot("No hotspot passed the threshold"))
   mc <- S4Vectors::mcols(hotspots)
   if (!all(c("n_full", "n_partial", "n_gene") %in% colnames(mc)) ||
-      sum(mc$n_full, mc$n_partial, mc$n_gene, na.rm = TRUE) == 0L) {
+        sum(mc$n_full, mc$n_partial, mc$n_gene, na.rm = TRUE) == 0L) {
     return(empty_plot("No structural composition on this input tier"))
   }
   id <- if ("hotspot_id" %in% colnames(mc)) {
@@ -226,7 +238,8 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
     ggplot(comp, aes(x = .data$hotspot, y = .data$n, fill = .data$class)) +
       geom_col(position = position, width = 0.7) +
       coord_flip() +
-      scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label, name = NULL) +
+      scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
+                        name = NULL) +
       labs(x = NULL) +
       theme(panel.grid.major.y = element_blank()) + .panel_title
   }
@@ -240,8 +253,10 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
     patchwork::plot_layout(guides = "collect") +
     patchwork::plot_annotation(
       title = "What each hotspot is made of",
-      subtitle = paste(c(species, tier_note %||% "Loci by structural class."), collapse = ". "),
-      theme = theme_retroseek())
+      subtitle = paste(c(species, tier_note %||% "Loci by structural class."),
+                       collapse = ". "),
+      theme = theme_retroseek()
+    )
 }
 
 

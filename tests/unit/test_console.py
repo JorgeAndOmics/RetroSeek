@@ -242,8 +242,11 @@ def test_tally_counts_a_failure_once_although_snakemake_repeats_it() -> None:
 
 
 def test_an_interrupt_keeps_reading_until_snakemake_has_stopped(tmp_path) -> None:
-    """Ctrl-C reaches Snakemake too; while it stops its jobs, its last lines must
-    still be read (a full pipe would stall it) and the run reported as 130."""
+    """After Ctrl-C the launcher keeps reading Snakemake and reports exit 130.
+
+    Ctrl-C reaches Snakemake too; while it stops its jobs, its last lines must
+    still be read (a full pipe would stall it) and the run reported as 130.
+    """
     script = (
         "import sys, time\n"
         "print('started', flush=True)\n"
