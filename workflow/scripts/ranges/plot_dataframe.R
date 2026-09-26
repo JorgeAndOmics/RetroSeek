@@ -64,30 +64,31 @@ attach_probe_category <- function(gr, main_set, concat_separator = "; ") {
     S4Vectors::mcols(gr)$probe_category <- character(0)
     return(gr)
   }
-  probe_col <- S4Vectors::mcols(gr)$probe
-  cat_chr <- vapply(seq_along(probe_col), function(i) {
-    .probe_category(.probes_of(probe_col, i, concat_separator), main_set)
-  }, character(1))
-  S4Vectors::mcols(gr)$probe_category <- cat_chr
+  probes <- .probe_lists(S4Vectors::mcols(gr)$probe, concat_separator)
+  S4Vectors::mcols(gr)$probe_category <- .probe_categories(probes, main_set)
   gr
 }
 
-# The probes of row `i`: a list column's element, or a joined string split on
-# `concat_separator`. Empty names are dropped.
-.probes_of <- function(probe_col, i, concat_separator) {
+# The probe column as one CharacterList (a joined string is split on
+# `concat_separator`), empty names dropped. Built once for the whole column:
+# indexing a CharacterList row by row costs about a millisecond per row.
+.probe_lists <- function(probe_col, concat_separator) {
   probes <- if (inherits(probe_col, "CharacterList")) {
-    as.character(probe_col[[i]])
+    probe_col
   } else {
-    strsplit(as.character(probe_col[[i]]), concat_separator, fixed = TRUE)[[1]]
+    IRanges::CharacterList(strsplit(as.character(probe_col), concat_separator, fixed = TRUE))
   }
-  probes[nzchar(probes)]
+  # nzchar() has no CharacterList method; nchar() does, but reads NA as NA
+  # where nzchar(NA) is TRUE, so an NA probe is kept explicitly.
+  probes[nchar(probes) != 0L | is.na(probes)]
 }
 
-# "main", "accessory" or "mixed" for a probe set; NA when it is empty.
-.probe_category <- function(probes, main_set) {
-  if (length(probes) == 0L) return(NA_character_)
-  in_main <- probes %in% main_set
-  if (all(in_main))   return("main")
-  if (!any(in_main))  return("accessory")
-  "mixed"
+# "main" when every probe of a range is in `main_set`, "accessory" when none is,
+# "mixed" otherwise; NA for a range with no probe.
+.probe_categories <- function(probes, main_set) {
+  n_all <- lengths(probes)
+  n_main <- sum(probes %in% main_set)
+  category <- ifelse(n_main == n_all, "main", ifelse(n_main == 0L, "accessory", "mixed"))
+  category[n_all == 0L] <- NA_character_
+  category
 }
