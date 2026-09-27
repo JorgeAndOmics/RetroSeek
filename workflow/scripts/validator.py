@@ -205,8 +205,8 @@ def genome_fasta(species_dir: Path, genome: str) -> str:
 
     Returns:
         The chosen file's path, or the `{genome}.fa` path when no file can be
-        chosen (none exists, or several variants do; the latter is logged), so
-        the FASTA check then reports it missing.
+        chosen: none exists (the FASTA check then reports it missing), or the
+        files are ambiguous (logged as a warning).
     """
     try:
         return str(pick_canonical_source(species_dir, genome))

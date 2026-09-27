@@ -141,3 +141,47 @@ def test_normalize_validates_first_byte_is_gt(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="FASTA"):
         normalize(tmp_path, "Toyus", output)
+
+
+# ---------------------------------------------------------------------
+# A working `.fa` link is only as good as what it points at
+# ---------------------------------------------------------------------
+def test_a_link_to_the_wrong_file_is_refused_not_kept(tmp_path: Path) -> None:
+    """``Toyus.fa -> Toyus.fasta`` while ``Toyus.fna`` also exists: ambiguous.
+
+    The link used to win the preference order and resolve to itself, so an old
+    link survived next to the file that should back it. Which of the two is the
+    genome is the user's call, so the normalizer refuses and changes nothing.
+    """
+    old = tmp_path / "Toyus.fasta"
+    _write_fasta(old)
+    new = tmp_path / "Toyus.fna"
+    _write_fasta(new)
+    output = tmp_path / "Toyus.fa"
+    output.symlink_to(old.resolve())
+
+    with pytest.raises(RuntimeError, match=r"Toyus\.fa links to .*Toyus\.fna"):
+        normalize(tmp_path, "Toyus", output)
+    assert output.resolve() == old.resolve()
+
+
+def test_a_link_elsewhere_with_no_variant_beside_it_is_kept(tmp_path: Path) -> None:
+    """A hand-made ``Toyus.fa`` link to a genome stored elsewhere is honoured."""
+    elsewhere = tmp_path / "store" / "toyus_assembly.fa"
+    elsewhere.parent.mkdir()
+    _write_fasta(elsewhere)
+    species = tmp_path / "species"
+    species.mkdir()
+    output = species / "Toyus.fa"
+    output.symlink_to(elsewhere)
+
+    assert pick_canonical_source(species, "Toyus") == output
+    normalize(species, "Toyus", output)
+    assert output.resolve() == elsewhere.resolve()
+
+
+def test_a_link_to_its_only_variant_names_that_variant(tmp_path: Path) -> None:
+    src = tmp_path / "Toyus.fna"
+    _write_fasta(src)
+    (tmp_path / "Toyus.fa").symlink_to(src.resolve())
+    assert pick_canonical_source(tmp_path, "Toyus") == src
