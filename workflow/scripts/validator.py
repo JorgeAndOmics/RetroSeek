@@ -306,43 +306,53 @@ def uses_pfam(chosen: list[stages.Stage]) -> bool:
     return any(stage.flag in PFAM_STAGES for stage in chosen)
 
 
+def _tools_problem(chosen: list[stages.Stage]) -> str | None:
+    """What to do about the tools the chosen stages call but cannot find."""
+    absent = missing_tools(["snakemake", *stages.tools(chosen)])
+    if not absent:
+        return None
+    return (
+        f"Not installed: {', '.join(absent)}. Activate the RetroSeek conda "
+        "environment, or add them with `make env-update`."
+    )
+
+
+def _pfam_check(chosen: list[stages.Stage]) -> str | None:
+    """The Pfam library's problem, for stages that read the curated subset."""
+    if not uses_pfam(chosen):
+        return None
+    logger.info("Checking the Pfam library against the curated table...")
+    return pfam_problem(
+        Path(defaults.PATH_DICT["HMM_PROFILE_DIR"]) / "Pfam-A.hmm",
+        Path(defaults.PFAM_DOMAIN_CLASSES),
+    )
+
+
+def _report(problems: list[str | None]) -> bool:
+    """Log each problem as an error; True when there was none."""
+    found = [problem for problem in problems if problem]
+    for problem in found:
+        logger.error(problem)
+    return not found
+
+
 def preflight(chosen: list[stages.Stage]) -> bool:
     """Checks that take seconds and save hours; `-skp` does not skip them.
 
     The config against its schema, the tools the chosen stages call, genome
     FASTA files that cannot be told apart, and, for stages that read the curated
-    Pfam subset, the Pfam library itself.
+    Pfam subset, the Pfam library itself. Each problem is logged as an error.
     """
-    ok = yaml_validator(
+    schema_ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
         yaml_file=defaults.CONFIG_FILE,
     )
-
-    absent = missing_tools(["snakemake", *stages.tools(chosen)])
-    if absent:
-        logger.error(
-            f"Not installed: {', '.join(absent)}. Activate the RetroSeek conda "
-            "environment, or add them with `make env-update`."
-        )
-        ok = False
-
-    for ambiguity in ambiguous_genomes(
+    genomes = ambiguous_genomes(
         Path(defaults.PATH_DICT["SPECIES_DB"]), defaults.SPECIES
-    ):
-        logger.error(ambiguity)
-        ok = False
-
-    if uses_pfam(chosen):
-        logger.info("Checking the Pfam library against the curated table...")
-        problem = pfam_problem(
-            Path(defaults.PATH_DICT["HMM_PROFILE_DIR"]) / "Pfam-A.hmm",
-            Path(defaults.PFAM_DOMAIN_CLASSES),
-        )
-        if problem:
-            logger.error(problem)
-            ok = False
-
-    return ok
+    )
+    local_ok = _report([_tools_problem(chosen), *genomes])
+    pfam_ok = _report([_pfam_check(chosen)])
+    return schema_ok and local_ok and pfam_ok
 
 
 # -----------------------------
