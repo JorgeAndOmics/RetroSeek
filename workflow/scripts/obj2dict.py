@@ -158,71 +158,67 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
 # =============================================================================
 # 2. Main Execution Block
 # =============================================================================
-def main(args: argparse.Namespace) -> None:
-    """Load the pickled objects and write them as one CSV and one Parquet table."""
-    # -------------------------------------------------------------------------
-    # 2.2 Load Object Dictionaries from Pickles
-    # -------------------------------------------------------------------------
-    all_objects: list[Any] = []
-    for file in args.files:
-        objct_dict = utils.unpickler(
+def _load_objects(files: list[str]) -> list[Any]:
+    """Every object of the given pickles in PICKLE_DIR, in file order."""
+    objects: list[Any] = []
+    for file in files:
+        object_dict = utils.unpickler(
             input_directory_path=defaults.PATH_DICT["PICKLE_DIR"], input_file_name=file
         )
-        logger.info(f"{Path(file).stem}: {len(objct_dict)} objects retrieved")
-        all_objects.extend(objct_dict.values())
+        logger.info(f"{Path(file).stem}: {len(object_dict)} objects retrieved")
+        objects.extend(object_dict.values())
+    logger.info(f"Total objects loaded: {len(objects)}")
+    return objects
 
-    logger.info(f"Total objects loaded: {len(all_objects)}")
 
-    # -------------------------------------------------------------------------
-    # 2.3 Group Objects by Species
-    # -------------------------------------------------------------------------
+def _group_by_species(objects: list[Any]) -> dict[str, list[Any]]:
+    """The objects of each species, species in order of first appearance."""
     species_objects: dict[str, list[Any]] = defaultdict(list)
-    for obj in all_objects:
+    for obj in objects:
         species_objects[obj.species].append(obj)
-
     logger.info(f"Objects grouped into {len(species_objects)} species")
+    return species_objects
 
-    # -------------------------------------------------------------------------
-    # 2.4 Process Each Species Sequentially and Build DataFrames
-    # -------------------------------------------------------------------------
-    species_dataframes: dict[str, Any] = {}
 
-    for species, objects in species_objects.items():
-        logger.info(f"Processing species: {species} ({len(objects)} objects)")
+def _species_table(species: str, objects: list[Any]) -> pd.DataFrame:
+    """One species' objects as rows, read in a thread pool.
 
-        results: list[dict[str, Any]] = []
-        with (
-            tqdm(
-                total=len(objects), desc=f"Processing {species}", disable=None
-            ) as pbar,
-            ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor,
-        ):
-            futures = [
-                executor.submit(extract_attributes_from_object, obj) for obj in objects
-            ]
-            for future in as_completed(futures):
-                results.append(future.result())
-                pbar.update()
+    Rows come in the order the reads finish, so their order within a species
+    varies between runs; no reader of these tables depends on it.
+    """
+    logger.info(f"Processing species: {species} ({len(objects)} objects)")
+    results: list[dict[str, Any]] = []
+    with (
+        tqdm(total=len(objects), desc=f"Processing {species}", disable=None) as pbar,
+        ThreadPoolExecutor(max_workers=defaults.MAX_THREADPOOL_WORKERS) as executor,
+    ):
+        futures = [
+            executor.submit(extract_attributes_from_object, obj) for obj in objects
+        ]
+        for future in as_completed(futures):
+            results.append(future.result())
+            pbar.update()
+    species_df = pd.DataFrame(results)
+    logger.info(f"Species {species}: DataFrame created with {len(species_df)} rows")
+    return species_df
 
-        species_df = pd.DataFrame(results)
-        species_dataframes[species] = species_df
-        logger.info(f"Species {species}: DataFrame created with {len(species_df)} rows")
 
-    # -------------------------------------------------------------------------
-    # 2.5 Concatenate All Species DataFrames
-    # -------------------------------------------------------------------------
+def main(args: argparse.Namespace) -> None:
+    """Load the pickled objects and write them as one CSV and one Parquet table."""
+    species_objects = _group_by_species(_load_objects(args.files))
+    species_dataframes = {
+        species: _species_table(species, objects)
+        for species, objects in species_objects.items()
+    }
+
     logger.info("Concatenating all species DataFrames...")
     df = pd.concat(species_dataframes.values(), ignore_index=True)
     logger.info(
         f"Final DataFrame: {len(df)} total rows from {len(species_dataframes)} species"
     )
 
-    # -------------------------------------------------------------------------
-    # 2.6 Save DataFrame to CSV and Parquet
-    # -------------------------------------------------------------------------
     df.to_csv(args.csv_path, index=False)
     logger.info(f"CSV saved to: {args.csv_path}")
-
     df.to_parquet(args.parquet_path, index=False)
     logger.info(f"Parquet saved to: {args.parquet_path}")
     logger.log(
