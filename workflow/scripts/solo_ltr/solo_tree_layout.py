@@ -31,7 +31,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +53,103 @@ def _write(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None
         writer.writerows(rows)
 
 
+def _write_full_tree(
+    tree: Any, out: Callable[[str], Path], family_of: dict[str, str]
+) -> None:
+    """The full tree: every tip with its class and family, and the branches."""
+    segments, tips = layout(tree, align_tips=False)
+    _write(
+        out("tree_tips.csv"),
+        ["tip", "class", "family", "x", "y"],
+        ((name, tip_class(name), family_of[name], x, y) for name, x, y in tips),
+    )
+    _write(out("tree_segments.csv"), ["x", "y", "xend", "yend"], segments)
+
+
+def _write_solo_tree(
+    tree: Any, out: Callable[[str], Path], family_of: dict[str, str], solo_newick: Path
+) -> None:
+    """The tree pruned to its solos, as tables and as Newick.
+
+    Header-only tables and an empty Newick when there are too few solos, so the
+    outputs always exist and the figure shows a placeholder instead of failing.
+    """
+    solo_tree = tree_families.solo_only_tree(tree)
+    solo_segments: list[Any] = []
+    solo_tips: list[Any] = []
+    if solo_tree is not None:
+        solo_segments, solo_tips = layout(solo_tree, align_tips=False)
+        Phylo.write(solo_tree, str(solo_newick), "newick")  # type: ignore[no-untyped-call,attr-defined]
+    else:
+        solo_newick.write_text("")
+    _write(
+        out("solo_tree_tips.csv"),
+        ["tip", "family", "x", "y"],
+        ((name, family_of[name], x, y) for name, x, y in solo_tips),
+    )
+    _write(out("solo_tree_segments.csv"), ["x", "y", "xend", "yend"], solo_segments)
+
+
+def _write_showcase(
+    shown: list[tree_families.Family], out: Callable[[str], Path]
+) -> None:
+    """The showcase families, each laid out as its own tree."""
+    family_tips: list[Any] = []
+    family_segments: list[Any] = []
+    for family in shown:
+        segs, ftips = layout(tree_families.as_tree(family.clade), align_tips=False)
+        family_tips.extend(
+            (family.family_id, n, tip_class(n), x, y) for n, x, y in ftips
+        )
+        family_segments.extend((family.family_id, *seg) for seg in segs)
+    _write(
+        out("family_tree_tips.csv"), ["family", "tip", "class", "x", "y"], family_tips
+    )
+    _write(
+        out("family_tree_segments.csv"),
+        ["family", "x", "y", "xend", "yend"],
+        family_segments,
+    )
+
+
+_FAMILY_COLUMNS = [
+    "family",
+    "kind",
+    "n_tips",
+    "n_flank",
+    "n_solo",
+    "n_mono",
+    "diameter",
+    "shown",
+]
+
+
+def _write_family_table(
+    families: list[tree_families.Family],
+    shown: list[tree_families.Family],
+    out: Callable[[str], Path],
+) -> None:
+    """One row per family, and whether it made the showcase."""
+    shown_ids = {f.family_id for f in shown}
+    _write(
+        out("tree_families.csv"),
+        _FAMILY_COLUMNS,
+        (
+            (
+                f.family_id,
+                f.kind,
+                f.n_tips,
+                f.n_flank,
+                f.n_solo,
+                f.n_mono,
+                round(f.diameter, 4),
+                f.family_id in shown_ids,
+            )
+            for f in families
+        ),
+    )
+
+
 def write_views(
     treefile: Path,
     table_prefix: Path,
@@ -72,78 +169,11 @@ def write_views(
     def out(suffix: str) -> Path:
         return table_prefix.with_name(f"{table_prefix.name}.{suffix}")
 
-    # The full tree.
-    segments, tips = layout(tree, align_tips=False)
-    _write(
-        out("tree_tips.csv"),
-        ["tip", "class", "family", "x", "y"],
-        ((name, tip_class(name), family_of[name], x, y) for name, x, y in tips),
-    )
-    _write(out("tree_segments.csv"), ["x", "y", "xend", "yend"], segments)
-
-    # The solo-only tree. Header-only files when there are too few solos, so the
-    # outputs always exist and the figure shows a placeholder instead of failing.
-    solo_tree = tree_families.solo_only_tree(tree)
-    solo_segments: list[Any] = []
-    solo_tips: list[Any] = []
-    if solo_tree is not None:
-        solo_segments, solo_tips = layout(solo_tree, align_tips=False)
-        Phylo.write(solo_tree, str(solo_newick), "newick")  # type: ignore[no-untyped-call,attr-defined]
-    else:
-        solo_newick.write_text("")
-    _write(
-        out("solo_tree_tips.csv"),
-        ["tip", "family", "x", "y"],
-        ((name, family_of[name], x, y) for name, x, y in solo_tips),
-    )
-    _write(out("solo_tree_segments.csv"), ["x", "y", "xend", "yend"], solo_segments)
-
-    # The showcase families, each laid out as its own tree.
+    _write_full_tree(tree, out, family_of)
+    _write_solo_tree(tree, out, family_of, solo_newick)
     shown = tree_families.showcase(families, per_kind)
-    family_tips: list[Any] = []
-    family_segments: list[Any] = []
-    for family in shown:
-        segs, ftips = layout(tree_families.as_tree(family.clade), align_tips=False)
-        family_tips.extend(
-            (family.family_id, n, tip_class(n), x, y) for n, x, y in ftips
-        )
-        family_segments.extend((family.family_id, *seg) for seg in segs)
-    _write(
-        out("family_tree_tips.csv"), ["family", "tip", "class", "x", "y"], family_tips
-    )
-    _write(
-        out("family_tree_segments.csv"),
-        ["family", "x", "y", "xend", "yend"],
-        family_segments,
-    )
-
-    shown_ids = {f.family_id for f in shown}
-    _write(
-        out("tree_families.csv"),
-        [
-            "family",
-            "kind",
-            "n_tips",
-            "n_flank",
-            "n_solo",
-            "n_mono",
-            "diameter",
-            "shown",
-        ],
-        (
-            (
-                f.family_id,
-                f.kind,
-                f.n_tips,
-                f.n_flank,
-                f.n_solo,
-                f.n_mono,
-                round(f.diameter, 4),
-                f.family_id in shown_ids,
-            )
-            for f in families
-        ),
-    )
+    _write_showcase(shown, out)
+    _write_family_table(families, shown, out)
     return families
 
 
