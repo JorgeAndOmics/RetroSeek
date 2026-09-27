@@ -752,6 +752,19 @@ def write_counts(
         w.writerows(classification_counts(records, kept, source))
 
 
+# Per-locus class counts: (metric, record column, value counted). Structural
+# class and domain tier of the assembled loci (ADR-009); the grain is per locus,
+# distinct from the per-hit valid_* tier counts emitted by ranges_analysis.R.
+_CLASS_COUNTS = (
+    ("structure_full", "structure_class", "full"),
+    ("structure_partial", "structure_class", "partial"),
+    ("structure_gene", "structure_class", "gene"),
+    ("loci_domain_selected", "domain_tier", "domain_selected"),
+    ("loci_domain_unlisted", "domain_tier", "domain_unlisted"),
+    ("loci_non_domain", "domain_tier", "non_domain"),
+)
+
+
 def classification_counts(
     records: list[dict[str, str]], kept: list[dict[str, str]], source: str
 ) -> list[dict[str, Any]]:
@@ -768,48 +781,18 @@ def classification_counts(
             {"metric": "orphans_total", "value": len(records)},
             {"metric": "orphans_recovered", "value": len(kept)},
         ]
-    return [
-        {"metric": "loci_total", "value": len(records)},
-        {
-            "metric": "loci_classified",
-            "value": sum(r["taxon_call"] != tlca.UNCLASSIFIED for r in records),
-        },
-        {
-            "metric": "loci_unclassified",
-            "value": sum(r["taxon_call"] == tlca.UNCLASSIFIED for r in records),
-        },
-        {
-            "metric": "loci_no_blastx_hit",
-            "value": sum(r["n_blastx_hits"] == "0" for r in records),
-        },
-        # Per-provirus structural class + domain tier of the assembled loci
-        # (ADR-009). Grain is per-locus, distinct from the per-hit valid_* tier
-        # counts emitted by ranges_analysis.R.
-        {
-            "metric": "structure_full",
-            "value": sum(r.get("structure_class") == "full" for r in records),
-        },
-        {
-            "metric": "structure_partial",
-            "value": sum(r.get("structure_class") == "partial" for r in records),
-        },
-        {
-            "metric": "structure_gene",
-            "value": sum(r.get("structure_class") == "gene" for r in records),
-        },
-        {
-            "metric": "loci_domain_selected",
-            "value": sum(r.get("domain_tier") == "domain_selected" for r in records),
-        },
-        {
-            "metric": "loci_domain_unlisted",
-            "value": sum(r.get("domain_tier") == "domain_unlisted" for r in records),
-        },
-        {
-            "metric": "loci_non_domain",
-            "value": sum(r.get("domain_tier") == "non_domain" for r in records),
-        },
+    classified = sum(r["taxon_call"] != tlca.UNCLASSIFIED for r in records)
+    counts = [
+        ("loci_total", len(records)),
+        ("loci_classified", classified),
+        ("loci_unclassified", len(records) - classified),
+        ("loci_no_blastx_hit", sum(r["n_blastx_hits"] == "0" for r in records)),
+        *(
+            (metric, sum(r.get(column) == value for r in records))
+            for metric, column, value in _CLASS_COUNTS
+        ),
     ]
+    return [{"metric": metric, "value": value} for metric, value in counts]
 
 
 def summarise(records: list[dict[str, str]]) -> str:
