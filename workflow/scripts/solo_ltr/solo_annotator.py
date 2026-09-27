@@ -489,7 +489,11 @@ def write_solo_table(
     solos: list[SoloLTR], csv_path: Path, parquet_path: Path, species: str
 ) -> None:
     """Write the per-solo table as both user-facing CSV and pipeline parquet."""
-    frame = solo_table(solos, species)
+    _write_frame(solo_table(solos, species), csv_path, parquet_path)
+
+
+def _write_frame(frame: pd.DataFrame, csv_path: Path, parquet_path: Path) -> None:
+    """One table as the user-facing CSV and the pipeline's Parquet."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     parquet_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(csv_path, index=False)
@@ -539,13 +543,6 @@ def _warn_on_no_solos(solos: list[SoloLTR], loci: list[ClassifiedLocus]) -> None
         )
 
 
-def _write_ratio(ratio: pd.DataFrame, csv_path: Path, parquet_path: Path) -> None:
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    parquet_path.parent.mkdir(parents=True, exist_ok=True)
-    ratio.to_csv(csv_path, index=False)
-    ratio.to_parquet(parquet_path, index=False)
-
-
 def main(argv: list[str] | None = None) -> None:
     """Entry point."""
     args = _parse_args(argv)
@@ -567,7 +564,7 @@ def main(argv: list[str] | None = None) -> None:
     ratio = compute_solo_intact_ratio(
         solos, loci, species=args.species, group_by=args.group_by
     )
-    _write_ratio(ratio, args.output_ratio_csv, args.output_ratio_parquet)
+    _write_frame(ratio, args.output_ratio_csv, args.output_ratio_parquet)
     logger.log(
         OK,
         "%s solo LTRs annotated (taxon from library %s, nearest locus %s, "

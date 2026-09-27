@@ -341,18 +341,18 @@ def preflight(chosen: list[stages.Stage]) -> bool:
 
     The config against its schema, the tools the chosen stages call, genome
     FASTA files that cannot be told apart, and, for stages that read the curated
-    Pfam subset, the Pfam library itself. Each problem is logged as an error.
+    Pfam subset, the Pfam library itself. Schema problems are logged as
+    warnings, the others as errors, each check's before the next one starts.
     """
     schema_ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
         yaml_file=defaults.CONFIG_FILE,
     )
-    genomes = ambiguous_genomes(
-        Path(defaults.PATH_DICT["SPECIES_DB"]), defaults.SPECIES
-    )
-    local_ok = _report([_tools_problem(chosen), *genomes])
+    tools_ok = _report([_tools_problem(chosen)])
+    species_db = Path(defaults.PATH_DICT["SPECIES_DB"])
+    genomes_ok = _report(list(ambiguous_genomes(species_db, defaults.SPECIES)))
     pfam_ok = _report([_pfam_check(chosen)])
-    return schema_ok and local_ok and pfam_ok
+    return schema_ok and tools_ok and genomes_ok and pfam_ok
 
 
 # -----------------------------

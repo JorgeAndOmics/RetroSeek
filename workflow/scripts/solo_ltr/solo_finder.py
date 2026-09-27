@@ -540,10 +540,13 @@ def _thresholds(args: argparse.Namespace) -> Thresholds:
 
 
 def _write_outputs(
-    args: argparse.Namespace, result: Result, thresholds: Thresholds, intact_loci: int
+    args: argparse.Namespace,
+    result: Result,
+    thresholds: Thresholds,
+    spans: dict[str, tuple[str, int, int]],
+    intact_loci: int,
 ) -> int:
     """Write the solo list, candidate tables, funnel and manifest; return the solos."""
-    spans = element_spans(args.elements_gff3)
     solos = write_solo_list(result.candidates, spans, args.out_solo_list)
     write_candidates(
         result.candidates, args.out_candidates_csv, args.out_candidates_parquet
@@ -582,8 +585,9 @@ def main(argv: list[str] | None = None) -> None:
 
     thresholds = _thresholds(args)
     result = run(args.hits, args.elements_gff3, args.orphans_gff3, thresholds)
+    spans = element_spans(args.elements_gff3)
     intact_loci = count_intact_loci(args.loci_csv)
-    solos = _write_outputs(args, result, thresholds, intact_loci)
+    solos = _write_outputs(args, result, thresholds, spans, intact_loci)
 
     ratio = solos / intact_loci if intact_loci else float("nan")
     _log_funnel(result.funnel, solos)

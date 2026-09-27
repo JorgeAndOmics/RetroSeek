@@ -184,7 +184,7 @@ def _species_table(species: str, objects: list[Any]) -> pd.DataFrame:
     """One species' objects as rows, read in a thread pool.
 
     Rows come in the order the reads finish, so their order within a species
-    varies between runs; no reader of these tables depends on it.
+    varies between runs.
     """
     logger.info(f"Processing species: {species} ({len(objects)} objects)")
     results: list[dict[str, Any]] = []
