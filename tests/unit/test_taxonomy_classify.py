@@ -307,6 +307,17 @@ class TestGappaParse:
         tsv.write_text("name\tLWR\ttaxopath\nL0|POL\t0.7\tRetroviridae\n")
         assert tplace._parse_gappa(tsv) == {"L0|POL": ("Retroviridae", 0.7)}
 
+    def test_a_row_too_short_for_the_name_is_skipped(self, tmp_path) -> None:
+        # gappa never writes one, but a truncated file must not raise IndexError
+        # when `name` sits after `taxopath`.
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(
+            "taxopath\taLWR\tname\n"
+            "Retroviridae\t0.5\n"
+            "Retroviridae\t0.7\tL1|POL\n"
+        )  # fmt: skip
+        assert tplace._parse_gappa(tsv) == {"L1|POL": ("Retroviridae", 0.7)}
+
     def test_clean_table_logs_nothing(self, tmp_path, caplog) -> None:
         tsv = tmp_path / "per_query.tsv"
         tsv.write_text("name\taLWR\ttaxopath\nL0|POL\t0.5\tRetroviridae\n")

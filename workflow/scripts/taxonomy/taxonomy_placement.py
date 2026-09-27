@@ -138,13 +138,14 @@ def _gappa_rows(
     """query_id -> (taxopath, confidence), and how many confidences were unreadable.
 
     An unreadable confidence reads as 0, so the placement still counts but never
-    looks confident. Rows too short to hold the taxopath are skipped.
+    looks confident. Rows too short to hold the name and the taxopath are skipped.
     """
     out: dict[str, tuple[str, float]] = {}
     unreadable = 0
+    needed = max(name_i, path_i) + 1
     for line in lines:
         f = line.rstrip("\n").split("\t")
-        if len(f) <= path_i:
+        if len(f) < needed:
             continue
         conf = _confidence(f, conf_i)
         unreadable += conf is None
