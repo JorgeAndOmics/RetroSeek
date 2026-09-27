@@ -97,7 +97,7 @@ Decisions captured under [`docs/adr/`](adr/):
 - ADR-014: publish the EPA-ng placement evidence out of scratch; heat-trees and EDPL per genome; co-phylogeny of host genomes from ERV placement, compared to the host tree by bipartition.
 - ADR-003: retroviral-only pre-filter for LTR_retriever (Coupling A).
 - ADR-004: `SPECIES_POST` -> Snakemake checkpoint + runtime `species_with_hits(wildcards)` resolver.
-- ADR-006: canonicalise genome FASTA filenames to `.fa` via symlink (handles `.fna`/`.fasta`/`.ffn` inputs) - owned by `genome_fasta_normalizer_setup`.
+- ADR-006: canonicalise genome FASTA filenames to `.fa` via symlink (handles `.fna`/`.fasta`/`.ffn`/`.fas` inputs) - owned by `genome_fasta_normalizer_setup`.
 
 ## Design principles
 

@@ -157,23 +157,6 @@ root:
   results_root_folder: '/tmp/retroseek-test/results'
   logs_root_folder: '/tmp/retroseek-test/logs'
 
-domains:
-  POL:
-    - "ase"
-    - "RVT_1"
-    - "RVT_2"
-  GAG:
-    - "Gag"
-    - "gag"
-    - "GAG"
-    - "zf"
-  ENV:
-    - "coat"
-    - "FP"
-    - "HR1"
-  PR15:
-    - "PR15"
-
 species:
   # key = genome FASTA stem in SPECIES_DB; value = display name.
   example_genome_1: "Example species one"

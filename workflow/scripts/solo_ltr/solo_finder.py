@@ -52,7 +52,7 @@ import pandas as pd
 from solo_intervals import IntervalIndex
 
 from log import OK, job_logging, run_main
-from tabular import tab_rows
+from tabular import gff3_attributes, gff3_features
 
 logger = logging.getLogger(__name__)
 
@@ -257,44 +257,30 @@ def read_intervals(gff3: Path, feature: str | None = None) -> dict[str, Interval
     """Build a per-sequence interval index from a GFF3.
 
     `feature` None means every feature line counts, which is what the orphan track
-    needs: its locus lines carry the probe type, not a fixed feature name. Lines
-    whose coordinates do not parse are skipped.
+    needs: its locus lines carry the probe type, not a fixed feature name. A row
+    that is not a feature row stops the job (`tabular.gff3_features`).
     """
     raw: dict[str, list[tuple[int, int]]] = defaultdict(list)
-    with gff3.open() as handle:
-        for fields in tab_rows(handle, 5):
-            if feature is not None and fields[2] != feature:
-                continue
-            try:
-                raw[fields[0]].append((int(fields[3]), int(fields[4])))
-            except ValueError:
-                continue
+    for fields, start, end in gff3_features(gff3):
+        if feature is None or fields[2] == feature:
+            raw[fields[0]].append((start, end))
     return {seqname: IntervalIndex(spans) for seqname, spans in raw.items()}
-
-
-def _ids(attributes: str) -> list[str]:
-    """Every non-empty ``ID=`` value of a GFF3 attribute column (normally one)."""
-    ids = []
-    for attribute in attributes.rstrip().split(";"):
-        key, _, value = attribute.partition("=")
-        if key.strip() == "ID" and value:
-            ids.append(value.strip())
-    return ids
 
 
 def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
     """Element ID to its genomic span, for naming the seeding element of a solo.
 
     The integrator maps a solo back to a classified locus by parsing coordinates out
-    of the library id, so the span has to travel with the call.
+    of the library id, so the span has to travel with the call. A row that is not a
+    feature row stops the job (`tabular.gff3_features`).
     """
     spans: dict[str, tuple[str, int, int]] = {}
-    with gff3.open() as handle:
-        for fields in tab_rows(handle, 9):
-            if fields[2] != ELEMENT_FEATURE:
-                continue
-            for element_id in _ids(fields[8]):
-                spans[element_id] = (fields[0], int(fields[3]), int(fields[4]))
+    for fields, start, end in gff3_features(gff3):
+        if fields[2] != ELEMENT_FEATURE:
+            continue  # most rows are the element's LTRs, TSDs and domains
+        element_id = gff3_attributes(fields[8]).get("ID")
+        if element_id:
+            spans[element_id] = (fields[0], start, end)
     return spans
 
 

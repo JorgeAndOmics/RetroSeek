@@ -58,6 +58,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   LTR element.
 - Probe categories (main, accessory, mixed) are computed for the whole column at
   once: 300 times faster on list-aggregated columns, same values.
+- **The launcher no longer renames genome files.** Before every run it renamed
+  `.fasta`, `.fna` and `.fas` files in the genome folder to `.fa`, replacing an
+  existing `.fa` of the same name. The `genome_fasta_normalizer_setup` rule already
+  gives each genome a `{genome}.fa` link without touching the source files, and now
+  accepts `.fas` too; the launcher's validation reads the same file that rule links
+  to. Extensions are matched in lower case: rename a `.FNA` to `.fna`.
+- The example config in `tests/fixtures/` validated no more: it still carried the
+  retired `domains:` block. A test now checks both shipped configs against the
+  schema.
+- Every reader of the pipeline's own GFF3 tracks (solo-LTR finder, bait
+  builder, classifier) follows one rule: a damaged row stops the job and names
+  its line, and a `##FASTA` section ends the features. Some readers used to skip
+  such rows without a word (losing an element, an arm or a locus), one failed
+  without saying where.
+- The classifier read GFF3 attributes with a pattern that also matched inside a
+  longer key (`probe=` inside `subprobe=`). All GFF3 readers now share one
+  attribute parser that matches whole keys; the pipeline's own tracks read the
+  same as before.
+- A BLAST hit with a blank or missing sequence name stops the hit parser with a
+  message naming the genome, instead of an IndexError (blank) or an empty
+  chromosome name that overlapped nothing downstream (missing).
+- A `{genome}.fa` link pointing at a different file from the `.fna`, `.fasta`,
+  `.ffn` or `.fas` beside it now stops the launcher's preflight as ambiguous, like
+  two such files without a `.fa`; it used to be used as it was. A link with no such
+  file beside it (a genome stored elsewhere) is still honoured.
+- A tie for a hotspot's dominant lineage is broken in byte order, the same on
+  every machine; it followed the machine's locale. The model genomes' lineage
+  names sort alike either way, so their tables do not change.
+- The hotspot stage's notice about FASTA headers with no name now follows the
+  console line contract (`time level step genome | message`) instead of a bare
+  R message.
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
   `green_light` called bare `input()`, so a run with no terminal attached (CI, a
   scheduler, `nohup`) died with `EOFError` before Snakemake started. Both now use
@@ -82,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was never brought into the house style. Its config key
   `plots.circle_plot_bitscore_threshold` is retired, and `bioconductor-ggbio`, used
   only by it, leaves the environment.
+- `pfam_name_to_acc.tsv`, a Pfam name to accession table the Pfam subset step
+  wrote and no stage read. The step reruns once, with the domain scan after it.
 
 ## [1.1.1] - 2026-05-27
 

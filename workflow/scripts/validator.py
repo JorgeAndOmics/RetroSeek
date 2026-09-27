@@ -29,6 +29,11 @@ import stages
 sys.path.insert(0, str(Path(__file__).resolve().parent / "domains"))
 from subset_pfam import missing_accessions, missing_message, wanted_accessions
 
+# Likewise the genome check reads the file the normalizer rule links `{genome}.fa`
+# to, chosen by that rule's own picker.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "blast_search"))
+from genome_fasta_normalizer import pick_canonical_source
+
 logger = logging.getLogger(__name__)
 
 # Stages whose inputs come from NCBI: the slow probe check and the API-key prompt
@@ -187,6 +192,54 @@ def csv_validator(csv_file: str) -> bool:
 # -----------------------------
 
 
+def genome_fasta(species_dir: Path, genome: str) -> str:
+    """The FASTA file a genome's `{genome}.fa` stands for, before any run.
+
+    The `genome_fasta_normalizer_setup` rule links `{genome}.fa` to a file
+    with another extension in its `EXT_PREFERENCE` when no `.fa` exists; this is the file
+    that link will point at. Nothing in `species_dir` is changed.
+
+    Args:
+        species_dir: The folder that holds the genome FASTA files.
+        genome: The genome name, which is the FASTA file's stem.
+
+    Returns:
+        The chosen file's path, or the `{genome}.fa` path when there is none
+        yet (the FASTA check then reports it missing).
+
+    Raises:
+        RuntimeError: When the files are ambiguous; `preflight` stops the run on
+            that before validation gets here.
+    """
+    try:
+        return str(pick_canonical_source(species_dir, genome))
+    except FileNotFoundError:
+        return str(species_dir / f"{genome}.fa")
+
+
+def ambiguous_genomes(species_dir: Path, genomes: list[str]) -> list[str]:
+    """Why each genome's FASTA files cannot be told apart, one message each.
+
+    The normalizer rule refuses the same cases, but Snakemake runs it only while
+    `{genome}.fa` is missing, so a `.fa` link contradicting the file beside it
+    would be used as it is. A genome with no file yet is not a problem here:
+    the downloader or the FASTA check deals with it.
+    """
+    problems = (_ambiguity(species_dir, genome) for genome in genomes)
+    return [problem for problem in problems if problem]
+
+
+def _ambiguity(species_dir: Path, genome: str) -> str | None:
+    """The normalizer's refusal for this genome's files, or None when it has none."""
+    try:
+        pick_canonical_source(species_dir, genome)
+    except FileNotFoundError:
+        return None
+    except RuntimeError as ambiguous:
+        return str(ambiguous)
+    return None
+
+
 def fasta_validator(fasta_file: str) -> bool:
     """Check that a FASTA file exists, holds records, and every record has an ID.
 
@@ -249,8 +302,9 @@ def uses_pfam(chosen: list[stages.Stage]) -> bool:
 def preflight(chosen: list[stages.Stage]) -> bool:
     """Checks that take seconds and save hours; `-skp` does not skip them.
 
-    The config against its schema, the tools the chosen stages call, and, for
-    stages that read the curated Pfam subset, the Pfam library itself.
+    The config against its schema, the tools the chosen stages call, genome
+    FASTA files that cannot be told apart, and, for stages that read the curated
+    Pfam subset, the Pfam library itself.
     """
     ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
@@ -263,6 +317,12 @@ def preflight(chosen: list[stages.Stage]) -> bool:
             f"Not installed: {', '.join(absent)}. Activate the RetroSeek conda "
             "environment, or add them with `make env-update`."
         )
+        ok = False
+
+    for ambiguity in ambiguous_genomes(
+        Path(defaults.PATH_DICT["SPECIES_DB"]), defaults.SPECIES
+    ):
+        logger.error(ambiguity)
         ok = False
 
     if uses_pfam(chosen):

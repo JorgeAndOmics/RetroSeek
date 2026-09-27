@@ -79,3 +79,21 @@ class TestRandomStringGenerator:
         allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
         for _ in range(100):
             assert set(utils.random_string_generator(8)) <= allowed
+
+
+# ---- seqid: the one FASTA-header-to-sequence-id rule ----
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("CM138268.1 Molossus molossus chr 3, whole genome shotgun", "CM138268.1"),
+        ("  NC_000001.11\tHomo sapiens", "NC_000001.11"),
+        ("02077418", "02077418"),
+        ("", ""),
+        ("   ", ""),
+        (None, ""),
+    ],
+)
+def test_seqid_is_the_first_word_or_empty(header: str | None, expected: str) -> None:
+    assert utils.seqid(header) == expected

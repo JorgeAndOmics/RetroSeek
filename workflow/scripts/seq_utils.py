@@ -99,18 +99,6 @@ def blaster(
     return blast_output
 
 
-def _accession(hit_def: str | None) -> str:
-    """The accession of a BLAST hit: the first whitespace token of its hit_def.
-
-    FASTA-header convention: "CM138268.1 Molossus molossus chr 3, whole genome
-    shotgun sequence" -> "CM138268.1". Storing only the accession keeps the
-    seqid identical to how LTRdigest / rtracklayer / GRanges represent it, so
-    downstream findOverlaps matches without per-stage stripping.
-    """
-    raw_hit_def = hit_def or ""
-    return raw_hit_def.split()[0] if raw_hit_def else raw_hit_def
-
-
 def _unused_identifier(used: set[str]) -> str:
     """A random 6-character identifier not yet given to a hit of this genome.
 
@@ -136,8 +124,18 @@ def _hit_object(
     """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
 
     The key is ``{accession}-{identifier}``; the identifier is new to ``used``.
+
+    Raises:
+        PipelineError: When the hit has no sequence name. It would sit on no
+            chromosome, overlap nothing downstream and vanish without a word.
     """
-    accession_id = _accession(alignment.hit_def)
+    accession_id = utils.seqid(alignment.hit_def)
+    if not accession_id:
+        raise PipelineError(
+            f"a BLAST hit on {subject} has no sequence name "
+            f"(hit_def {alignment.hit_def!r})",
+            hint="give every record of the genome FASTA a name after '>'",
+        )
     random_string = _unused_identifier(used)
     new_instance = RetroSeeker(
         label=str(instance.label),

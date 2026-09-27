@@ -270,3 +270,73 @@ class TestRetiredKeys:
             len(v.retired_key_messages({"display": {"display_snakemake_info": False}}))
             == 1
         )
+
+
+class TestGenomeFasta:
+    """The file validation reads for a genome is the one the normalizer rule links.
+
+    The launcher used to rename `.fasta`/`.fna`/`.fas` files to `.fa` in place
+    before every run (replacing an existing `.fa` of the same name). The
+    `genome_fasta_normalizer_setup` rule does that job without touching the
+    source files, so validation now reads what that rule will link to.
+    """
+
+    @staticmethod
+    def _fasta(path: Path) -> None:
+        path.write_text(">chr1\nACGT\n")
+
+    def test_a_fna_only_genome_is_read_from_the_fna(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fna")
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fna")
+
+    def test_an_existing_fa_wins(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fa")
+        self._fasta(tmp_path / "Toyus.fna")
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
+
+    def test_a_missing_genome_names_the_fa_path(self, tmp_path: Path) -> None:
+        import validator as v
+
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
+
+    def test_ambiguous_genomes_names_only_the_ambiguous_ones(
+        self, tmp_path: Path
+    ) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fna")
+        self._fasta(tmp_path / "Toyus.fasta")
+        self._fasta(tmp_path / "Clean.fna")
+        problems = v.ambiguous_genomes(tmp_path, ["Toyus", "Clean", "Absent"])
+        assert len(problems) == 1
+        assert "Toyus" in problems[0]
+
+    def test_a_link_contradicting_its_neighbour_stops_the_preflight(
+        self, tmp_path: Path
+    ) -> None:
+        """The launcher is the only place that can stop a stale link being used.
+
+        Snakemake never reruns the normalizer while `{genome}.fa` exists.
+        """
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fasta")
+        self._fasta(tmp_path / "Toyus.fna")
+        (tmp_path / "Toyus.fa").symlink_to(tmp_path / "Toyus.fasta")
+        with (
+            patch.object(v, "yaml_validator", return_value=True),
+            patch.object(v.defaults, "SPECIES", ["Toyus"]),
+            patch.dict(v.defaults.PATH_DICT, {"SPECIES_DB": tmp_path}),
+        ):
+            assert v.preflight([]) is False
+
+    def test_the_source_files_are_never_renamed(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fasta")
+        v.genome_fasta(tmp_path, "Toyus")
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["Toyus.fasta"]

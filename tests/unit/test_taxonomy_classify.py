@@ -307,6 +307,17 @@ class TestGappaParse:
         tsv.write_text("name\tLWR\ttaxopath\nL0|POL\t0.7\tRetroviridae\n")
         assert tplace._parse_gappa(tsv) == {"L0|POL": ("Retroviridae", 0.7)}
 
+    def test_a_row_too_short_for_the_name_is_skipped(self, tmp_path) -> None:
+        # gappa never writes one, but a truncated file must not raise IndexError
+        # when `name` sits after `taxopath`.
+        tsv = tmp_path / "per_query.tsv"
+        tsv.write_text(
+            "taxopath\taLWR\tname\n"
+            "Retroviridae\t0.5\n"
+            "Retroviridae\t0.7\tL1|POL\n"
+        )  # fmt: skip
+        assert tplace._parse_gappa(tsv) == {"L1|POL": ("Retroviridae", 0.7)}
+
     def test_clean_table_logs_nothing(self, tmp_path, caplog) -> None:
         tsv = tmp_path / "per_query.tsv"
         tsv.write_text("name\taLWR\ttaxopath\nL0|POL\t0.5\tRetroviridae\n")
@@ -845,8 +856,6 @@ _VALID_GFF3 = (
     "chr1\tRetroSeek\thit\t100\t200\t.\t-\t.\t"
     "ID=h1;probe=pol;Parent=LTR_retrotransposon7;label=ALV%3b RSV;oversized=True\n"
     "chr1\tRetroSeek\thit\t300\t400\t.\t.\t.\tID=h2\n"
-    "short\tline\n"
-    "no tabs at all\n"
 )
 
 
@@ -876,10 +885,22 @@ class TestParseValidFull:
             "oversized": "False",
         }
 
-    def test_comments_and_malformed_lines_are_skipped(self, tmp_path: Path) -> None:
+    def test_a_key_inside_a_longer_key_is_not_read(self, tmp_path: Path) -> None:
         gff3 = tmp_path / "valid.gff3"
-        gff3.write_text(_VALID_GFF3)
-        assert len(tcl.parse_valid_full(gff3)) == 2
+        gff3.write_text(
+            "chr1\tRetroSeek\thit\t1\t9\t.\t+\t.\tsubprobe=env;probe=pol;xParent=p\n"
+        )
+        (record,) = tcl.parse_valid_full(gff3)
+        assert record["gene"] == "POL"
+        assert record["parent"] == ""
+
+    def test_a_damaged_row_stops_the_read(self, tmp_path: Path) -> None:
+        # The track is the pipeline's own: a short row means a damaged file, and
+        # skipping it would drop a locus without a word.
+        gff3 = tmp_path / "valid.gff3"
+        gff3.write_text(_VALID_GFF3 + "short\tline\n")
+        with pytest.raises(PipelineError, match=r"valid\.gff3, line 4"):
+            tcl.parse_valid_full(gff3)
 
 
 class TestRegionIO:

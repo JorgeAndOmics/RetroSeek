@@ -55,6 +55,11 @@ def test_accession_keeps_only_the_first_token() -> None:
     assert row["accession"] == "CM1.1"
 
 
+def test_a_blank_accession_is_empty_not_an_error() -> None:
+    row = obj2dict.extract_attributes_from_object(_probe(accession="   "))
+    assert row["accession"] == ""
+
+
 def test_present_records_are_read() -> None:
     gb = SimpleNamespace(
         id="A1", name="n", description="d", dbxrefs=["x"], annotations={"k": 1},

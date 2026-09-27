@@ -13,21 +13,6 @@ source(file.path("..", "..", "scripts", "utils", "log.R"))
 
 .LINE <- "^[0-9]{2}:[0-9]{2}:[0-9]{2} (DEBUG|INFO|OK|WARN|ERROR) \\S+ \\S+ \\| .*$"
 
-.capture_stderr <- function(expr) {
-  sink_file <- tempfile()
-  con <- file(sink_file, open = "wt")
-  sink(con, type = "message")
-  on.exit({
-    sink(type = "message")
-    close(con)
-  })
-  force(expr)
-  sink(type = "message")
-  close(con)
-  on.exit()
-  readLines(sink_file)
-}
-
 test_that("a line has the contract's shape", {
   withr::local_envvar(RETROSEEK_VERBOSITY = "normal")
   log_setup("solo_plots", "Mus_musculus")

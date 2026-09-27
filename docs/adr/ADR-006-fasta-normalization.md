@@ -71,3 +71,13 @@ The previous inline `find / parallel mv` workaround is deleted from `blast_db_ge
 - `workflow/scripts/defaults.py` - widened `SPECIES` discovery.
 - `tests/unit/test_genome_fasta_normalizer.py` - extension-preference + ambiguity-refusal + idempotency coverage.
 - `.claude/memory/gotchas.md` #22 - operational notes.
+
+## Amendment (2026-09-27)
+
+`.fas` joins the extensions, last in the preference order. The launcher used to
+rename `.fas`, `.fasta` and `.fna` files to `.fa` in place before every run, which
+could replace an existing `.fa`; that copy was removed, and this rule is now the
+only normalizer. Extensions are matched in lower case. A `.fa` that is itself a
+working link is refused when it points anywhere but the one variant beside it, and
+the launcher's preflight checks the same, since Snakemake does not rerun this rule
+while `{genome}.fa` exists.

@@ -1,10 +1,10 @@
 # -----------------------------------------------------------------------------
 # Module utils/chrom_names.R
 # -----------------------------------------------------------------------------
-# FASTA-header normaliser, sourced by hotspot_detector.R. Returns the first
-# whitespace-delimited token of each header, the same length as the input, so it
-# can be assigned directly to `seqlevels(...)` or used in
-# `Seqinfo(seqnames = ..., ...)`.
+# FASTA-header normaliser, sourced by hotspot_detector.R after utils/log.R (it
+# reports through log_warn()). Returns the first whitespace-delimited token of
+# each header, the same length as the input, so it can be assigned directly to
+# `seqlevels(...)` or used in `Seqinfo(seqnames = ..., ...)`.
 #
 # No pattern is imposed on the name. The pipeline takes chromosome names in
 # whatever shape the genome FASTA provides: BLAST uses the first header token as
@@ -33,10 +33,10 @@ normalise_chrom_names <- function(headers) {
 
   unnamed_idx <- which(is.na(names_only))
   if (length(unnamed_idx) > 0L) {
-    message(sprintf(
+    log_warn(
       "normalise_chrom_names(): %d of %d FASTA headers carry no name at all.",
       length(unnamed_idx), length(headers)
-    ))
+    )
   }
   names_only
 }
