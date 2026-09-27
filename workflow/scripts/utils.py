@@ -2,8 +2,8 @@
 
 Small, dependency-light functions shared across ``workflow/scripts``:
 dill-based pickle round-trips, directory listing / cleanup, random
-identifier generation, and the incomplete-record filter used during
-GenBank enrichment.
+identifier generation, the incomplete-record filter used during
+GenBank enrichment, and the FASTA-header-to-sequence-id rule.
 
 All path-accepting helpers accept either :class:`pathlib.Path` or a
 plain ``str``; Snakefile ``params:`` blocks hand in strings, and
@@ -83,3 +83,15 @@ def random_string_generator(length: int) -> str:
     distinguishable identifiers (typically 6 characters).
     """
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
+
+def seqid(header: str | None) -> str:
+    """The sequence id of a FASTA header or BLAST hit_def: its first word.
+
+    "CM138268.1 Molossus molossus chr 3, whole genome shotgun sequence" gives
+    "CM138268.1", the same name LTRdigest, rtracklayer and GRanges use, so
+    tracks from every stage overlap without per-stage stripping. A missing or
+    blank header gives "".
+    """
+    words = (header or "").split()
+    return words[0] if words else ""

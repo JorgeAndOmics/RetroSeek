@@ -136,20 +136,16 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
     Raises:
         AttributeError: If the object lacks an attribute a column is read from.
     """
-    # Defensive accession cleanup: older pickles (pre-seq_utils-fix) stored
-    # the full BLAST hit_def ("CM138268.1 Molossus molossus chromosome 3,
-    # ...") as accession. Split on whitespace and keep the first token -
-    # idempotent for already-clean accessions. Keeps the parquet seqid
-    # column compatible with LTRdigest / GRanges seqnames downstream.
-    raw_accession = obj.accession or ""
-    clean_accession = raw_accession.split()[0] if raw_accession else raw_accession
+    # Older pickles (before the seq_utils fix) stored the full BLAST hit_def
+    # as the accession; seqid() cuts it to the first word and leaves an
+    # already clean accession as it is.
     return {
         "label": obj.label,
         "virus": obj.virus,
         "abbreviation": obj.abbreviation,
         "species": obj.species,
         "probe": obj.probe,
-        "accession": clean_accession,
+        "accession": utils.seqid(obj.accession),
         "identifier": obj.identifier,
         "strand": obj.strand,
         "species_name": _species_name(obj.species),

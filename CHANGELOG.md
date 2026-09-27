@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer key (`probe=` inside `subprobe=`). All GFF3 readers now share one
   attribute parser that matches whole keys; the pipeline's own tracks read the
   same as before.
+- A BLAST hit whose description is only whitespace no longer crashes the hit
+  parser or the table builder; its sequence id is empty, as for a missing one.
 - The hotspot stage's notice about FASTA headers with no name now follows the
   console line contract (`time level step genome | message`) instead of a bare
   R message.
