@@ -412,7 +412,7 @@ if not USE_SPECIES_DICT:
     # extension variants the genome_fasta_normalizer rule canonicalises
     # to .fa - otherwise a fresh machine with only .fna files would see
     # SPECIES = [] before the normalizer ever runs.
-    _FASTA_EXTS = {".fa", ".fna", ".fasta", ".ffn"}
+    _FASTA_EXTS = {".fa", ".fna", ".fasta", ".ffn", ".fas"}
     SPECIES = sorted(
         {f.stem for f in PATH_DICT["SPECIES_DB"].iterdir() if f.suffix in _FASTA_EXTS}
     )

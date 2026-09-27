@@ -3,7 +3,8 @@ r"""Normalize genome FASTA filenames to canonical ``{genome}.fa`` via symlink.
 Why this exists:
 Genome FASTAs arrive at RetroSeek with several plausible extensions:
 ``.fa`` (legacy), ``.fna`` (NCBI Datasets - the common case), ``.fasta``
-(manual download convention), and ``.ffn`` (older GenBank exports).
+(manual download convention), ``.ffn`` (older GenBank exports) and
+``.fas``.
 Every downstream rule (BLAST DB build, suffixerator, LTRharvest,
 LTR_retriever) hard-codes ``.fa`` as the input filename. This rule
 canonicalises whatever shape upstream supplied into a ``{genome}.fa``
@@ -15,7 +16,8 @@ symlink is left in place; a stale one is replaced atomically. A real
 ``.fa`` file is never overwritten.
 
 Ambiguity policy:
-Extension preference, in order: ``fa`` > ``fna`` > ``fasta`` > ``ffn``.
+Extension preference, in order: ``fa`` > ``fna`` > ``fasta`` > ``ffn`` > ``fas``.
+Extensions are matched in lower case only.
 
 If ``.fa`` is absent and *exactly one* of the other three is present,
 that file becomes the symlink target. If two or more non-``.fa`` variants
@@ -47,7 +49,8 @@ from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
-EXT_PREFERENCE: tuple[str, ...] = ("fa", "fna", "fasta", "ffn")
+# defaults.py discovers genomes by the same extensions (_FASTA_EXTS).
+EXT_PREFERENCE: tuple[str, ...] = ("fa", "fna", "fasta", "ffn", "fas")
 
 
 def pick_canonical_source(species_dir: Path, genome: str) -> Path:
@@ -92,7 +95,7 @@ def pick_canonical_source(species_dir: Path, genome: str) -> Path:
         names = ", ".join(p.name for p in candidates)
         raise RuntimeError(
             f"Ambiguous genome FASTA for {genome!r}: multiple variants present "
-            f"({names}). Remove duplicates so exactly one .fa/.fna/.fasta/.ffn "
+            f"({names}). Remove duplicates so exactly one .fa/.fna/.fasta/.ffn/.fas "
             f"file remains, or place the canonical .fa explicitly."
         )
     return candidates[0]

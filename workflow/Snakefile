@@ -141,7 +141,7 @@ rule genome_downloader:
 
 # Canonicalise hand-supplied genome FASTAs that arrived with non-`.fa`
 # extensions (.fna from NCBI Datasets, .fasta from manual download, .ffn
-# from older GenBank exports). The script symlinks `{genome}.fa` to the
+# from older GenBank exports, .fas). The script symlinks `{genome}.fa` to the
 # selected source so every downstream rule's `.fa` input contract holds
 # regardless of upstream filename. Idempotent - a real `{genome}.fa`
 # already in place is left untouched. Refuses on multi-extension

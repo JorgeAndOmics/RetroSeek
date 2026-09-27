@@ -185,3 +185,9 @@ def test_a_link_to_its_only_variant_names_that_variant(tmp_path: Path) -> None:
     _write_fasta(src)
     (tmp_path / "Toyus.fa").symlink_to(src.resolve())
     assert pick_canonical_source(tmp_path, "Toyus") == src
+
+
+def test_pick_canonical_source_falls_back_to_fas(tmp_path: Path) -> None:
+    """``.fas`` only: the launcher used to rename these, so the rule reads them."""
+    _write_fasta(tmp_path / "Toyus.fas")
+    assert pick_canonical_source(tmp_path, "Toyus") == tmp_path / "Toyus.fas"

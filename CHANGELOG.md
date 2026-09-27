@@ -61,8 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The launcher no longer renames genome files.** Before every run it renamed
   `.fasta`, `.fna` and `.fas` files in the genome folder to `.fa`, replacing an
   existing `.fa` of the same name. The `genome_fasta_normalizer_setup` rule already
-  gives each genome a `{genome}.fa` link without touching the source files; the
-  launcher's validation now reads the same file that rule links to.
+  gives each genome a `{genome}.fa` link without touching the source files, and now
+  accepts `.fas` too; the launcher's validation reads the same file that rule links
+  to. Extensions are matched in lower case: rename a `.FNA` to `.fna`.
 - The example config in `tests/fixtures/` validated no more: it still carried the
   retired `domains:` block. A test now checks both shipped configs against the
   schema.
@@ -76,9 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same as before.
 - A BLAST hit whose description is only whitespace no longer crashes the hit
   parser or the table builder; its sequence id is empty, as for a missing one.
-- A `{genome}.fa` link pointing at a different file from the `.fna`, `.fasta` or
-  `.ffn` beside it is now refused as ambiguous instead of kept. A link with no
-  such file beside it (a genome stored elsewhere) is still honoured.
+- A `{genome}.fa` link pointing at a different file from the `.fna`, `.fasta`,
+  `.ffn` or `.fas` beside it now stops the launcher's preflight as ambiguous, like
+  two such files without a `.fa`; it used to be used as it was. A link with no such
+  file beside it (a genome stored elsewhere) is still honoured.
 - A tie for a hotspot's dominant lineage is broken in byte order, the same on
   every machine; it followed the machine's locale. The model genomes' lineage
   names sort alike either way, so their tables do not change.

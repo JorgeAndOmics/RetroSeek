@@ -25,8 +25,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 
 class TestGreenLight:
     """Interactive confirmation behaviour."""
@@ -305,15 +303,36 @@ class TestGenomeFasta:
 
         assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
 
-    def test_an_ambiguous_genome_is_reported(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    def test_ambiguous_genomes_names_only_the_ambiguous_ones(
+        self, tmp_path: Path
     ) -> None:
         import validator as v
 
         self._fasta(tmp_path / "Toyus.fna")
         self._fasta(tmp_path / "Toyus.fasta")
-        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
-        assert "Ambiguous genome FASTA" in caplog.text
+        self._fasta(tmp_path / "Clean.fna")
+        problems = v.ambiguous_genomes(tmp_path, ["Toyus", "Clean", "Absent"])
+        assert len(problems) == 1
+        assert "Toyus" in problems[0]
+
+    def test_a_link_contradicting_its_neighbour_stops_the_preflight(
+        self, tmp_path: Path
+    ) -> None:
+        """The launcher is the only place that can stop a stale link being used.
+
+        Snakemake never reruns the normalizer while `{genome}.fa` exists.
+        """
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fasta")
+        self._fasta(tmp_path / "Toyus.fna")
+        (tmp_path / "Toyus.fa").symlink_to(tmp_path / "Toyus.fasta")
+        with (
+            patch.object(v, "yaml_validator", return_value=True),
+            patch.object(v.defaults, "SPECIES", ["Toyus"]),
+            patch.dict(v.defaults.PATH_DICT, {"SPECIES_DB": tmp_path}),
+        ):
+            assert v.preflight([]) is False
 
     def test_the_source_files_are_never_renamed(self, tmp_path: Path) -> None:
         import validator as v
