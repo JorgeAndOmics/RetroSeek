@@ -93,6 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was never brought into the house style. Its config key
   `plots.circle_plot_bitscore_threshold` is retired, and `bioconductor-ggbio`, used
   only by it, leaves the environment.
+- `pfam_name_to_acc.tsv`, a Pfam name to accession table the Pfam subset step
+  wrote and no stage read. The step reruns once, with the domain scan after it.
 
 ## [1.1.1] - 2026-05-27
 

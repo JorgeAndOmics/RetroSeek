@@ -216,8 +216,7 @@ rule pfam_release_recorder:
         '''
 
 
-# Curated subset of Pfam-A, plus the name->accession map needed to interpret
-# LTRdigest output (which records model names only, never accessions).
+# Curated subset of Pfam-A, the library the domain scan searches.
 #
 # Build-once and genome-independent, mirroring pfam_hmm_downloader. It reruns only
 # when Pfam-A.hmm or the curated class table changes, never per genome or per run.
@@ -233,8 +232,7 @@ rule pfam_subset_builder:
         hmm     = rules.pfam_hmm_downloader.output.hmm,
         classes = defaults.PFAM_DOMAIN_CLASSES
     output:
-        hmm      = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam-A.retro.hmm'),
-        name_map = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'pfam_name_to_acc.tsv')
+        hmm = os.path.join(defaults.PATH_DICT['HMM_SUBSET_DIR'], 'Pfam-A.retro.hmm')
     threads: config.get('rule_threads', 1)
     log:
         job_log('pfam_subset_builder', 'all')
@@ -242,7 +240,7 @@ rule pfam_subset_builder:
         '''
         PYTHONPATH=scripts python scripts/domains/subset_pfam.py --log {log:q} \
             --hmm {input.hmm:q} --classes {input.classes:q} \
-            --out {output.hmm:q} --name-map {output.name_map:q}
+            --out {output.hmm:q}
         '''
 
 

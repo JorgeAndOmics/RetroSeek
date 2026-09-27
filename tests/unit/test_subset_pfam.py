@@ -130,17 +130,3 @@ def test_empty_table_is_an_error_not_an_empty_library(
     out = tmp_path / "subset.hmm"
     with pytest.raises(subset_pfam.PipelineError, match="no accessions"):
         subset_pfam.subset_pfam(hmm_file, empty, out)
-
-
-def test_name_map_covers_every_model(hmm_file: Path, tmp_path: Path) -> None:
-    """The name map covers every model in the full Pfam library.
-
-    It must resolve LTRdigest names for families that are not in the curated
-    subset.
-    """
-    out = tmp_path / "names.tsv"
-    n = subset_pfam.write_name_map(hmm_file, out)
-    assert n == 3
-    rows = dict(line.split("\t") for line in out.read_text().splitlines())
-    assert rows["rve"] == "PF00665"
-    assert rows["Kinesin"] == "PF00225"  # present even though never curated
