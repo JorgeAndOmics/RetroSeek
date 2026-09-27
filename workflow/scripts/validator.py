@@ -29,6 +29,11 @@ import stages
 sys.path.insert(0, str(Path(__file__).resolve().parent / "domains"))
 from subset_pfam import missing_accessions, missing_message, wanted_accessions
 
+# Likewise the genome check reads the file the normalizer rule links `{genome}.fa`
+# to, chosen by that rule's own picker.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "blast_search"))
+from genome_fasta_normalizer import pick_canonical_source
+
 logger = logging.getLogger(__name__)
 
 # Stages whose inputs come from NCBI: the slow probe check and the API-key prompt
@@ -185,6 +190,31 @@ def csv_validator(csv_file: str) -> bool:
 # -----------------------------
 # FASTA VALIDATION
 # -----------------------------
+
+
+def genome_fasta(species_dir: Path, genome: str) -> str:
+    """The FASTA file a genome's `{genome}.fa` stands for, before any run.
+
+    The `genome_fasta_normalizer_setup` rule links `{genome}.fa` to a
+    `.fna`, `.fasta` or `.ffn` file when no `.fa` exists; this is the file
+    that link will point at. Nothing in `species_dir` is changed.
+
+    Args:
+        species_dir: The folder that holds the genome FASTA files.
+        genome: The genome name, which is the FASTA file's stem.
+
+    Returns:
+        The chosen file's path, or the `{genome}.fa` path when no file can be
+        chosen (none exists, or several variants do; the latter is logged), so
+        the FASTA check then reports it missing.
+    """
+    try:
+        return str(pick_canonical_source(species_dir, genome))
+    except FileNotFoundError:
+        pass  # no genome file yet: the FASTA check reports `{genome}.fa` missing
+    except RuntimeError as ambiguous:
+        logger.warning(str(ambiguous))
+    return str(species_dir / f"{genome}.fa")
 
 
 def fasta_validator(fasta_file: str) -> bool:

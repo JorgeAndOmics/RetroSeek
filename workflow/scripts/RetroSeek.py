@@ -17,7 +17,6 @@
 import argparse
 import logging
 import os
-import re
 import subprocess
 import sys
 import time
@@ -28,32 +27,9 @@ import defaults
 import guard
 import stages
 from log import OK
-from validator import preflight, uses_pfam, validation_run
+from validator import genome_fasta, preflight, uses_pfam, validation_run
 
 logger = logging.getLogger(__name__)
-
-# -----------------------------
-# FASTA EXTENSION STANDARDIZATION
-# -----------------------------
-
-
-def standardize_fasta_extensions(fasta_dir_path: str | Path) -> None:
-    """Rename every .fasta, .fna or .fas file in a directory to .fa.
-
-    The match ignores case. Each file is renamed in place, so an existing
-    file with the new name is replaced.
-
-    Args:
-        fasta_dir_path: The directory holding the FASTA files.
-    """
-    pattern = re.compile(r"\.(fasta|fna|fas)$", re.IGNORECASE)
-
-    for file in Path(fasta_dir_path).iterdir():
-        if file.is_file() and pattern.search(file.name):
-            new_name: Path = file.with_name(f"{file.stem}.fa")
-            logger.debug(f"Renaming: {file.name} -> {new_name.name}")
-            file.rename(new_name)
-
 
 # -----------------------------
 # SNAKEMAKE OPTIONS
@@ -163,14 +139,11 @@ def write_warnings(tally: console.Tally, path: Path) -> None:
 
 def run_checks(args: argparse.Namespace, chosen: list[stages.Stage]) -> None:
     """Preflight (always) and the slow validation (unless -skp); exit 1 on failure."""
-    standardize_fasta_extensions(defaults.PATH_DICT["SPECIES_DB"])
     if not preflight(chosen):
         logger.error("Preflight checks failed; nothing was run.")
         sys.exit(1)
-    species_paths = [
-        str(Path(defaults.PATH_DICT["SPECIES_DB"]) / f"{species}.fa")
-        for species in defaults.SPECIES
-    ]
+    species_db = Path(defaults.PATH_DICT["SPECIES_DB"])
+    species_paths = [genome_fasta(species_db, species) for species in defaults.SPECIES]
     if not args.skip_validation and not validation_run(chosen, species_paths):
         sys.exit(1)
     logger.log(

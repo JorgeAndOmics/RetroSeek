@@ -25,6 +25,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 class TestGreenLight:
     """Interactive confirmation behaviour."""
@@ -270,3 +272,52 @@ class TestRetiredKeys:
             len(v.retired_key_messages({"display": {"display_snakemake_info": False}}))
             == 1
         )
+
+
+class TestGenomeFasta:
+    """The file validation reads for a genome is the one the normalizer rule links.
+
+    The launcher used to rename `.fasta`/`.fna`/`.fas` files to `.fa` in place
+    before every run (replacing an existing `.fa` of the same name). The
+    `genome_fasta_normalizer_setup` rule does that job without touching the
+    source files, so validation now reads what that rule will link to.
+    """
+
+    @staticmethod
+    def _fasta(path: Path) -> None:
+        path.write_text(">chr1\nACGT\n")
+
+    def test_a_fna_only_genome_is_read_from_the_fna(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fna")
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fna")
+
+    def test_an_existing_fa_wins(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fa")
+        self._fasta(tmp_path / "Toyus.fna")
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
+
+    def test_a_missing_genome_names_the_fa_path(self, tmp_path: Path) -> None:
+        import validator as v
+
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
+
+    def test_an_ambiguous_genome_is_reported(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fna")
+        self._fasta(tmp_path / "Toyus.fasta")
+        assert v.genome_fasta(tmp_path, "Toyus") == str(tmp_path / "Toyus.fa")
+        assert "Ambiguous genome FASTA" in caplog.text
+
+    def test_the_source_files_are_never_renamed(self, tmp_path: Path) -> None:
+        import validator as v
+
+        self._fasta(tmp_path / "Toyus.fasta")
+        v.genome_fasta(tmp_path, "Toyus")
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["Toyus.fasta"]

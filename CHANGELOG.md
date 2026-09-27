@@ -58,6 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   LTR element.
 - Probe categories (main, accessory, mixed) are computed for the whole column at
   once: 300 times faster on list-aggregated columns, same values.
+- **The launcher no longer renames genome files.** Before every run it renamed
+  `.fasta`, `.fna` and `.fas` files in the genome folder to `.fa`, replacing an
+  existing `.fa` of the same name. The `genome_fasta_normalizer_setup` rule already
+  gives each genome a `{genome}.fa` link without touching the source files; the
+  launcher's validation now reads the same file that rule links to.
 - The hotspot stage's notice about FASTA headers with no name now follows the
   console line contract (`time level step genome | message`) instead of a bare
   R message.
