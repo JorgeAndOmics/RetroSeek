@@ -787,11 +787,9 @@ def classification_counts(
         ("loci_classified", classified),
         ("loci_unclassified", len(records) - classified),
         ("loci_no_blastx_hit", sum(r["n_blastx_hits"] == "0" for r in records)),
-        *(
-            (metric, sum(r.get(column) == value for r in records))
-            for metric, column, value in _CLASS_COUNTS
-        ),
     ]
+    for metric, column, value in _CLASS_COUNTS:
+        counts.append((metric, sum(r.get(column) == value for r in records)))
     return [{"metric": metric, "value": value} for metric, value in counts]
 
 

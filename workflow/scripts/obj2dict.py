@@ -156,7 +156,7 @@ def extract_attributes_from_object(obj: Any) -> dict[str, Any]:
 
 
 # =============================================================================
-# 2. Main Execution Block
+# 2. From pickles to one table
 # =============================================================================
 def _load_objects(files: list[str]) -> list[Any]:
     """Every object of the given pickles in PICKLE_DIR, in file order."""

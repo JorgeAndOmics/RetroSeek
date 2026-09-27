@@ -504,6 +504,7 @@ def _write_frame(frame: pd.DataFrame, csv_path: Path, parquet_path: Path) -> Non
 # CLI
 # ---------------------------------------------------------------------
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The command line: the solo list, the loci, and where each output goes."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--solo-list",
@@ -552,9 +553,6 @@ def main(argv: list[str] | None = None) -> None:
     solos = parse_solo_list(args.solo_list)
     annotate_solos(solos, loci, max_distance=args.nearest_locus_max_distance)
 
-    by_source = dict.fromkeys(("library", "nearest_locus", "none"), 0)
-    for solo in solos:
-        by_source[solo.label_source] += 1
     _warn_on_no_solos(solos, loci)
 
     write_solo_ltr_gff3(solos, args.output_gff3, genome=args.genome)
@@ -565,6 +563,14 @@ def main(argv: list[str] | None = None) -> None:
         solos, loci, species=args.species, group_by=args.group_by
     )
     _write_frame(ratio, args.output_ratio_csv, args.output_ratio_parquet)
+    _log_summary(solos)
+
+
+def _log_summary(solos: list[SoloLTR]) -> None:
+    """One line: how many solos, and where each one's taxon came from."""
+    by_source = dict.fromkeys(("library", "nearest_locus", "none"), 0)
+    for solo in solos:
+        by_source[solo.label_source] += 1
     logger.log(
         OK,
         "%s solo LTRs annotated (taxon from library %s, nearest locus %s, "

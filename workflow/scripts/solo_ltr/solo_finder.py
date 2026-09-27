@@ -503,6 +503,7 @@ def count_intact_loci(loci_csv: Path) -> int:
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The command line: inputs, outputs and the thresholds from config.yaml."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--hits", type=Path, required=True, help="gzipped blastn tabular output"
@@ -528,6 +529,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _thresholds(args: argparse.Namespace) -> Thresholds:
+    """The command line's thresholds as one value."""
     return Thresholds(
         min_identity=args.min_identity,
         min_coverage=args.min_coverage,
@@ -539,15 +541,10 @@ def _thresholds(args: argparse.Namespace) -> Thresholds:
     )
 
 
-def _write_outputs(
-    args: argparse.Namespace,
-    result: Result,
-    thresholds: Thresholds,
-    spans: dict[str, tuple[str, int, int]],
-    intact_loci: int,
-) -> int:
-    """Write the solo list, candidate tables, funnel and manifest; return the solos."""
-    solos = write_solo_list(result.candidates, spans, args.out_solo_list)
+def _write_tables(
+    args: argparse.Namespace, result: Result, thresholds: Thresholds, intact_loci: int
+) -> None:
+    """Write the candidate tables, the funnel and the manifest."""
     write_candidates(
         result.candidates, args.out_candidates_csv, args.out_candidates_parquet
     )
@@ -559,10 +556,10 @@ def _write_outputs(
         "loci_csv": args.loci_csv,
     }
     write_manifest(inputs, thresholds, result.funnel, args.out_manifest)
-    return solos
 
 
 def _log_funnel(funnel: Counter[str], solos: int) -> None:
+    """One line: how many hits and candidates each step kept, and their fates."""
     logger.info(
         "funnel: %s raw hits, %s accepted, %s candidates; fates: %s intact flank, "
         "%s monoLTR at an orphan, %s solo",
@@ -587,7 +584,8 @@ def main(argv: list[str] | None = None) -> None:
     result = run(args.hits, args.elements_gff3, args.orphans_gff3, thresholds)
     spans = element_spans(args.elements_gff3)
     intact_loci = count_intact_loci(args.loci_csv)
-    solos = _write_outputs(args, result, thresholds, spans, intact_loci)
+    solos = write_solo_list(result.candidates, spans, args.out_solo_list)
+    _write_tables(args, result, thresholds, intact_loci)
 
     ratio = solos / intact_loci if intact_loci else float("nan")
     _log_funnel(result.funnel, solos)

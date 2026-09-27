@@ -124,6 +124,11 @@ def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
             fh.write(f"{acc}\t{lineage}\n")
 
 
+# One fixed standard protein model for both tools, so raxml-ng evaluates the
+# topology under the model IQ-TREE searched with.
+_MODEL = "LG+F+G4"
+
+
 def _iqtree_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[str]:
     """IQ-TREE on the alignment: the placement tree's topology.
 
@@ -135,7 +140,7 @@ def _iqtree_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[st
         "-s",
         str(afa),
         "-m",
-        "LG+F+G4",
+        _MODEL,
         "-B",
         "1000",
         "-T",
@@ -166,7 +171,7 @@ def _raxml_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[str
         "--tree",
         str(prefix) + ".treefile",
         "--model",
-        "LG+F+G4",
+        _MODEL,
         "--prefix",
         str(prefix),
         "--seed",
@@ -179,6 +184,7 @@ def _raxml_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[str
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The command line: the gene, the reference package, seed and threads."""
     p = argparse.ArgumentParser(description="Build a per-gene placement tree package")
     p.add_argument("gene", help="marker gene, e.g. POL or GAG")
     p.add_argument(

@@ -31,7 +31,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -53,21 +53,26 @@ def _write(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None
         writer.writerows(rows)
 
 
-def _write_full_tree(
-    tree: Any, out: Callable[[str], Path], family_of: dict[str, str]
-) -> None:
+def _table(table_prefix: Path, suffix: str) -> Path:
+    """The path of one view's table: `<prefix>.<suffix>` beside the prefix."""
+    return table_prefix.with_name(f"{table_prefix.name}.{suffix}")
+
+
+def _write_full_tree(tree: Any, table_prefix: Path, family_of: dict[str, str]) -> None:
     """The full tree: every tip with its class and family, and the branches."""
     segments, tips = layout(tree, align_tips=False)
     _write(
-        out("tree_tips.csv"),
+        _table(table_prefix, "tree_tips.csv"),
         ["tip", "class", "family", "x", "y"],
         ((name, tip_class(name), family_of[name], x, y) for name, x, y in tips),
     )
-    _write(out("tree_segments.csv"), ["x", "y", "xend", "yend"], segments)
+    _write(
+        _table(table_prefix, "tree_segments.csv"), ["x", "y", "xend", "yend"], segments
+    )
 
 
 def _write_solo_tree(
-    tree: Any, out: Callable[[str], Path], family_of: dict[str, str], solo_newick: Path
+    tree: Any, table_prefix: Path, family_of: dict[str, str], solo_newick: Path
 ) -> None:
     """The tree pruned to its solos, as tables and as Newick.
 
@@ -83,16 +88,18 @@ def _write_solo_tree(
     else:
         solo_newick.write_text("")
     _write(
-        out("solo_tree_tips.csv"),
+        _table(table_prefix, "solo_tree_tips.csv"),
         ["tip", "family", "x", "y"],
         ((name, family_of[name], x, y) for name, x, y in solo_tips),
     )
-    _write(out("solo_tree_segments.csv"), ["x", "y", "xend", "yend"], solo_segments)
+    _write(
+        _table(table_prefix, "solo_tree_segments.csv"),
+        ["x", "y", "xend", "yend"],
+        solo_segments,
+    )
 
 
-def _write_showcase(
-    shown: list[tree_families.Family], out: Callable[[str], Path]
-) -> None:
+def _write_showcase(shown: list[tree_families.Family], table_prefix: Path) -> None:
     """The showcase families, each laid out as its own tree."""
     family_tips: list[Any] = []
     family_segments: list[Any] = []
@@ -103,37 +110,36 @@ def _write_showcase(
         )
         family_segments.extend((family.family_id, *seg) for seg in segs)
     _write(
-        out("family_tree_tips.csv"), ["family", "tip", "class", "x", "y"], family_tips
+        _table(table_prefix, "family_tree_tips.csv"),
+        ["family", "tip", "class", "x", "y"],
+        family_tips,
     )
     _write(
-        out("family_tree_segments.csv"),
+        _table(table_prefix, "family_tree_segments.csv"),
         ["family", "x", "y", "xend", "yend"],
         family_segments,
     )
 
 
-_FAMILY_COLUMNS = [
-    "family",
-    "kind",
-    "n_tips",
-    "n_flank",
-    "n_solo",
-    "n_mono",
-    "diameter",
-    "shown",
-]
-
-
 def _write_family_table(
     families: list[tree_families.Family],
     shown: list[tree_families.Family],
-    out: Callable[[str], Path],
+    table_prefix: Path,
 ) -> None:
     """One row per family, and whether it made the showcase."""
     shown_ids = {f.family_id for f in shown}
     _write(
-        out("tree_families.csv"),
-        _FAMILY_COLUMNS,
+        _table(table_prefix, "tree_families.csv"),
+        [
+            "family",
+            "kind",
+            "n_tips",
+            "n_flank",
+            "n_solo",
+            "n_mono",
+            "diameter",
+            "shown",
+        ],
         (
             (
                 f.family_id,
@@ -166,14 +172,11 @@ def write_views(
     families = tree_families.cut_families(tree, max_distance)
     family_of = tree_families.tip_families(families)
 
-    def out(suffix: str) -> Path:
-        return table_prefix.with_name(f"{table_prefix.name}.{suffix}")
-
-    _write_full_tree(tree, out, family_of)
-    _write_solo_tree(tree, out, family_of, solo_newick)
+    _write_full_tree(tree, table_prefix, family_of)
+    _write_solo_tree(tree, table_prefix, family_of, solo_newick)
     shown = tree_families.showcase(families, per_kind)
-    _write_showcase(shown, out)
-    _write_family_table(families, shown, out)
+    _write_showcase(shown, table_prefix)
+    _write_family_table(families, shown, table_prefix)
     return families
 
 

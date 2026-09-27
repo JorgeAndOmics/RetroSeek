@@ -359,8 +359,8 @@ def _warn_on_failed_seed_control(near_seed: object) -> None:
         )
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Command-line entry: compute the tree statistics and write both CSVs."""
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The command line: the tree, both outputs and the permutation settings."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--treefile", type=Path, required=True)
     parser.add_argument("--out-summary-csv", type=Path, required=True)
@@ -368,7 +368,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--permutations", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: compute the tree statistics and write both CSVs."""
+    args = _parse_args(argv)
     job_logging(args.log, "solo_tree")
 
     summary = summarise(args.treefile, args.permutations, args.seed)
