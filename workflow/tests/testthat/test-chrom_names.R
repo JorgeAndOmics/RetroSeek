@@ -15,7 +15,20 @@ suppressMessages({
   library(testthat)
 })
 
+source(file.path("..", "..", "scripts", "utils", "log.R"))
 source(file.path("..", "..", "scripts", "utils", "chrom_names.R"))
+
+.capture_stderr <- function(expr) {
+  sink_file <- tempfile()
+  con <- file(sink_file, open = "wt")
+  sink(con, type = "message")
+  on.exit({
+    sink(type = "message")
+    close(con)
+  })
+  force(expr)
+  readLines(sink_file)
+}
 
 
 test_that("a descriptive NCBI header still yields just the accession", {
@@ -58,6 +71,15 @@ test_that("an empty or whitespace-only header is still NA", {
   # empty seqlevel into the genome.
   expect_true(is.na(normalise_chrom_names("")))
   expect_true(is.na(normalise_chrom_names("   ")))
+})
+
+test_that("a header with no name is reported through the house logger", {
+  # The console contract (ADR-021): every script line is `time level step
+  # genome | message`, never a bare message().
+  log_setup("hotspot", "Mus_musculus")
+  out <- .capture_stderr(normalise_chrom_names(c("chr1", "")))
+  expect_length(out, 1L)
+  expect_match(out, "WARN hotspot Mus_musculus \\| .*1 of 2 FASTA headers")
 })
 
 test_that("mixed header styles in one genome each resolve correctly", {

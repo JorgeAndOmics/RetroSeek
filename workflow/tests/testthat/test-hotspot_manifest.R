@@ -17,6 +17,7 @@ suppressMessages({
 })
 
 source("../../scripts/ranges/exporters.R")   # provides file_md5
+source("../../scripts/utils/log.R")   # chrom_names.R reports through it
 source("../../scripts/utils/chrom_names.R")
 source("../../scripts/hotspot/io.R")
 

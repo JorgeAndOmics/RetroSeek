@@ -58,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   LTR element.
 - Probe categories (main, accessory, mixed) are computed for the whole column at
   once: 300 times faster on list-aggregated columns, same values.
+- The hotspot stage's notice about FASTA headers with no name now follows the
+  console line contract (`time level step genome | message`) instead of a bare
+  R message.
 - Input validation no longer aborts unattended runs. `validate_ncbi_key` and
   `green_light` called bare `input()`, so a run with no terminal attached (CI, a
   scheduler, `nohup`) died with `EOFError` before Snakemake started. Both now use
