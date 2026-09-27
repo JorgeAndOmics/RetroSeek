@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing `.fa` of the same name. The `genome_fasta_normalizer_setup` rule already
   gives each genome a `{genome}.fa` link without touching the source files; the
   launcher's validation now reads the same file that rule links to.
+- The example config in `tests/fixtures/` validated no more: it still carried the
+  retired `domains:` block. A test now checks both shipped configs against the
+  schema.
 - The hotspot stage's notice about FASTA headers with no name now follows the
   console line contract (`time level step genome | message`) instead of a bare
   R message.

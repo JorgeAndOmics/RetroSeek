@@ -128,7 +128,7 @@ input_schema:
   pfam_domain_classes: str(required=False)
   # Pfam release to download and record (ADR-019), e.g. '38.2'. Optional:
   # defaults to 38.2, the release the curated class table was checked against.
-  pfam_release: str(matches='^[0-9]+\.[0-9]+$', required=False)
+  pfam_release: str(matches='^[0-9]+[.][0-9]+$', required=False)
 
 display_schema:
   # How much the terminal shows during a run (ADR-021). Job logs are always full.
