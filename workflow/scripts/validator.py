@@ -128,13 +128,52 @@ def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
 # -----------------------------
 
 
+def _ncbi_has_protein(accession: str) -> bool:
+    """Whether NCBI's protein database knows `accession`; 0.3 s per lookup.
+
+    A lookup that fails for any reason (network, NCBI error) counts as not
+    found: the probe CSV then fails validation, which is the safe side.
+    """
+    time.sleep(0.3)
+    Entrez.email = defaults.ENTREZ_EMAIL
+    try:
+        with Entrez.esearch(db="protein", term=accession) as handle:  # type: ignore[no-untyped-call]
+            record = Entrez.read(handle)  # type: ignore[no-untyped-call]
+            return int(record["Count"]) > 0
+    except Exception:  # any failure reads as "not found" (docstring)
+        return False
+
+
+def check_ncbi(series: pd.Series) -> pd.Series:
+    """Check if accession IDs exist in the NCBI protein database.
+
+    Its name appears in the schema's error message ("<Check check_ncbi>").
+    """
+    logger.debug("Checking NCBI entries...")
+    return series.apply(_ncbi_has_protein)
+
+
+def _probe_csv_schema() -> pa.DataFrameSchema:
+    """Every probe CSV column present and filled; accessions known to NCBI."""
+    return pa.DataFrameSchema(  # type: ignore[no-untyped-call]
+        {
+            "Label": pa.Column(str, nullable=False),
+            "Name": pa.Column(str, nullable=False),
+            "Abbreviation": pa.Column(str, nullable=False),
+            "Probe": pa.Column(str, nullable=False),
+            "Accession": pa.Column(
+                str, nullable=False, checks=pa.Check(check_ncbi, element_wise=False)
+            ),
+        }
+    )
+
+
 def csv_validator(csv_file: str) -> bool:
     """Check the probe CSV for its required columns and NCBI accessions.
 
     Every column (Label, Name, Abbreviation, Probe, Accession) must be
     present and filled, and every accession must be found in the NCBI
-    protein database. Accessions are looked up one at a time, 0.3 s apart;
-    a lookup that fails for any reason counts as not found.
+    protein database (`_ncbi_has_protein`).
 
     Args:
         csv_file: Path to the probe CSV.
@@ -146,45 +185,13 @@ def csv_validator(csv_file: str) -> bool:
     Raises:
         pandas.errors.ParserError: If the CSV content is malformed.
     """
-
-    def check_ncbi(series: pd.Series) -> pd.Series:
-        """Check if accession IDs exist in the NCBI protein database."""
-        logger.debug("Checking NCBI entries...")
-
-        def ncbi_exists(acc: str) -> bool:
-            time.sleep(0.3)
-            Entrez.email = defaults.ENTREZ_EMAIL
-            try:
-                with Entrez.esearch(db="protein", term=acc) as handle:  # type: ignore[no-untyped-call]
-                    record = Entrez.read(handle)  # type: ignore[no-untyped-call]
-                    return int(record["Count"]) > 0
-            except Exception:
-                return False
-
-        return series.apply(ncbi_exists)
-
     try:
-        df = pd.read_csv(csv_file)
-
-        schema = pa.DataFrameSchema(  # type: ignore[no-untyped-call]
-            {
-                "Label": pa.Column(str, nullable=False),
-                "Name": pa.Column(str, nullable=False),
-                "Abbreviation": pa.Column(str, nullable=False),
-                "Probe": pa.Column(str, nullable=False),
-                "Accession": pa.Column(
-                    str, nullable=False, checks=pa.Check(check_ncbi, element_wise=False)
-                ),
-            }
-        )
-
-        schema.validate(df)
-        logger.info("CSV input file is valid.")
-        return True
-
+        _probe_csv_schema().validate(pd.read_csv(csv_file))
     except (pa.errors.SchemaError, FileNotFoundError, KeyError) as e:
         logger.warning(f"CSV input error: {e}")
         return False
+    logger.info("CSV input file is valid.")
+    return True
 
 
 # -----------------------------
