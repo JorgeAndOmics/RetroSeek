@@ -124,8 +124,18 @@ def _hit_object(
     """One HSP as a RetroSeeker carrying the query's metadata, and its dict key.
 
     The key is ``{accession}-{identifier}``; the identifier is new to ``used``.
+
+    Raises:
+        PipelineError: When the hit has no sequence name. It would sit on no
+            chromosome, overlap nothing downstream and vanish without a word.
     """
     accession_id = utils.seqid(alignment.hit_def)
+    if not accession_id:
+        raise PipelineError(
+            f"a BLAST hit on {subject} has no sequence name "
+            f"(hit_def {alignment.hit_def!r})",
+            hint="give every record of the genome FASTA a name after '>'",
+        )
     random_string = _unused_identifier(used)
     new_instance = RetroSeeker(
         label=str(instance.label),

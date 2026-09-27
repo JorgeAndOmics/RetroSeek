@@ -272,6 +272,37 @@ class TestBlasterParserReadsEveryHsp:
         ]
         assert all(o.alignment.hit_def.startswith(o.accession) for o in hits.values())
 
+    def test_a_hit_with_no_subject_name_stops_the_parse(self) -> None:
+        """A blank hit_def would give a hit with no chromosome to sit on.
+
+        Such a hit overlaps nothing downstream and would vanish without a word,
+        so the parse stops here, where the cause is still visible.
+        """
+        import pytest
+
+        import seq_utils
+        from log import PipelineError
+
+        query = RetroSeeker(
+            label="ALV",
+            virus="Avian leukosis virus",
+            abbreviation="ALV",
+            species=None,
+            probe="POL",
+            accession="Q1",
+            identifier="x",
+        )
+        xml = self.XML.read_text().replace(
+            "<Hit_def>CM2.1</Hit_def>", "<Hit_def> </Hit_def>"
+        )
+        with (
+            patch.object(
+                seq_utils, "run_tool", return_value=SimpleNamespace(stdout=xml)
+            ),
+            pytest.raises(PipelineError, match="no sequence name"),
+        ):
+            seq_utils.blaster_parser("archive", query, "Toyus_toyus")
+
     def test_a_repeated_random_identifier_does_not_drop_a_hit(self) -> None:
         """A repeated random identifier must not silently replace an earlier hit.
 

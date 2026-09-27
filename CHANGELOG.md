@@ -75,8 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer key (`probe=` inside `subprobe=`). All GFF3 readers now share one
   attribute parser that matches whole keys; the pipeline's own tracks read the
   same as before.
-- A BLAST hit whose description is only whitespace no longer crashes the hit
-  parser or the table builder; its sequence id is empty, as for a missing one.
+- A BLAST hit with a blank or missing sequence name stops the hit parser with a
+  message naming the genome, instead of an IndexError (blank) or an empty
+  chromosome name that overlapped nothing downstream (missing).
 - A `{genome}.fa` link pointing at a different file from the `.fna`, `.fasta`,
   `.ffn` or `.fas` beside it now stops the launcher's preflight as ambiguous, like
   two such files without a `.fa`; it used to be used as it was. A link with no such
