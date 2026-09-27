@@ -752,6 +752,19 @@ def write_counts(
         w.writerows(classification_counts(records, kept, source))
 
 
+# Per-locus class counts: (metric, record column, value counted). Structural
+# class and domain tier of the assembled loci (ADR-009); the grain is per locus,
+# distinct from the per-hit valid_* tier counts emitted by ranges_analysis.R.
+_CLASS_COUNTS = (
+    ("structure_full", "structure_class", "full"),
+    ("structure_partial", "structure_class", "partial"),
+    ("structure_gene", "structure_class", "gene"),
+    ("loci_domain_selected", "domain_tier", "domain_selected"),
+    ("loci_domain_unlisted", "domain_tier", "domain_unlisted"),
+    ("loci_non_domain", "domain_tier", "non_domain"),
+)
+
+
 def classification_counts(
     records: list[dict[str, str]], kept: list[dict[str, str]], source: str
 ) -> list[dict[str, Any]]:
@@ -768,48 +781,16 @@ def classification_counts(
             {"metric": "orphans_total", "value": len(records)},
             {"metric": "orphans_recovered", "value": len(kept)},
         ]
-    return [
-        {"metric": "loci_total", "value": len(records)},
-        {
-            "metric": "loci_classified",
-            "value": sum(r["taxon_call"] != tlca.UNCLASSIFIED for r in records),
-        },
-        {
-            "metric": "loci_unclassified",
-            "value": sum(r["taxon_call"] == tlca.UNCLASSIFIED for r in records),
-        },
-        {
-            "metric": "loci_no_blastx_hit",
-            "value": sum(r["n_blastx_hits"] == "0" for r in records),
-        },
-        # Per-provirus structural class + domain tier of the assembled loci
-        # (ADR-009). Grain is per-locus, distinct from the per-hit valid_* tier
-        # counts emitted by ranges_analysis.R.
-        {
-            "metric": "structure_full",
-            "value": sum(r.get("structure_class") == "full" for r in records),
-        },
-        {
-            "metric": "structure_partial",
-            "value": sum(r.get("structure_class") == "partial" for r in records),
-        },
-        {
-            "metric": "structure_gene",
-            "value": sum(r.get("structure_class") == "gene" for r in records),
-        },
-        {
-            "metric": "loci_domain_selected",
-            "value": sum(r.get("domain_tier") == "domain_selected" for r in records),
-        },
-        {
-            "metric": "loci_domain_unlisted",
-            "value": sum(r.get("domain_tier") == "domain_unlisted" for r in records),
-        },
-        {
-            "metric": "loci_non_domain",
-            "value": sum(r.get("domain_tier") == "non_domain" for r in records),
-        },
+    classified = sum(r["taxon_call"] != tlca.UNCLASSIFIED for r in records)
+    counts = [
+        ("loci_total", len(records)),
+        ("loci_classified", classified),
+        ("loci_unclassified", len(records) - classified),
+        ("loci_no_blastx_hit", sum(r["n_blastx_hits"] == "0" for r in records)),
     ]
+    for metric, column, value in _CLASS_COUNTS:
+        counts.append((metric, sum(r.get(column) == value for r in records)))
+    return [{"metric": metric, "value": value} for metric, value in counts]
 
 
 def summarise(records: list[dict[str, str]]) -> str:
@@ -1047,18 +1028,11 @@ def _write_outputs(a: argparse.Namespace, records: list[dict[str, str]]) -> None
         logger.info("wrote track: %s", a.out_gff3)
 
 
-def main() -> None:
-    """Classify one genome's loci and write the requested outputs."""
-    a = _build_arg_parser().parse_args()
-    # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
-    # path says which, and keeps parallel genomes apart.
-    job_logging(a.log, f"taxonomy_classify_{a.source}")
-    logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
-    _load_reference_taxonomy(a.ref_dir)
+def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
+    """Run `classify` with the command line's inputs and settings."""
     pgenes = {g.strip().upper() for g in a.placement_genes.split(",") if g.strip()}
     main_probes = [g.strip().upper() for g in a.main_probes.split(",") if g.strip()]
-
-    records = classify(
+    return classify(
         a.gff3,
         a.genome,
         a.ref_dir,
@@ -1079,6 +1053,17 @@ def main() -> None:
         domain_classes=a.domain_classes,
         scanned_txt=a.domains_scanned,
     )
+
+
+def main() -> None:
+    """Classify one genome's loci and write the requested outputs."""
+    a = _build_arg_parser().parse_args()
+    # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
+    # path says which, and keeps parallel genomes apart.
+    job_logging(a.log, f"taxonomy_classify_{a.source}")
+    logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
+    _load_reference_taxonomy(a.ref_dir)
+    records = _classify_from_args(a)
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was
     # recovered vs. discarded. For the LTR-flanked run the gate is a no-op.

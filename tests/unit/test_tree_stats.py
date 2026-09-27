@@ -181,3 +181,18 @@ def test_both_csvs_are_written_and_readable(tmp_path: Path) -> None:
     assert text.startswith("metric,value")
     assert "arm_sisterhood_fraction" in text
     assert adjacency_csv.read_text().count("\n") == 10  # header plus 3x3
+
+
+@pytest.mark.parametrize(
+    ("near_seed", "warns"), [(0.1, True), (0.95, False), ("", False)]
+)
+def test_a_failed_seed_control_is_reported(
+    near_seed: object, warns: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Too few solos near their seed arm means the genome's tree is unreliable.
+
+    The empty string is the summary's value when no solo's seed is on the tree.
+    """
+    with caplog.at_level("WARNING"):
+        tree_stats._warn_on_failed_seed_control(near_seed)
+    assert ("unreliable" in caplog.text) is warns

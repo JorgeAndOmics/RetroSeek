@@ -53,36 +53,32 @@ def _write(path: Path, header: list[str], rows: Iterable[Iterable[Any]]) -> None
         writer.writerows(rows)
 
 
-def write_views(
-    treefile: Path,
-    table_prefix: Path,
-    solo_newick: Path,
-    max_distance: float,
-    per_kind: int,
-) -> list[tree_families.Family]:
-    """Write every view and return the families, for the caller's summary line.
+def _table(table_prefix: Path, suffix: str) -> Path:
+    """The path of one view's table: `<prefix>.<suffix>` beside the prefix."""
+    return table_prefix.with_name(f"{table_prefix.name}.{suffix}")
 
-    Branch lengths are kept (`align_tips=False`) in every view, because on an LTR
-    tree they are the signal: a solo on a long branch is a diverged copy.
-    """
-    tree = Phylo.read(str(treefile), "newick")  # type: ignore[no-untyped-call,attr-defined]
-    families = tree_families.cut_families(tree, max_distance)
-    family_of = tree_families.tip_families(families)
 
-    def out(suffix: str) -> Path:
-        return table_prefix.with_name(f"{table_prefix.name}.{suffix}")
-
-    # The full tree.
+def _write_full_tree(tree: Any, table_prefix: Path, family_of: dict[str, str]) -> None:
+    """The full tree: every tip with its class and family, and the branches."""
     segments, tips = layout(tree, align_tips=False)
     _write(
-        out("tree_tips.csv"),
+        _table(table_prefix, "tree_tips.csv"),
         ["tip", "class", "family", "x", "y"],
         ((name, tip_class(name), family_of[name], x, y) for name, x, y in tips),
     )
-    _write(out("tree_segments.csv"), ["x", "y", "xend", "yend"], segments)
+    _write(
+        _table(table_prefix, "tree_segments.csv"), ["x", "y", "xend", "yend"], segments
+    )
 
-    # The solo-only tree. Header-only files when there are too few solos, so the
-    # outputs always exist and the figure shows a placeholder instead of failing.
+
+def _write_solo_tree(
+    tree: Any, table_prefix: Path, family_of: dict[str, str], solo_newick: Path
+) -> None:
+    """The tree pruned to its solos, as tables and as Newick.
+
+    Header-only tables and an empty Newick when there are too few solos, so the
+    outputs always exist and the figure shows a placeholder instead of failing.
+    """
     solo_tree = tree_families.solo_only_tree(tree)
     solo_segments: list[Any] = []
     solo_tips: list[Any] = []
@@ -92,14 +88,19 @@ def write_views(
     else:
         solo_newick.write_text("")
     _write(
-        out("solo_tree_tips.csv"),
+        _table(table_prefix, "solo_tree_tips.csv"),
         ["tip", "family", "x", "y"],
         ((name, family_of[name], x, y) for name, x, y in solo_tips),
     )
-    _write(out("solo_tree_segments.csv"), ["x", "y", "xend", "yend"], solo_segments)
+    _write(
+        _table(table_prefix, "solo_tree_segments.csv"),
+        ["x", "y", "xend", "yend"],
+        solo_segments,
+    )
 
-    # The showcase families, each laid out as its own tree.
-    shown = tree_families.showcase(families, per_kind)
+
+def _write_showcase(shown: list[tree_families.Family], table_prefix: Path) -> None:
+    """The showcase families, each laid out as its own tree."""
     family_tips: list[Any] = []
     family_segments: list[Any] = []
     for family in shown:
@@ -109,17 +110,26 @@ def write_views(
         )
         family_segments.extend((family.family_id, *seg) for seg in segs)
     _write(
-        out("family_tree_tips.csv"), ["family", "tip", "class", "x", "y"], family_tips
+        _table(table_prefix, "family_tree_tips.csv"),
+        ["family", "tip", "class", "x", "y"],
+        family_tips,
     )
     _write(
-        out("family_tree_segments.csv"),
+        _table(table_prefix, "family_tree_segments.csv"),
         ["family", "x", "y", "xend", "yend"],
         family_segments,
     )
 
+
+def _write_family_table(
+    families: list[tree_families.Family],
+    shown: list[tree_families.Family],
+    table_prefix: Path,
+) -> None:
+    """One row per family, and whether it made the showcase."""
     shown_ids = {f.family_id for f in shown}
     _write(
-        out("tree_families.csv"),
+        _table(table_prefix, "tree_families.csv"),
         [
             "family",
             "kind",
@@ -144,6 +154,29 @@ def write_views(
             for f in families
         ),
     )
+
+
+def write_views(
+    treefile: Path,
+    table_prefix: Path,
+    solo_newick: Path,
+    max_distance: float,
+    per_kind: int,
+) -> list[tree_families.Family]:
+    """Write every view and return the families, for the caller's summary line.
+
+    Branch lengths are kept (`align_tips=False`) in every view, because on an LTR
+    tree they are the signal: a solo on a long branch is a diverged copy.
+    """
+    tree = Phylo.read(str(treefile), "newick")  # type: ignore[no-untyped-call,attr-defined]
+    families = tree_families.cut_families(tree, max_distance)
+    family_of = tree_families.tip_families(families)
+
+    _write_full_tree(tree, table_prefix, family_of)
+    _write_solo_tree(tree, table_prefix, family_of, solo_newick)
+    shown = tree_families.showcase(families, per_kind)
+    _write_showcase(shown, table_prefix)
+    _write_family_table(families, shown, table_prefix)
     return families
 
 

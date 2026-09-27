@@ -316,20 +316,8 @@ def write_csvs(summary: dict[str, Any], summary_csv: Path, adjacency_csv: Path) 
         writer.writerows(summary["adjacency"])
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Command-line entry: compute the tree statistics and write both CSVs."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--treefile", type=Path, required=True)
-    parser.add_argument("--out-summary-csv", type=Path, required=True)
-    parser.add_argument("--out-adjacency-csv", type=Path, required=True)
-    parser.add_argument("--permutations", type=int, required=True)
-    parser.add_argument("--seed", type=int, required=True)
-    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    args = parser.parse_args(argv)
-    job_logging(args.log, "solo_tree")
-
-    summary = summarise(args.treefile, args.permutations, args.seed)
-    write_csvs(summary, args.out_summary_csv, args.out_adjacency_csv)
+def _log_summary(summary: dict[str, Any]) -> None:
+    """The tree, its two positive controls and the clustering, one line each."""
     logger.info(
         "tree: %s tips (FLANK %s, SOLO %s, MONO %s)",
         summary["n_tips"],
@@ -355,7 +343,10 @@ def main(argv: list[str] | None = None) -> None:
         summary["enrichment"],
         summary["sd_above_null"],
     )
-    near_seed = summary["solos_near_seed_fraction"]
+
+
+def _warn_on_failed_seed_control(near_seed: object) -> None:
+    """Warn when too few solos sit near their seed arm: the tree is then unreliable."""
     if isinstance(near_seed, float) and near_seed < SEED_CONTROL_MIN_FRACTION:
         logger.warning(
             "only %.0f%% of solos sit within %s of their seed arm (expected at least "
@@ -366,6 +357,30 @@ def main(argv: list[str] | None = None) -> None:
             SEED_CONTROL_DISTANCE,
             100 * SEED_CONTROL_MIN_FRACTION,
         )
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The command line: the tree, both outputs and the permutation settings."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--treefile", type=Path, required=True)
+    parser.add_argument("--out-summary-csv", type=Path, required=True)
+    parser.add_argument("--out-adjacency-csv", type=Path, required=True)
+    parser.add_argument("--permutations", type=int, required=True)
+    parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: compute the tree statistics and write both CSVs."""
+    args = _parse_args(argv)
+    job_logging(args.log, "solo_tree")
+
+    summary = summarise(args.treefile, args.permutations, args.seed)
+    write_csvs(summary, args.out_summary_csv, args.out_adjacency_csv)
+    _log_summary(summary)
+    near_seed = summary["solos_near_seed_fraction"]
+    _warn_on_failed_seed_control(near_seed)
     logger.log(
         OK,
         "evidence tree: %s tips, %s of solos near their seed",
