@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The example config in `tests/fixtures/` validated no more: it still carried the
   retired `domains:` block. A test now checks both shipped configs against the
   schema.
+- The solo-LTR finder reads the element and orphan tracks with one rule: a
+  damaged row stops the job and names its line. One reader used to skip such
+  rows (letting an element's ground pass as solo territory) while the other
+  failed without saying where.
 - The hotspot stage's notice about FASTA headers with no name now follows the
   console line contract (`time level step genome | message`) instead of a bare
   R message.

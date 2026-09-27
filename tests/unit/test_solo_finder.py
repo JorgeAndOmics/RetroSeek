@@ -12,6 +12,7 @@ in the real output format, written to tmp_path by a fixture.
 from __future__ import annotations
 
 import gzip
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -342,3 +343,47 @@ def test_only_solos_reach_the_solo_list(tmp_path: Path) -> None:
 def test_element_spans_are_read_from_the_elements_gff3(elements: Path) -> None:
     spans = solo_finder.element_spans(elements)
     assert spans == {"LTR_retrotransposon1": ("chr1", 49000, 61000)}
+
+
+# ---- both GFF3 readers share one policy for bad rows ----
+# The element and orphan tracks are written by the pipeline, so a row that is not
+# a feature means a damaged file. Skipping it would quietly let an element's
+# neighbourhood count as solo territory, so both readers stop and name the line.
+
+_ELEMENT_ROW = _ELEMENTS.splitlines()[1]
+
+
+def _gff3(tmp_path: Path, *rows: str) -> Path:
+    p = tmp_path / "track.gff3"
+    p.write_text("##gff-version 3\n" + "".join(f"{row}\n" for row in rows))
+    return p
+
+
+@pytest.mark.parametrize(
+    "reader",
+    [solo_finder.element_spans, solo_finder.read_intervals],
+    ids=["element_spans", "read_intervals"],
+)
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        "chr1\tLTRdigest\tLTR_retrotransposon\tstart\t61000\t.\t+\t.\tID=x",
+        "chr1\tLTRdigest\tLTR_retrotransposon\t49000\t61000",
+    ],
+    ids=["unreadable_coordinate", "short_row"],
+)
+def test_a_damaged_gff3_row_stops_both_readers(
+    tmp_path: Path, reader: Callable[[Path], object], bad_row: str
+) -> None:
+    track = _gff3(tmp_path, _ELEMENT_ROW, bad_row)
+    with pytest.raises(solo_finder.PipelineError, match=r"track\.gff3, line 3"):
+        reader(track)
+
+
+def test_comments_and_blank_lines_are_skipped_by_both_readers(tmp_path: Path) -> None:
+    track = _gff3(tmp_path, "", "# a note", _ELEMENT_ROW, "   ")
+    assert solo_finder.element_spans(track) == {
+        "LTR_retrotransposon1": ("chr1", 49000, 61000)
+    }
+    intervals = solo_finder.read_intervals(track)
+    assert list(intervals) == ["chr1"]
