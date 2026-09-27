@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A `{genome}.fa` link pointing at a different file from the `.fna`, `.fasta` or
   `.ffn` beside it is now refused as ambiguous instead of kept. A link with no
   such file beside it (a genome stored elsewhere) is still honoured.
+- A tie for a hotspot's dominant lineage is broken in byte order, the same on
+  every machine; it followed the machine's locale. The model genomes' lineage
+  names sort alike either way, so their tables do not change.
 - The hotspot stage's notice about FASTA headers with no name now follows the
   console line contract (`time level step genome | message`) instead of a bare
   R message.

@@ -257,7 +257,7 @@ test_that("composition ties, blanks and empty regions are handled the same way",
     ranges = IRanges::IRanges(start = c(1L, 1L), end = c(100L, 100L))
   )
   out <- S4Vectors::mcols(annotate_hotspot_composition(regions, loci, "segment"))
-  # a 1-1 tie goes to the first name in table order; blank and NA are ignored
+  # a 1-1 tie goes to the first name in byte order; blank and NA are ignored
   expect_equal(out$dominant_taxon, c("Betaretrovirus", NA_character_))
   expect_equal(out$n_loci, c(4L, 0L))
   # all confidences blank -> NA, not NaN or 0
@@ -267,4 +267,27 @@ test_that("composition ties, blanks and empty regions are handled the same way",
   expect_equal(colnames(out), c("n_loci", "n_full", "n_partial", "n_gene",
                                 "n_ltr_flanked", "n_orphan", "dominant_taxon",
                                 "mean_confidence"))
+})
+
+test_that("a dominant-taxon tie is broken the same way in every locale", {
+  # table() orders names by the session's collation: en_US puts "alpha" before
+  # "Beta", byte order (C) the reverse (gotcha 80). The pick must not depend on
+  # the machine the pipeline runs on.
+  loci <- GenomicRanges::GRanges(
+    seqnames = "chr1",
+    ranges = IRanges::IRanges(start = c(10L, 20L), end = c(15L, 25L))
+  )
+  S4Vectors::mcols(loci)$segment <- c("alpha", "Beta")
+  region <- GenomicRanges::GRanges(
+    seqnames = "chr1", ranges = IRanges::IRanges(start = 1L, end = 100L)
+  )
+  saved <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", saved), add = TRUE)
+  for (collate in c("C", "en_US.UTF-8")) {
+    # en_US may be missing on a minimal CI image; C alone still tests the rule.
+    set <- suppressWarnings(Sys.setlocale("LC_COLLATE", collate))  # absent: warns
+    if (!nzchar(set)) next
+    out <- S4Vectors::mcols(annotate_hotspot_composition(region, loci, "segment"))
+    expect_equal(out$dominant_taxon, "Beta", info = collate)
+  }
 })

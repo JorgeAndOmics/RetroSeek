@@ -201,12 +201,14 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 }
 
 #' The most frequent non-blank value among one region's loci; NA when none.
-#' sort() breaks count ties in the table's level order, so the output is
-#' deterministic for a given locale.
+#' A count tie goes to the first name in byte order: table() orders names by
+#' the locale's collation, which differs between machines (gotcha 80).
 .dominant_value <- function(v) {
   v <- v[!is.na(v) & nzchar(v)]
   if (length(v) == 0L) return(NA_character_)
-  names(sort(table(v), decreasing = TRUE))[1]
+  counts <- table(v)
+  tied   <- names(counts)[counts == max(counts)]
+  sort(tied, method = "radix")[1]
 }
 
 #' Mean of one region's numeric values, NA when all are missing.
@@ -274,7 +276,7 @@ attach_hotspot_id_to_windows <- function(window_df, merged_gr) {
 #'   n_full / n_partial / n_gene   structure_class breakdown
 #'   n_ltr_flanked / n_orphan   tier breakdown
 #'   dominant_taxon             most frequent value of `group_col` (ties -> first
-#'                              alphabetically, so the output is deterministic)
+#'                              in byte order, the same on every machine)
 #'   mean_confidence            mean numeric confidence, NA when unavailable
 #'
 #' Columns absent from `loci` yield zero counts / NA rather than an error, so a
