@@ -103,3 +103,13 @@ test_that("a name that merely resembles an accession is not reinterpreted", {
   # the seqname BLAST writes into the tracks. Whatever the FASTA says, wins.
   expect_equal(normalise_chrom_names("CM050508.1extra"), "CM050508.1extra")
 })
+
+test_that("sourcing without utils/log.R fails at once, not on a blank header", {
+  # The logger is only called on the error path, so a missing source would
+  # otherwise surface as "could not find function" far from its cause.
+  bare <- new.env(parent = baseenv())
+  expect_error(
+    source(file.path("..", "..", "scripts", "utils", "chrom_names.R"), local = bare),
+    "utils/log.R"
+  )
+})
