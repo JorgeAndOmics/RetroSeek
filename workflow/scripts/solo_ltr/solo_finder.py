@@ -502,11 +502,7 @@ def count_intact_loci(loci_csv: Path) -> int:
         return sum(1 for _ in csv.DictReader(handle))
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Command-line entry: call one genome's solo LTRs and write every output.
-
-    Writes the solo list, the candidate tables, the funnel and the manifest.
-    """
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--hits", type=Path, required=True, help="gzipped blastn tabular output"
@@ -528,10 +524,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--merge-gap", type=int, required=True)
     parser.add_argument("--orphan-pad", type=int, required=True)
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    args = parser.parse_args(argv)
-    job_logging(args.log, "solo_finder")
+    return parser.parse_args(argv)
 
-    thresholds = Thresholds(
+
+def _thresholds(args: argparse.Namespace) -> Thresholds:
+    return Thresholds(
         min_identity=args.min_identity,
         min_coverage=args.min_coverage,
         max_coverage=args.max_coverage,
@@ -540,38 +537,56 @@ def main(argv: list[str] | None = None) -> None:
         merge_gap=args.merge_gap,
         orphan_pad=args.orphan_pad,
     )
-    result = run(args.hits, args.elements_gff3, args.orphans_gff3, thresholds)
-    spans = element_spans(args.elements_gff3)
-    intact_loci = count_intact_loci(args.loci_csv)
 
+
+def _write_outputs(
+    args: argparse.Namespace, result: Result, thresholds: Thresholds, intact_loci: int
+) -> int:
+    """Write the solo list, candidate tables, funnel and manifest; return the solos."""
+    spans = element_spans(args.elements_gff3)
     solos = write_solo_list(result.candidates, spans, args.out_solo_list)
     write_candidates(
         result.candidates, args.out_candidates_csv, args.out_candidates_parquet
     )
     write_funnel(result.funnel, intact_loci, args.out_funnel_csv)
-    write_manifest(
-        {
-            "hits": args.hits,
-            "elements_gff3": args.elements_gff3,
-            "orphans_gff3": args.orphans_gff3,
-            "loci_csv": args.loci_csv,
-        },
-        thresholds,
-        result.funnel,
-        args.out_manifest,
-    )
+    inputs = {
+        "hits": args.hits,
+        "elements_gff3": args.elements_gff3,
+        "orphans_gff3": args.orphans_gff3,
+        "loci_csv": args.loci_csv,
+    }
+    write_manifest(inputs, thresholds, result.funnel, args.out_manifest)
+    return solos
 
-    ratio = solos / intact_loci if intact_loci else float("nan")
+
+def _log_funnel(funnel: Counter[str], solos: int) -> None:
     logger.info(
         "funnel: %s raw hits, %s accepted, %s candidates; fates: %s intact flank, "
         "%s monoLTR at an orphan, %s solo",
-        f"{result.funnel.get('raw_hits', 0):,}",
-        f"{result.funnel.get('accepted_hits', 0):,}",
-        f"{result.funnel.get('merged_candidates', 0):,}",
-        f"{result.funnel.get(INTACT_FLANK, 0):,}",
-        f"{result.funnel.get(MONO_AT_ORPHAN, 0):,}",
+        f"{funnel.get('raw_hits', 0):,}",
+        f"{funnel.get('accepted_hits', 0):,}",
+        f"{funnel.get('merged_candidates', 0):,}",
+        f"{funnel.get(INTACT_FLANK, 0):,}",
+        f"{funnel.get(MONO_AT_ORPHAN, 0):,}",
         f"{solos:,}",
     )
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: call one genome's solo LTRs and write every output.
+
+    Writes the solo list, the candidate tables, the funnel and the manifest.
+    """
+    args = _parse_args(argv)
+    job_logging(args.log, "solo_finder")
+
+    thresholds = _thresholds(args)
+    result = run(args.hits, args.elements_gff3, args.orphans_gff3, thresholds)
+    intact_loci = count_intact_loci(args.loci_csv)
+    solos = _write_outputs(args, result, thresholds, intact_loci)
+
+    ratio = solos / intact_loci if intact_loci else float("nan")
+    _log_funnel(result.funnel, solos)
     logger.log(OK, "%s solo LTRs, %.1f per intact locus", f"{solos:,}", ratio)
 
 
