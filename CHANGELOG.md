@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README's demo figures were regenerated from the current model-genome run.
+  Retroviral genera now show under their real names and house colours; host
+  species and provirus names stay anonymised.
 - biopython pinned at 1.88 (was 1.87), verified by rerunning every downstream
   stage on the model genomes and comparing the tables: all identical. The one
   visible change is in `{genome}.solos.treefile`, the pruned solo-LTR tree,
