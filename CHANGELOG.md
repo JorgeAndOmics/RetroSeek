@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   visible change is in `{genome}.solos.treefile`, the pruned solo-LTR tree,
   whose branch lengths are now written at full precision (`0.11677255`) where
   1.87's Newick writer rounded to five decimals; no stage reads that file.
+- The ten longest functions (tree views, tree build, hit tabulation, domain scan,
+  solo finder and annotator, classifier entry, counts, probe CSV check) are split
+  into named steps. Checked old against new: identical outputs on the model
+  genomes, or identical tool commands where the tools are slow.
 
 ### Fixed
 
