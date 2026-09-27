@@ -124,8 +124,61 @@ def taxon_map(acc_taxon: dict[str, str], out_tsv: Path) -> None:
             fh.write(f"{acc}\t{lineage}\n")
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Command-line entry: build the placement tree package for one gene."""
+def _iqtree_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[str]:
+    """IQ-TREE on the alignment: the placement tree's topology.
+
+    A fixed standard protein model (LG+F+G4) skips the slow ModelFinder; -seed
+    makes the search reproducible (UFBoot resampling and NNI tie-breaks).
+    """
+    return [
+        IQTREE,
+        "-s",
+        str(afa),
+        "-m",
+        "LG+F+G4",
+        "-B",
+        "1000",
+        "-T",
+        str(threads),
+        "-seed",
+        str(seed),
+        "--prefix",
+        str(prefix),
+        "-redo",
+    ]
+
+
+def _raxml_command(afa: Path, prefix: Path, threads: int, seed: int) -> list[str]:
+    """raxml-ng --evaluate on IQ-TREE's topology: calibrated model and lengths.
+
+    It optimises the model parameters and branch lengths on the fixed topology
+    and writes <gene>.raxml.bestModel and .bestTree, which EPA-ng uses for
+    calibrated placement (raxml-ng appends ".raxml.<suffix>" to --prefix).
+    --redo overwrites a previous build's files; without it raxml-ng aborts on any
+    rebuild ("file already exists"), unlike IQ-TREE with -redo.
+    """
+    return [
+        RAXML,
+        "--evaluate",
+        "--redo",
+        "--msa",
+        str(afa),
+        "--tree",
+        str(prefix) + ".treefile",
+        "--model",
+        "LG+F+G4",
+        "--prefix",
+        str(prefix),
+        "--seed",
+        str(seed),
+        "--force",
+        "perf_threads,msa",
+        "--threads",
+        str(threads),
+    ]
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Build a per-gene placement tree package")
     p.add_argument("gene", help="marker gene, e.g. POL or GAG")
     p.add_argument(
@@ -142,7 +195,12 @@ def main(argv: list[str] | None = None) -> None:
     )
     p.add_argument("--threads", type=int, default=2, help="tree-building threads")
     p.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    a = p.parse_args(argv)
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Command-line entry: build the placement tree package for one gene."""
+    a = _parse_args(argv)
     gene = a.gene.upper()
     job_logging(a.log, "taxonomy_reference_trees")
     ref_dir = a.ref_dir
@@ -166,52 +224,8 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("[%s] alignment: %s", gene, alignment_quality(afa))
 
     prefix = trees / gene
-    # fixed standard protein model (LG+F+G4) - skips slow ModelFinder; gives the topology.
-    # -seed makes the search reproducible (UFBoot resampling + NNI tie-breaks).
-    run_tool(
-        [
-            IQTREE,
-            "-s",
-            str(afa),
-            "-m",
-            "LG+F+G4",
-            "-B",
-            "1000",
-            "-T",
-            str(a.threads),
-            "-seed",
-            str(a.seed),
-            "--prefix",
-            str(prefix),
-            "-redo",
-        ]
-    )
-    # raxml-ng --evaluate: optimise model params + branch lengths on the fixed topology ->
-    # <gene>.raxml.bestModel + .bestTree, which EPA-ng uses for calibrated placement.
-    # raxml-ng appends ".raxml.<suffix>" to --prefix, so prefix=<gene> -> <gene>.raxml.bestModel
-    # --redo overwrites stale <gene>.raxml.* from a prior build; without it raxml-ng aborts
-    # on any rebuild ("file already exists"), unlike the idempotent iqtree (-redo) call.
-    run_tool(
-        [
-            RAXML,
-            "--evaluate",
-            "--redo",
-            "--msa",
-            str(afa),
-            "--tree",
-            str(prefix) + ".treefile",
-            "--model",
-            "LG+F+G4",
-            "--prefix",
-            str(prefix),
-            "--seed",
-            str(a.seed),
-            "--force",
-            "perf_threads,msa",
-            "--threads",
-            str(a.threads),
-        ]
-    )
+    run_tool(_iqtree_command(afa, prefix, a.threads, a.seed))
+    run_tool(_raxml_command(afa, prefix, a.threads, a.seed))
     run_tool([HMMBUILD, "--amino", str(trees / f"{gene}.hmm"), str(afa)])
     taxon_map(acc_taxon, trees / f"{gene}.taxon.tsv")
     logger.log(OK, "%s tree package written to %s", gene, trees)
