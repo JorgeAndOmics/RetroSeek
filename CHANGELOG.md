@@ -67,10 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The example config in `tests/fixtures/` validated no more: it still carried the
   retired `domains:` block. A test now checks both shipped configs against the
   schema.
-- The solo-LTR finder reads the element and orphan tracks with one rule: a
-  damaged row stops the job and names its line. One reader used to skip such
-  rows (letting an element's ground pass as solo territory) while the other
-  failed without saying where.
+- Every reader of the pipeline's own GFF3 tracks (solo-LTR finder, bait
+  builder, classifier) follows one rule: a damaged row stops the job and names
+  its line, and a `##FASTA` section ends the features. Some readers used to skip
+  such rows without a word (losing an element, an arm or a locus), one failed
+  without saying where.
 - The classifier read GFF3 attributes with a pattern that also matched inside a
   longer key (`probe=` inside `subprobe=`). All GFF3 readers now share one
   attribute parser that matches whole keys; the pipeline's own tracks read the

@@ -32,7 +32,7 @@ import taxonomy_placement
 from Bio.Seq import Seq
 
 from log import OK, job_logging, run_main
-from tabular import gff3_attributes, tab_rows
+from tabular import gff3_attributes, gff3_features
 
 # Domain-class semantics are shared with the scanner. The scanner imports THIS
 # module for locus grouping, so the shared piece lives in its own module to keep
@@ -67,14 +67,13 @@ _UNCLASSIFIED_CALL = {
 def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
     """Read every per-hit feature of a valid-tier GFF3 as a flat string record.
 
-    Comment lines and lines with fewer than nine columns are skipped. The probe
-    becomes the upper-cased ``gene`` (``OTHER`` when absent) and GFF3-escaped
+    Comment and blank lines are skipped; any other row that is not a feature row
+    stops the job (`tabular.gff3_features`). The probe becomes the upper-cased ``gene`` (``OTHER`` when absent) and GFF3-escaped
     label separators are decoded. The strand test is a substring test against
     ``"+-"``: ``.`` and ``?`` read as ``+``, while an empty column (and the
     literal ``+-``) passes through unchanged.
     """
-    with gff3.open(encoding="utf-8") as fh:
-        return [_feature(f) for f in tab_rows(fh, 9)]
+    return [_feature(fields) for fields, _, _ in gff3_features(gff3)]
 
 
 def _feature(f: list[str]) -> dict[str, str]:

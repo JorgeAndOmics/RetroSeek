@@ -856,8 +856,6 @@ _VALID_GFF3 = (
     "chr1\tRetroSeek\thit\t100\t200\t.\t-\t.\t"
     "ID=h1;probe=pol;Parent=LTR_retrotransposon7;label=ALV%3b RSV;oversized=True\n"
     "chr1\tRetroSeek\thit\t300\t400\t.\t.\t.\tID=h2\n"
-    "short\tline\n"
-    "no tabs at all\n"
 )
 
 
@@ -896,10 +894,13 @@ class TestParseValidFull:
         assert record["gene"] == "POL"
         assert record["parent"] == ""
 
-    def test_comments_and_malformed_lines_are_skipped(self, tmp_path: Path) -> None:
+    def test_a_damaged_row_stops_the_read(self, tmp_path: Path) -> None:
+        # The track is the pipeline's own: a short row means a damaged file, and
+        # skipping it would drop a locus without a word.
         gff3 = tmp_path / "valid.gff3"
-        gff3.write_text(_VALID_GFF3)
-        assert len(tcl.parse_valid_full(gff3)) == 2
+        gff3.write_text(_VALID_GFF3 + "short\tline\n")
+        with pytest.raises(PipelineError, match=r"valid\.gff3, line 4"):
+            tcl.parse_valid_full(gff3)
 
 
 class TestRegionIO:

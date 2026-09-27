@@ -19,6 +19,8 @@ import pytest
 import solo_finder
 from solo_intervals import IntervalIndex
 
+from log import PipelineError
+
 # blastn -outfmt "6 qseqid sseqid pident length qlen sstart send evalue bitscore".
 # One row per case, named in the comment so a failure is readable.
 _HITS = """\
@@ -376,7 +378,7 @@ def test_a_damaged_gff3_row_stops_both_readers(
     tmp_path: Path, reader: Callable[[Path], object], bad_row: str
 ) -> None:
     track = _gff3(tmp_path, _ELEMENT_ROW, bad_row)
-    with pytest.raises(solo_finder.PipelineError, match=r"track\.gff3, line 3"):
+    with pytest.raises(PipelineError, match=r"track\.gff3, line 3"):
         reader(track)
 
 

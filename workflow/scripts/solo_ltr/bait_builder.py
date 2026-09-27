@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from log import OK, PipelineError, job_logging, run_main
-from tabular import gff3_attributes, tab_rows
+from tabular import gff3_attributes, gff3_features
 
 logger = logging.getLogger(__name__)
 
@@ -79,22 +79,24 @@ def erv_bearing_parents(loci_csv: Path) -> set[str]:
 
 
 def parse_arms(gff3: Path) -> Iterator[Arm]:
-    """Yield every LTR arm in the flanking-LTR track."""
-    with gff3.open() as handle:
-        for fields in tab_rows(handle, 9):
-            if fields[2] != ARM_FEATURE:
-                continue
-            attributes = gff3_attributes(fields[8])
-            parent = attributes.get("Parent", "")
-            if not parent:
-                continue
-            yield Arm(
-                seqname=fields[0],
-                start=int(fields[3]),
-                end=int(fields[4]),
-                parent=parent,
-                arm=attributes.get("arm", "?"),
-            )
+    """Yield every LTR arm in the flanking-LTR track.
+
+    A row that is not a feature row stops the job (`tabular.gff3_features`).
+    """
+    for fields, start, end in gff3_features(gff3):
+        if fields[2] != ARM_FEATURE:
+            continue
+        attributes = gff3_attributes(fields[8])
+        parent = attributes.get("Parent", "")
+        if not parent:
+            continue
+        yield Arm(
+            seqname=fields[0],
+            start=start,
+            end=end,
+            parent=parent,
+            arm=attributes.get("arm", "?"),
+        )
 
 
 def select_bait(arms: Iterator[Arm], parents: set[str], min_length: int) -> list[Arm]:

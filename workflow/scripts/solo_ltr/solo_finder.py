@@ -51,8 +51,8 @@ from typing import NamedTuple, TextIO
 import pandas as pd
 from solo_intervals import IntervalIndex
 
-from log import OK, PipelineError, job_logging, run_main
-from tabular import gff3_attributes
+from log import OK, job_logging, run_main
+from tabular import gff3_attributes, gff3_features
 
 logger = logging.getLogger(__name__)
 
@@ -253,53 +253,15 @@ def classify(
     return SOLO
 
 
-def _coordinates(fields: list[str]) -> tuple[int, int] | None:
-    """Start and end of a GFF3 row, or None when it is not a feature row."""
-    if len(fields) < 9:
-        return None
-    try:
-        return int(fields[3]), int(fields[4])
-    except ValueError:
-        return None
-
-
-def _gff3_features(gff3: Path) -> Iterator[tuple[list[str], int, int]]:
-    """Every feature row of a GFF3 track, with its start and end.
-
-    Comment and blank lines are skipped. Anything else must be a feature row:
-    nine tab-separated columns with whole-number coordinates. The element and
-    orphan tracks are written by the pipeline, so a row that is not means a
-    damaged file, and skipping it could let an element's ground count as solo
-    territory.
-
-    Raises:
-        PipelineError: Naming the file and line of the first row that is not a
-            feature row.
-    """
-    with gff3.open() as handle:
-        for number, line in enumerate(handle, start=1):
-            if line.startswith("#") or not line.strip():
-                continue
-            fields = line.rstrip("\n").split("\t")
-            coordinates = _coordinates(fields)
-            if coordinates is None:
-                raise PipelineError(
-                    f"{gff3}, line {number}: not a GFF3 feature row (nine "
-                    "tab-separated columns, whole-number start and end)",
-                    hint="regenerate the file with the rule that writes it",
-                )
-            yield fields, *coordinates
-
-
 def read_intervals(gff3: Path, feature: str | None = None) -> dict[str, IntervalIndex]:
     """Build a per-sequence interval index from a GFF3.
 
     `feature` None means every feature line counts, which is what the orphan track
     needs: its locus lines carry the probe type, not a fixed feature name. A row
-    that is not a feature row stops the job (`_gff3_features`).
+    that is not a feature row stops the job (`tabular.gff3_features`).
     """
     raw: dict[str, list[tuple[int, int]]] = defaultdict(list)
-    for fields, start, end in _gff3_features(gff3):
+    for fields, start, end in gff3_features(gff3):
         if feature is None or fields[2] == feature:
             raw[fields[0]].append((start, end))
     return {seqname: IntervalIndex(spans) for seqname, spans in raw.items()}
@@ -310,12 +272,14 @@ def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
 
     The integrator maps a solo back to a classified locus by parsing coordinates out
     of the library id, so the span has to travel with the call. A row that is not a
-    feature row stops the job (`_gff3_features`).
+    feature row stops the job (`tabular.gff3_features`).
     """
     spans: dict[str, tuple[str, int, int]] = {}
-    for fields, start, end in _gff3_features(gff3):
+    for fields, start, end in gff3_features(gff3):
+        if fields[2] != ELEMENT_FEATURE:
+            continue  # most rows are the element's LTRs, TSDs and domains
         element_id = gff3_attributes(fields[8]).get("ID")
-        if fields[2] == ELEMENT_FEATURE and element_id:
+        if element_id:
             spans[element_id] = (fields[0], start, end)
     return spans
 
