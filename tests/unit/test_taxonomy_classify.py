@@ -876,6 +876,15 @@ class TestParseValidFull:
             "oversized": "False",
         }
 
+    def test_a_key_inside_a_longer_key_is_not_read(self, tmp_path: Path) -> None:
+        gff3 = tmp_path / "valid.gff3"
+        gff3.write_text(
+            "chr1\tRetroSeek\thit\t1\t9\t.\t+\t.\tsubprobe=env;probe=pol;xParent=p\n"
+        )
+        (record,) = tcl.parse_valid_full(gff3)
+        assert record["gene"] == "POL"
+        assert record["parent"] == ""
+
     def test_comments_and_malformed_lines_are_skipped(self, tmp_path: Path) -> None:
         gff3 = tmp_path / "valid.gff3"
         gff3.write_text(_VALID_GFF3)

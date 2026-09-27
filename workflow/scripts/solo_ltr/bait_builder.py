@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from log import OK, PipelineError, job_logging, run_main
-from tabular import tab_rows
+from tabular import gff3_attributes, tab_rows
 
 logger = logging.getLogger(__name__)
 
@@ -57,16 +57,6 @@ class Arm(NamedTuple):
     def name(self) -> str:
         """The FASTA/BED name, and the only route back from a hit to its element."""
         return f"{self.seqname}|{self.parent}|{self.arm}"
-
-
-def _attributes(column: str) -> dict[str, str]:
-    """Parse a GFF3 attributes column into a dict, ignoring malformed entries."""
-    out = {}
-    for field in column.rstrip().split(";"):
-        key, _, value = field.partition("=")
-        if value:
-            out[key.strip()] = value.strip()
-    return out
 
 
 def erv_bearing_parents(loci_csv: Path) -> set[str]:
@@ -94,7 +84,7 @@ def parse_arms(gff3: Path) -> Iterator[Arm]:
         for fields in tab_rows(handle, 9):
             if fields[2] != ARM_FEATURE:
                 continue
-            attributes = _attributes(fields[8])
+            attributes = gff3_attributes(fields[8])
             parent = attributes.get("Parent", "")
             if not parent:
                 continue

@@ -52,6 +52,7 @@ import pandas as pd
 from solo_intervals import IntervalIndex
 
 from log import OK, PipelineError, job_logging, run_main
+from tabular import gff3_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -304,16 +305,6 @@ def read_intervals(gff3: Path, feature: str | None = None) -> dict[str, Interval
     return {seqname: IntervalIndex(spans) for seqname, spans in raw.items()}
 
 
-def _ids(attributes: str) -> list[str]:
-    """Every non-empty ``ID=`` value of a GFF3 attribute column (normally one)."""
-    ids = []
-    for attribute in attributes.rstrip().split(";"):
-        key, _, value = attribute.partition("=")
-        if key.strip() == "ID" and value:
-            ids.append(value.strip())
-    return ids
-
-
 def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
     """Element ID to its genomic span, for naming the seeding element of a solo.
 
@@ -323,9 +314,9 @@ def element_spans(gff3: Path) -> dict[str, tuple[str, int, int]]:
     """
     spans: dict[str, tuple[str, int, int]] = {}
     for fields, start, end in _gff3_features(gff3):
-        if fields[2] == ELEMENT_FEATURE:
-            for element_id in _ids(fields[8]):
-                spans[element_id] = (fields[0], start, end)
+        element_id = gff3_attributes(fields[8]).get("ID")
+        if fields[2] == ELEMENT_FEATURE and element_id:
+            spans[element_id] = (fields[0], start, end)
     return spans
 
 

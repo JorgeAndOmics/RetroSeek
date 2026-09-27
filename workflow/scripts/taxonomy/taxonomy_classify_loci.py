@@ -20,7 +20,6 @@ import argparse
 import csv
 import hashlib
 import logging
-import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -33,7 +32,7 @@ import taxonomy_placement
 from Bio.Seq import Seq
 
 from log import OK, job_logging, run_main
-from tabular import tab_rows
+from tabular import gff3_attributes, tab_rows
 
 # Domain-class semantics are shared with the scanner. The scanner imports THIS
 # module for locus grouping, so the shared piece lives in its own module to keep
@@ -52,10 +51,6 @@ MAKEBLASTDB = "makeblastdb"
 # than bedtools - RetroSeek keeps all range/sequence work inside Bioconductor.
 _EXTRACT_R = Path(__file__).resolve().parent / "extract_region_fasta.R"
 
-_PROBE = re.compile(r"probe=([^;\t]+)")
-_PARENT = re.compile(r"Parent=([^;\t]+)")
-_LABEL = re.compile(r"label=([^;\t]+)")
-_OVERSIZED = re.compile(r"oversized=([^;\t]+)")
 # The call a locus reports when none of its genes earned any call.
 _UNCLASSIFIED_CALL = {
     "taxon_call": tlca.UNCLASSIFIED,
@@ -69,12 +64,6 @@ _UNCLASSIFIED_CALL = {
 
 
 # ---------------------------------------------------------------- loci + regions
-def _attr(pattern: re.Pattern[str], attrs: str, default: str = "") -> str:
-    """One GFF3 attribute value, or ``default`` when the feature lacks it."""
-    match = pattern.search(attrs)
-    return match.group(1) if match else default
-
-
 def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
     """Read every per-hit feature of a valid-tier GFF3 as a flat string record.
 
@@ -90,17 +79,18 @@ def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
 
 def _feature(f: list[str]) -> dict[str, str]:
     """One valid-track feature from its nine GFF3 columns."""
+    attributes = gff3_attributes(f[8])
     return {
         "seqname": f[0],
         "start": f[3],
         "end": f[4],
         "strand": f[6] if f[6] in "+-" else "+",
-        "gene": _attr(_PROBE, f[8], "OTHER").upper(),
-        "parent": _attr(_PARENT, f[8]),
-        "label": _attr(_LABEL, f[8]).replace("%3b", ";"),
+        "gene": attributes.get("probe", "OTHER").upper(),
+        "parent": attributes.get("Parent", ""),
+        "label": attributes.get("label", "").replace("%3b", ";"),
         # oversized rides the orphan track (overlap cluster wider than the
         # widest real provirus); the LTR-flanked track carries no attr.
-        "oversized": _attr(_OVERSIZED, f[8], "False"),
+        "oversized": attributes.get("oversized", "False"),
     }
 
 
