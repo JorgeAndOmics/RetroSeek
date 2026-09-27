@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 from solo_annotator import (
+    SoloLTR,
+    _warn_on_no_solos,
     annotate_solos,
     compute_solo_intact_ratio,
     parse_library_locus,
@@ -483,3 +485,22 @@ def test_rows_missing_columns_are_reported_blank_lines_are_not(
         solos = parse_solo_list(path)
     assert len(solos) == 1
     assert "1 of 2 solo rows" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("n_solos", "with_loci", "warns"),
+    [(0, True, True), (1, True, False), (0, False, False)],
+)
+def test_a_genome_with_loci_but_no_solo_is_reported(
+    loci_csv: Path,
+    n_solos: int,
+    with_loci: bool,
+    warns: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """In mammals solos outnumber intact proviruses, so none means a lost step."""
+    loci = parse_loci_csv(loci_csv) if with_loci else []
+    solos = [SoloLTR("chr1", 1, 400, "chr1|LTR_retrotransposon1|L", 1.0)][:n_solos]
+    with caplog.at_level("WARNING"):
+        _warn_on_no_solos(solos, loci)
+    assert ("no solo LTR despite" in caplog.text) is warns

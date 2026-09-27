@@ -499,8 +499,7 @@ def write_solo_table(
 # ---------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------
-def main(argv: list[str] | None = None) -> None:
-    """Entry point."""
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--solo-list",
@@ -526,7 +525,30 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--group-by", choices=VALID_GROUP_BY, default="segment")
     parser.add_argument("--nearest-locus-max-distance", type=int, default=10000)
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def _warn_on_no_solos(solos: list[SoloLTR], loci: list[ClassifiedLocus]) -> None:
+    """In mammals solos outnumber intact proviruses: none at all means a lost step."""
+    if loci and not solos:
+        logger.warning(
+            "no solo LTR despite %d LTR-flanked loci; in mammals solos normally "
+            "outnumber intact proviruses. Check this genome's solo funnel "
+            "(tables/solo_ltr/<genome>.funnel.csv) for the step that lost them",
+            len(loci),
+        )
+
+
+def _write_ratio(ratio: pd.DataFrame, csv_path: Path, parquet_path: Path) -> None:
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    parquet_path.parent.mkdir(parents=True, exist_ok=True)
+    ratio.to_csv(csv_path, index=False)
+    ratio.to_parquet(parquet_path, index=False)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Entry point."""
+    args = _parse_args(argv)
     job_logging(args.log, "solo_annotator")
 
     loci = parse_loci_csv(args.loci_csv)
@@ -536,13 +558,7 @@ def main(argv: list[str] | None = None) -> None:
     by_source = dict.fromkeys(("library", "nearest_locus", "none"), 0)
     for solo in solos:
         by_source[solo.label_source] += 1
-    if loci and not solos:
-        logger.warning(
-            "no solo LTR despite %d LTR-flanked loci; in mammals solos normally "
-            "outnumber intact proviruses. Check this genome's solo funnel "
-            "(tables/solo_ltr/<genome>.funnel.csv) for the step that lost them",
-            len(loci),
-        )
+    _warn_on_no_solos(solos, loci)
 
     write_solo_ltr_gff3(solos, args.output_gff3, genome=args.genome)
     write_solo_table(
@@ -551,10 +567,7 @@ def main(argv: list[str] | None = None) -> None:
     ratio = compute_solo_intact_ratio(
         solos, loci, species=args.species, group_by=args.group_by
     )
-    args.output_ratio_csv.parent.mkdir(parents=True, exist_ok=True)
-    args.output_ratio_parquet.parent.mkdir(parents=True, exist_ok=True)
-    ratio.to_csv(args.output_ratio_csv, index=False)
-    ratio.to_parquet(args.output_ratio_parquet, index=False)
+    _write_ratio(ratio, args.output_ratio_csv, args.output_ratio_parquet)
     logger.log(
         OK,
         "%s solo LTRs annotated (taxon from library %s, nearest locus %s, "
