@@ -1030,18 +1030,11 @@ def _write_outputs(a: argparse.Namespace, records: list[dict[str, str]]) -> None
         logger.info("wrote track: %s", a.out_gff3)
 
 
-def main() -> None:
-    """Classify one genome's loci and write the requested outputs."""
-    a = _build_arg_parser().parse_args()
-    # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
-    # path says which, and keeps parallel genomes apart.
-    job_logging(a.log, f"taxonomy_classify_{a.source}")
-    logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
-    _load_reference_taxonomy(a.ref_dir)
+def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
+    """Run `classify` with the command line's inputs and settings."""
     pgenes = {g.strip().upper() for g in a.placement_genes.split(",") if g.strip()}
     main_probes = [g.strip().upper() for g in a.main_probes.split(",") if g.strip()]
-
-    records = classify(
+    return classify(
         a.gff3,
         a.genome,
         a.ref_dir,
@@ -1062,6 +1055,17 @@ def main() -> None:
         domain_classes=a.domain_classes,
         scanned_txt=a.domains_scanned,
     )
+
+
+def main() -> None:
+    """Classify one genome's loci and write the requested outputs."""
+    a = _build_arg_parser().parse_args()
+    # One script, two rules (taxonomy_classify, taxonomy_orphans): the job log
+    # path says which, and keeps parallel genomes apart.
+    job_logging(a.log, f"taxonomy_classify_{a.source}")
+    logger.info("classifying %s (source=%s)", a.gff3.stem, a.source)
+    _load_reference_taxonomy(a.ref_dir)
+    records = _classify_from_args(a)
     # Orphan-recovery gate: keep only loci that earned a taxonomic call. Counts
     # are computed over the PRE-gate set so the loss funnel can report what was
     # recovered vs. discarded. For the LTR-flanked run the gate is a no-op.
