@@ -21,13 +21,6 @@
 # pattern returned a DIFFERENT name from the one BLAST had written into the
 # tracks, which would have mismatched silently rather than failed.
 
-# It reports through utils/log.R, which the caller sources first. Checked here,
-# because the logger is only called on the error path: a missing source would
-# otherwise surface as "could not find function" far from its cause.
-if (!exists("log_warn", mode = "function")) {
-  stop("utils/chrom_names.R needs utils/log.R sourced first", call. = FALSE)
-}
-
 #' Chromosome names from FASTA headers.
 #'
 #' @param headers character vector of FASTA header lines

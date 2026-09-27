@@ -19,7 +19,7 @@ Ambiguity policy:
 Extension preference, in order: ``fa`` > ``fna`` > ``fasta`` > ``ffn`` > ``fas``.
 Extensions are matched in lower case only.
 
-If ``.fa`` is absent and *exactly one* of the other three is present,
+If ``.fa`` is absent and *exactly one* of the others is present,
 that file becomes the symlink target. If two or more non-``.fa`` variants
 coexist, the script refuses with a ``RuntimeError`` listing the
 candidates - the user must disambiguate by removing duplicates.
@@ -49,8 +49,11 @@ from log import OK, job_logging, run_main
 
 logger = logging.getLogger(__name__)
 
-# defaults.py discovers genomes by the same extensions (_FASTA_EXTS).
+# defaults.py discovers genomes by the same extensions (_FASTA_EXTS, its own
+# copy: the Snakefile imports it where this module is not importable). A test
+# pins that the two agree.
 EXT_PREFERENCE: tuple[str, ...] = ("fa", "fna", "fasta", "ffn", "fas")
+_EXTENSIONS = "/".join(f".{ext}" for ext in EXT_PREFERENCE)
 
 
 def pick_canonical_source(species_dir: Path, genome: str) -> Path:
@@ -69,22 +72,22 @@ def pick_canonical_source(species_dir: Path, genome: str) -> Path:
         The path of the FASTA file to link ``{genome}.fa`` to.
 
     Raises:
-        FileNotFoundError: If no file with any of the four extensions exists
-            for ``genome``.
+        FileNotFoundError: If no file with an extension in ``EXT_PREFERENCE``
+            exists for ``genome``.
         RuntimeError: If two or more non-``.fa`` variants coexist, or a
             ``.fa`` link points somewhere other than the one variant beside it
             (the user must disambiguate).
     """
     fa_path = species_dir / f"{genome}.fa"
+    if fa_path.exists() and not fa_path.is_symlink():
+        return fa_path
     candidates = [
         species_dir / f"{genome}.{ext}"
         for ext in EXT_PREFERENCE[1:]
         if (species_dir / f"{genome}.{ext}").exists()
     ]
-    if fa_path.is_symlink() and fa_path.exists():
+    if fa_path.exists():  # a working link
         return _linked_source(fa_path, candidates)
-    if fa_path.exists():
-        return fa_path
     if not candidates:
         tried = ", ".join(f"{genome}.{ext}" for ext in EXT_PREFERENCE)
         raise FileNotFoundError(
@@ -95,8 +98,8 @@ def pick_canonical_source(species_dir: Path, genome: str) -> Path:
         names = ", ".join(p.name for p in candidates)
         raise RuntimeError(
             f"Ambiguous genome FASTA for {genome!r}: multiple variants present "
-            f"({names}). Remove duplicates so exactly one .fa/.fna/.fasta/.ffn/.fas "
-            f"file remains, or place the canonical .fa explicitly."
+            f"({names}). Remove duplicates so exactly one {_EXTENSIONS} file "
+            "remains, or place the canonical .fa explicitly."
         )
     return candidates[0]
 

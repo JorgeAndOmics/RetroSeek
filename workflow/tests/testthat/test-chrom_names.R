@@ -18,19 +18,6 @@ suppressMessages({
 source(file.path("..", "..", "scripts", "utils", "log.R"))
 source(file.path("..", "..", "scripts", "utils", "chrom_names.R"))
 
-.capture_stderr <- function(expr) {
-  sink_file <- tempfile()
-  con <- file(sink_file, open = "wt")
-  sink(con, type = "message")
-  on.exit({
-    sink(type = "message")
-    close(con)
-  })
-  force(expr)
-  readLines(sink_file)
-}
-
-
 test_that("a descriptive NCBI header still yields just the accession", {
   # First-token gives the same answer the old accession regex did for every
   # well-formed NCBI header, so this behaviour does not regress.
@@ -102,14 +89,4 @@ test_that("a name that merely resembles an accession is not reinterpreted", {
   # The old pattern would have clipped this to "CM050508.1", disagreeing with
   # the seqname BLAST writes into the tracks. Whatever the FASTA says, wins.
   expect_equal(normalise_chrom_names("CM050508.1extra"), "CM050508.1extra")
-})
-
-test_that("sourcing without utils/log.R fails at once, not on a blank header", {
-  # The logger is only called on the error path, so a missing source would
-  # otherwise surface as "could not find function" far from its cause.
-  bare <- new.env(parent = baseenv())
-  expect_error(
-    source(file.path("..", "..", "scripts", "utils", "chrom_names.R"), local = bare),
-    "utils/log.R"
-  )
 })

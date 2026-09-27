@@ -412,6 +412,8 @@ if not USE_SPECIES_DICT:
     # extension variants the genome_fasta_normalizer rule canonicalises
     # to .fa - otherwise a fresh machine with only .fna files would see
     # SPECIES = [] before the normalizer ever runs.
+    # The normalizer's EXT_PREFERENCE, copied (it is not importable from the
+    # Snakefile's `scripts.defaults`); test_genome_fasta_normalizer pins them equal.
     _FASTA_EXTS = {".fa", ".fna", ".fasta", ".ffn", ".fas"}
     SPECIES = sorted(
         {f.stem for f in PATH_DICT["SPECIES_DB"].iterdir() if f.suffix in _FASTA_EXTS}

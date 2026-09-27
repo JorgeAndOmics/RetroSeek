@@ -8,6 +8,7 @@ the idempotency guarantees.
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -191,3 +192,19 @@ def test_pick_canonical_source_falls_back_to_fas(tmp_path: Path) -> None:
     """``.fas`` only: the launcher used to rename these, so the rule reads them."""
     _write_fasta(tmp_path / "Toyus.fas")
     assert pick_canonical_source(tmp_path, "Toyus") == tmp_path / "Toyus.fas"
+
+
+def test_genome_discovery_accepts_the_same_extensions() -> None:
+    """defaults.py keeps its own copy of the extensions; the two must agree.
+
+    Read from the source rather than imported: importing defaults reads the
+    config and creates directories.
+    """
+    defaults_py = Path(__file__).resolve().parents[2] / "workflow/scripts/defaults.py"
+    discovered = next(
+        ast.literal_eval(node.value)
+        for node in ast.walk(ast.parse(defaults_py.read_text()))
+        if isinstance(node, ast.Assign)
+        and any(getattr(target, "id", None) == "_FASTA_EXTS" for target in node.targets)
+    )
+    assert discovered == {f".{ext}" for ext in EXT_PREFERENCE}

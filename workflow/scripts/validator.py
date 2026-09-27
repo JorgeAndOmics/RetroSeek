@@ -195,8 +195,8 @@ def csv_validator(csv_file: str) -> bool:
 def genome_fasta(species_dir: Path, genome: str) -> str:
     """The FASTA file a genome's `{genome}.fa` stands for, before any run.
 
-    The `genome_fasta_normalizer_setup` rule links `{genome}.fa` to a
-    `.fna`, `.fasta`, `.ffn` or `.fas` file when no `.fa` exists; this is the file
+    The `genome_fasta_normalizer_setup` rule links `{genome}.fa` to a file
+    with another extension in its `EXT_PREFERENCE` when no `.fa` exists; this is the file
     that link will point at. Nothing in `species_dir` is changed.
 
     Args:

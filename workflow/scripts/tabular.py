@@ -41,8 +41,9 @@ def gff3_attributes(column: str) -> dict[str, str]:
     attributes: dict[str, str] = {}
     for entry in column.split(";"):
         key, _, value = entry.partition("=")
-        if value.strip():
-            attributes.setdefault(key.strip(), value.strip())
+        value = value.strip()
+        if value:
+            attributes.setdefault(key.strip(), value)
     return attributes
 
 

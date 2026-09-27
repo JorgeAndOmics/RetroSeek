@@ -67,9 +67,9 @@ _UNCLASSIFIED_CALL = {
 def parse_valid_full(gff3: Path) -> list[dict[str, str]]:
     """Read every per-hit feature of a valid-tier GFF3 as a flat string record.
 
-    Comment and blank lines are skipped; any other row that is not a feature row
-    stops the job (`tabular.gff3_features`). The probe becomes the upper-cased ``gene`` (``OTHER`` when absent) and GFF3-escaped
-    label separators are decoded. The strand test is a substring test against
+    Rows that are not feature rows stop the job (`tabular.gff3_features`). The
+    probe becomes the upper-cased ``gene`` (``OTHER`` when absent) and
+    GFF3-escaped label separators are decoded. The strand test is a substring test against
     ``"+-"``: ``.`` and ``?`` read as ``+``, while an empty column (and the
     literal ``+-``) passes through unchanged.
     """
