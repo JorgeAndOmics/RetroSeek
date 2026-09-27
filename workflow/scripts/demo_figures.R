@@ -2,10 +2,11 @@
 # demo_figures.R - anonymised README showcase figures
 # =============================================================================
 # Regenerates the figures embedded in README.md from REAL RetroSeek output, with
-# host species / provirus / lineage names replaced by neutral placeholders
-# (Species A.., Provirus A.., Lineage A..) so the public repo never ships real
-# (possibly unpublished) research identifiers. Gene/probe names (POL/GAG/ENV)
-# and all numeric values are kept, so the figures stay biologically legible.
+# host species and provirus names replaced by neutral placeholders (Species A..,
+# Provirus A.., Pv A..) so the public repo never ships real (possibly
+# unpublished) research identifiers. Lineages (retroviral genera), gene/probe
+# names (POL/GAG/ENV) and all numeric values are kept: genera are public
+# taxonomy, and keeping them lets each lineage draw in its house colour.
 #
 # Reuses the production plot builders in plot2sort/*.R and
 # erv_like_plot_generator.R - the demo figures are therefore visually identical
@@ -25,10 +26,8 @@
 # in make_label_map() below - adjust the prefixes there if desired.
 #
 # The figures stay PNG (GitHub renders them inline in the README) but follow the
-# house style through the shared builders. Lineages are coloured by their genus
-# (style.R), so an anonymised "Lineage A" has no genus colour and draws grey:
-# colouring it by its real genus would give the name away, since the genus
-# colours are documented.
+# house style through the shared builders, which colour lineages by genus
+# (style.R).
 
 suppressMessages({
   library(argparse)
@@ -102,13 +101,13 @@ apply_map <- function(x, map) {
   ifelse(is.na(out), as.character(x), out)
 }
 
-# Relabel the identifying columns of a data frame in place.
+# Relabel the identifying columns of a data frame in place. `label` (the
+# lineage, a retroviral genus) is public taxonomy and stays as it is.
 anonymise <- function(df, maps) {
   if ("species" %in% names(df)) df$species <- apply_map(df$species, maps$species)
   if ("virus" %in% names(df)) df$virus <- apply_map(df$virus, maps$virus)
   if ("abbreviation" %in% names(df))
     df$abbreviation <- apply_map(df$abbreviation, maps$abbreviation)
-  if ("label" %in% names(df)) df$label <- apply_map(df$label, maps$label)
   df
 }
 
@@ -165,8 +164,7 @@ main <- function() {
   maps <- list(
     species      = make_label_map(all_full$species,      "Species"),
     virus        = make_label_map(all_full$virus,        "Provirus"),
-    abbreviation = make_label_map(all_full$abbreviation, "Pv"),
-    label        = make_label_map(all_full$label,        "Lineage")
+    abbreviation = make_label_map(all_full$abbreviation, "Pv")
   )
   all_full <- anonymise(all_full, maps)
   all_main <- all_full %>% dplyr::filter(probe_type == "main")

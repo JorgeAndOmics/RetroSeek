@@ -154,8 +154,8 @@ Integrate BLAST + LTR evidence using an HPC profile:
 ## Showcase
 
 Figures are generated from a representative multi-genome run with **anonymised
-demo labels** (`Species A...`, `Provirus A...`, `Lineage A...`) - real organism and
-provirus names are replaced, while gene names (POL/GAG/ENV) and the underlying
+demo labels** (`Species A...`, `Provirus A...`): real host and provirus names are
+replaced, while retroviral genera, gene names (POL/GAG/ENV) and the underlying
 distributions are kept. Regenerate them with
 [`workflow/scripts/demo_figures.R`](workflow/scripts/demo_figures.R).
 
