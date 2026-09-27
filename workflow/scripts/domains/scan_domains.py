@@ -187,6 +187,38 @@ def read_fasta(path: Path) -> dict[str, str]:
     return seqs
 
 
+def _extract_command(genome: Path, bed: Path, fna: Path) -> list[str]:
+    """Cut the BED's regions out of the genome (Biostrings, like the classifier)."""
+    return [
+        "Rscript",
+        str(_EXTRACT_R),
+        "--genome",
+        str(genome),
+        "--bed",
+        str(bed),
+        "--out",
+        str(fna),
+    ]
+
+
+def _hmmsearch_command(
+    hmm: Path, queries: Path, domtbl: Path, threads: int
+) -> list[str]:
+    """Search the queries with hmmsearch at Pfam's gathering thresholds (domain table only)."""
+    return [
+        HMMSEARCH,
+        "--cut_ga",
+        "--cpu",
+        str(threads),
+        "-o",
+        "/dev/null",
+        "--domtblout",
+        str(domtbl),
+        str(hmm),
+        str(queries),
+    ]
+
+
 def scan_regions(
     bed: Path,
     genome: Path,
@@ -201,18 +233,7 @@ def scan_regions(
     the two comparable: they differ only in which regions the BED names.
     """
     fna = workdir / "regions.fna"
-    run(
-        [
-            "Rscript",
-            str(_EXTRACT_R),
-            "--genome",
-            str(genome),
-            "--bed",
-            str(bed),
-            "--out",
-            str(fna),
-        ]
-    )
+    run(_extract_command(genome, bed, fna))
 
     queries = workdir / "queries.faa"
     n_queries = write_query_fasta(read_fasta(fna), queries)
@@ -220,20 +241,7 @@ def scan_regions(
 
     domtbl = workdir / "hits.domtbl"
     if n_queries:
-        run(
-            [
-                HMMSEARCH,
-                "--cut_ga",
-                "--cpu",
-                str(threads),
-                "-o",
-                "/dev/null",
-                "--domtblout",
-                str(domtbl),
-                str(hmm),
-                str(queries),
-            ]
-        )
+        run(_hmmsearch_command(hmm, queries, domtbl, threads))
     else:
         domtbl.write_text("# no queries\n")
 
