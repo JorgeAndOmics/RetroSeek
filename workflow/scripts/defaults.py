@@ -45,7 +45,6 @@ with CONFIG_FILE.open() as f:
 
 # BLAST
 E_VALUE = config["blast"]["e_value"]
-ACCESSION_ID_REGEX = r"[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}"
 PROBE_MIN_LENGTH = config["parameters"]["probe_min_length"]
 
 # Anchor relative paths against the repo root so a fresh-clone run

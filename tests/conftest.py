@@ -54,7 +54,6 @@ def _build_defaults_stub() -> types.ModuleType:
     stub = types.ModuleType("defaults")
     stub.CONFIG_FILE = Path("/tmp/retroseek-test-config.yaml")
     stub.E_VALUE = 1e-3
-    stub.ACCESSION_ID_REGEX = r"[A-Z]{2,}_?[0-9]+\.[0-9]{1,2}"
     stub.PROBE_MIN_LENGTH: dict[str, int] = {}
     stub.PATH_DICT: dict[str, Path] = {
         "TMP_DIR": Path("/tmp/retroseek-test-tmp"),
