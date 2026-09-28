@@ -57,6 +57,15 @@ def _coordinates(fields: list[str]) -> tuple[int, int] | None:
         return None
 
 
+def _feature_lines(lines: Iterable[str]) -> Iterator[tuple[int, str]]:
+    """Numbered lines that should be features: up to ``##FASTA``, no comments or blanks."""
+    for number, line in enumerate(lines, start=1):
+        if line.startswith("##FASTA"):
+            return
+        if not line.startswith("#") and line.strip():
+            yield number, line
+
+
 def gff3_features(gff3: Path) -> Iterator[tuple[list[str], int, int]]:
     """Every feature row of a GFF3 track the pipeline wrote, with its start and end.
 
@@ -72,11 +81,7 @@ def gff3_features(gff3: Path) -> Iterator[tuple[list[str], int, int]]:
             feature row.
     """
     with gff3.open(encoding="utf-8") as handle:
-        for number, line in enumerate(handle, start=1):
-            if line.startswith("##FASTA"):
-                return
-            if line.startswith("#") or not line.strip():
-                continue
+        for number, line in _feature_lines(handle):
             fields = line.rstrip("\n").split("\t")
             coordinates = _coordinates(fields)
             if coordinates is None:
