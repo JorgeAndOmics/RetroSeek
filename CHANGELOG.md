@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model genomes: 820 families, 97% of elements with both arms in one family.
   `cd-hit` joins the environment. Every solo LTR carries its seed arm's family
   (`ltr_family` on the solo table and track), and a new table gives each family's
-  solos per intact element.
+  solos per intact element. Pooled families across all genomes
+  (`Pool_F001`...) show which families genomes share; on the model genomes none
+  are shared.
 - **Code-quality gates**: Qlty (`.qlty/qlty.toml`) measures function complexity
   against a limit of 8, and every function in `workflow/scripts` (Python and R)
   now meets it. `make check` also runs lintr on the R sources (`.lintr.R`, zero

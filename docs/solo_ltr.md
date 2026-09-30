@@ -164,6 +164,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
 | `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
 | `{genome}.ltr_family_ratio.csv` | per LTR family: its intact elements (the ones that supplied bait), its solos, and solos per intact element |
+| `pooled.ltr_families.csv`, `pooled.ltr_family_summary.csv` | the same families built over every genome's arms at once (`Pool_F001`...): each arm with its pooled family, and per family the genomes it spans and their arm counts |
 | `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |
 | `{genome}.tree_tips.csv`, `.tree_segments.csv` | the full tree's drawing coordinates, each tip with its class and family |
 | `{genome}.solo_tree_tips.csv`, `.solo_tree_segments.csv` | the solo-only tree's drawing coordinates |

@@ -90,6 +90,7 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
     [
         "solo_bait_builder_setup",
         "solo_family_builder_setup",
+        "solo_family_pooled",
         "solo_blaster_setup",
         "solo_finder_setup",
         "solo_annotator_setup",

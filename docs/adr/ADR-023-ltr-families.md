@@ -28,7 +28,7 @@ one genus letter and three species letters (`Mmus`, `Mmol`, `Hsap`); two genomes
 with one code stop the run. The column is `ltr_family`, to keep it apart from the
 evidence tree's `family` clades.
 
-**Measured on the model genomes before choosing the default** (17,430 arms, all
+**Measured on the model genomes before choosing the default** (16,430 arms, all
 five genomes):
 
 | Identity | Families | Single-arm families | Arm pairs together | Genus purity |
@@ -43,7 +43,18 @@ were identical at insertion. Counting identity over 80% of the shorter arm inste
 of all of it gave nearly the same families with slightly fewer pairs together
 (95.0% at 0.80), so the simpler whole-arm rule with one setting was kept.
 
+**Pooled families** (`Pool_F001`...) cluster every genome's arms at once, in
+sorted genome order so the config's order cannot change them, so a family shared
+by several genomes is one family.
+
 ## Consequences
+
+- On the five model genomes no family spans two genomes at 0.8: the 820 pooled
+  families are exactly the per-genome ones. A direct `blastn` of each genome's
+  arms against the others agrees. Only a few dozen arms have any significant
+  cross-genome hit, and the best reach about 81% over the whole arm. The LTR
+  families of these genomes are lineage-specific. The pooled tables will matter
+  for closely related genomes, such as congeneric species.
 
 - New per-genome tables: `{genome}.ltr_families.csv`, `.ltr_family_summary.csv`,
   `.ltr_family_genus.csv`, and a manifest recording the identity used. Identifiers

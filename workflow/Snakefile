@@ -690,6 +690,38 @@ rule solo_bait_builder:
         )
 
 
+# Pooled LTR families (ADR-023): every genome's bait arms clustered together, so a
+# family shared by several genomes is one family (Pool_F001...).
+rule solo_family_pooled:
+    input:
+        fasta = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+            genome=species_with_hits(wildcards)
+        ),
+        bed = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.bed'),
+            genome=species_with_hits(wildcards)
+        )
+    output:
+        families = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'pooled.ltr_families.csv'),
+        summary  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'pooled.ltr_family_summary.csv')
+    params:
+        identity = _FAMILY_IDENTITY,
+        bait_dir = defaults.PATH_DICT['SOLO_BAIT_DIR'],
+        genomes  = lambda wildcards: " ".join(species_with_hits(wildcards)),
+        workdir  = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', 'pooled')
+    log:
+        job_log('solo_family_pooled')
+    threads: 4
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_families_pooled.py --log {log:q} \
+            --bait-dir {params.bait_dir:q} --genomes {params.genomes} \
+            --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
+            --out-families {output.families:q} --out-summary {output.summary:q}
+        '''
+
+
 # LTR families (ADR-023): the bait arms grouped by cd-hit-est at
 # solo_ltr.families.identity over the whole shorter arm. Every element joins the
 # family of its arms; the annotator gives each solo its seed arm's family.
@@ -1058,6 +1090,7 @@ rule solo_plot_generator:
             os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
             genome=species_with_hits(wildcards)
         ),
+        pooled_families = rules.solo_family_pooled.output.summary,
         summary = rules.solo_plot_summary.output.pdf
 
 
