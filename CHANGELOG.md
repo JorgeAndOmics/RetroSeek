@@ -41,8 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Retroviral genera now show under their real names and house colours; host
   species and provirus names stay anonymised.
 - Environment: filelock 4.0.4 (was 3.32.6), libglib 2.90.0 (2.88.3), virtualenv
-  21.13.0 (21.7.9) and yq 4.3.0 (4.1.2), all indirect dependencies that a fresh
-  `make env` already resolves to. Verified by a full downstream rerun on the model
+  21.13.0 (21.7.9), yq 4.3.0 (4.1.2), and later tqdm 4.70.1, sqlalchemy 2.0.54, idna
+  3.20, pyparsing 3.3.3 and platformdirs 4.12.2, all indirect dependencies that a
+  fresh `make env` already resolves to. Verified by a full downstream rerun on the model
   genomes against the previous one.
 - biopython pinned at 1.88 (was 1.87), verified by rerunning every downstream
   stage on the model genomes and comparing the tables: all identical. The one
