@@ -73,15 +73,16 @@ evidence, so it is also bounded by probe coverage.
 from __future__ import annotations
 
 import argparse
+import csv
 import logging
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 
-from log import OK, job_logging, run_main
+from log import OK, PipelineError, job_logging, run_main
 from tabular import tab_rows
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ class SoloLTR:
     confidence: str = ""
     source_loci: list[str] = field(default_factory=list)
     label_source: str = "none"  # "library" | "nearest_locus" | "none"
+    ltr_family: str = ""  # the seed arm's LTR family (ADR-023)
 
 
 # ---------------------------------------------------------------------
@@ -399,6 +401,7 @@ def write_solo_ltr_gff3(solos: list[SoloLTR], output_path: Path, genome: str) ->
                     f"coverage={solo.coverage:.3f}",
                     f"source_loci={','.join(solo.source_loci) or 'none'}",
                     f"label_source={solo.label_source}",
+                    f"ltr_family={solo.ltr_family or 'none'}",
                 )
             )
             handle.write(
@@ -452,6 +455,7 @@ def solo_table(solos: list[SoloLTR], species: str) -> pd.DataFrame:
                 "library_id": solo.library_id,
                 "source_loci": ",".join(solo.source_loci),
                 "label_source": solo.label_source,
+                "ltr_family": solo.ltr_family,
                 "id": solo_id(index),
             }
             for index, solo in enumerate(solos)
@@ -480,6 +484,7 @@ def solo_table(solos: list[SoloLTR], species: str) -> pd.DataFrame:
             "library_id",
             "source_loci",
             "label_source",
+            "ltr_family",
             "id",
         ],
     )
@@ -498,6 +503,84 @@ def _write_frame(frame: pd.DataFrame, csv_path: Path, parquet_path: Path) -> Non
     parquet_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(csv_path, index=False)
     frame.to_parquet(parquet_path, index=False)
+
+
+# ---------------------------------------------------------------------
+# LTR families (ADR-023)
+# ---------------------------------------------------------------------
+FAMILY_RATIO_COLUMNS = ["ltr_family", "intact_elements", "solos", "solos_per_intact"]
+
+
+def read_seed_arms(candidates_csv: Path) -> dict[tuple[str, int, int], str]:
+    """Each candidate's seed arm (its `bait`), keyed by the candidate's position.
+
+    The solo list and the candidates table come from the same solo_finder run
+    and carry the same 1-based coordinates.
+    """
+    with candidates_csv.open(newline="", encoding="utf-8") as handle:
+        return {
+            (row["seqname"], int(row["start"]), int(row["end"])): row["bait"]
+            for row in csv.DictReader(handle)
+        }
+
+
+def read_arm_families(families_csv: Path) -> dict[str, tuple[str, str, str]]:
+    """Each bait arm's (LTR family, seqname, element), from the family builder."""
+    with families_csv.open(newline="", encoding="utf-8") as handle:
+        return {
+            row["arm"]: (row["ltr_family"], row["seqname"], row["element"])
+            for row in csv.DictReader(handle)
+        }
+
+
+def assign_families(
+    solos: list[SoloLTR],
+    seed_arms: dict[tuple[str, int, int], str],
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    """Give every solo the LTR family of the arm that seeded it.
+
+    Raises:
+        PipelineError: If a solo has no candidate row or its seed arm no family;
+            the tables would then come from different runs.
+    """
+    unmatched = []
+    for solo in solos:
+        arm = seed_arms.get((solo.chrom, solo.start, solo.end), "")
+        if arm not in arm_families:
+            unmatched.append(solo)
+            continue
+        solo.ltr_family = arm_families[arm][0]
+    if unmatched:
+        first = unmatched[0]
+        raise PipelineError(
+            f"{len(unmatched)} solo LTRs have no seed arm with a family, e.g. "
+            f"{first.chrom}:{first.start}-{first.end}",
+            hint="the solo list, candidates and family tables must come from one run",
+        )
+
+
+def family_ratio_rows(
+    solos: list[SoloLTR], arm_families: dict[str, tuple[str, str, str]]
+) -> list[dict[str, object]]:
+    """Per LTR family: its intact elements, its solos, and solos per intact element.
+
+    The intact elements are the ones that supplied bait arms, which is every
+    ERV-bearing element with an arm long enough to be bait.
+    """
+    elements: dict[str, set[tuple[str, str]]] = {}
+    for family, seqname, element in arm_families.values():
+        elements.setdefault(family, set()).add((seqname, element))
+    solos_in = Counter(solo.ltr_family for solo in solos)
+    return [
+        {
+            "ltr_family": family,
+            "intact_elements": len(members),
+            "solos": solos_in[family],
+            "solos_per_intact": round(solos_in[family] / len(members), 4),
+        }
+        for family, members in sorted(elements.items())
+    ]
 
 
 # ---------------------------------------------------------------------
@@ -527,6 +610,19 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--output-solo-parquet", type=Path, required=True)
     parser.add_argument("--output-ratio-csv", type=Path, required=True)
     parser.add_argument("--output-ratio-parquet", type=Path, required=True)
+    parser.add_argument(
+        "--candidates-csv",
+        type=Path,
+        required=True,
+        help="solo_finder.py candidates table: each candidate's seed arm (bait).",
+    )
+    parser.add_argument(
+        "--families-csv",
+        type=Path,
+        required=True,
+        help="ltr_families.py output: each bait arm's LTR family.",
+    )
+    parser.add_argument("--output-family-ratio", type=Path, required=True)
     parser.add_argument("--group-by", choices=VALID_GROUP_BY, default="segment")
     parser.add_argument("--nearest-locus-max-distance", type=int, default=10000)
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
@@ -552,6 +648,8 @@ def main(argv: list[str] | None = None) -> None:
     loci = parse_loci_csv(args.loci_csv)
     solos = parse_solo_list(args.solo_list)
     annotate_solos(solos, loci, max_distance=args.nearest_locus_max_distance)
+    arm_families = read_arm_families(args.families_csv)
+    assign_families(solos, read_seed_arms(args.candidates_csv), arm_families)
 
     _warn_on_no_solos(solos, loci)
 
@@ -563,6 +661,11 @@ def main(argv: list[str] | None = None) -> None:
         solos, loci, species=args.species, group_by=args.group_by
     )
     _write_frame(ratio, args.output_ratio_csv, args.output_ratio_parquet)
+    family_ratio = pd.DataFrame(
+        family_ratio_rows(solos, arm_families), columns=FAMILY_RATIO_COLUMNS
+    )
+    args.output_family_ratio.parent.mkdir(parents=True, exist_ok=True)
+    family_ratio.to_csv(args.output_family_ratio, index=False)
     _log_summary(solos)
 
 

@@ -154,7 +154,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 
 | file | what it is |
 |---|---|
-| `{genome}.solo_ltr.csv` | one row per solo, in `catalog.csv`'s column vocabulary: coordinates, `taxon_call`, `rank`, `segment`, `erv_class`, `library_id` (the seeding element) and `label_source` |
+| `{genome}.solo_ltr.csv` | one row per solo, in `catalog.csv`'s column vocabulary: coordinates, `taxon_call`, `rank`, `segment`, `erv_class`, `library_id` (the seeding element), `label_source` and `ltr_family` (the seed arm's LTR family, ADR-023) |
 | `{genome}.candidates.csv` | **every** candidate, all three fates, with best identity, hit count, seeding bait and element, and distance to the nearest orphan. The evidence behind every call |
 | `{genome}.funnel.csv` | counts at every stage, where each rejected hit failed, and the solo:intact ratio |
 | `{genome}.ratio.csv` | solo:intact per taxonomic segment |
@@ -163,6 +163,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ltr_families.csv` | every bait arm with its element and LTR family (ADR-023; `ltr_family`, e.g. `Mmus_F001`, numbered by size) and whether it is the family's representative |
 | `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
 | `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
+| `{genome}.ltr_family_ratio.csv` | per LTR family: its intact elements (the ones that supplied bait), its solos, and solos per intact element |
 | `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |
 | `{genome}.tree_tips.csv`, `.tree_segments.csv` | the full tree's drawing coordinates, each tip with its class and family |
 | `{genome}.solo_tree_tips.csv`, `.solo_tree_segments.csv` | the solo-only tree's drawing coordinates |

@@ -822,14 +822,17 @@ rule solo_finder:
 # solo's DNA matched that element's LTR, so homology rather than proximity.
 rule solo_annotator_setup:
     input:
-        solo_list = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
-        loci      = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv')
+        solo_list  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
+        loci       = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
+        candidates = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
+        families   = rules.solo_family_builder_setup.output.families
     output:
         gff3          = os.path.join(defaults.PATH_DICT['TRACK_SOLO_LTR_DIR'], '{genome}.gff3'),
         solo_csv      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
         solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_ltr.parquet'),
         ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ratio.csv'),
-        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet')
+        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet'),
+        family_ratio  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_ratio.csv')
     params:
         species  = lambda wildcards: defaults.SPECIES_DICT.get(
             wildcards.genome, wildcards.genome.replace('_', ' ')),
@@ -852,6 +855,8 @@ rule solo_annotator_setup:
             --output-solo-parquet {output.solo_parquet:q} \
             --output-ratio-csv {output.ratio_csv:q} \
             --output-ratio-parquet {output.ratio_parquet:q} \
+            --candidates-csv {input.candidates:q} --families-csv {input.families:q} \
+            --output-family-ratio {output.family_ratio:q} \
             --group-by {params.group_by} \
             --nearest-locus-max-distance {params.max_distance}
         '''
