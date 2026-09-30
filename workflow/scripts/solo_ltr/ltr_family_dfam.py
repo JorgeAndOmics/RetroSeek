@@ -30,13 +30,13 @@ import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TextIO
+from typing import BinaryIO
 
 from Bio import SeqIO
-from ltr_families import write_csv
 
 from external import run_tool
 from log import OK, PipelineError, job_logging, run_main
+from tabular import write_csv
 
 logger = logging.getLogger(__name__)
 
@@ -66,54 +66,50 @@ class Hit:
     coverage: float  # share of the representative covered by the alignment
 
 
-def _header_field(line: str) -> tuple[str, str] | None:
+def _header_field(line: bytes) -> tuple[str, str] | None:
     """(field, value) for the header lines the labels use, else None.
 
-    NAME and ACC are HMMER tags; the RepeatMasker class is in Dfam's comment
-    lines, `CC         Type: LTR` and `CC         SubType: ERVK`.
+    NAME is the HMMER tag; the RepeatMasker class is in Dfam's comment lines,
+    `CC         Type: LTR` and `CC         SubType: ERVK`. Lines arrive as bytes
+    and only these are decoded: most of the 11 GB are model rows.
     """
-    if line.startswith(("NAME ", "ACC ")):
-        tag, value = line.split(maxsplit=1)
-        return tag, value.strip()
-    if line.startswith("CC ") and ":" in line:
-        key, value = line[2:].split(":", 1)
+    if line.startswith(b"NAME "):
+        return "NAME", line[5:].decode().strip()
+    if line.startswith(b"CC ") and b":" in line:
+        key, value = line[2:].decode(errors="replace").split(":", 1)
         if key.strip() in ("Type", "SubType"):
             return key.strip(), value.strip()
     return None
 
 
-def _headers(handle: TextIO) -> Iterator[dict[str, str]]:
+def _headers(handle: BinaryIO) -> Iterator[dict[str, str]]:
     """Each model's header fields in turn; a header ends at its `HMM` line."""
     fields: dict[str, str] = {}
     for line in handle:
-        if line.startswith("HMM "):
+        if line.startswith(b"HMM "):
             yield fields
             fields = {}
         elif field := _header_field(line):
             fields[field[0]] = field[1]
 
 
-def _model_class(fields: dict[str, str]) -> str:
-    """RepeatMasker class and subclass joined: "LTR/ERVK", or "LINE" alone."""
-    return "/".join(c for c in (fields.get("Type"), fields.get("SubType")) if c)
-
-
-def read_model_headers(hmm: Path, wanted: set[str]) -> dict[str, tuple[str, str]]:
-    """The (accession, class) of each `wanted` model, e.g. ("DF000004162.1", "LTR/ERVK").
+def read_model_classes(hmm: Path, wanted: set[str]) -> dict[str, str]:
+    """The class of each `wanted` model: "LTR/ERVK", or "LINE" alone.
 
     Streams the file (about 11 GB) and stops once every wanted model is found.
     """
-    models: dict[str, tuple[str, str]] = {}
+    classes: dict[str, str] = {}
     if not wanted:
-        return models
-    with hmm.open(encoding="utf-8", errors="replace") as handle:
+        return classes
+    with hmm.open("rb") as handle:
         for fields in _headers(handle):
             if fields.get("NAME") not in wanted:
                 continue
-            models[fields["NAME"]] = (fields.get("ACC", ""), _model_class(fields))
-            if len(models) == len(wanted):
+            kinds = (fields.get("Type"), fields.get("SubType"))
+            classes[fields["NAME"]] = "/".join(k for k in kinds if k)
+            if len(classes) == len(wanted):
                 break
-    return models
+    return classes
 
 
 def best_hits(tblout: Path) -> dict[str, Hit]:
@@ -133,14 +129,15 @@ def best_hits(tblout: Path) -> dict[str, Hit]:
 
 
 def label_rows(
-    families: list[str], best: dict[str, Hit], models: dict[str, tuple[str, str]]
+    families: list[str], best: dict[str, Hit], classes: dict[str, str], release: str
 ) -> list[dict[str, object]]:
     """One row per family, blank where no curated model matched.
 
     Args:
         families: Qualified family names, `genome|family`.
         best: Each qualified name's best hit.
-        models: Each matched model's (accession, class).
+        classes: Each matched model's class.
+        release: The Dfam release, recorded on every row.
     """
     rows: list[dict[str, object]] = []
     for family in families:
@@ -148,7 +145,9 @@ def label_rows(
         hit = best.get(family)
         if hit is None:
             blank: dict[str, object] = dict.fromkeys(LABEL_COLUMNS, "")
-            rows.append(blank | {"genome": genome, "ltr_family": name})
+            rows.append(
+                blank | {"genome": genome, "ltr_family": name, "dfam_release": release}
+            )
             continue
         rows.append(
             {
@@ -156,10 +155,11 @@ def label_rows(
                 "ltr_family": name,
                 "dfam_name": hit.model,
                 "dfam_accession": hit.accession,
-                "dfam_class": models.get(hit.model, ("", ""))[1],
+                "dfam_class": classes.get(hit.model, ""),
                 "dfam_evalue": hit.evalue,
                 "dfam_score": hit.score,
                 "dfam_coverage": round(hit.coverage, 4),
+                "dfam_release": release,
             }
         )
     return rows
@@ -172,13 +172,11 @@ def _read_fasta(fna: Path, wanted: set[str]) -> dict[str, str]:
     return {record.id: str(record.seq) for record in records if record.id in wanted}
 
 
-def _representatives(families_csv: Path) -> dict[str, str]:
-    """Each family's representative arm -> the family's name."""
-    with families_csv.open(newline="", encoding="utf-8") as table:
+def _representatives(summary_csv: Path) -> dict[str, str]:
+    """Each family's representative arm -> the family's name (one row per family)."""
+    with summary_csv.open(newline="", encoding="utf-8") as table:
         return {
-            row["arm"]: row["ltr_family"]
-            for row in csv.DictReader(table)
-            if row["representative"] == "True"
+            row["representative"]: row["ltr_family"] for row in csv.DictReader(table)
         }
 
 
@@ -186,7 +184,7 @@ def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> lis
     """Write each family's representative arm under `genome|family`.
 
     Args:
-        pairs: For each genome, its name, its family table and its bait FASTA.
+        pairs: For each genome, its name, its family summary and its bait FASTA.
         out: The FASTA to write.
 
     Returns:
@@ -199,15 +197,15 @@ def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> lis
     names = []
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as handle:
-        for genome, families_csv, bait_fna in pairs:
-            reps = _representatives(families_csv)
+        for genome, summary_csv, bait_fna in pairs:
+            reps = _representatives(summary_csv)
             sequences = _read_fasta(bait_fna, set(reps))
             missing = sorted(reps[arm] for arm in set(reps) - set(sequences))
             if missing:
                 raise PipelineError(
                     f"{genome}: the representatives of {', '.join(missing)} are not "
                     f"in {bait_fna.name}",
-                    hint="the family table and the bait must come from one run",
+                    hint="the family summary and the bait must come from one run",
                 )
             for arm, sequence in sequences.items():
                 handle.write(f">{genome}|{reps[arm]}\n{sequence}\n")
@@ -258,16 +256,18 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     job_logging(args.log, "solo_family_dfam")
     pairs = [
-        (g, args.table_dir / f"{g}.ltr_families.csv", args.bait_dir / f"{g}.bait.fna")
+        (
+            g,
+            args.table_dir / f"{g}.ltr_family_summary.csv",
+            args.bait_dir / f"{g}.bait.fna",
+        )
         for g in sorted(args.genomes)
     ]
     reps = args.workdir / "representatives.fna"
     families = write_representatives(pairs, reps)
     best = best_hits(run_nhmmer(args.dfam_hmm, reps, args.workdir, args.threads))
-    models = read_model_headers(args.dfam_hmm, {hit.model for hit in best.values()})
-    rows = label_rows(families, best, models)
-    for row in rows:
-        row["dfam_release"] = args.release
+    classes = read_model_classes(args.dfam_hmm, {hit.model for hit in best.values()})
+    rows = label_rows(families, best, classes, args.release)
     write_csv(rows, LABEL_COLUMNS, args.out)
     logger.log(
         OK,

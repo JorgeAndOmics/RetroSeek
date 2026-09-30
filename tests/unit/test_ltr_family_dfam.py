@@ -57,19 +57,17 @@ Mus_musculus|Mmus_F002  -  MER4A  DF000000161.4  5  200  300  101  300  100  300
 """
 
 
-def test_headers_give_each_models_accession_and_class(tmp_path: Path) -> None:
+def test_headers_give_each_models_class(tmp_path: Path) -> None:
     hmm = tmp_path / "dfam.hmm"
     hmm.write_text(_HEADERS)
-    models = dfam.read_model_headers(hmm, {"MER4A", "IAPLTR1_Mm", "L1_Mus1"})
-    assert models["MER4A"] == ("DF000000161.4", "LTR/ERV1")
-    assert models["IAPLTR1_Mm"] == ("DF000004162.1", "LTR/ERVK")
-    assert models["L1_Mus1"] == ("DF000000001.1", "LINE")
+    classes = dfam.read_model_classes(hmm, {"MER4A", "IAPLTR1_Mm", "L1_Mus1"})
+    assert classes == {"MER4A": "LTR/ERV1", "IAPLTR1_Mm": "LTR/ERVK", "L1_Mus1": "LINE"}
 
 
 def test_only_the_wanted_models_are_read(tmp_path: Path) -> None:
     hmm = tmp_path / "dfam.hmm"
     hmm.write_text(_HEADERS)
-    assert set(dfam.read_model_headers(hmm, {"IAPLTR1_Mm"})) == {"IAPLTR1_Mm"}
+    assert set(dfam.read_model_classes(hmm, {"IAPLTR1_Mm"})) == {"IAPLTR1_Mm"}
 
 
 def test_each_representatives_best_hit_is_the_highest_score(tmp_path: Path) -> None:
@@ -96,21 +94,19 @@ def test_every_family_gets_a_row_hit_or_not(tmp_path: Path) -> None:
     rows = dfam.label_rows(
         ["Mus_musculus|Mmus_F001", "Mus_musculus|Mmus_F002", "Mus_musculus|Mmus_F003"],
         dfam.best_hits(tbl),
-        dfam.read_model_headers(hmm, {"MER4A", "IAPLTR1_Mm"}),
+        dfam.read_model_classes(hmm, {"MER4A", "IAPLTR1_Mm"}),
+        "4.0",
     )
     assert [r["dfam_name"] for r in rows] == ["IAPLTR1_Mm", "MER4A", ""]
     assert (rows[0]["genome"], rows[0]["ltr_family"]) == ("Mus_musculus", "Mmus_F001")
     assert rows[0]["dfam_class"] == "LTR/ERVK"
     assert rows[2]["dfam_evalue"] == ""
+    assert [r["dfam_release"] for r in rows] == ["4.0", "4.0", "4.0"]
 
 
 def test_representatives_are_written_under_their_family_names(tmp_path: Path) -> None:
-    families = tmp_path / "Toyus_toyus.ltr_families.csv"
-    families.write_text(
-        "arm,seqname,start,end,element,ltr_family,representative\n"
-        "c|e1|L,c,1,8,e1,Ttoy_F001,True\n"
-        "c|e1|R,c,20,27,e1,Ttoy_F001,False\n"
-    )
+    families = tmp_path / "Toyus_toyus.ltr_family_summary.csv"
+    families.write_text("ltr_family,n_arms,representative\nTtoy_F001,2,c|e1|L\n")
     bait = tmp_path / "Toyus_toyus.bait.fna"
     bait.write_text(">c|e1|L\nACGTACGT\n>c|e1|R\nTTTTTTTT\n")
     out = tmp_path / "reps.fna"
@@ -121,11 +117,8 @@ def test_representatives_are_written_under_their_family_names(tmp_path: Path) ->
 
 
 def test_a_representative_missing_from_the_bait_stops_the_job(tmp_path: Path) -> None:
-    families = tmp_path / "families.csv"
-    families.write_text(
-        "arm,seqname,start,end,element,ltr_family,representative\n"
-        "c|e9|L,c,1,8,e9,Ttoy_F001,True\n"
-    )
+    families = tmp_path / "summary.csv"
+    families.write_text("ltr_family,n_arms,representative\nTtoy_F001,1,c|e9|L\n")
     bait = tmp_path / "bait.fna"
     bait.write_text(">c|e1|L\nACGTACGT\n")
     with pytest.raises(PipelineError, match="Ttoy_F001"):

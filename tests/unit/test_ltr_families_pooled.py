@@ -12,7 +12,7 @@ from pathlib import Path
 
 import ltr_families_pooled as pooled
 import pytest
-from ltr_families import parse_clstr
+from ltr_families import name_families, parse_clstr
 
 
 def _bait(
@@ -80,7 +80,7 @@ def test_pooled_families_name_their_genomes(bait_dir: Path, tmp_path: Path) -> N
         ">Cluster 1\n"
         "0\t290nt, >Homo_sapiens|chr2|LTR_retrotransposon7|R... *\n"
     )
-    families = pooled.name_pooled(parse_clstr(clstr), arms)
+    families = name_families(parse_clstr(clstr), arms, pooled.POOL_PREFIX)
     rows = pooled.pooled_rows(families)
     assert rows[0] == {
         "genome": "Homo_sapiens",

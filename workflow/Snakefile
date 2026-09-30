@@ -750,7 +750,7 @@ rule solo_family_pooled:
 rule solo_family_dfam:
     input:
         families = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_families.csv'),
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
             genome=species_with_hits(wildcards)
         ),
         bait = lambda wildcards: expand(

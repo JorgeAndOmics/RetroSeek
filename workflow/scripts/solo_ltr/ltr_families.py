@@ -31,9 +31,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from bait_builder import Arm
+
 from external import run_tool
 from log import OK, PipelineError, job_logging, run_main
-from tabular import gff3_attributes, gff3_features, tab_rows
+from tabular import gff3_attributes, gff3_features, tab_rows, write_csv
 from utils import file_md5
 
 logger = logging.getLogger(__name__)
@@ -70,24 +72,6 @@ Element = tuple[str, str]  # (seqname, element id): LTRdigest numbers ids per ge
 
 
 @dataclass(frozen=True)
-class Arm:
-    """One bait arm, as the bait builder names and places it (1-based, inclusive)."""
-
-    name: str  # `seqname|element|L` or `...|R`
-    seqname: str
-    start: int
-    end: int
-
-    @property
-    def element(self) -> str:
-        """The LTR_retrotransposon id the arm flanks: the second field from the right.
-
-        Read from the right because pooled arms carry a `genome|` prefix.
-        """
-        return self.name.rsplit("|", 2)[1]
-
-
-@dataclass(frozen=True)
 class Family:
     """One LTR family: its identifier, its representative arm and every member arm."""
 
@@ -113,12 +97,18 @@ def species_code(genome: str) -> str:
 
 
 def read_bait_bed(bed: Path) -> dict[str, Arm]:
-    """The bait arms by name, from the bait builder's BED (0-based starts)."""
+    """The bait arms by name, from the bait builder's BED (0-based starts).
+
+    The name is the bait builder's `seqname|element|L` (or `R`); the element and
+    the side are read back from its last two fields.
+    """
+    arms = {}
     with bed.open(encoding="utf-8") as handle:
-        return {
-            fields[3]: Arm(fields[3], fields[0], int(fields[1]) + 1, int(fields[2]))
-            for fields in tab_rows(handle, 4)
-        }
+        for fields in tab_rows(handle, 4):
+            _, element, side = fields[3].rsplit("|", 2)
+            start, end = int(fields[1]) + 1, int(fields[2])
+            arms[fields[3]] = Arm(fields[0], start, end, element, side)
+    return arms
 
 
 def read_genus(loci_csv: Path) -> dict[Element, str]:
@@ -173,19 +163,20 @@ def cdhit_command(fna: Path, prefix: Path, identity: float, threads: int) -> lis
     most similar family rather than the first good enough; `-d 0` keeps full
     names; `-M 0` lifts the memory cap.
     """
-    flags = {
-        "-i": fna,
-        "-o": prefix,
-        "-c": identity,
-        "-n": word_size(identity),
-        "-G": 1,
-        "-r": 1,
-        "-g": 1,
-        "-d": 0,
-        "-M": 0,
-        "-T": threads,
-    }
-    return [CDHIT, *(str(part) for pair in flags.items() for part in pair)]
+    # One flag and its value per line; the formatter would split each pair.
+    return [
+        CDHIT,
+        "-i", str(fna),
+        "-o", str(prefix),
+        "-c", str(identity),
+        "-n", str(word_size(identity)),
+        "-G", "1",
+        "-r", "1",
+        "-g", "1",
+        "-d", "0",
+        "-M", "0",
+        "-T", str(threads),
+    ]  # fmt: skip
 
 
 def parse_clstr(clstr: Path) -> list[tuple[str, list[str]]]:
@@ -251,7 +242,7 @@ def family_rows(
             "seqname": arms[name].seqname,
             "start": arms[name].start,
             "end": arms[name].end,
-            "element": arms[name].element,
+            "element": arms[name].parent,
             "ltr_family": family.name,
             "representative": name == family.representative,
         }
@@ -262,7 +253,7 @@ def family_rows(
 
 def _elements(family: Family, arms: dict[str, Arm]) -> list[Element]:
     """The family's elements, each once, in a fixed order."""
-    return sorted({(arms[m].seqname, arms[m].element) for m in family.members})
+    return sorted({(arms[m].seqname, arms[m].parent) for m in family.members})
 
 
 def _majority(counts: Counter[str]) -> tuple[str, int]:
@@ -275,10 +266,11 @@ def _summary_row(
     arms: dict[str, Arm],
     genus: dict[Element, str],
     similarity: dict[Element, float],
-    split: int,
+    families_of: dict[Element, set[str]],
 ) -> dict[str, object]:
     """One family's row of the summary table."""
     elements = _elements(family, arms)
+    split = sum(len(families_of[e]) > 1 for e in elements)
     majority, count = _majority(Counter(genus.get(e, "") for e in elements))
     ages = [similarity[e] for e in elements if e in similarity]
     rep = arms[family.representative]
@@ -308,21 +300,12 @@ def summary_rows(
     `split_elements` counts the family's elements whose other arm fell in another
     family: the arm pair is the method's own positive control.
     """
-    family_of = {m: f.name for f in families for m in f.members}
-    families_of: dict[Element, set[str]] = {}
-    for name, arm in arms.items():
-        if name in family_of:
-            families_of.setdefault((arm.seqname, arm.element), set()).add(
-                family_of[name]
-            )
+    families_of: dict[Element, set[str]] = {}  # element -> families of its arms
+    for family in families:
+        for element in _elements(family, arms):
+            families_of.setdefault(element, set()).add(family.name)
     return [
-        _summary_row(
-            family,
-            arms,
-            genus,
-            similarity,
-            sum(len(families_of[e]) > 1 for e in _elements(family, arms)),
-        )
+        _summary_row(family, arms, genus, similarity, families_of)
         for family in families
     ]
 
@@ -339,15 +322,6 @@ def genus_rows(
             for g, n in sorted(counts.items())
         )
     return rows
-
-
-def write_csv(rows: list[dict[str, object]], columns: list[str], path: Path) -> None:
-    """Write `rows` with a fixed header, even when there are none."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def write_manifest(

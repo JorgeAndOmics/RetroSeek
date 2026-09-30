@@ -24,8 +24,8 @@ arms; every solo inherits the family of its seed arm, as it inherits a genus.
 
 **Identifiers** are `<code>_F001`, numbered by size, ties broken by the
 representative arm's position, so the same input gives the same names. The code is
-one genus letter and three species letters (`Mmus`, `Mmol`, `Hsap`); two genomes
-with one code stop the run. The column is `ltr_family`, to keep it apart from the
+one genus letter and three species letters (`Mmus`, `Mmol`, `Hsap`). Two genomes
+can share a code (see Consequences). The column is `ltr_family`, to keep it apart from the
 evidence tree's `family` clades.
 
 **Measured on the model genomes before choosing the default** (16,430 arms, all

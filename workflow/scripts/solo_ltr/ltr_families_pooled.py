@@ -18,16 +18,11 @@ from collections import Counter
 from pathlib import Path
 from typing import TextIO
 
-from ltr_families import (
-    Arm,
-    Family,
-    name_families,
-    read_bait_bed,
-    run_cdhit,
-    write_csv,
-)
+from bait_builder import Arm
+from ltr_families import Family, name_families, read_bait_bed, run_cdhit
 
 from log import OK, job_logging, run_main
+from tabular import write_csv
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +48,7 @@ def pool_bait(bait_dir: Path, genomes: list[str], out_fna: Path) -> dict[str, Ar
     """Write every genome's bait arms into one FASTA, names prefixed by genome.
 
     Returns the pooled arms by prefixed name, placed on `genome|seqname` so that
-    family order stays deterministic. Genomes that share a family code (the
-    per-genome identifiers) pool fine: only full genome names are used here.
+    family order stays deterministic.
     """
     arms: dict[str, Arm] = {}
     out_fna.parent.mkdir(parents=True, exist_ok=True)
@@ -63,17 +57,9 @@ def pool_bait(bait_dir: Path, genomes: list[str], out_fna: Path) -> dict[str, Ar
             _copy_prefixed(bait_dir / f"{genome}.bait.fna", genome, out)
             for name, arm in read_bait_bed(bait_dir / f"{genome}.bait.bed").items():
                 pooled = f"{genome}|{name}"
-                arms[pooled] = Arm(
-                    pooled, f"{genome}|{arm.seqname}", arm.start, arm.end
-                )
+                seqname = f"{genome}|{arm.seqname}"
+                arms[pooled] = Arm(seqname, arm.start, arm.end, arm.parent, arm.arm)
     return arms
-
-
-def name_pooled(
-    clusters: list[tuple[str, list[str]]], arms: dict[str, Arm]
-) -> list[Family]:
-    """Pooled families named `Pool_F001...`, as per-genome families are named."""
-    return name_families(clusters, arms, POOL_PREFIX)
 
 
 def pooled_rows(families: list[Family]) -> list[dict[str, object]]:
@@ -133,7 +119,7 @@ def main(argv: list[str] | None = None) -> None:
     pooled_fna = args.workdir / "pooled.bait.fna"
     arms = pool_bait(args.bait_dir, args.genomes, pooled_fna)
     clusters = run_cdhit(pooled_fna, args.workdir, args.identity, args.threads)
-    families = name_pooled(clusters, arms)
+    families = name_families(clusters, arms, POOL_PREFIX)
     write_csv(pooled_rows(families), POOLED_COLUMNS, args.out_families)
     summary = pooled_summary(families)
     write_csv(summary, POOLED_SUMMARY_COLUMNS, args.out_summary)

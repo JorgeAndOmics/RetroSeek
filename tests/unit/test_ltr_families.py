@@ -13,6 +13,7 @@ from pathlib import Path
 
 import ltr_families as lf
 import pytest
+from bait_builder import Arm
 
 from log import PipelineError
 
@@ -48,7 +49,7 @@ def clstr(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def arms(tmp_path: Path) -> dict[str, lf.Arm]:
+def arms(tmp_path: Path) -> dict[str, Arm]:
     path = tmp_path / "bait.bed"
     path.write_text(_BED)
     return lf.read_bait_bed(path)
@@ -72,16 +73,9 @@ def test_a_genome_name_without_a_species_part_is_an_error() -> None:
         lf.species_code("Mus")
 
 
-def test_the_element_is_read_from_the_right_of_the_arm_name() -> None:
-    # Pooled arms carry a genome prefix; the element is still the second field
-    # from the right.
-    pooled = lf.Arm("Mus_musculus|chr1|LTR_retrotransposon7|R", "chr1", 1, 2)
-    assert pooled.element == "LTR_retrotransposon7"
-
-
-def test_the_bait_bed_is_read_one_based(arms: dict[str, lf.Arm]) -> None:
+def test_the_bait_bed_is_read_one_based(arms: dict[str, Arm]) -> None:
     arm = arms["chr1|LTR_retrotransposon1|L"]
-    assert (arm.seqname, arm.start, arm.end, arm.element) == (
+    assert (arm.seqname, arm.start, arm.end, arm.parent) == (
         "chr1",
         100,
         649,
@@ -132,7 +126,7 @@ def test_the_cluster_file_gives_representatives_and_members(clstr: Path) -> None
 
 
 def test_families_are_named_by_size_largest_first(
-    clstr: Path, arms: dict[str, lf.Arm]
+    clstr: Path, arms: dict[str, Arm]
 ) -> None:
     families = lf.name_families(lf.parse_clstr(clstr), arms, "Toyu")
     assert [(f.name, f.representative, len(f.members)) for f in families] == [
@@ -143,7 +137,7 @@ def test_families_are_named_by_size_largest_first(
 
 
 def test_families_of_one_size_are_ordered_by_position(
-    tmp_path: Path, arms: dict[str, lf.Arm]
+    tmp_path: Path, arms: dict[str, Arm]
 ) -> None:
     clstr = tmp_path / "tie.clstr"
     clstr.write_text(
@@ -158,7 +152,7 @@ def test_families_of_one_size_are_ordered_by_position(
 
 
 def test_a_summary_counts_elements_once_and_flags_split_pairs(
-    clstr: Path, arms: dict[str, lf.Arm]
+    clstr: Path, arms: dict[str, Arm]
 ) -> None:
     families = lf.name_families(lf.parse_clstr(clstr), arms, "Toyu")
     genus = {
@@ -188,7 +182,7 @@ def test_a_summary_counts_elements_once_and_flags_split_pairs(
 
 
 def test_the_genus_table_counts_elements_per_family(
-    clstr: Path, arms: dict[str, lf.Arm]
+    clstr: Path, arms: dict[str, Arm]
 ) -> None:
     families = lf.name_families(lf.parse_clstr(clstr), arms, "Toyu")
     genus = {("chr2", "LTR_retrotransposon5"): "Betaretrovirus"}
