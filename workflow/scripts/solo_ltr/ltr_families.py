@@ -284,7 +284,8 @@ def _summary_row(
         "rep_end": rep.end,
         "majority_genus": majority,
         "genus_purity": round(count / len(elements), 4),
-        "median_arm_similarity": statistics.median(ages) if ages else "",
+        # LTRdigest gives two decimals; a median of two is their mean.
+        "median_arm_similarity": round(statistics.median(ages), 3) if ages else "",
         "split_elements": split,
     }
 

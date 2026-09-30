@@ -181,6 +181,19 @@ def test_a_summary_counts_elements_once_and_flags_split_pairs(
     assert rows["Toyu_F003"]["median_arm_similarity"] == ""
 
 
+def test_the_median_arm_similarity_is_rounded(
+    clstr: Path, arms: dict[str, Arm]
+) -> None:
+    # The median of two values is their mean, which floats print as 93.2299...
+    families = lf.name_families(lf.parse_clstr(clstr), arms, "Toyu")
+    similarity = {
+        ("chr2", "LTR_retrotransposon5"): 93.1,
+        ("chr1", "LTR_retrotransposon1"): 93.36,
+    }
+    rows = lf.summary_rows(families, arms, {}, similarity)
+    assert str(rows[0]["median_arm_similarity"]) == "93.23"
+
+
 def test_the_genus_table_counts_elements_per_family(
     clstr: Path, arms: dict[str, Arm]
 ) -> None:

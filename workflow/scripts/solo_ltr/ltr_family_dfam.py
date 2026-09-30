@@ -28,6 +28,7 @@ import csv
 import logging
 import os
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -112,19 +113,35 @@ def read_model_classes(hmm: Path, wanted: set[str]) -> dict[str, str]:
     return classes
 
 
-def best_hits(tblout: Path) -> dict[str, Hit]:
-    """Each representative's highest-scoring model, from `nhmmer --tblout`."""
-    best: dict[str, Hit] = {}
+def _better(hit: Hit, current: Hit | None) -> bool:
+    """Whether `hit` beats `current`: the higher score wins.
+
+    A tie goes to the model name first in byte order, so the answer does not
+    depend on the order the tables are read in.
+    """
+    if current is None:
+        return True
+    return (-hit.score, hit.model) < (-current.score, current.model)
+
+
+def _table_hits(tblout: Path) -> Iterator[tuple[str, Hit]]:
+    """(representative, hit) for every row of one `nhmmer --tblout` table."""
     for line in tblout.read_text(encoding="utf-8").splitlines():
         if line.startswith("#") or not line.strip():
             continue
         f = line.split()
         ali_from, ali_to, length = int(f[6]), int(f[7]), int(f[10])
-        hit = Hit(
-            f[2], f[3], f[12], float(f[13]), (abs(ali_to - ali_from) + 1) / length
-        )
-        if f[0] not in best or hit.score > best[f[0]].score:
-            best[f[0]] = hit
+        coverage = (abs(ali_to - ali_from) + 1) / length
+        yield f[0], Hit(f[2], f[3], f[12], float(f[13]), coverage)
+
+
+def best_hits(tblouts: list[Path]) -> dict[str, Hit]:
+    """Each representative's highest-scoring model, over `nhmmer --tblout` tables."""
+    best: dict[str, Hit] = {}
+    for tblout in tblouts:
+        for representative, hit in _table_hits(tblout):
+            if _better(hit, best.get(representative)):
+                best[representative] = hit
     return best
 
 
@@ -213,10 +230,32 @@ def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> lis
     return names
 
 
-def run_nhmmer(hmm: Path, representatives: Path, workdir: Path, threads: int) -> Path:
-    """Search the representatives with every model; returns the `--tblout` table."""
+def split_models(hmm: Path, parts: int, workdir: Path) -> list[Path]:
+    """Deal the models of `hmm` in turn into `parts` files; a model ends at `//`.
+
+    Returns only the files that got a model: nhmmer refuses an empty one.
+    """
     workdir.mkdir(parents=True, exist_ok=True)
-    tblout = workdir / "dfam.tbl"
+    paths = [workdir / f"models.{i}.hmm" for i in range(parts)]
+    handles = [path.open("wb") for path in paths]
+    try:
+        turn = 0
+        with hmm.open("rb") as source:
+            for line in source:
+                handles[turn].write(line)
+                if line.startswith(b"//"):
+                    turn = (turn + 1) % parts
+    finally:
+        for handle in handles:
+            handle.close()
+    for path in paths:
+        if path.stat().st_size == 0:
+            path.unlink()
+    return [path for path in paths if path.exists()]
+
+
+def _nhmmer(models: Path, representatives: Path, tblout: Path) -> None:
+    """One single-threaded nhmmer: every model in `models` against the representatives."""
     run_tool(
         [
             NHMMER,
@@ -228,12 +267,35 @@ def run_nhmmer(hmm: Path, representatives: Path, workdir: Path, threads: int) ->
             "-o",
             os.devnull,  # the per-model report is large and nothing reads it
             "--cpu",
-            str(threads),
-            str(hmm),
+            "1",
+            str(models),
             str(representatives),
         ]
     )
-    return tblout
+
+
+def run_nhmmer(
+    hmm: Path, representatives: Path, workdir: Path, threads: int
+) -> list[Path]:
+    """Search the representatives with every model; returns the `--tblout` tables.
+
+    nhmmer's own threads share out the target sequences, and a few hundred short
+    representatives make a single block: on the model genomes 8 threads kept 1.5
+    cores busy, for 2.6 hours. So the models are dealt into `threads` chunks in
+    `workdir` (a copy of the 11 GB file, removed afterwards) and each chunk gets
+    its own single-threaded nhmmer.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    chunks = split_models(hmm, threads, workdir) if threads > 1 else [hmm]
+    tblouts = [workdir / f"dfam.{i}.tbl" for i in range(len(chunks))]
+    try:
+        with ThreadPoolExecutor(max_workers=len(chunks)) as pool:
+            list(pool.map(_nhmmer, chunks, [representatives] * len(chunks), tblouts))
+    finally:
+        for chunk in chunks:
+            if chunk != hmm:
+                chunk.unlink(missing_ok=True)
+    return tblouts
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:

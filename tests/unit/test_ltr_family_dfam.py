@@ -73,7 +73,7 @@ def test_only_the_wanted_models_are_read(tmp_path: Path) -> None:
 def test_each_representatives_best_hit_is_the_highest_score(tmp_path: Path) -> None:
     tbl = tmp_path / "hits.tbl"
     tbl.write_text(_TBLOUT)
-    best = dfam.best_hits(tbl)
+    best = dfam.best_hits([tbl])
     assert best["Mus_musculus|Mmus_F001"].model == "IAPLTR1_Mm"
     assert best["Mus_musculus|Mmus_F001"].coverage == pytest.approx(390 / 400)
 
@@ -81,9 +81,37 @@ def test_each_representatives_best_hit_is_the_highest_score(tmp_path: Path) -> N
 def test_a_minus_strand_hit_has_a_positive_coverage(tmp_path: Path) -> None:
     tbl = tmp_path / "hits.tbl"
     tbl.write_text(_TBLOUT)
-    assert dfam.best_hits(tbl)["Mus_musculus|Mmus_F002"].coverage == pytest.approx(
+    assert dfam.best_hits([tbl])["Mus_musculus|Mmus_F002"].coverage == pytest.approx(
         200 / 300
     )
+
+
+def test_models_are_dealt_whole_into_chunks(tmp_path: Path) -> None:
+    hmm = tmp_path / "dfam.hmm"
+    hmm.write_text(_HEADERS)
+    chunks = dfam.split_models(hmm, 2, tmp_path / "work")
+    texts = [c.read_text() for c in chunks]
+    assert [t.count("\n//\n") for t in texts] == [2, 1]  # three models, dealt in turn
+    assert "NAME  MER4A" in texts[0]
+    assert "NAME  IAPLTR1_Mm" in texts[1]
+    assert sorted("".join(texts).splitlines()) == sorted(_HEADERS.splitlines())
+
+
+def test_hits_from_several_tables_keep_the_best_and_break_ties_by_name(
+    tmp_path: Path,
+) -> None:
+    first, second = tmp_path / "a.tbl", tmp_path / "b.tbl"
+    first.write_text(_TBLOUT)
+    second.write_text(
+        "Mus_musculus|Mmus_F002  -  AAA_tie  DF1  5  200  300  101  300  100  300  -"
+        "  1e-12  40.0  0.0  -\n"
+    )
+    best = dfam.best_hits([second, first])
+    assert best["Mus_musculus|Mmus_F001"].model == "IAPLTR1_Mm"
+    # MER4A and AAA_tie score 40.0 on F002: the name first in byte order wins,
+    # whichever table is read first.
+    assert best["Mus_musculus|Mmus_F002"].model == "AAA_tie"
+    assert dfam.best_hits([first, second]) == best
 
 
 def test_every_family_gets_a_row_hit_or_not(tmp_path: Path) -> None:
@@ -93,7 +121,7 @@ def test_every_family_gets_a_row_hit_or_not(tmp_path: Path) -> None:
     hmm.write_text(_HEADERS)
     rows = dfam.label_rows(
         ["Mus_musculus|Mmus_F001", "Mus_musculus|Mmus_F002", "Mus_musculus|Mmus_F003"],
-        dfam.best_hits(tbl),
+        dfam.best_hits([tbl]),
         dfam.read_model_classes(hmm, {"MER4A", "IAPLTR1_Mm"}),
         "4.0",
     )
@@ -140,5 +168,9 @@ def test_nhmmer_finds_a_representative_with_a_toy_model(tmp_path: Path) -> None:
     )
     reps = tmp_path / "reps.fna"
     reps.write_text(f">Toyus_toyus|Ttoy_F001\n{seq}\n")
-    best = dfam.best_hits(dfam.run_nhmmer(hmm, reps, tmp_path / "work", 1))
-    assert best["Toyus_toyus|Ttoy_F001"].model == "TOY"
+    one = dfam.best_hits(dfam.run_nhmmer(hmm, reps, tmp_path / "one", 1))
+    assert one["Toyus_toyus|Ttoy_F001"].model == "TOY"
+    # Asked for two chunks, one model gives one; same answer, no chunk left behind.
+    two = dfam.best_hits(dfam.run_nhmmer(hmm, reps, tmp_path / "two", 2))
+    assert two == one
+    assert not list((tmp_path / "two").glob("models.*"))

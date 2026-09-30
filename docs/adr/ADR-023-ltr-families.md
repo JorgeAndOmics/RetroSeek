@@ -86,6 +86,11 @@ kind of label the label is meant to check.
   about 1,400 families each for human and mouse but about 760 to 810 for the three
   bats, mostly through families shared across mammals, so bat families will more
   often stay blank. The download is 1.7 GB and unpacks to about 11 GB.
+- `nhmmer` shares its threads out over the target sequences, and a few hundred
+  short representatives make one block, so 8 threads kept 1.5 cores busy for 2.6
+  hours. The labelling step therefore deals the models into one chunk per thread
+  (a temporary 11 GB copy in the temp folder, removed afterwards) and runs one
+  single-threaded `nhmmer` per chunk.
 
 ## Alternatives considered
 
