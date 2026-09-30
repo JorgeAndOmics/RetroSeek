@@ -1144,7 +1144,7 @@ class TestNearestVirus:
         names = tcl._virus_names(ref)
         assert names["A1"] == "Moloney murine leukemia virus"
         assert names["A4"] == "Feline leukemia virus"
-        assert names["A3"] == ""
+        assert names["A3"] == "A3"  # no bracket: the accession stands in
 
     def test_blastx_keeps_each_regions_best_reference_and_identity(
         self, tmp_path
@@ -1156,10 +1156,12 @@ class TestNearestVirus:
             "L0|POL(+)\tUNKNOWN\t900.0\t1\t99.0\n"  # not in the reference: ignored
         )
         taxon_of = {"A1": "Gammaretrovirus", "A4": "Gammaretrovirus"}
-        virus_of = {"A1": "Moloney murine leukemia virus", "A4": ""}
+        virus_of = {
+            "A1": "Moloney murine leukemia virus",
+            "A4": "Feline leukemia virus",
+        }
         _, best = tcl._read_blastx(hits, taxon_of, virus_of)
-        # A4's defline has no virus name, so its accession stands in.
-        assert best["L0|POL"] == tcl.BestHit("A4", 60.0, 350.0, 2)
+        assert best["L0|POL"] == tcl.BestHit("Feline leukemia virus", 60.0, 350.0, 2)
 
     @staticmethod
     def _record(
@@ -1220,9 +1222,7 @@ class TestNearestVirus:
             "Mouse mammary tumor virus",
         )
 
-    def test_a_gene_outside_gene_priority_is_used_only_when_no_listed_gene_hit(
-        self,
-    ) -> None:
+    def test_unlisted_genes_fall_back_to_the_strongest_hit(self) -> None:
         best_ref = {
             "L0|PRO": tcl.BestHit("Mouse mammary tumor virus", 40.0, 120.0, 1),
             "L0|OTHER": tcl.BestHit("Feline leukemia virus", 70.0, 90.0, 1),

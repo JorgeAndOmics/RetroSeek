@@ -307,10 +307,11 @@ def classify(
         annotate_loci_with_domains(loci, domains_parquet, domain_classes, scanned_txt)
     fna, hits_path = _search_regions(loci, genome, ref_dir, workdir, evalue, threads)
 
-    taxon_of, gene_of, axis = _ref_maps(ref_dir / "retro_reference.csv")
+    ref_csv = ref_dir / "retro_reference.csv"
+    taxon_of, gene_of, axis = _ref_maps(ref_csv)
     diagnostic = auto_diagnostic(gene_of, taxon_of)  # genes in only one axis taxon
     region_seq = _load_regions(fna)
-    virus_of = _virus_names(ref_dir / "retro_reference.csv")
+    virus_of = _virus_names(ref_csv)
     hits, best = _read_blastx(hits_path, taxon_of, virus_of)
     placement = _place_genes(
         placement_genes, best, region_seq, min_orf, ref_dir, workdir
@@ -358,14 +359,14 @@ def _virus_names(ref_csv: Path) -> dict[str, str]:
     """Each reference accession's virus: the last [bracketed] name of its defline.
 
     NCBI protein deflines end in the source organism, e.g. `gag protein [Mouse
-    mammary tumor virus]`; an earlier bracket can hold a strain. Blank when the
-    defline has none.
+    mammary tumor virus]`; an earlier bracket can hold a strain. A defline with
+    no bracket is named by its accession, so the name is never blank.
     """
     names = {}
     with ref_csv.open(encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             found = re.findall(r"\[([^\]]+)\]", r["defline"])
-            names[r["accession"]] = found[-1] if found else ""
+            names[r["accession"]] = found[-1] if found else r["accession"]
     return names
 
 
@@ -463,15 +464,23 @@ def _search_regions(
     return fna, hits_path
 
 
+class BestHit(NamedTuple):
+    """A region's best blastx hit: its virus, identity, strength and frame."""
+
+    virus: str
+    identity: float  # percent amino-acid identity over the alignment
+    bitscore: float
+    frame: int  # blastx query frame, 1 to 3 or -1 to -3
+
+
 def _read_blastx(
     hits_path: Path, taxon_of: dict[str, str], virus_of: dict[str, str]
 ) -> tuple[dict[str, list[tuple[str, float]]], dict[str, BestHit]]:
     """Per region (``locus|gene``): its (taxon, bitscore) hits, and its best hit.
 
     The best hit is the highest bitscore. It gives the frame placement translates
-    in, and the nearest virus (ADR-024), named from ``virus_of`` or, when the
-    reference has no virus name, by its accession. Hits to accessions missing
-    from the reference table are ignored.
+    in, and the nearest virus (ADR-024), named from ``virus_of``. Hits to
+    accessions missing from the reference table are ignored.
     """
     hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
     best: dict[str, BestHit] = {}
@@ -486,8 +495,8 @@ def _read_blastx(
             b = float(bits)
             hits[qid].append((taxon, b))
             if qid not in best or b > best[qid].bitscore:
-                virus = virus_of.get(accession) or accession
-                best[qid] = BestHit(virus, float(pident), b, int(frame))
+                # virus_of has every accession taxon_of has: one CSV feeds both.
+                best[qid] = BestHit(virus_of[accession], float(pident), b, int(frame))
     return hits, best
 
 
@@ -548,15 +557,6 @@ def _export_placements(
         taxonomy_placement.export_placement(
             workdir / f"place_{gene}", ref_dir, gene, out_dir, f"{stem_prefix}.{gene}"
         )
-
-
-class BestHit(NamedTuple):
-    """A region's best blastx hit: its virus, identity, strength and frame."""
-
-    virus: str
-    identity: float  # percent amino-acid identity over the alignment
-    bitscore: float
-    frame: int  # blastx query frame, 1 to 3 or -1 to -3
 
 
 @dataclass(frozen=True)
@@ -747,15 +747,16 @@ def _nearest(
     is ``call_gene``, the gene behind the locus's taxon call, so the name and the
     call come from the same evidence. When that gene has no reference hit (or the
     locus has no call), ``gene_priority`` decides, then the strongest hit. The
-    identity is what keeps the name honest: most loci sit at 40 to 50% of their
-    nearest virus, a distant relative, not an instance of it. All four columns
-    are blank without a reference hit.
+    identity travels with the name, because a nearest virus is usually a distant
+    relative, not an instance (measurements in ADR-024). All four columns are
+    blank without a reference hit.
     """
     found = {g: hit for g in lc["genes"] if (hit := asm.best.get(f"{lc['id']}|{g}"))}
     if not found:
         return dict.fromkeys(NEAREST_COLUMNS, "")
-    gene = call_gene if call_gene in found else None
-    if gene is None:
+    if call_gene is not None and call_gene in found:
+        gene = call_gene
+    else:
         gene = min(found, key=lambda g: (_priority(g, asm), -found[g].bitscore, g))
     return {
         "nearest_virus": found[gene].virus,

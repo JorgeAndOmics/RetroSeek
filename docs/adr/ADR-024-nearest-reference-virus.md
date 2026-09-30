@@ -43,7 +43,8 @@ Four new columns on the loci and orphan tables, and in `catalog.csv`:
   has no reference hit, or the locus has no call, `classification.gene_priority`
   decides (ADR-022), then the strongest hit.
 - **The virus** is the last `[bracket]` of the reference defline (an earlier one
-  can hold a strain); a reference without one is named by its accession.
+  can hold a strain); a reference without one is named by its accession (none of
+  the 383 current references lacks one).
 - The identity always travels with the name. The columns are evidence beside
   the genus call, never an input to it.
 
