@@ -1120,3 +1120,90 @@ class TestPlacementBranch:
         }
         (rec,) = tcl._assemble(loci, hits, placement, "v", ["POL"], {}, 0.1, _AXIS)
         assert (rec["taxon_call"], rec["method"]) == ("Betaretrovirus", "lca")
+
+
+class TestNearestVirus:
+    """Each locus names its nearest reference virus and how close it is (ADR-024).
+
+    The genus call keeps only the taxon; the virus behind the best hit was lost.
+    A bare name misleads (a mouse locus "is" Simian retrovirus 8 at 45% amino-acid
+    identity), so the identity always travels with it.
+    """
+
+    _REF = (
+        "accession,taxon,gene,defline\n"
+        "A1,Gammaretrovirus,POL,A1 pol [Moloney murine leukemia virus]\n"
+        "A2,Betaretrovirus,GAG,A2 gag [Mouse mammary tumor virus]\n"
+        "A3,Betaretrovirus,ENV,A3 env protein\n"
+        "A4,Gammaretrovirus,ENV,A4 env [strain X] [Feline leukemia virus]\n"
+    )
+
+    def test_the_virus_is_the_last_bracket_of_the_defline(self, tmp_path) -> None:
+        ref = tmp_path / "retro_reference.csv"
+        ref.write_text(self._REF)
+        names = tcl._virus_names(ref)
+        assert names["A1"] == "Moloney murine leukemia virus"
+        assert names["A4"] == "Feline leukemia virus"
+        assert names["A3"] == ""
+
+    def test_blastx_keeps_each_regions_best_reference_and_identity(
+        self, tmp_path
+    ) -> None:
+        hits = tmp_path / "hits.tsv"
+        hits.write_text(
+            "L0|POL(+)\tA1\t300.0\t1\t92.5\n"
+            "L0|POL(+)\tA4\t350.0\t2\t60.0\n"
+            "L0|POL(+)\tUNKNOWN\t900.0\t1\t99.0\n"  # not in the reference: ignored
+        )
+        taxon_of = {"A1": "Gammaretrovirus", "A4": "Gammaretrovirus"}
+        virus_of = {"A1": "Moloney murine leukemia virus", "A4": ""}
+        _, best_frame, best_ref = tcl._read_blastx(hits, taxon_of, virus_of)
+        assert best_frame["L0|POL"] == (350.0, 2)
+        # A4's defline has no virus name, so its accession stands in.
+        assert best_ref["L0|POL"] == tcl.BestRef("A4", 60.0, 350.0)
+
+    @staticmethod
+    def _record(genes: list[str], best_ref: dict, **lists) -> dict:
+        locus = {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": "+",
+            "start": 1,
+            "end": 900,
+            "genes": {g: (100 * i + 1, 100 * i + 90) for i, g in enumerate(genes)},
+            "probe_label_set": "",
+        }
+        return tcl._assemble(
+            [locus], {}, {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS,
+            best_ref=best_ref, **lists,
+        )[0]  # fmt: skip
+
+    def test_the_headline_gene_follows_gene_priority(self) -> None:
+        best_ref = {
+            "L0|GAG": tcl.BestRef("Mouse mammary tumor virus", 55.0, 400.0),
+            "L0|POL": tcl.BestRef("Moloney murine leukemia virus", 92.5, 300.0),
+        }
+        rec = self._record(["GAG", "POL"], best_ref, gene_priority=["POL", "GAG"])
+        assert rec["nearest_virus"] == "Moloney murine leukemia virus"
+        assert rec["nearest_virus_identity"] == "92.5"
+        assert rec["nearest_virus_gene"] == "POL"
+        assert rec["per_gene_nearest"] == (
+            "GAG:Mouse mammary tumor virus(55.0);POL:Moloney murine leukemia virus(92.5)"
+        )
+
+    def test_a_gene_outside_gene_priority_is_used_only_when_no_listed_gene_hit(
+        self,
+    ) -> None:
+        best_ref = {
+            "L0|PRO": tcl.BestRef("Mouse mammary tumor virus", 40.0, 120.0),
+            "L0|OTHER": tcl.BestRef("Feline leukemia virus", 70.0, 90.0),
+        }
+        rec = self._record(["PRO", "OTHER"], best_ref, gene_priority=["POL"])
+        # Neither gene is listed, so the best-scoring one heads the locus.
+        assert rec["nearest_virus_gene"] == "PRO"
+
+    def test_a_locus_without_reference_hits_leaves_the_columns_blank(self) -> None:
+        rec = self._record(["POL"], {})
+        assert [rec[c] for c in tcl.NEAREST_COLUMNS] == ["", "", "", ""]
+        assert set(tcl.NEAREST_COLUMNS) <= set(tcl.LOCI_COLUMNS)

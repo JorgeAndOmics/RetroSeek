@@ -20,11 +20,12 @@ import argparse
 import csv
 import hashlib
 import logging
+import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pandas as pd
 import taxonomy_lca as tlca
@@ -244,7 +245,9 @@ def search(query: Path, db: Path, out: Path, evalue: float, threads: int) -> Non
             "-out",
             str(out),
             "-outfmt",
-            "6 qseqid sseqid bitscore qframe",  # qframe = query translation frame
+            # qframe = query translation frame; pident = amino-acid identity of
+            # the alignment, for the nearest-virus columns (ADR-024)
+            "6 qseqid sseqid bitscore qframe pident",
             "-evalue",
             str(evalue),
             "-max_target_seqs",
@@ -307,7 +310,8 @@ def classify(
     taxon_of, gene_of, axis = _ref_maps(ref_dir / "retro_reference.csv")
     diagnostic = auto_diagnostic(gene_of, taxon_of)  # genes in only one axis taxon
     region_seq = _load_regions(fna)
-    hits, best_frame = _read_blastx(hits_path, taxon_of)
+    virus_of = _virus_names(ref_dir / "retro_reference.csv")
+    hits, best_frame, best_ref = _read_blastx(hits_path, taxon_of, virus_of)
     placement = _place_genes(
         placement_genes, best_frame, region_seq, min_orf, ref_dir, workdir
     )
@@ -332,6 +336,7 @@ def classify(
         segment_rank=segment_rank,
         gene_priority=gene_priority,
         gene_order=gene_order,
+        best_ref=best_ref,
     )
 
 
@@ -347,6 +352,21 @@ def _ref_maps(ref_csv: Path) -> tuple[dict[str, str], dict[str, str], set[str]]:
             taxon_of[r["accession"]] = r["taxon"]
             gene_of[r["accession"]] = r["gene"]
     return taxon_of, gene_of, set(taxon_of.values())
+
+
+def _virus_names(ref_csv: Path) -> dict[str, str]:
+    """Each reference accession's virus: the last [bracketed] name of its defline.
+
+    NCBI protein deflines end in the source organism, e.g. `gag protein [Mouse
+    mammary tumor virus]`; an earlier bracket can hold a strain. Blank when the
+    defline has none.
+    """
+    names = {}
+    with ref_csv.open(encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            found = re.findall(r"\[([^\]]+)\]", r["defline"])
+            names[r["accession"]] = found[-1] if found else ""
+    return names
 
 
 def auto_diagnostic(
@@ -444,26 +464,37 @@ def _search_regions(
 
 
 def _read_blastx(
-    hits_path: Path, taxon_of: dict[str, str]
-) -> tuple[dict[str, list[tuple[str, float]]], dict[str, tuple[float, int]]]:
-    """Per region (``locus|gene``): its (taxon, bitscore) hits and best-scoring frame.
+    hits_path: Path, taxon_of: dict[str, str], virus_of: dict[str, str]
+) -> tuple[
+    dict[str, list[tuple[str, float]]],
+    dict[str, tuple[float, int]],
+    dict[str, BestRef],
+]:
+    """Per region (``locus|gene``): its hits, best frame and nearest virus.
 
-    Hits to accessions missing from the reference table are ignored.
+    Returns the (taxon, bitscore) hits, and for the best hit (highest bitscore)
+    its frame and its reference virus (ADR-024), named from ``virus_of`` or, when
+    the reference has no virus name, by its accession. Hits to accessions missing
+    from the reference table are ignored.
     """
     hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
     best_frame: dict[str, tuple[float, int]] = {}
+    best_ref: dict[str, BestRef] = {}
     with hits_path.open(encoding="utf-8") as fh:
         for line in fh:
-            qid, sid, bits, frame = line.rstrip("\n").split("\t")
+            qid, sid, bits, frame, pident = line.rstrip("\n").split("\t")
             qid = qid.split("(")[0]
-            taxon = taxon_of.get(sid.split()[0])
+            accession = sid.split()[0]
+            taxon = taxon_of.get(accession)
             if not taxon:
                 continue
             b = float(bits)
             hits[qid].append((taxon, b))
             if qid not in best_frame or b > best_frame[qid][0]:
                 best_frame[qid] = (b, int(frame))
-    return hits, best_frame
+                virus = virus_of.get(accession) or accession
+                best_ref[qid] = BestRef(virus, float(pident), b)
+    return hits, best_frame, best_ref
 
 
 def _placement_queries(
@@ -525,6 +556,14 @@ def _export_placements(
         )
 
 
+class BestRef(NamedTuple):
+    """A region's best blastx hit: which virus, how identical, how strong."""
+
+    virus: str
+    identity: float  # percent amino-acid identity over the alignment
+    bitscore: float
+
+
 @dataclass(frozen=True)
 class _Assembly:
     """The evidence and settings every locus record of one genome is built from."""
@@ -543,6 +582,7 @@ class _Assembly:
     structure_full_min: float
     source: str
     segment_rank: str
+    best_ref: dict[str, BestRef]  # region -> its best reference hit (ADR-024)
 
 
 def _assemble(
@@ -561,6 +601,7 @@ def _assemble(
     *,
     gene_priority: list[str] | None = None,
     gene_order: list[str] | None = None,
+    best_ref: dict[str, BestRef] | None = None,
 ) -> list[dict[str, str]]:
     """One output record per locus, from its per-gene evidence.
 
@@ -584,6 +625,7 @@ def _assemble(
         structure_full_min=structure_full_min,
         source=source,
         segment_rank=segment_rank,
+        best_ref=best_ref or {},
     )
     return [_locus_record(lc, asm) for lc in loci]
 
@@ -690,6 +732,45 @@ def _structure(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
     }
 
 
+NEAREST_COLUMNS = [
+    "nearest_virus",
+    "nearest_virus_identity",
+    "nearest_virus_gene",
+    "per_gene_nearest",
+]
+
+
+def _nearest(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
+    """The locus's nearest reference virus, with its amino-acid identity (ADR-024).
+
+    Each gene region's best blastx hit names a reference virus. The headline gene
+    follows ``gene_priority``, the order the genus call trusts; genes it does not
+    list come after, strongest hit first. The identity is what keeps the name
+    honest: most loci sit at 40 to 50% of their nearest virus, a distant relative,
+    not an instance of it. All four columns are blank without a reference hit.
+    """
+    found = {
+        g: asm.best_ref[f"{lc['id']}|{g}"]
+        for g in lc["genes"]
+        if f"{lc['id']}|{g}" in asm.best_ref
+    }
+    if not found:
+        return dict.fromkeys(NEAREST_COLUMNS, "")
+    unlisted = len(asm.gene_priority)
+    gene = min(
+        found,
+        key=lambda g: (asm.gene_priority.get(g, unlisted), -found[g].bitscore, g),
+    )
+    return {
+        "nearest_virus": found[gene].virus,
+        "nearest_virus_identity": f"{found[gene].identity:.1f}",
+        "nearest_virus_gene": gene,
+        "per_gene_nearest": ";".join(
+            f"{g}:{ref.virus}({ref.identity:.1f})" for g, ref in sorted(found.items())
+        ),
+    }
+
+
 def _mosaic(
     confident: dict[str, dict[str, str]], main_set: set[str]
 ) -> tuple[str, str]:
@@ -752,6 +833,7 @@ def _locus_record(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
             f"{g}:{c['taxon_call']}({c['method']},{c['confidence']})"
             for g, c in sorted(per_gene.items())
         ),
+        **_nearest(lc, asm),
         "is_mosaic": is_mosaic,
         "mosaic_composition": composition,
         "erv_class": tlca.ERV_CLASS.get(taxon_call, ""),
@@ -875,6 +957,7 @@ LOCI_COLUMNS = [
     "n_blastx_hits",
     "method",
     "per_gene",
+    *NEAREST_COLUMNS,
     "is_mosaic",
     "mosaic_composition",
     "erv_class",

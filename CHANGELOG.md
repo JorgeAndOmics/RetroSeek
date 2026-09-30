@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Nearest reference virus** (ADR-024): every locus, orphan and `catalog.csv`
+  row names the reference virus its headline gene is closest to, with the
+  amino-acid identity (`nearest_virus`, `nearest_virus_identity`,
+  `nearest_virus_gene`, `per_gene_nearest`). Most loci sit at 40 to 50% of their
+  nearest virus; the near-identical ones are the known endogenous copies (DrERV
+  in Desmodus, MLV in the mouse).
 - **Code-quality gates**: Qlty (`.qlty/qlty.toml`) measures function complexity
   against a limit of 8, and every function in `workflow/scripts` (Python and R)
   now meets it. `make check` also runs lintr on the R sources (`.lintr.R`, zero
