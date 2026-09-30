@@ -114,6 +114,8 @@ solo_ltr:
   # 0.9 and above families shatter.
   families:
     identity: 0.8
+    # Label each family with its best curated Dfam model (needs --download-dfam).
+    dfam: false
   tree:
     enable: true
     # Elements sampled as flanking-arm tips; both arms of a chosen element are

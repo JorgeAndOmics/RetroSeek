@@ -76,6 +76,15 @@ STAGES: tuple[Stage, ...] = (
         tools=("wget",),
     ),
     Stage(
+        "--download-dfam",
+        "Setup",
+        ("dfam_downloader",),
+        "Download the pinned Dfam curated models (input.dfam_release) for the "
+        "optional LTR-family labels (1.7 GB, about 9 GB unpacked).",
+        heavy=("dfam_downloader",),
+        tools=("wget",),
+    ),
+    Stage(
         "--build-reference",
         "Setup",
         ("taxonomy_reference_trees",),
@@ -182,7 +191,15 @@ STAGES: tuple[Stage, ...] = (
         "Analysis",
         ("solo_ltr_detector",),
         "Find solo LTRs from the arms of ERV-bearing elements, with the evidence tree.",
-        tools=("blastn", "makeblastdb", "mafft", "iqtree", "cd-hit-est", "Rscript"),
+        tools=(
+            "blastn",
+            "makeblastdb",
+            "mafft",
+            "iqtree",
+            "cd-hit-est",
+            "nhmmer",
+            "Rscript",
+        ),
     ),
     Stage(
         "--hotspot-detection",

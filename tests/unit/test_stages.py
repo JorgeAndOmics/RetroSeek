@@ -47,6 +47,7 @@ def test_heavy_rules_exist_and_match_the_protected_list(project_root: Path) -> N
         "genome_downloader_setup",
         "genome_downloader",
         "pfam_hmm_downloader",
+        "dfam_downloader",
         "probe_extractor",
         "ltr_index_generator_setup",
         "ltr_index_generator",
@@ -109,7 +110,9 @@ def test_downstream_is_every_analysis_and_figures_stage() -> None:
     expected = [s.flag for s in stages.STAGES if s.phase in ("Analysis", "Figures")]
     assert chosen == expected
     assert "--generate-global-plots" in chosen
-    assert not {"--ltr-domains", "--blast", "--download-hmm"} & set(chosen)
+    assert not {"--ltr-domains", "--blast", "--download-hmm", "--download-dfam"} & set(
+        chosen
+    )
 
 
 def test_circle_plot_stage_is_gone() -> None:

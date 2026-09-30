@@ -111,6 +111,8 @@ solo_ltr:
   # 0.9 and above families shatter.
   families:
     identity: 0.8
+    # Label each family with its best curated Dfam model (needs --download-dfam).
+    dfam: false
   tree:
     enable: true
     # Elements sampled as flanking-arm tips; both arms of a chosen element are
@@ -224,6 +226,9 @@ input:
   # The class table above was checked against 38.2; older releases lack some of
   # its families and stop the domain scan.
   pfam_release: '38.2'
+  # Dfam release downloaded by --download-dfam, for the optional LTR-family
+  # labels (solo_ltr.families.dfam). Curated models only.
+  dfam_release: '4.0'
 
 display:
   # How much the terminal shows during a run. Job logs are always complete.

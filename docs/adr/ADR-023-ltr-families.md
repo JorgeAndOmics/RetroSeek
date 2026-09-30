@@ -47,6 +47,16 @@ of all of it gave nearly the same families with slightly fewer pairs together
 sorted genome order so the config's order cannot change them, so a family shared
 by several genomes is one family.
 
+**Optional Dfam labels** (`solo_ltr.families.dfam`, off by default). The families
+have neutral identifiers, so a reader cannot tell that `Mmus_F001` is IAPLTR1_Mm.
+When switched on, each family's representative arm is searched with every curated
+Dfam model (`nhmmer --cut_ga`, Dfam's own gathering thresholds), and the best bit
+score names the family in `ltr_family_dfam.csv`. The models are fetched like Pfam:
+a pinned release (`input.dfam_release`, 4.0), its own guarded stage
+(`--download-dfam`), checked against Dfam's MD5 and kept beside `Pfam-A.hmm`.
+Curated models only: the uncurated set is mostly raw repeat-finder output, the
+kind of label the label is meant to check.
+
 ## Consequences
 
 - On the five model genomes no family spans two genomes at 0.8: the 820 pooled
@@ -64,6 +74,10 @@ by several genomes is one family.
   similarity (an age signal). Families sit inside genera (about 94% purity), and a
   mixed family is worth a look: a wrong genus call, a recombinant, or a
   contaminant.
+- The Dfam label is evidence, never a filter. Dfam 4.0's curated models apply to
+  about 1,400 families each for human and mouse but about 760 to 810 for the three
+  bats, mostly through families shared across mammals, so bat families will more
+  often stay blank. The download is 1.7 GB and unpacks to about 9 GB.
 
 ## Alternatives considered
 

@@ -196,6 +196,27 @@ rule pfam_hmm_downloader:
         """
 
 
+# Dfam's curated models, for the optional LTR-family labels (ADR-023). Pinned like
+# Pfam. The archive (1.7 GB) is checked against Dfam's checksum and removed once
+# unpacked (about 9 GB); the checksum file stays as the record. Nothing reads the
+# models unless solo_ltr.families.dfam is on.
+rule dfam_downloader:
+    output:
+        md5 = os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Dfam-curated_only-1.hmm.gz.md5'),
+        hmm = os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Dfam-curated_only-1.hmm')
+    params:
+        hmm_profile_dir = defaults.PATH_DICT['HMM_PROFILE_DIR'],
+        url = f'https://www.dfam.org/releases/Dfam_{defaults.DFAM_RELEASE}/families/Dfam-curated_only-1.hmm.gz'
+    shell:
+        """
+        cd {params.hmm_profile_dir:q} && \
+        wget -O Dfam-curated_only-1.hmm.gz {params.url:q} && \
+        wget -O {output.md5:q} {params.url:q}.md5 && \
+        md5sum -c {output.md5:q} && \
+        gunzip -f -v Dfam-curated_only-1.hmm.gz
+        """
+
+
 # Which Pfam release the domain scan used (ADR-019). Pfam-A.hmm carries no release
 # number, so this record is the only trace. It hangs off the aggregate targets
 # (domain_scanner, taxonomy_classify) and nothing consumes it, so adding it
@@ -655,6 +676,7 @@ _SOLO_TREE = _SOLO['tree']
 # counted over the whole shorter arm.
 _FAMILIES = _SOLO.get('families') or {}
 _FAMILY_IDENTITY = _FAMILIES.get('identity', 0.8)
+_FAMILY_DFAM = bool(_FAMILIES.get('dfam', False))
 
 
 rule solo_bait_builder_setup:
@@ -719,6 +741,40 @@ rule solo_family_pooled:
             --bait-dir {params.bait_dir:q} --genomes {params.genomes} \
             --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
             --out-families {output.families:q} --out-summary {output.summary:q}
+        '''
+
+
+# Optional Dfam labels for the LTR families (ADR-023): each family's representative
+# arm searched with every curated Dfam model (nhmmer at Dfam's gathering
+# thresholds). One table for every genome; evidence to read, never a filter.
+rule solo_family_dfam:
+    input:
+        families = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_families.csv'),
+            genome=species_with_hits(wildcards)
+        ),
+        bait = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+            genome=species_with_hits(wildcards)
+        ),
+        hmm = rules.dfam_downloader.output.hmm
+    output:
+        labels = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'ltr_family_dfam.csv')
+    params:
+        release   = defaults.DFAM_RELEASE,
+        table_dir = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
+        bait_dir  = defaults.PATH_DICT['SOLO_BAIT_DIR'],
+        genomes   = lambda wildcards: " ".join(species_with_hits(wildcards)),
+        workdir   = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', 'dfam')
+    log:
+        job_log('solo_family_dfam')
+    threads: 8
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_family_dfam.py --log {log:q} \
+            --genomes {params.genomes} --table-dir {params.table_dir:q} --bait-dir {params.bait_dir:q} \
+            --dfam-hmm {input.hmm:q} --release {params.release:q} \
+            --threads {threads} --workdir {params.workdir:q} --out {output.labels:q}
         '''
 
 
@@ -1086,11 +1142,6 @@ rule solo_plot_generator:
             os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
             genome=species_with_hits(wildcards)
         ),
-        families = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
-            genome=species_with_hits(wildcards)
-        ),
-        pooled_families = rules.solo_family_pooled.output.summary,
         summary = rules.solo_plot_summary.output.pdf
 
 
@@ -1114,6 +1165,12 @@ rule solo_ltr_detector:
             os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
             genome=species_with_hits(wildcards)
         ),
+        families = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
+            genome=species_with_hits(wildcards)
+        ),
+        pooled_families = rules.solo_family_pooled.output.summary,
+        dfam_labels = [rules.solo_family_dfam.output.labels] if _FAMILY_DFAM else [],
         summary = rules.solo_plot_summary.output.pdf
 
 

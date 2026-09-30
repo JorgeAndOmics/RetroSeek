@@ -90,6 +90,7 @@ they run as one Snakemake workflow, in dependency order.
 |---|---|---|
 | Setup | `--download-genomes` | Download genomes via NCBI Datasets |
 | | `--download-hmm` | Fetch the pinned Pfam release |
+| | `--download-dfam` | Fetch the pinned Dfam curated models (optional LTR-family labels) |
 | | `--build-reference` | Build the classification reference (Entrez + placement trees; once) |
 | | `--probe-extractor` | Fetch the probe sequences via Entrez |
 | Indexing | `--blast-dbs` | BLAST nucleotide databases per genome |

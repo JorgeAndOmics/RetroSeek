@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   solos per intact element. Pooled families across all genomes
   (`Pool_F001`...) show which families genomes share; on the model genomes none
   are shared.
+- **Optional Dfam labels for LTR families** (`solo_ltr.families.dfam`, off by
+  default): each family's best curated Dfam model, class and score in
+  `ltr_family_dfam.csv`. A new setup stage, `--download-dfam`, fetches the pinned
+  release (`input.dfam_release`, 4.0) beside Pfam.
 - **Code-quality gates**: Qlty (`.qlty/qlty.toml`) measures function complexity
   against a limit of 8, and every function in `workflow/scripts` (Python and R)
   now meets it. `make check` also runs lintr on the R sources (`.lintr.R`, zero
