@@ -35,13 +35,15 @@ Measured on the five model genomes with the POL-first list:
 
 | Setting | Job |
 |---|---|
-| `parameters.main_probes` | Membership: main versus accessory, the mosaic gene set, the completeness count. Order ignored. |
+| `parameters.main_probes` | Membership: main versus accessory, the mosaic gene set, the completeness count. Order ignored once the other two lists are set. |
 | `classification.gene_priority` | Reliability order of the locus call, most reliable first. |
 | `parameters.gene_order` | The genes 5' to 3', any probe name, for `canonical_order` only. |
 
 **`canonical_order` is strand-aware and has three answers.** The listed genes
-present in a locus must lie in `gene_order` along the locus's strand (reversed
-on the minus strand): `True` or `False`. With fewer than two listed genes, or a
+present in a locus must lie in `gene_order` along the locus's strand: `True` or
+`False`. Each gene is placed by its 5' end (start on the plus strand, end on the
+minus strand), so a provirus and its mirror image get the same answer even when
+one gene's span lies inside another's. With fewer than two listed genes, or a
 strand vote that is tied, the column is blank.
 
 **Old configs keep working.** A missing new list falls back to `main_probes` in
@@ -53,15 +55,17 @@ name that is not a probe.
 
 - With `gene_priority` equal to the old `main_probes` order, every taxon call is
   unchanged.
-- `canonical_order` changes. On the model genomes: 1,722 full proviruses go from
-  `False` to `True`; 37 two-gene loci and 10 three-gene loci that run against
-  their strand or are scrambled go from `True` to `False`; 6,216 LTR-flanked loci
-  and 29,640 orphans with nothing to check become blank.
+- `canonical_order` changes. On the model genomes' LTR-flanked loci: 1,721 full
+  proviruses go from `False` to `True`; 43 two-gene loci and 9 three-gene loci
+  that run against their strand or are scrambled go from `True` to `False`; the
+  6,216 loci with fewer than two main genes become blank, as do nearly all
+  orphans, which are single-gene loci.
 - The locus strand is the majority strand of its hits. On the model genomes the
   hits of an LTR-flanked locus never disagree, and 99% of full proviruses follow
   gag, pol, env in that direction, so the strand is a sound reference.
 - Readers of the column must handle the blank: the Parquet tables carry `""`,
-  the catalog CSV an empty field that reads back as missing. The gene-order page
+  the catalog CSV an empty field that reads back as missing. The per-segment
+  tables keep their existing convention for missing values and show `NA`. The gene-order page
   draws only the loci that could be checked and says how many.
 - The ranges manifest now records `main_probes`. The classifier's job log already
   records its full command line, including the three lists.
@@ -75,3 +79,10 @@ name that is not a probe.
 - **A fourth list for the genes a full provirus must have**: would let `PRO` be
   main without lowering completeness. Not needed yet; `main_probes` keeps that
   job.
+
+## Known limit
+
+When no gene of a locus resolves to an axis taxon, the locus call is still the
+first gene with any call in track order, not the first by `gene_priority`. That
+is older behaviour; changing it would change taxon calls and is left for its own
+decision.

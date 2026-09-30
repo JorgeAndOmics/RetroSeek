@@ -344,6 +344,12 @@ class TestGenomeFasta:
         assert sorted(p.name for p in tmp_path.iterdir()) == ["Toyus.fasta"]
 
 
+def v_probe_names(path: Path) -> set[str] | None:
+    import validator as v
+
+    return v.probe_names(path)
+
+
 class TestGeneLists:
     """The three gene lists are checked before a run (ADR-022).
 
@@ -417,6 +423,26 @@ class TestGeneLists:
         )
         assert v.probe_names(csv_file) == {"PR160"}
         assert v.probe_names(tmp_path / "absent.csv") is None
+
+    def test_probe_names_are_not_trimmed(self, tmp_path: Path) -> None:
+        # The pipeline upper-cases a probe name and keeps its spaces, so "POL "
+        # is a different probe from "POL" and the check must say so.
+        csv_file = tmp_path / "probes.csv"
+        csv_file.write_text("Label,Name,Abbreviation,Probe,Accession\nA,V,Va,POL ,P1\n")
+        assert v_probe_names(csv_file) == {"POL "}
+
+    def test_a_damaged_probe_table_gives_no_names_instead_of_a_crash(
+        self, tmp_path: Path
+    ) -> None:
+        ragged = tmp_path / "ragged.csv"
+        ragged.write_text("Label,Name,Abbreviation,Probe,Accession\nA,V\n")
+        latin1 = tmp_path / "latin1.csv"
+        latin1.write_bytes("Label,Probe\nGonz\xe1lez,POL\n".encode("latin-1"))
+        no_column = tmp_path / "no_column.csv"
+        no_column.write_text("Label,Name\nA,V\n")
+        assert v_probe_names(ragged) == set()
+        assert v_probe_names(latin1) is None
+        assert v_probe_names(no_column) is None
 
     def test_an_error_stops_the_preflight_and_a_note_does_not(
         self, caplog: pytest.LogCaptureFixture

@@ -648,16 +648,20 @@ def _canonical_order(lc: dict[str, Any], gene_order: list[str]) -> str:
 
     ``"True"`` or ``"False"``, or ``""`` when there is nothing to check: fewer
     than two of the listed genes are present, or the strand is unknown (its
-    hits' vote was tied). A provirus on the minus strand reads backwards, so
-    its genes must lie in the reverse of the list.
+    hits' vote was tied). Genes are ordered by their 5' end, which is the start
+    coordinate on the plus strand and the end coordinate on the minus strand,
+    so a provirus and its mirror image get the same answer even when one gene's
+    span lies inside another's.
     """
     genes = lc["genes"]
     listed = [g for g in gene_order if g in genes]
     if len(listed) < 2 or lc.get("strand_tie") or lc["strand"] not in ("+", "-"):
         return ""
-    by_position = sorted(listed, key=lambda g: genes[g][0])
-    expected = listed if lc["strand"] == "+" else listed[::-1]
-    return str(by_position == expected)
+    if lc["strand"] == "+":
+        along_strand = sorted(listed, key=lambda g: genes[g][0])
+    else:
+        along_strand = sorted(listed, key=lambda g: -genes[g][1])
+    return str(along_strand == listed)
 
 
 def _structure(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:

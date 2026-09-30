@@ -178,12 +178,17 @@ def gene_list_notes(config: dict[str, object], probes: set[str] | None) -> list[
 def probe_names(csv_file: str | Path) -> set[str] | None:
     """The probe table's gene names, upper-cased as the pipeline uses them.
 
-    None when the table cannot be read; the probe CSV check reports that.
+    Names are not trimmed, because the pipeline does not trim them either. None
+    when the table cannot be read or has no ``Probe`` column; the probe CSV
+    check reports that.
     """
     try:
         with Path(csv_file).open(newline="", encoding="utf-8") as handle:
-            return {row["Probe"].strip().upper() for row in csv.DictReader(handle)}
-    except (OSError, KeyError):
+            reader = csv.DictReader(handle)
+            if "Probe" not in (reader.fieldnames or []):
+                return None
+            return {row["Probe"].upper() for row in reader if row["Probe"]}
+    except (OSError, UnicodeDecodeError, csv.Error):
         return None
 
 

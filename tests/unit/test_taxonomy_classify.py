@@ -196,6 +196,26 @@ class TestGeneLists:
         scrambled = {"POL": (100, 200), "GAG": (300, 500), "ENV": (600, 700)}
         assert self._order(self._locus(scrambled, "+")) == "False"
 
+    def test_a_provirus_and_its_mirror_image_get_the_same_answer(self) -> None:
+        """Genes are ordered by their 5' end: the start on +, the end on -.
+
+        PRO often sits inside the span of a POL polyprotein hit. Sorting both
+        strands by start would call the plus-strand copy rearranged and its
+        minus-strand mirror canonical.
+        """
+        order = ["GAG", "PRO", "POL", "ENV"]
+        plus = {"GAG": (100, 200), "PRO": (250, 290), "POL": (240, 500)}
+        # The same provirus mirrored around position 300.
+        minus = {gene: (600 - end, 600 - start) for gene, (start, end) in plus.items()}
+        assert self._order(self._locus(plus, "+"), order) == "False"
+        assert self._order(self._locus(minus, "-"), order) == "False"
+        nested_after = {"GAG": (100, 200), "POL": (240, 500), "PRO": (250, 290)}
+        mirrored = {g: (600 - e, 600 - s) for g, (s, e) in nested_after.items()}
+        assert (
+            self._order(self._locus(nested_after, "+"), ["GAG", "POL", "PRO"]) == "True"
+        )
+        assert self._order(self._locus(mirrored, "-"), ["GAG", "POL", "PRO"]) == "True"
+
     def test_two_genes_are_enough_to_check(self) -> None:
         assert (
             self._order(self._locus({"GAG": (100, 200), "ENV": (600, 700)})) == "True"

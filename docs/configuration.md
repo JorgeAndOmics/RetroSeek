@@ -50,7 +50,7 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_resize` | int >= 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
 | `ltr_flank_margin` | int >= 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** - typos fail validation. |
-| `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Membership only: the order means nothing. Drives the `probe_type` column on plot dataframes, the `probe_category` attribute on GFF3 tracks, the mosaic gene set, and the count `completeness` divides by. Upper case, each name once. See "The three gene lists" below. |
+| `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Membership only: once `gene_order` and `classification.gene_priority` are set, the order means nothing (while either is missing, it stands in for that list). Drives the `probe_type` column on plot dataframes, the `probe_category` attribute on GFF3 tracks, the mosaic gene set, and the count `completeness` divides by. Upper case, each name once. See "The three gene lists" below. |
 | `gene_order` | ordered list of strings | `[GAG, PRO, POL, ENV]` | The genes 5' to 3' along a provirus, used only by `canonical_order`. Any probe name, main or accessory. Absent: `main_probes` in its written order, with a warning at launch. |
 | `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
 
@@ -62,17 +62,23 @@ list, which could not serve a reliability order (POL first) and a genomic order
 
 | Setting | Job | Order |
 |---|---|---|
-| `parameters.main_probes` | Which genes are main: `probe_type` / `probe_category`, the mosaic gene set (`is_mosaic` looks at these genes only, so an accessory probe such as `P15E` cannot fake a recombination), and the number `completeness` divides by. | Irrelevant |
+| `parameters.main_probes` | Which genes are main: `probe_type` / `probe_category`, the mosaic gene set (`is_mosaic` looks at these genes only, so an accessory probe such as `P15E` cannot fake a recombination), and the number `completeness` divides by. | Irrelevant once the other two lists are set |
 | `classification.gene_priority` | Which gene's call wins when a locus's genes disagree, after `placement` has been preferred over `lca` and before confidence breaks a remaining tie. A gene not listed comes last. | Most reliable first (`POL` first is the usual choice) |
 | `parameters.gene_order` | How the genes lie along a provirus, for `canonical_order`. | 5' to 3' (`GAG, PRO, POL, ENV`) |
 
 **`canonical_order`** has three answers:
 
 - `True`: the listed genes present in the locus lie in `gene_order`, read along
-  the locus's strand (a minus-strand provirus reads backwards).
+  the locus's strand. Each gene is placed by its 5' end (its start on the plus
+  strand, its end on the minus strand), so a provirus and its mirror image get
+  the same answer.
 - `False`: they lie in another order, or run against the strand.
 - blank: nothing to check. The locus has fewer than two of the listed genes, or
   its hits are split evenly between the two strands.
+
+The loci tables and `catalog.csv` write the blank as an empty field. The
+per-segment tables, which R writes, keep their own convention for every missing
+value and show it as `NA` (beside `TRUE` / `FALSE`).
 
 **Rules for all three lists**: upper case, each name once. The launcher stops on
 a repeated or lower-case name, and warns about a name that is not a probe.

@@ -1319,12 +1319,12 @@ _CLASSIFICATION = config.get('classification', {})
 _PLACEMENT = config.get('placement', {}) or {}
 _PLACEMENT_GENES = [g.upper() for g in _CLASSIFICATION.get('placement_genes', ['POL'])]
 # Three gene lists, three jobs (ADR-022): which genes are main, which gene's call
-# wins the locus call, and how the genes lie 5' to 3'. The last two fall back to
-# main_probes, in its written order, for configs that predate them.
-_MAIN_PROBE_LIST = config['parameters'].get('main_probes', [])
-_MAIN_PROBES = ",".join(_MAIN_PROBE_LIST)
-_GENE_PRIORITY = ",".join(_CLASSIFICATION.get('gene_priority') or _MAIN_PROBE_LIST)
-_GENE_ORDER = ",".join(config['parameters'].get('gene_order') or _MAIN_PROBE_LIST)
+# wins the locus call, and how the genes lie 5' to 3'. A config that predates the
+# last two passes them empty, and the classifier then uses main_probes in its
+# written order (the one place that fallback lives).
+_MAIN_PROBES = ",".join(config['parameters'].get('main_probes', []))
+_GENE_PRIORITY = ",".join(_CLASSIFICATION.get('gene_priority') or [])
+_GENE_ORDER = ",".join(config['parameters'].get('gene_order') or [])
 _TAX_SEED = config['parameters'].get('seed', 0)
 # Classification axis (ADR-008, rank-agnostic): explicit reference_taxa (any rank)
 # override the default, which is the distinct probeset Label values (via --probe-csv).

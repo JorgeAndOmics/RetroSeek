@@ -94,18 +94,12 @@ add_structure_companions <- function(df) {
     mutate(
       completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank: NA
       n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank: NA
-      canonical_order = .as_gene_order(.data$canonical_order),
+      # Three answers (ADR-022): TRUE, FALSE, or NA when the locus had fewer than
+      # two of the ordered genes. That blank arrives as "" from the Parquet
+      # tables and as NA from the catalog CSV; as.logical reads both as NA.
+      canonical_order = as.logical(as.character(.data$canonical_order)),
       span_bp         = as.numeric(.data$end) - as.numeric(.data$start) + 1
     )
-}
-
-# The classifier's canonical_order as a logical with three answers (ADR-022):
-# TRUE, FALSE, or NA when the locus had fewer than two of the ordered genes.
-# That blank arrives as "" from the Parquet tables and as NA from the catalog
-# CSV; both must read the same.
-.as_gene_order <- function(x) {
-  value <- toupper(as.character(x))
-  ifelse(value == "TRUE", TRUE, ifelse(value == "FALSE", FALSE, NA))
 }
 
 

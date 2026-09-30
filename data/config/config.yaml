@@ -39,7 +39,8 @@ parameters:
   pair_max_gap: 300000
   # Which probes are MAIN (the others are accessory). Membership only: it drives
   # the main/accessory split, the mosaic gene set and the completeness count.
-  # Its order means nothing. See docs/configuration.md ("The three gene lists").
+  # Its order is read only while gene_order or classification.gene_priority is
+  # missing. See docs/configuration.md ("The three gene lists").
   main_probes:
     - 'POL'
     - 'GAG'
