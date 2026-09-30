@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **LTR families** (ADR-023). The solo-LTR stage groups its bait arms into
+  families with `cd-hit-est`: arms at least `solo_ltr.families.identity` (0.8 by
+  default) identical over the whole shorter arm. New tables per genome: every arm
+  with its family (`Mmus_F001`...), a family summary (size, genus mix and purity,
+  median arm-pair similarity as an age signal) and a family-by-genus table. On the
+  model genomes: 820 families, 97% of elements with both arms in one family.
+  `cd-hit` joins the environment.
 - **Code-quality gates**: Qlty (`.qlty/qlty.toml`) measures function complexity
   against a limit of 8, and every function in `workflow/scripts` (Python and R)
   now meets it. `make check` also runs lintr on the R sources (`.lintr.R`, zero

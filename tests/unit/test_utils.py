@@ -8,6 +8,7 @@ to accept ``str`` arguments (the Snakefile passes string paths), with
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -97,3 +98,9 @@ class TestRandomStringGenerator:
 )
 def test_seqid_is_the_first_word_or_empty(header: str | None, expected: str) -> None:
     assert utils.seqid(header) == expected
+
+
+def test_file_md5_is_the_md5_of_the_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "x.txt"
+    path.write_bytes(b"retro" * 100_000)
+    assert utils.file_md5(path) == hashlib.md5(b"retro" * 100_000).hexdigest()

@@ -651,6 +651,10 @@ rule ranges_analysis:
 # solo_ltr.*.
 _SOLO = config['solo_ltr']
 _SOLO_TREE = _SOLO['tree']
+# LTR families (ADR-023). Optional block: the default is the field's 80% rule,
+# counted over the whole shorter arm.
+_FAMILIES = _SOLO.get('families') or {}
+_FAMILY_IDENTITY = _FAMILIES.get('identity', 0.8)
 
 
 rule solo_bait_builder_setup:
@@ -684,6 +688,38 @@ rule solo_bait_builder:
             os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
             genome=species_with_hits(wildcards)
         )
+
+
+# LTR families (ADR-023): the bait arms grouped by cd-hit-est at
+# solo_ltr.families.identity over the whole shorter arm. Every element joins the
+# family of its arms; the annotator gives each solo its seed arm's family.
+rule solo_family_builder_setup:
+    input:
+        bait_fna = os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+        bait_bed = os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.bed'),
+        loci     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
+        elements = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
+    output:
+        families = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_families.csv'),
+        summary  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
+        genus    = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_genus.csv'),
+        manifest = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ltr_families.manifest.yaml')
+    params:
+        identity = _FAMILY_IDENTITY,
+        workdir  = lambda wildcards: os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', wildcards.genome)
+    log:
+        job_log('solo_family_builder', '{genome}')
+    threads: 4
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_families.py --log {log:q} \
+            --genome {wildcards.genome:q} \
+            --bait-fna {input.bait_fna:q} --bait-bed {input.bait_bed:q} \
+            --loci-csv {input.loci:q} --ltrdigest-gff3 {input.elements:q} \
+            --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
+            --out-families {output.families:q} --out-summary {output.summary:q} \
+            --out-genus {output.genus:q} --out-manifest {output.manifest:q}
+        '''
 
 
 # The hit table is large (421 MB raw for one bat genome from 812 arms), so it is
@@ -1011,6 +1047,10 @@ rule solo_plot_generator:
     input:
         pdfs = lambda wildcards: expand(
             os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
+            genome=species_with_hits(wildcards)
+        ),
+        families = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
             genome=species_with_hits(wildcards)
         ),
         summary = rules.solo_plot_summary.output.pdf

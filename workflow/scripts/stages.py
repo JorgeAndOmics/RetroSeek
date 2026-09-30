@@ -182,7 +182,7 @@ STAGES: tuple[Stage, ...] = (
         "Analysis",
         ("solo_ltr_detector",),
         "Find solo LTRs from the arms of ERV-bearing elements, with the evidence tree.",
-        tools=("blastn", "makeblastdb", "mafft", "iqtree", "Rscript"),
+        tools=("blastn", "makeblastdb", "mafft", "iqtree", "cd-hit-est", "Rscript"),
     ),
     Stage(
         "--hotspot-detection",

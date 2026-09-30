@@ -160,6 +160,9 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ratio.csv` | solo:intact per taxonomic segment |
 | `{genome}.tree_summary.csv` | the tree's positive control, clustering against its null, tip census, seed |
 | `{genome}.tree_adjacency.csv` | which fate sits beside which on the tree, as enrichment |
+| `{genome}.ltr_families.csv` | every bait arm with its element and LTR family (ADR-023; `ltr_family`, e.g. `Mmus_F001`, numbered by size) and whether it is the family's representative |
+| `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
+| `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
 | `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |
 | `{genome}.tree_tips.csv`, `.tree_segments.csv` | the full tree's drawing coordinates, each tip with its class and family |
 | `{genome}.solo_tree_tips.csv`, `.solo_tree_segments.csv` | the solo-only tree's drawing coordinates |
@@ -350,12 +353,11 @@ old solos that have drifted below 95%, families with no intact copy left in the
 genome, and families whose intact copies carry no retroviral protein (non-autonomous
 families such as MaLR), which never become bait. Nothing below is built yet.
 
-**A prerequisite: genome-wide LTR families.** Families exist today only as clades cut
-from each genome's ~950-tip evidence tree, numbered per genome and used by nothing
-else. Clustering **all** bait arms at 80% identity (`cd-hit-est`, already in the
-environment) would give every element a family, and every solo would inherit one
-from its seed as it inherits its genus. That yields a real solos-per-intact-copy table
-per family, and the family alignments the first option needs.
+**Built: genome-wide LTR families** (ADR-023). Every bait arm is grouped by
+`cd-hit-est` at `solo_ltr.families.identity` (80% over the whole shorter arm by
+default), so every element has a family, and every solo inherits one from its seed
+as it inherits its genus. That gives a solos-per-intact-copy table per family, and
+the family alignments the first option below needs.
 
 Options, simplest first:
 

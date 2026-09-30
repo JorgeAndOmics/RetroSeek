@@ -105,6 +105,12 @@ solo_ltr:
   # ratio responds to the two thresholds that matter.
   calibration_lengths: [0, 300, 400, 500]
   calibration_identities: [70, 80, 85, 90, 95, 97, 99]
+  # LTR families (ADR-023): the bait arms grouped at this identity, counted over
+  # the whole shorter arm (cd-hit-est; 0.8 is the lowest it accepts). At 0.8 an
+  # element's two arms share a family 97% of the time on the model genomes; at
+  # 0.9 and above families shatter.
+  families:
+    identity: 0.8
   tree:
     enable: true
     # Elements sampled as flanking-arm tips; both arms of a chosen element are
