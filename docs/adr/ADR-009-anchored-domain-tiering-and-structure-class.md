@@ -1,6 +1,6 @@
 # ADR-009: Anchored domain-tiering, structural ERV class, and orphan relabeling
 
-- **Status**: Accepted
+- **Status**: Accepted (the `canonical_order` column redefined by [ADR-022](ADR-022-three-gene-lists.md))
 - **Date**: 2026-07-09
 - **Deciders**: Jorge González García
 - **Refines**: [ADR-007](ADR-007-taxonomic-classification.md) (per-locus assembly), [ADR-008](ADR-008-rank-agnostic-classification.md)

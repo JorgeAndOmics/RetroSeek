@@ -117,3 +117,35 @@ test_that("rare gene combinations are pooled into one Other bar", {
   expect_equal(nrow(p$data), 31L)
   expect_true("Other (11 combinations)" %in% as.character(p$data$genes_present))
 })
+
+
+# ---------------------------------------------------------------------------
+# canonical_order has three answers (ADR-022): True, False, or blank when the
+# order could not be checked (fewer than two ordered genes, or a tied strand).
+# The Parquet tables carry the blank as "", the catalog CSV as NA; both must
+# read as "not assessable".
+test_that("a blank gene order reads as NA from either table", {
+  df <- tibble::tibble(
+    start = "1", end = "9", completeness = "1.000", n_main_genes = "3",
+    canonical_order = c("True", "False", "", NA)
+  )
+  expect_identical(
+    add_structure_companions(df)$canonical_order,
+    c(TRUE, FALSE, NA, NA)
+  )
+})
+
+test_that("the gene-order page counts only loci that can be assessed", {
+  loci <- .loci()
+  loci$canonical_order <- c(TRUE, NA)
+  counts <- gene_order_counts(loci)
+  expect_equal(counts$species, "Species_A")
+  expect_equal(as.character(counts$order), "canonical")
+  expect_equal(counts$n, 1L)
+})
+
+test_that("the gene-order page says so when no locus can be assessed", {
+  loci <- .loci()
+  loci$canonical_order <- c(NA, NA)
+  expect_match(canonical_order_plot(loci)$labels$title, "No locus")
+})

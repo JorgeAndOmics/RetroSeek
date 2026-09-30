@@ -58,9 +58,10 @@ _UNCLASSIFIED_CALL = {
     "confidence": "0.000",
     "method": "lca",
 }
-# Gene reliability order, the mosaic gene set, and diagnostic genes are all derived at RUNTIME
-# (from the user's ordered --main-probes and from the reference) - never hard-coded - so the
-# classifier is probe/gene-agnostic. See auto_diagnostic() and _assemble().
+# The main gene set, the gene reliability order, the genomic gene order and the
+# diagnostic genes are all derived at RUNTIME (from --main-probes, --gene-priority,
+# --gene-order and the reference), never hard-coded, so the classifier is
+# probe/gene-agnostic. See auto_diagnostic() and _assemble().
 
 
 # ---------------------------------------------------------------- loci + regions
@@ -121,11 +122,19 @@ def _gene_spans(members: list[dict[str, str]]) -> dict[str, tuple[int, int]]:
     return genes
 
 
+def _strand_vote(members: list[dict[str, str]]) -> tuple[str, bool]:
+    """The strand most hits of a locus are on, and whether that vote was tied."""
+    votes = Counter(m["strand"] for m in members).most_common(2)
+    tied = len(votes) == 2 and votes[0][1] == votes[1][1]
+    return votes[0][0], tied
+
+
 def _locus(
     index: int, seqname: str, parent: str, members: list[dict[str, str]]
 ) -> dict[str, Any]:
     """One locus from the features that share its Parent."""
     genes = _gene_spans(members)
+    strand, strand_tie = _strand_vote(members)
     labels = {
         lab.strip() for m in members for lab in m["label"].split(";") if lab.strip()
     }
@@ -133,7 +142,9 @@ def _locus(
         "id": f"L{index}",
         "seqname": seqname,
         "parent": parent,
-        "strand": Counter(m["strand"] for m in members).most_common(1)[0][0],
+        "strand": strand,
+        # A tied vote leaves the direction unknown: canonical_order stays blank.
+        "strand_tie": strand_tie,
         "start": min(s for s, _ in genes.values()),
         "end": max(e for _, e in genes.values()),
         "genes": genes,
@@ -275,6 +286,9 @@ def classify(
     domains_parquet: Path | None = None,
     domain_classes: Path | None = None,
     scanned_txt: Path | None = None,
+    *,
+    gene_priority: list[str] | None = None,
+    gene_order: list[str] | None = None,
 ) -> list[dict[str, str]]:
     """Classify every locus of one genome's valid track; one record per locus.
 
@@ -316,6 +330,8 @@ def classify(
         structure_full_min=structure_full_min,
         source=source,
         segment_rank=segment_rank,
+        gene_priority=gene_priority,
+        gene_order=gene_order,
     )
 
 
@@ -518,8 +534,9 @@ class _Assembly:
     diagnostic: dict[str, str]
     top_percent: float
     axis: set[str]
-    main_probes: list[str]
-    gene_priority: dict[str, int]  # main_probes position: lower = more reliable
+    main_probes: list[str]  # which genes are main; its length is the completeness count
+    gene_priority: dict[str, int]  # position in the reliability list: lower wins
+    gene_order: list[str]  # the genes 5' to 3', for canonical_order
     main_set: set[str]
     ref_version: str
     confidence_min: float
@@ -541,11 +558,16 @@ def _assemble(
     structure_full_min: float = 1.0,
     source: str = "ltr-flanked",
     segment_rank: str = "genus",
+    *,
+    gene_priority: list[str] | None = None,
+    gene_order: list[str] | None = None,
 ) -> list[dict[str, str]]:
     """One output record per locus, from its per-gene evidence.
 
-    Gene reliability and the mosaic gene set are derived from the user's ordered
-    ``main_probes``, never hard-coded.
+    The gene lists come from the user's config, never hard-coded (ADR-022):
+    ``main_probes`` says which genes are main, ``gene_priority`` which gene's
+    call wins (most reliable first), ``gene_order`` how the genes lie 5' to 3'.
+    Either of the last two falls back to ``main_probes`` when not given.
     """
     asm = _Assembly(
         hits=hits,
@@ -554,7 +576,8 @@ def _assemble(
         top_percent=top_percent,
         axis=axis,
         main_probes=main_probes,
-        gene_priority={g: i for i, g in enumerate(main_probes)},
+        gene_priority={g: i for i, g in enumerate(gene_priority or main_probes)},
+        gene_order=gene_order or main_probes,
         main_set=set(main_probes),
         ref_version=ref_version,
         confidence_min=confidence_min,
@@ -600,12 +623,13 @@ def _locus_call(
     """The call a locus reports, picked from its genes' calls.
 
     Among genes resolved to an axis taxon: placement first, then marker
-    reliability (the order of ``main_probes``), then confidence. Raw confidence
-    alone would favour ENV, because it depends on how much competes. With no
-    gene resolved, the first gene with any call is used, else unclassified.
+    reliability (``gene_priority``; a gene it does not list comes last), then
+    confidence. Raw confidence alone would favour ENV, because it depends on how
+    much competes. With no gene resolved, the first gene with any call is used,
+    else unclassified.
     """
     if confident:
-        default_priority = len(asm.main_probes) + 1
+        default_priority = len(asm.gene_priority) + 1
         best_gene = min(
             confident,
             key=lambda g: (
@@ -619,40 +643,49 @@ def _locus_call(
     return ranked[0] if ranked else dict(_UNCLASSIFIED_CALL)
 
 
-def _structure(
-    genes: dict[str, tuple[int, int]], main_probes: list[str], structure_full_min: float
-) -> dict[str, str]:
+def _canonical_order(lc: dict[str, Any], gene_order: list[str]) -> str:
+    """Whether the locus's genes lie in ``gene_order``, read along its strand.
+
+    ``"True"`` or ``"False"``, or ``""`` when there is nothing to check: fewer
+    than two of the listed genes are present, or the strand is unknown (its
+    hits' vote was tied). Genes are ordered by their 5' end, which is the start
+    coordinate on the plus strand and the end coordinate on the minus strand,
+    so a provirus and its mirror image get the same answer even when one gene's
+    span lies inside another's.
+    """
+    genes = lc["genes"]
+    listed = [g for g in gene_order if g in genes]
+    if len(listed) < 2 or lc.get("strand_tie") or lc["strand"] not in ("+", "-"):
+        return ""
+    if lc["strand"] == "+":
+        along_strand = sorted(listed, key=lambda g: genes[g][0])
+    else:
+        along_strand = sorted(listed, key=lambda g: -genes[g][1])
+    return str(along_strand == listed)
+
+
+def _structure(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
     """Structural columns over gene content: count, completeness, order, class.
 
     This loci table IS the genus-founded ERV assembly, so it carries the
     structure the legacy erv_like tier reported.
     """
-    present_main = [g for g in main_probes if g in genes]
-    by_pos = sorted(present_main, key=lambda g: genes[g][0])
-    # `main_probes` IS the declared expected order, by design: the user sets
-    # one list and it serves both gene reliability and this. The reverse is
-    # accepted because a minus-strand provirus reads backwards. Consequence to
-    # keep in mind when reading the column: a POL-first list (best for
-    # reliability) reports canonical=False for a textbook gag -> pol -> env
-    # provirus, since that is neither the list nor its reverse. Loci with <=2
-    # main genes match either way. Documented under "How main_probes is used"
-    # in docs/configuration.md.
-    canonical = bool(present_main) and by_pos in (present_main, present_main[::-1])
-    completeness = len(present_main) / len(main_probes) if main_probes else 0.0
+    present_main = [g for g in asm.main_probes if g in lc["genes"]]
+    completeness = len(present_main) / len(asm.main_probes) if asm.main_probes else 0.0
     # Discrete structural class over gene content (ADR-009): a single main gene
     # is a 'gene' fragment; a multi-gene locus is 'full' once its completeness
     # clears structure_full_min, else 'partial'. Deliberately gene-content only:
     # LTR-pair structure lives in the anchoring axis and the solo-LTR module.
     if len(present_main) <= 1:
         structure_class = "gene"
-    elif completeness >= structure_full_min:
+    elif completeness >= asm.structure_full_min:
         structure_class = "full"
     else:
         structure_class = "partial"
     return {
         "n_main_genes": str(len(present_main)),
         "completeness": f"{completeness:.3f}",
-        "canonical_order": str(canonical),
+        "canonical_order": _canonical_order(lc, asm.gene_order),
         "structure_class": structure_class,
     }
 
@@ -693,7 +726,7 @@ def _locus_record(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
         "strand": lc["strand"],
         "parent": lc["parent"],
         "genes_present": ",".join(sorted(lc["genes"])),
-        **_structure(lc["genes"], asm.main_probes, asm.structure_full_min),
+        **_structure(lc, asm),
         "domain_tier": lc.get("domain_tier", "non_domain"),
         "domain_evidence": lc.get("domain_evidence", "none"),
         "domain_names": lc.get("domain_names", ""),
@@ -898,8 +931,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--main-probes",
         default="POL,GAG,ENV,PRO",
-        help="ordered gene reliability for the locus call + the mosaic gene set "
-        "(earlier = preferred). Drives gene-agnostic behaviour; no gene hard-coded.",
+        help="the main genes: the mosaic gene set and the completeness count. "
+        "No gene is hard-coded.",
+    )
+    p.add_argument(
+        "--gene-priority",
+        default="",
+        help="gene reliability for the locus call, most reliable first "
+        "(default: the --main-probes order)",
+    )
+    p.add_argument(
+        "--gene-order",
+        default="",
+        help="the genes 5' to 3', for canonical_order; any probe name "
+        "(default: the --main-probes order)",
     )
     p.add_argument(
         "--placement-genes",
@@ -1028,16 +1073,19 @@ def _write_outputs(a: argparse.Namespace, records: list[dict[str, str]]) -> None
         logger.info("wrote track: %s", a.out_gff3)
 
 
+def _comma_list(text: str) -> list[str]:
+    """A comma-separated gene list from the command line, upper-cased, blanks dropped."""
+    return [gene.strip().upper() for gene in text.split(",") if gene.strip()]
+
+
 def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
     """Run `classify` with the command line's inputs and settings."""
-    pgenes = {g.strip().upper() for g in a.placement_genes.split(",") if g.strip()}
-    main_probes = [g.strip().upper() for g in a.main_probes.split(",") if g.strip()]
     return classify(
         a.gff3,
         a.genome,
         a.ref_dir,
-        pgenes,
-        main_probes,
+        set(_comma_list(a.placement_genes)),
+        _comma_list(a.main_probes),
         a.workdir,
         evalue=a.evalue,
         threads=a.threads,
@@ -1052,6 +1100,8 @@ def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
         domains_parquet=a.domains_parquet,
         domain_classes=a.domain_classes,
         scanned_txt=a.domains_scanned,
+        gene_priority=_comma_list(a.gene_priority),
+        gene_order=_comma_list(a.gene_order),
     )
 
 

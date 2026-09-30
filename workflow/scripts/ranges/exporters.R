@@ -146,6 +146,7 @@ emit_manifest <- function(args, generator_version, opts, path) {
       bitscore_threshold = opts$bitscore_threshold,
       identity_threshold = opts$identity_threshold,
       merge_option       = opts$merge_option,
+      main_probes        = as.list(opts$main_probes),
       probe_min_length   = as.list(opts$probe_min_length),
       aggregation        = list(
         virus = opts$agg_virus, label = opts$agg_label,

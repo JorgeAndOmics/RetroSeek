@@ -94,7 +94,11 @@ add_structure_companions <- function(df) {
     mutate(
       completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank: NA
       n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank: NA
-      canonical_order = toupper(as.character(.data$canonical_order)) == "TRUE",
+      # Three answers (ADR-022): TRUE, FALSE, or NA when the order could not be
+      # checked (fewer than two ordered genes, or a tied strand vote). That blank
+      # arrives as "" from the Parquet tables and as NA from the catalog CSV;
+      # as.logical reads both as NA.
+      canonical_order = as.logical(as.character(.data$canonical_order)),
       span_bp         = as.numeric(.data$end) - as.numeric(.data$start) + 1
     )
 }
@@ -237,21 +241,32 @@ gene_combinations_plot <- function(loci) {
   )
 }
 
-# Canonical versus rearranged main-gene order, per host.
-canonical_order_plot <- function(loci, ctx = NULL) {
-  if (nrow(loci) == 0L) return(empty_plot("No loci"))
-  d <- loci %>%
+# Loci per host whose gene order could be checked, canonical or rearranged. A
+# locus with fewer than two of the ordered genes, or a tied strand vote, has
+# nothing to check and is left out.
+gene_order_counts <- function(loci) {
+  loci %>%
+    filter(!is.na(.data$canonical_order)) %>%
     mutate(order = ifelse(.data$canonical_order, "canonical", "rearranged")) %>%
     count(.data$species, .data$order, name = "n")
+}
+
+# Canonical versus rearranged gene order, per host.
+canonical_order_plot <- function(loci, ctx = NULL) {
+  if (nrow(loci) == 0L) return(empty_plot("No loci"))
+  d <- gene_order_counts(loci)
+  if (nrow(d) == 0L) return(empty_plot("No locus with two ordered genes"))
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
     geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     scale_fill_manual(values = c(canonical = .GREY_MID, rearranged = .DATA_COLOUR),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
+    labs(x = NULL, y = "Share of loci with two or more ordered genes", fill = NULL)
   p <- add_titles(
     p, "Gene order",
-    "Main genes in the configured order along the element, or rearranged."
+    sprintf(paste("Genes in the configured 5' to 3' order along the locus's",
+                  "strand, or rearranged. %s of %s loci could be checked."),
+            scales::comma(sum(d$n)), scales::comma(nrow(loci)))
   )
   on_rows(p, d$species, ctx)
 }

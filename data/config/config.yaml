@@ -37,19 +37,22 @@ parameters:
   merge_option: 'virus'
   probe_to_pair: 'ENV'
   pair_max_gap: 300000
-  # ORDERED, and the order is read in two places that want different things:
-  #   gene reliability - first = most reliable, wins the locus taxon call (POL)
-  #   canonical gene order - canonical_order/is_canonical compare a locus's
-  #                          genomic gene order against this list or its reverse
-  # The retroviral genome is 5'-gag-pro-pol-env-3', so a POL-first list gives the
-  # best taxon calls and reports canonical_order=false for a textbook provirus.
-  # Order for whichever column you intend to read; see docs/configuration.md
-  # ("How main_probes is used"). Loci with <=2 main genes are unaffected.
+  # Which probes are MAIN (the others are accessory). Membership only: it drives
+  # the main/accessory split, the mosaic gene set and the completeness count.
+  # Its order is read only while gene_order or classification.gene_priority is
+  # missing. See docs/configuration.md ("The three gene lists").
   main_probes:
     - 'POL'
     - 'GAG'
     - 'ENV'
     - 'PRO'
+  # The genes 5' to 3' along a provirus, for canonical_order. Any probe name,
+  # main or accessory. Absent: main_probes in its written order.
+  gene_order:
+    - 'GAG'
+    - 'PRO'
+    - 'POL'
+    - 'ENV'
   probe_min_length:
     GAG: 200
     POL: 400
@@ -150,6 +153,13 @@ classification:
     - 'POL'
     - 'GAG'
     - 'ENV'
+  # Which gene's call wins the locus call, most reliable first (after
+  # placement beats weighted-LCA). Absent: main_probes in its written order.
+  gene_priority:
+    - 'POL'
+    - 'GAG'
+    - 'ENV'
+    - 'PRO'
   search: blastx
   evalue: 0.001
   top_percent: 0.10

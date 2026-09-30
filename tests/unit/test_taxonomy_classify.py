@@ -148,6 +148,150 @@ class TestBuildLoci:
         assert locus["genes"]["POL"] == (100, 260)
 
 
+_GENE_ORDER = ["GAG", "POL", "ENV"]  # 5' to 3'
+_MAIN_PROBES = ["POL", "GAG", "ENV"]  # the owner's list: POL first
+
+
+class TestGeneLists:
+    """Three lists, three jobs (ADR-022).
+
+    ``main_probes`` says which genes are main, ``gene_priority`` which gene's
+    call wins, ``gene_order`` how the genes lie 5' to 3'. They used to be one
+    list, so a POL-first list (best calls) marked a textbook provirus as not
+    canonical.
+    """
+
+    @staticmethod
+    def _locus(genes: dict[str, tuple[int, int]], strand: str = "+", **extra) -> dict:
+        return {
+            "id": "L0",
+            "seqname": "chr1",
+            "parent": "r",
+            "strand": strand,
+            "start": min(s for s, _ in genes.values()),
+            "end": max(e for _, e in genes.values()),
+            "genes": genes,
+            "probe_label_set": "",
+            **extra,
+        }
+
+    def _order(self, locus: dict, gene_order: list[str] | None = None) -> str:
+        rec = tcl._assemble(
+            [locus], {}, {}, "vTEST", _MAIN_PROBES, {}, 0.10, _AXIS,
+            gene_order=gene_order or _GENE_ORDER,
+        )[0]  # fmt: skip
+        return rec["canonical_order"]
+
+    def test_a_textbook_provirus_is_canonical_on_its_own_strand(self) -> None:
+        forward = {"GAG": (100, 200), "POL": (300, 500), "ENV": (600, 700)}
+        backward = {"ENV": (100, 200), "POL": (300, 500), "GAG": (600, 700)}
+        assert self._order(self._locus(forward, "+")) == "True"
+        assert self._order(self._locus(backward, "-")) == "True"
+
+    def test_genes_running_against_the_strand_are_not_canonical(self) -> None:
+        forward = {"GAG": (100, 200), "POL": (300, 500), "ENV": (600, 700)}
+        assert self._order(self._locus(forward, "-")) == "False"
+
+    def test_a_scrambled_provirus_is_not_canonical(self) -> None:
+        scrambled = {"POL": (100, 200), "GAG": (300, 500), "ENV": (600, 700)}
+        assert self._order(self._locus(scrambled, "+")) == "False"
+
+    def test_a_provirus_and_its_mirror_image_get_the_same_answer(self) -> None:
+        """Genes are ordered by their 5' end: the start on +, the end on -.
+
+        PRO often sits inside the span of a POL polyprotein hit. Sorting both
+        strands by start would call the plus-strand copy rearranged and its
+        minus-strand mirror canonical.
+        """
+        order = ["GAG", "PRO", "POL", "ENV"]
+        plus = {"GAG": (100, 200), "PRO": (250, 290), "POL": (240, 500)}
+        # The same provirus mirrored around position 300.
+        minus = {gene: (600 - end, 600 - start) for gene, (start, end) in plus.items()}
+        assert self._order(self._locus(plus, "+"), order) == "False"
+        assert self._order(self._locus(minus, "-"), order) == "False"
+        nested_after = {"GAG": (100, 200), "POL": (240, 500), "PRO": (250, 290)}
+        mirrored = {g: (600 - e, 600 - s) for g, (s, e) in nested_after.items()}
+        assert (
+            self._order(self._locus(nested_after, "+"), ["GAG", "POL", "PRO"]) == "True"
+        )
+        assert self._order(self._locus(mirrored, "-"), ["GAG", "POL", "PRO"]) == "True"
+
+    def test_two_genes_are_enough_to_check(self) -> None:
+        assert (
+            self._order(self._locus({"GAG": (100, 200), "ENV": (600, 700)})) == "True"
+        )
+        assert (
+            self._order(self._locus({"ENV": (100, 200), "GAG": (600, 700)})) == "False"
+        )
+
+    def test_fewer_than_two_listed_genes_cannot_be_checked(self) -> None:
+        assert self._order(self._locus({"POL": (100, 200)})) == ""
+        assert self._order(self._locus({"POL": (100, 200), "REC": (300, 400)})) == ""
+
+    def test_a_tied_or_unknown_strand_cannot_be_checked(self) -> None:
+        genes = {"GAG": (100, 200), "POL": (300, 500)}
+        assert self._order(self._locus(genes, "+", strand_tie=True)) == ""
+        assert self._order(self._locus(genes, "")) == ""
+
+    def test_an_accessory_gene_can_take_part_in_the_order(self) -> None:
+        locus = self._locus({"GAG": (100, 200), "PRO": (250, 290), "POL": (300, 500)})
+        rec = tcl._assemble(
+            [locus], {}, {}, "vTEST", _MAIN_PROBES, {}, 0.10, _AXIS,
+            gene_order=["GAG", "PRO", "POL", "ENV"],
+        )[0]  # fmt: skip
+        assert rec["canonical_order"] == "True"
+        assert rec["n_main_genes"] == "2"  # PRO orders, it does not count as main
+        assert rec["completeness"] == f"{2 / 3:.3f}"
+
+    def test_without_a_gene_order_the_main_list_is_used(self) -> None:
+        locus = self._locus({"POL": (100, 200), "GAG": (300, 500)})
+        rec = tcl._assemble([locus], {}, {}, "vTEST", _MAIN_PROBES, {}, 0.10, _AXIS)[0]
+        assert rec["canonical_order"] == "True"  # POL then GAG, as MAIN lists them
+
+    def test_the_winning_gene_follows_gene_priority_not_main_probes(self) -> None:
+        locus = self._locus({"POL": (100, 200), "GAG": (300, 500)})
+        hits = {
+            "L0|POL": [("Gammaretrovirus", 100.0)],
+            "L0|GAG": [("Betaretrovirus", 100.0)],
+        }
+        gag_first = ["GAG", "POL"]
+        by_main = tcl._assemble([locus], hits, {}, "v", gag_first, {}, 0.10, _AXIS)[0]
+        by_priority = tcl._assemble(
+            [locus], hits, {}, "v", gag_first, {}, 0.10, _AXIS,
+            gene_priority=["POL", "GAG"],
+        )[0]  # fmt: skip
+        assert by_main["taxon_call"] == "Betaretrovirus"
+        assert by_priority["taxon_call"] == "Gammaretrovirus"
+
+    def test_a_listed_gene_outranks_an_unlisted_one(self) -> None:
+        # The priority list may be longer than main_probes: an unlisted gene must
+        # still come after every listed one.
+        locus = self._locus({"ENV": (100, 200), "REC": (300, 400)})
+        hits = {
+            "L0|ENV": [("Gammaretrovirus", 100.0)],
+            "L0|REC": [("Betaretrovirus", 100.0)],
+        }
+        rec = tcl._assemble(
+            [locus], hits, {}, "v", ["POL"], {}, 0.10, _AXIS,
+            gene_priority=["POL", "GAG", "ENV"],
+        )[0]  # fmt: skip
+        assert rec["taxon_call"] == "Gammaretrovirus"
+
+    def test_a_split_strand_vote_is_flagged_on_the_locus(self) -> None:
+        feats = [
+            {"seqname": "c", "start": "1", "end": "9", "strand": strand, "gene": gene,
+             "parent": "r", "label": ""}
+            for strand, gene in (("+", "GAG"), ("-", "POL"))
+        ]  # fmt: skip
+        assert tcl.build_loci(feats)[0]["strand_tie"] is True
+        feats[1]["strand"] = "+"
+        assert tcl.build_loci(feats)[0]["strand_tie"] is False
+
+    def test_gene_lists_are_read_upper_cased_from_the_command_line(self) -> None:
+        assert tcl._comma_list(" pol, gag,,ENV ") == ["POL", "GAG", "ENV"]
+        assert tcl._comma_list("") == []
+
+
 class TestAssembleStructure:
     def _locus(self, genes: dict[str, tuple[int, int]]) -> dict:
         return {
@@ -161,8 +305,8 @@ class TestAssembleStructure:
             "probe_label_set": "",
         }
 
-    def test_completeness_and_canonical_order(self) -> None:
-        # POL then GAG genomically, main order POL,GAG -> canonical, 2/3 complete.
+    def test_completeness_and_the_locus_call(self) -> None:
+        # Two of three main genes: 2/3 complete. (Gene order: TestGeneLists.)
         loci = [self._locus({"POL": (100, 200), "GAG": (210, 300)})]
         hits = {
             "L0|POL": [("Gammaretrovirus", 100.0)],
@@ -172,7 +316,6 @@ class TestAssembleStructure:
             loci, hits, {}, "vTEST", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS
         )[0]
         assert rec["completeness"] == f"{2 / 3:.3f}"
-        assert rec["canonical_order"] == "True"
         assert rec["n_main_genes"] == "2"
         assert rec["taxon_call"] == "Gammaretrovirus"
         assert rec["resolved"] == "True"

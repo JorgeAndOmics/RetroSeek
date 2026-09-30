@@ -30,6 +30,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 019   | [Pin the Pfam release and record it](ADR-019-pinned-pfam-release.md) | Accepted |
 | 020   | [One stage table, one workflow per run, and a guard on the heavy searches](ADR-020-one-stage-table-one-workflow.md) | Accepted |
 | 021   | [One console convention, drawn by the launcher](ADR-021-one-console-convention.md) | Accepted |
+| 022   | [Three gene lists, one job each](ADR-022-three-gene-lists.md) | Accepted |
 
 ## When to write a new ADR
 

@@ -47,6 +47,7 @@ parameters_schema:
   probe_to_pair: str(required=False)
   pair_max_gap: num(min=0)
   main_probes: list(str())
+  gene_order: list(str(), required=False)
   probe_min_length: map(int(min=0), key=str())
   aggregation: include('aggregation_schema', required=False)
 
@@ -94,6 +95,7 @@ placement_schema:
 classification_schema:
   enable:          bool()
   placement_genes: list(str())
+  gene_priority:   list(str(), required=False)
   search:          str(matches='^(blastx)$')
   evalue:          num(min=0)
   top_percent:     num(min=0, max=1)

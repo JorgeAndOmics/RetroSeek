@@ -1318,7 +1318,13 @@ rule domain_scanner:
 _CLASSIFICATION = config.get('classification', {})
 _PLACEMENT = config.get('placement', {}) or {}
 _PLACEMENT_GENES = [g.upper() for g in _CLASSIFICATION.get('placement_genes', ['POL'])]
+# Three gene lists, three jobs (ADR-022): which genes are main, which gene's call
+# wins the locus call, and how the genes lie 5' to 3'. A config that predates the
+# last two passes them empty, and the classifier then uses main_probes in its
+# written order (the one place that fallback lives).
 _MAIN_PROBES = ",".join(config['parameters'].get('main_probes', []))
+_GENE_PRIORITY = ",".join(_CLASSIFICATION.get('gene_priority') or [])
+_GENE_ORDER = ",".join(config['parameters'].get('gene_order') or [])
 _TAX_SEED = config['parameters'].get('seed', 0)
 # Classification axis (ADR-008, rank-agnostic): explicit reference_taxa (any rank)
 # override the default, which is the distinct probeset Label values (via --probe-csv).
@@ -1427,6 +1433,8 @@ rule taxonomy_classify_setup:
     params:
         ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
         main_probes     = _MAIN_PROBES,
+        gene_priority   = _GENE_PRIORITY,
+        gene_order      = _GENE_ORDER,
         placement_genes = ",".join(_PLACEMENT_GENES),
         evalue          = _CLASSIFICATION.get('evalue', 0.001),
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
@@ -1444,6 +1452,7 @@ rule taxonomy_classify_setup:
         PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py --log {log:q} {input.valid:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
+            --gene-priority {params.gene_priority:q} --gene-order {params.gene_order:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
@@ -1516,6 +1525,8 @@ rule taxonomy_orphans_setup:
     params:
         ref_dir         = defaults.PATH_DICT['TAXONOMY_REFERENCE_DIR'],
         main_probes     = _MAIN_PROBES,
+        gene_priority   = _GENE_PRIORITY,
+        gene_order      = _GENE_ORDER,
         placement_genes = ",".join(_PLACEMENT_GENES),
         evalue          = _CLASSIFICATION.get('evalue', 0.001),
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
@@ -1533,6 +1544,7 @@ rule taxonomy_orphans_setup:
         PYTHONPATH=scripts python scripts/taxonomy/taxonomy_classify_loci.py --log {log:q} {input.orphans:q} {input.genome:q} \
             --ref-dir {params.ref_dir:q} \
             --main-probes {params.main_probes:q} \
+            --gene-priority {params.gene_priority:q} --gene-order {params.gene_order:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
             --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
