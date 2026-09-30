@@ -1,6 +1,6 @@
 # ADR-007: Per-locus ERV taxonomic classification (genus calls)
 
-- **Status**: Accepted (genus-rooting superseded in part by [ADR-008](ADR-008-rank-agnostic-classification.md))
+- **Status**: Accepted (genus-rooting superseded in part by [ADR-008](ADR-008-rank-agnostic-classification.md); the use of the `main_probes` order for reliability and gene order superseded by [ADR-022](ADR-022-three-gene-lists.md))
 - **Date**: 2026-06-18
 - **Deciders**: Jorge González García
 

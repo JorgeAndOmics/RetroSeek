@@ -88,9 +88,8 @@ read_pipeline_options <- function(config) {
     identity_threshold  = as.numeric(config$parameters$identity_threshold %||% 0),
     ltr_resize          = as.numeric(config$parameters$ltr_resize         %||% 0),
     merge_option        = config$parameters$merge_option %||% "virus",
-    # main_probes order is load-bearing: it defines the canonical gene order and
-    # per-locus marker reliability used by the taxonomic classifier. unique()
-    # preserves first-seen order, so keep it.
+    # Which probes are main: membership only (ADR-022). The launcher's preflight
+    # rejects a repeated or non-upper-case name before a run gets here.
     main_probes         = unique(config$parameters$main_probes),
     agg_virus           = agg$virus            %||% "list",
     agg_label           = agg$label            %||% "list",

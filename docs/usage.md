@@ -179,7 +179,8 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 - **`parameters`** - core thresholds and filters:
   - `identity_threshold`, `bitscore_threshold` - BLAST hit filters.
   - `probe_min_length` - per-probe minimum alignment length.
-  - `main_probes` - probes subject to Pfam-domain validation.
+  - `main_probes` - which probes are main (the rest are accessory); membership only.
+  - `gene_order` - the genes 5' to 3', for the `canonical_order` column.
   - `merge_option` - how overlapping ranges collapse (`virus` or `label`, strict enum).
   - `aggregation` - per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
   - Pair settings: `probe_to_pair`, `pair_max_gap`.
@@ -187,7 +188,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 - **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`catalog` | `original`), `group_by`, `source`, `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
 - **`solo_ltr`** - native solo-LTR detection (ADR-017): the acceptance thresholds (`min_bait_length`, `min_hit_length`, `min_identity`, the coverage window), the monoLTR-at-orphan distance (`orphan_pad`), the blastn settings, and a `tree:` subblock for the evidence phylogeny. Every value the method depends on lives here; the scripts carry no defaults of their own. See [`docs/configuration.md`](configuration.md#solo_ltr) and [`docs/solo_ltr.md`](solo_ltr.md).
 - **`placement`** - colour scale for the published heat-trees: `mass_norm` (`absolute` | `relative`).
-- **`classification`** - per-locus ERV taxon calls, rank-agnostic since ADR-008 (`reference_taxa` sets the axis, `segment_rank` the roll-up): `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification) and [ADR-007](adr/ADR-007-taxonomic-classification.md).
+- **`classification`** - per-locus ERV taxon calls, rank-agnostic since ADR-008 (`reference_taxa` sets the axis, `segment_rank` the roll-up): `enable`, `placement_genes` (default `[POL, GAG, ENV]`), `gene_priority` (which gene's call wins), `search` (`blastx`), `evalue`, `top_percent` (weighted-LCA band), `min_orf`, `confidence_min`, `structure_full_min`, `segment_rank`, `reference_taxa`. Reuses `parameters.seed` / `parameters.main_probes` / `parameters.gene_order` / `execution.entrez_email`. See [`docs/configuration.md`](configuration.md#classification), [ADR-007](adr/ADR-007-taxonomic-classification.md) and [ADR-022](adr/ADR-022-three-gene-lists.md).
 - **`plots`** - segment page selection, axis scales, Sankey and waffle settings, page growth per genome (`per_stratum`).
 - **`execution`** - parallelism and API politeness:
   - `num_cores`, `max_threadpool_workers`.
@@ -206,7 +207,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 
 The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/_input/` (not tracked - user-provided).
 
-Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.probe_min_length`, `config.domains`, and `config.parameters.probe_to_pair`.
+Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.gene_order`, `config.classification.gene_priority`, `config.parameters.probe_min_length` and `config.parameters.probe_to_pair`. The launcher stops on a lower-case or repeated name in the three gene lists.
 
 ## Resuming after interruption
 

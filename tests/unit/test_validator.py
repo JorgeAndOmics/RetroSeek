@@ -25,6 +25,8 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 class TestGreenLight:
     """Interactive confirmation behaviour."""
@@ -340,3 +342,96 @@ class TestGenomeFasta:
         self._fasta(tmp_path / "Toyus.fasta")
         v.genome_fasta(tmp_path, "Toyus")
         assert sorted(p.name for p in tmp_path.iterdir()) == ["Toyus.fasta"]
+
+
+class TestGeneLists:
+    """The three gene lists are checked before a run (ADR-022).
+
+    ``main_probes`` (which genes are main), ``classification.gene_priority``
+    (which gene's call wins) and ``parameters.gene_order`` (5' to 3'). R and
+    Python read them differently when a name repeats or is not upper case, so
+    those stop the run; a missing list only warns, because it falls back to
+    ``main_probes``.
+    """
+
+    @staticmethod
+    def _config(main: list[str], order: object = None, priority: object = None) -> dict:
+        parameters: dict[str, object] = {"main_probes": main}
+        classification: dict[str, object] = {}
+        if order is not None:
+            parameters["gene_order"] = order
+        if priority is not None:
+            classification["gene_priority"] = priority
+        return {"parameters": parameters, "classification": classification}
+
+    def test_a_clean_config_has_no_errors_and_no_notes(self) -> None:
+        import validator as v
+
+        config = self._config(["POL", "GAG"], ["GAG", "POL"], ["POL", "GAG"])
+        assert v.gene_list_errors(config) == []
+        assert v.gene_list_notes(config, {"POL", "GAG", "ENV"}) == []
+
+    def test_a_repeated_name_is_an_error(self) -> None:
+        import validator as v
+
+        (error,) = v.gene_list_errors(self._config(["POL", "GAG", "POL"], [], []))
+        assert "parameters.main_probes" in error
+        assert "POL" in error
+
+    def test_a_name_that_is_not_upper_case_is_an_error(self) -> None:
+        import validator as v
+
+        (error,) = v.gene_list_errors(self._config(["POL"], ["Gag", "POL"], ["POL"]))
+        assert "parameters.gene_order" in error
+        assert "Gag" in error
+
+    def test_a_missing_list_is_noted_with_its_fallback(self) -> None:
+        import validator as v
+
+        notes = v.gene_list_notes(self._config(["POL", "GAG"]), {"POL", "GAG"})
+        assert len(notes) == 2
+        assert any("parameters.gene_order" in note for note in notes)
+        assert any("classification.gene_priority" in note for note in notes)
+        assert all("POL, GAG" in note for note in notes)
+
+    def test_a_listed_name_that_is_no_probe_is_noted(self) -> None:
+        import validator as v
+
+        config = self._config(["POL"], ["GAG", "PRO", "POL"], ["POL"])
+        (note,) = v.gene_list_notes(config, {"POL", "GAG"})
+        assert "PRO" in note
+        assert "parameters.gene_order" in note
+
+    def test_no_probe_table_means_no_name_check(self) -> None:
+        import validator as v
+
+        config = self._config(["POL"], ["GAG", "POL"], ["POL"])
+        assert v.gene_list_notes(config, None) == []
+
+    def test_probe_names_are_read_upper_cased(self, tmp_path: Path) -> None:
+        import validator as v
+
+        csv_file = tmp_path / "probes.csv"
+        csv_file.write_text(
+            "Label,Name,Abbreviation,Probe,Accession\nA,V,Va,Pr160,P1\n"
+        )
+        assert v.probe_names(csv_file) == {"PR160"}
+        assert v.probe_names(tmp_path / "absent.csv") is None
+
+    def test_an_error_stops_the_preflight_and_a_note_does_not(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        import validator as v
+
+        def run(config: dict) -> bool:
+            with (
+                patch.object(v, "yaml_validator", return_value=True),
+                patch.object(v.defaults, "config", config),
+                patch.object(v, "probe_names", return_value=None),
+            ):
+                return v.preflight([])
+
+        with caplog.at_level("WARNING"):
+            assert run(self._config(["POL", "GAG"])) is True
+        assert "parameters.gene_order" in caplog.text
+        assert run(self._config(["POL", "POL"], ["POL"], ["POL"])) is False

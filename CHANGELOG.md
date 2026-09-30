@@ -37,6 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Three gene lists instead of one** (ADR-022). `parameters.main_probes` now only
+  says which genes are main. Two new settings take over its other jobs:
+  `classification.gene_priority` (which gene's call wins the locus call) and
+  `parameters.gene_order` (the genes 5' to 3'). A config without them falls back
+  to `main_probes` and gets a warning at launch; its taxon calls do not change.
+- **`canonical_order` means what it says.** It is checked against `gene_order`
+  along the locus's strand and has three answers: `True`, `False`, or blank when
+  a locus has fewer than two of the listed genes. With a POL-first `main_probes`
+  it used to read `False` for nearly every full provirus. The gene-order page
+  now draws only the loci that could be checked.
+- The launcher stops on a repeated or lower-case name in the gene lists, and
+  warns about a listed name that is not a probe. The ranges manifest records
+  `main_probes`.
 - The README's demo figures were regenerated from the current model-genome run.
   Retroviral genera now show under their real names and house colours; host
   species and provirus names stay anonymised.

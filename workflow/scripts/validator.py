@@ -9,6 +9,7 @@ skipped with `-skp`.
 # DEPENDENCIES
 # -------------------
 
+import csv
 import logging
 import os
 import shutil
@@ -89,6 +90,101 @@ def retired_key_messages(config: dict[str, object]) -> list[str]:
         for path, replacement in RETIRED_KEYS.items()
         if _value_at(config, path) is not None
     ]
+
+
+# -----------------------------
+# THE THREE GENE LISTS (ADR-022)
+# -----------------------------
+
+_MAIN_PROBES = ("parameters", "main_probes")
+# The two newer lists, and what happens while a config does not set them.
+_GENE_LIST_FALLBACKS: dict[tuple[str, ...], str] = {
+    ("parameters", "gene_order"): (
+        "canonical_order compares each locus's genes with the order of main_probes "
+        "({order}), which is rarely their 5' to 3' order"
+    ),
+    ("classification", "gene_priority"): (
+        "the locus call ranks genes in the order of main_probes ({order})"
+    ),
+}
+
+
+def _gene_list(config: dict[str, object], path: tuple[str, ...]) -> list[str]:
+    """The gene names at a config path; an absent or non-list value is no names."""
+    value = _value_at(config, path)
+    return [str(name) for name in value] if isinstance(value, list) else []
+
+
+def _list_errors(key: str, names: list[str]) -> list[str]:
+    """What is wrong with one gene list: a repeated name, or one not in upper case."""
+    errors = []
+    repeated = sorted({name for name in names if names.count(name) > 1})
+    if repeated:
+        errors.append(
+            f"Config list `{key}` repeats {', '.join(repeated)}; list each gene once."
+        )
+    not_upper = [name for name in names if name != name.upper()]
+    if not_upper:
+        errors.append(
+            f"Config list `{key}` has names that are not upper case "
+            f"({', '.join(not_upper)}); the pipeline upper-cases probe names."
+        )
+    return errors
+
+
+def gene_list_errors(config: dict[str, object]) -> list[str]:
+    """Problems in the three gene lists that must stop a run.
+
+    The R and the Python halves of the pipeline read these lists separately, and
+    they agree only on unique, upper-case names.
+    """
+    return [
+        error
+        for path in (_MAIN_PROBES, *_GENE_LIST_FALLBACKS)
+        for error in _list_errors(".".join(path), _gene_list(config, path))
+    ]
+
+
+def gene_list_notes(config: dict[str, object], probes: set[str] | None) -> list[str]:
+    """Things about the gene lists worth a warning, not a stop.
+
+    A list the config does not set falls back to ``main_probes``, and the note
+    says what that means. A listed name that is not a probe is probably a typo.
+
+    Args:
+        config: The loaded configuration.
+        probes: The probe table's upper-cased gene names, or None when the table
+            could not be read (the names are then not checked).
+    """
+    main_order = ", ".join(_gene_list(config, _MAIN_PROBES))
+    notes = []
+    for path in (_MAIN_PROBES, *_GENE_LIST_FALLBACKS):
+        key, names = ".".join(path), _gene_list(config, path)
+        if not names and path in _GENE_LIST_FALLBACKS:
+            consequence = _GENE_LIST_FALLBACKS[path].format(order=main_order)
+            notes.append(
+                f"Config list `{key}` is not set: {consequence}. Add it to the "
+                'config (docs/configuration.md, "The three gene lists").'
+            )
+        unknown = [name for name in names if probes is not None and name not in probes]
+        if unknown:
+            notes.append(
+                f"Config list `{key}` names {', '.join(unknown)}, which the probe "
+                "table does not contain."
+            )
+    return notes
+
+
+def probe_names(csv_file: str | Path) -> set[str] | None:
+    """The probe table's gene names, upper-cased as the pipeline uses them.
+
+    None when the table cannot be read; the probe CSV check reports that.
+    """
+    try:
+        with Path(csv_file).open(newline="", encoding="utf-8") as handle:
+            return {row["Probe"].strip().upper() for row in csv.DictReader(handle)}
+    except (OSError, KeyError):
+        return None
 
 
 def yaml_validator(yaml_file: str | Path, yaml_schema: str) -> bool:
@@ -340,9 +436,11 @@ def preflight(chosen: list[stages.Stage]) -> bool:
     """Checks that take seconds and save hours; `-skp` does not skip them.
 
     The config against its schema, the tools the chosen stages call, genome
-    FASTA files that cannot be told apart, and, for stages that read the curated
-    Pfam subset, the Pfam library itself. Schema problems are logged by
-    `yaml_validator`, the others as errors, each check's before the next starts.
+    FASTA files that cannot be told apart, the three gene lists, and, for stages
+    that read the curated Pfam subset, the Pfam library itself. Schema problems
+    are logged by `yaml_validator`, the others as errors, each check's before the
+    next starts. Gene-list notes (a list not set, a name that is no probe) are
+    warnings and do not stop the run.
     """
     schema_ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
@@ -353,8 +451,11 @@ def preflight(chosen: list[stages.Stage]) -> bool:
     tools_ok = _report(_tools_problem(chosen))
     species_db = Path(defaults.PATH_DICT["SPECIES_DB"])
     genomes_ok = _report(*ambiguous_genomes(species_db, defaults.SPECIES))
+    genes_ok = _report(*gene_list_errors(defaults.config))
+    for note in gene_list_notes(defaults.config, probe_names(defaults.PROBE_CSV)):
+        logger.warning(note)
     pfam_ok = _report(_pfam_library_problem(chosen))
-    return schema_ok and tools_ok and genomes_ok and pfam_ok
+    return schema_ok and tools_ok and genomes_ok and genes_ok and pfam_ok
 
 
 # -----------------------------

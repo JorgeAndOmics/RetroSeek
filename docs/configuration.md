@@ -50,44 +50,41 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `ltr_resize` | int >= 0 | `0` | Padding (bp) added to each LTR retrotransposon on both sides before overlap detection. |
 | `ltr_flank_margin` | int >= 0 | `0` | Tolerance (bp) used when classifying flanking LTRs as left vs right. |
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** - typos fail validation. |
-| `main_probes` | **ordered** list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). **The order is meaningful and does four jobs at once** - see "How `main_probes` is used" below. Drives the `probe_type` column on plot dataframes and the `probe_category` attribute on GFF3 tracks. Duplicates are ignored, but unlike a set the sequence is read, so reordering this list changes published columns. |
+| `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Membership only: the order means nothing. Drives the `probe_type` column on plot dataframes, the `probe_category` attribute on GFF3 tracks, the mosaic gene set, and the count `completeness` divides by. Upper case, each name once. See "The three gene lists" below. |
+| `gene_order` | ordered list of strings | `[GAG, PRO, POL, ENV]` | The genes 5' to 3' along a provirus, used only by `canonical_order`. Any probe name, main or accessory. Absent: `main_probes` in its written order, with a warning at launch. |
 | `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
 
-#### How `main_probes` is used
+#### The three gene lists
 
-One ordered list drives four separate things. They are listed here because they
-do not all want the same order, and the list is a single knob: whichever order
-you set governs all four.
+Three settings name genes, and each does one job (ADR-022). They used to be one
+list, which could not serve a reliability order (POL first) and a genomic order
+(GAG first) at once.
 
-1. **Main vs accessory membership** (order irrelevant). The set alone decides
-   `probe_type` / `probe_category`.
-2. **The mosaic gene set** (order irrelevant). `is_mosaic` is evaluated over
-   confident calls on these genes only, so accessory probes such as `P15E` or
-   `PR160` can never manufacture a false recombination signal.
-3. **Gene reliability ranking** (order used, first = most reliable). When a
-   locus's genes disagree, the locus call is taken from the highest-ranked gene
-   - after preferring `placement` over `lca`, and before confidence breaks
-   remaining ties. `POL` first is the usual choice: it is the most conserved
-   marker and the only one with a reliable placement tree.
-4. **Expected canonical gene order** (order used). `canonical_order` (and
-   `is_canonical` on the ERV-like table) is `true` when a locus's genes, sorted
-   by genomic start, read as this list or its exact reverse. The reverse is
-   accepted because a minus-strand provirus reads backwards.
+| Setting | Job | Order |
+|---|---|---|
+| `parameters.main_probes` | Which genes are main: `probe_type` / `probe_category`, the mosaic gene set (`is_mosaic` looks at these genes only, so an accessory probe such as `P15E` cannot fake a recombination), and the number `completeness` divides by. | Irrelevant |
+| `classification.gene_priority` | Which gene's call wins when a locus's genes disagree, after `placement` has been preferred over `lca` and before confidence breaks a remaining tie. A gene not listed comes last. | Most reliable first (`POL` first is the usual choice) |
+| `parameters.gene_order` | How the genes lie along a provirus, for `canonical_order`. | 5' to 3' (`GAG, PRO, POL, ENV`) |
 
-**The tension is between (3) and (4).** Reliability wants `POL` first; the
-retroviral genome is `5'-gag-pro-pol-env-3'`. Setting `[POL, GAG, ENV]` gives
-the best taxon calls, and makes `canonical_order` report `false` for a
-structurally textbook `gag -> pol -> env` provirus, because that order is
-neither the list nor its reverse. Setting `[GAG, PRO, POL, ENV]` makes
-`canonical_order` biologically literal and demotes `POL` in tie-breaking.
+**`canonical_order`** has three answers:
 
-Loci carrying two or fewer main genes are unaffected either way: any two-element
-order matches either the list or its reverse.
+- `True`: the listed genes present in the locus lie in `gene_order`, read along
+  the locus's strand (a minus-strand provirus reads backwards).
+- `False`: they lie in another order, or run against the strand.
+- blank: nothing to check. The locus has fewer than two of the listed genes, or
+  its hits are split evenly between the two strands.
 
-Pick the order for the column you intend to read, and note the choice alongside
-the results. `completeness` (and therefore `structure_full_min` and
-`structure_class`) uses only the list's **length** as denominator, so it is
-insensitive to order.
+**Rules for all three lists**: upper case, each name once. The launcher stops on
+a repeated or lower-case name, and warns about a name that is not a probe.
+
+**Configs written before this split**: a missing `gene_priority` or `gene_order`
+falls back to `main_probes` in its written order, and the launcher says so. The
+taxon calls are then exactly what they were. `canonical_order` still follows the
+strand-aware rule above, with the old list's order, so set `gene_order` to get a
+meaningful column.
+
+`completeness` (and therefore `structure_full_min` and `structure_class`) uses
+only the **number** of main genes, so adding a gene to `main_probes` lowers it.
 
 ### Pair detection
 
@@ -173,12 +170,13 @@ See [ADR-014](adr/ADR-014-publishing-placement-evidence-and-cophylogeny.md).
 
 ## `classification`
 
-Per-locus ERV taxonomic classification - turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* - the taxa a locus can resolve to - is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG/ENV by phylogenetic placement (MAFFT -> EPA-ng -> gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` (gene reliability order + mosaic gene set + expected canonical gene order - see [How `main_probes` is used](#how-main_probes-is-used)), and `execution.entrez_email` (reference build).
+Per-locus ERV taxonomic classification - turns each valid LTR-element locus into a calibrated **taxon call** (`taxon_call` + `rank` + confidence + mosaic flag + ERV class) from the locus's own marker sequence, instead of transferring the best-bitscore probe label. The classification is **rank-agnostic** (ADR-008): the *axis* - the taxa a locus can resolve to - is declared (see `reference_taxa`), at whatever rank, so a locus resolves to that rank when its evidence lands on an axis taxon, or backs off to an honest higher rank (`rank`) otherwise. Each gene is classified independently against a pinned, taxon-comprehensive reference: POL/GAG/ENV by phylogenetic placement (MAFFT -> EPA-ng -> gappa) when a tree resolves an axis taxon, weighted-LCA otherwise, presence-diagnostic genes (e.g. REX/TAX) by presence. The per-gene calls are then combined into a locus call and a mosaic composition. The reference is built once by the `taxonomy_reference*` rules (`make reference`); see [`docs/taxonomy_classification/`](taxonomy_classification/) and the ADRs for the design. Reuses `parameters.seed` (placement/tree determinism), `parameters.main_probes` and `parameters.gene_order` (the mosaic gene set and the genomic gene order - see [The three gene lists](#the-three-gene-lists)), and `execution.entrez_email` (reference build).
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `enable` | bool | `true` | Master switch for the classification stage. When `false`, the `taxonomy_classify` target produces nothing and the pipeline keeps the legacy probe-label provenance only. |
-| `placement_genes` | list of str | `[POL, GAG, ENV]` | Genes classified by phylogenetic placement onto a per-gene reference tree; every other gene uses weighted-LCA. Genes listed here must have a built tree package under `data/taxonomy_reference/trees/` (`--build-reference`). **Two measurements disagree about GAG and ENV, and the second is the one that matters.** Reference-alignment identity flags both as weak - the builder reports POL 25.9% (OK), GAG 19.7% and ENV 19.1% (LOW), and all-pairs medians of 23.2 / 16.7 / 16.2 confirm POL is genuinely ~7 points less divergent. But bootstrap support on the resulting trees is comparable or better: median UFBoot 100 / 100 / 99, nodes >=95 at 65.6% / 73.8% / 69.5%, and nodes below 70 at 9.8% / 12.3% / **5.1%**. More divergence yields more informative sites, so a lower-identity alignment can still resolve deep splits; the identity flag is a heuristic proxy, not a verdict on the tree. The practical case for including them is coverage: **~29% of catalog loci carry GAG or ENV but no POL**, and with `[POL]` alone those can never be placed at all. Treat GAG/ENV placements as secondary evidence: low identity leaves them more exposed to systematic error (e.g. long-branch attraction) than bootstrap support alone reveals. Note the ranking consequence - the locus call prefers `placement` over `lca` *before* it applies `parameters.main_probes` order, so a GAG or ENV **placement** now outranks a POL **weighted-LCA** call, where previously POL always spoke for the locus. |
+| `placement_genes` | list of str | `[POL, GAG, ENV]` | Genes classified by phylogenetic placement onto a per-gene reference tree; every other gene uses weighted-LCA. Genes listed here must have a built tree package under `data/taxonomy_reference/trees/` (`--build-reference`). **Two measurements disagree about GAG and ENV, and the second is the one that matters.** Reference-alignment identity flags both as weak - the builder reports POL 25.9% (OK), GAG 19.7% and ENV 19.1% (LOW), and all-pairs medians of 23.2 / 16.7 / 16.2 confirm POL is genuinely ~7 points less divergent. But bootstrap support on the resulting trees is comparable or better: median UFBoot 100 / 100 / 99, nodes >=95 at 65.6% / 73.8% / 69.5%, and nodes below 70 at 9.8% / 12.3% / **5.1%**. More divergence yields more informative sites, so a lower-identity alignment can still resolve deep splits; the identity flag is a heuristic proxy, not a verdict on the tree. The practical case for including them is coverage: **~29% of catalog loci carry GAG or ENV but no POL**, and with `[POL]` alone those can never be placed at all. Treat GAG/ENV placements as secondary evidence: low identity leaves them more exposed to systematic error (e.g. long-branch attraction) than bootstrap support alone reveals. Note the ranking consequence - the locus call prefers `placement` over `lca` *before* it applies `gene_priority`, so a GAG or ENV **placement** now outranks a POL **weighted-LCA** call, where previously POL always spoke for the locus. |
+| `gene_priority` | ordered list of str | `[POL, GAG, ENV, PRO]` | Gene reliability for the locus call, most reliable first. When a locus's genes disagree, the call comes from the highest-ranked gene, after `placement` has been preferred over `lca`. Any probe name; a gene not listed comes last. Absent: `parameters.main_probes` in its written order, with a warning at launch. See [The three gene lists](#the-three-gene-lists). |
 | `search` | str (`blastx`) | `blastx` | Translated-search engine mapping each locus marker region to reference proteins. `blastx` reuses the BLAST+ already in the env (no extra dependency). |
 | `evalue` | number >= 0 | `0.001` | blastx e-value cutoff for marker -> reference hits. |
 | `top_percent` | number 0-1 | `0.1` | Weighted-LCA bitscore band: hits within this fraction of the best bitscore per marker vote on the lowest-common-ancestor call. Smaller = stricter (fewer, higher-confidence ancestors). |

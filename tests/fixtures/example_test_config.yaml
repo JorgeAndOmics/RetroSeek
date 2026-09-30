@@ -54,6 +54,13 @@ parameters:
     - 'GAG'
     - 'ENV'
     - 'PRO'
+  # The genes 5' to 3' along a provirus, for canonical_order. Any probe name,
+  # main or accessory. Absent: main_probes in its written order.
+  gene_order:
+    - 'GAG'
+    - 'PRO'
+    - 'POL'
+    - 'ENV'
   probe_min_length:
     GAG: 100
     POL: 100
