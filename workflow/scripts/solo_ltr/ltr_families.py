@@ -80,8 +80,11 @@ class Arm:
 
     @property
     def element(self) -> str:
-        """The LTR_retrotransposon id the arm flanks."""
-        return self.name.split("|")[1]
+        """The LTR_retrotransposon id the arm flanks: the second field from the right.
+
+        Read from the right because pooled arms carry a `genome|` prefix.
+        """
+        return self.name.rsplit("|", 2)[1]
 
 
 @dataclass(frozen=True)
@@ -109,24 +112,6 @@ def species_code(genome: str) -> str:
     return parts[0][0].upper() + parts[1][:3].lower()
 
 
-def species_codes(genomes: list[str]) -> dict[str, str]:
-    """Each genome's code, checked to be unique among `genomes`.
-
-    Raises:
-        PipelineError: If two genomes share a code, since their families would
-            then share identifiers.
-    """
-    codes = {genome: species_code(genome) for genome in genomes}
-    clashes = sorted({c for c in codes.values() if list(codes.values()).count(c) > 1})
-    if clashes:
-        raise PipelineError(
-            f"two genomes share the family code {', '.join(clashes)}",
-            hint="rename one genome in the species: block",
-        )
-    return codes
-
-
-# ---------------------------------------------------------------- inputs
 def read_bait_bed(bed: Path) -> dict[str, Arm]:
     """The bait arms by name, from the bait builder's BED (0-based starts)."""
     with bed.open(encoding="utf-8") as handle:
@@ -422,7 +407,12 @@ def main(argv: list[str] | None = None) -> None:
     write_csv(family_rows(families, arms), FAMILY_COLUMNS, args.out_families)
     write_csv(summary, SUMMARY_COLUMNS, args.out_summary)
     write_csv(genus_rows(families, arms, genus), GENUS_COLUMNS, args.out_genus)
-    inputs = {"bait_fna": args.bait_fna, "loci_csv": args.loci_csv}
+    inputs = {
+        "bait_fna": args.bait_fna,
+        "bait_bed": args.bait_bed,
+        "loci_csv": args.loci_csv,
+        "ltrdigest_gff3": args.ltrdigest_gff3,
+    }
     counts = {
         "arms": len(arms),
         "families": len(families),

@@ -16,6 +16,7 @@ import argparse
 import logging
 from collections import Counter
 from pathlib import Path
+from typing import TextIO
 
 from ltr_families import (
     Arm,
@@ -23,7 +24,6 @@ from ltr_families import (
     name_families,
     read_bait_bed,
     run_cdhit,
-    species_codes,
     write_csv,
 )
 
@@ -42,22 +42,25 @@ POOLED_SUMMARY_COLUMNS = [
 ]
 
 
+def _copy_prefixed(fna: Path, genome: str, out: TextIO) -> None:
+    """Copy one genome's bait FASTA into `out`, each name prefixed `genome|`."""
+    with fna.open(encoding="utf-8") as bait:
+        for line in bait:
+            out.write(f">{genome}|{line[1:]}" if line.startswith(">") else line)
+
+
 def pool_bait(bait_dir: Path, genomes: list[str], out_fna: Path) -> dict[str, Arm]:
     """Write every genome's bait arms into one FASTA, names prefixed by genome.
 
     Returns the pooled arms by prefixed name, placed on `genome|seqname` so that
-    family order stays deterministic.
-
-    Raises:
-        PipelineError: If two genomes share a family code.
+    family order stays deterministic. Genomes that share a family code (the
+    per-genome identifiers) pool fine: only full genome names are used here.
     """
-    species_codes(genomes)  # the per-genome identifiers must not collide either
     arms: dict[str, Arm] = {}
     out_fna.parent.mkdir(parents=True, exist_ok=True)
     with out_fna.open("w", encoding="utf-8") as out:
         for genome in sorted(genomes):
-            for line in (bait_dir / f"{genome}.bait.fna").open(encoding="utf-8"):
-                out.write(f">{genome}|{line[1:]}" if line.startswith(">") else line)
+            _copy_prefixed(bait_dir / f"{genome}.bait.fna", genome, out)
             for name, arm in read_bait_bed(bait_dir / f"{genome}.bait.bed").items():
                 pooled = f"{genome}|{name}"
                 arms[pooled] = Arm(

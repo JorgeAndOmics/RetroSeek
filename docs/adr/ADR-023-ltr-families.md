@@ -50,8 +50,12 @@ by several genomes is one family.
 **Optional Dfam labels** (`solo_ltr.families.dfam`, off by default). The families
 have neutral identifiers, so a reader cannot tell that `Mmus_F001` is IAPLTR1_Mm.
 When switched on, each family's representative arm is searched with every curated
-Dfam model (`nhmmer --cut_ga`, Dfam's own gathering thresholds), and the best bit
-score names the family in `ltr_family_dfam.csv`. The models are fetched like Pfam:
+Dfam model (`nhmmer`, E-value at most 1e-5 per model), and the best bit score
+names the family in `ltr_family_dfam.csv`. Not Dfam's gathering thresholds: in
+4.0 about 5,600 of the 30,646 curated models have no model-level GA line, which
+stops `nhmmer --cut_ga`, and where there is one it equals the strict TC, while the
+per-taxon thresholds sit in TH lines. Over the whole search 1e-5 expects well under
+one chance hit. The models are fetched like Pfam:
 a pinned release (`input.dfam_release`, 4.0), its own guarded stage
 (`--download-dfam`), checked against Dfam's MD5 and kept beside `Pfam-A.hmm`.
 Curated models only: the uncurated set is mostly raw repeat-finder output, the
@@ -66,6 +70,10 @@ kind of label the label is meant to check.
   families of these genomes are lineage-specific. The pooled tables will matter
   for closely related genomes, such as congeneric species.
 
+- Family identifiers are unique within a genome, not across genomes: two genomes
+  can share a code (Canis_lupus_familiaris and Canis_lupus_dingo are both Clup).
+  Every table that holds several genomes (the pooled tables, the Dfam labels)
+  carries the genome, so nothing stops or merges over it.
 - New per-genome tables: `{genome}.ltr_families.csv`, `.ltr_family_summary.csv`,
   `.ltr_family_genus.csv`, and a manifest recording the identity used. Identifiers
   depend on it, so tables from runs with different settings must not be compared
@@ -77,7 +85,7 @@ kind of label the label is meant to check.
 - The Dfam label is evidence, never a filter. Dfam 4.0's curated models apply to
   about 1,400 families each for human and mouse but about 760 to 810 for the three
   bats, mostly through families shared across mammals, so bat families will more
-  often stay blank. The download is 1.7 GB and unpacks to about 9 GB.
+  often stay blank. The download is 1.7 GB and unpacks to about 11 GB.
 
 ## Alternatives considered
 

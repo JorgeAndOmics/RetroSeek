@@ -72,9 +72,11 @@ def test_a_genome_name_without_a_species_part_is_an_error() -> None:
         lf.species_code("Mus")
 
 
-def test_two_genomes_with_one_code_are_an_error() -> None:
-    with pytest.raises(PipelineError, match="Mmus"):
-        lf.species_codes(["Mus_musculus", "Mus_muscarius"])
+def test_the_element_is_read_from_the_right_of_the_arm_name() -> None:
+    # Pooled arms carry a genome prefix; the element is still the second field
+    # from the right.
+    pooled = lf.Arm("Mus_musculus|chr1|LTR_retrotransposon7|R", "chr1", 1, 2)
+    assert pooled.element == "LTR_retrotransposon7"
 
 
 def test_the_bait_bed_is_read_one_based(arms: dict[str, lf.Arm]) -> None:

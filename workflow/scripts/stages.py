@@ -80,7 +80,7 @@ STAGES: tuple[Stage, ...] = (
         "Setup",
         ("dfam_downloader",),
         "Download the pinned Dfam curated models (input.dfam_release) for the "
-        "optional LTR-family labels (1.7 GB, about 9 GB unpacked).",
+        "optional LTR-family labels (1.7 GB, about 11 GB unpacked).",
         heavy=("dfam_downloader",),
         tools=("wget",),
     ),

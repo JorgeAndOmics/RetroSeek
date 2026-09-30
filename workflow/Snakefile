@@ -198,7 +198,7 @@ rule pfam_hmm_downloader:
 
 # Dfam's curated models, for the optional LTR-family labels (ADR-023). Pinned like
 # Pfam. The archive (1.7 GB) is checked against Dfam's checksum and removed once
-# unpacked (about 9 GB); the checksum file stays as the record. Nothing reads the
+# unpacked (about 11 GB); the checksum file stays as the record. Nothing reads the
 # models unless solo_ltr.families.dfam is on.
 rule dfam_downloader:
     output:
@@ -745,8 +745,8 @@ rule solo_family_pooled:
 
 
 # Optional Dfam labels for the LTR families (ADR-023): each family's representative
-# arm searched with every curated Dfam model (nhmmer at Dfam's gathering
-# thresholds). One table for every genome; evidence to read, never a filter.
+# arm searched with every curated Dfam model (nhmmer, E-value 1e-5 per model).
+# One table for every genome; evidence to read, never a filter.
 rule solo_family_dfam:
     input:
         families = lambda wildcards: expand(

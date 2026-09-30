@@ -14,8 +14,6 @@ import ltr_families_pooled as pooled
 import pytest
 from ltr_families import parse_clstr
 
-from log import PipelineError
-
 
 def _bait(
     folder: Path, genome: str, arms: dict[str, tuple[str, int, int, str]]
@@ -109,8 +107,14 @@ def test_identifiers_do_not_depend_on_genome_order(
     assert (tmp_path / "a.fna").read_text() == (tmp_path / "b.fna").read_text()
 
 
-def test_two_genomes_with_one_code_stop_the_pooling(tmp_path: Path) -> None:
-    with pytest.raises(PipelineError, match="Mmus"):
-        pooled.pool_bait(
-            tmp_path, ["Mus_musculus", "Mus_muscarius"], tmp_path / "p.fna"
-        )
+def test_two_genomes_with_one_family_code_still_pool(tmp_path: Path) -> None:
+    # Canis_lupus_familiaris and Canis_lupus_dingo both give Clup; the pooled step
+    # names arms by the full genome name, so the codes never meet here.
+    folder = tmp_path / "bait"
+    arm = {"chr1|LTR_retrotransposon1|L": ("chr1", 1, 4, "ACGT")}
+    _bait(folder, "Canis_lupus_familiaris", arm)
+    _bait(folder, "Canis_lupus_dingo", arm)
+    arms = pooled.pool_bait(
+        folder, ["Canis_lupus_familiaris", "Canis_lupus_dingo"], tmp_path / "p.fna"
+    )
+    assert len(arms) == 2
