@@ -12,6 +12,7 @@ interactive callers tend to use ``Path`` objects. Both work.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import random
 import string
@@ -95,3 +96,16 @@ def seqid(header: str | None) -> str:
     """
     words = (header or "").split()
     return words[0] if words else ""
+
+
+def file_md5(path: str | Path) -> str:
+    """The md5 of a file's bytes, read in blocks.
+
+    A fingerprint for run manifests (which input produced a table), not a
+    security boundary.
+    """
+    digest = hashlib.md5()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()

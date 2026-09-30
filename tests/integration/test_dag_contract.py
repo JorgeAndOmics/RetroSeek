@@ -89,6 +89,9 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
     "rule_name",
     [
         "solo_bait_builder_setup",
+        "solo_family_builder_setup",
+        "solo_family_pooled",
+        "solo_family_dfam",
         "solo_blaster_setup",
         "solo_finder_setup",
         "solo_annotator_setup",
@@ -102,6 +105,20 @@ def test_genome_fasta_normalizer_rule_present(project_root: Path) -> None:
 def test_solo_ltr_rule_present(project_root: Path, rule_name: str) -> None:
     """Every stage of the solo-LTR chain must stay in the workflow."""
     assert rule_name in _all_rules(project_root)
+
+
+def test_the_solo_stage_target_asks_for_the_family_tables(project_root: Path) -> None:
+    """`--solo-ltr-detector` builds the family tables, pooled ones and labels too.
+
+    solo_plot_generator shares its last input line with the stage target, and the
+    family inputs once landed there, where nothing asks for them.
+    """
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    start = text.index("rule solo_ltr_detector:")
+    detector = text[start : text.index("\nrule ", start + 1)]
+    assert "ltr_family_summary.csv" in detector
+    assert "rules.solo_family_pooled.output" in detector
+    assert "rules.solo_family_dfam.output" in detector
 
 
 def test_solo_thresholds_come_from_config_not_literals(project_root: Path) -> None:

@@ -27,13 +27,19 @@ from solo_annotator import (
     SoloLTR,
     _warn_on_no_solos,
     annotate_solos,
+    assign_families,
     compute_solo_intact_ratio,
+    family_ratio_rows,
     parse_library_locus,
     parse_loci_csv,
     parse_solo_list,
+    read_arm_families,
+    read_seed_arms,
     write_solo_ltr_gff3,
     write_solo_table,
 )
+
+from log import PipelineError
 
 LOCI_HEADER = (
     "id,seqname,start,end,strand,parent,genes_present,n_main_genes,completeness,"
@@ -504,3 +510,77 @@ def test_a_genome_with_loci_but_no_solo_is_reported(
     with caplog.at_level("WARNING"):
         _warn_on_no_solos(solos, loci)
     assert ("no solo LTR despite" in caplog.text) is warns
+
+
+# ---- LTR families (ADR-023): every solo inherits its seed arm's family ----
+
+_CANDIDATES = (
+    "seqname,start,end,length,fate,best_identity,n_hits,bait,parent,orphan_distance\n"
+    "chr1,100,499,400,solo,99.0,1,chr1|LTR_retrotransposon1|L,LTR_retrotransposon1,\n"
+    "chr1,900,1299,400,solo,97.0,2,chr2|LTR_retrotransposon5|R,LTR_retrotransposon5,\n"
+    "chr1,2000,2399,400,intact_flank,99.0,1,chr1|LTR_retrotransposon1|L,LTR_retrotransposon1,\n"
+)
+_FAMILIES = (
+    "arm,seqname,start,end,element,ltr_family,representative\n"
+    "chr1|LTR_retrotransposon1|L,chr1,10,400,LTR_retrotransposon1,Toyu_F001,True\n"
+    "chr1|LTR_retrotransposon1|R,chr1,5000,5390,LTR_retrotransposon1,Toyu_F001,False\n"
+    "chr2|LTR_retrotransposon5|R,chr2,10,400,LTR_retrotransposon5,Toyu_F002,True\n"
+    "chr2|LTR_retrotransposon6|L,chr2,900,1290,LTR_retrotransposon6,Toyu_F002,False\n"
+)
+
+
+@pytest.fixture
+def seed_arms(tmp_path: Path) -> dict[tuple[str, int, int], str]:
+    path = tmp_path / "candidates.csv"
+    path.write_text(_CANDIDATES)
+    return read_seed_arms(path)
+
+
+@pytest.fixture
+def arm_families(tmp_path: Path) -> dict[str, tuple[str, str, str]]:
+    path = tmp_path / "families.csv"
+    path.write_text(_FAMILIES)
+    return read_arm_families(path)
+
+
+def _solo(chrom: str, start: int, end: int) -> SoloLTR:
+    return SoloLTR(chrom, start, end, "lib", 1.0)
+
+
+def test_each_solo_gets_its_seed_arms_family(
+    seed_arms: dict[tuple[str, int, int], str],
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    solos = [_solo("chr1", 100, 499), _solo("chr1", 900, 1299)]
+    assign_families(solos, seed_arms, arm_families)
+    assert [s.ltr_family for s in solos] == ["Toyu_F001", "Toyu_F002"]
+
+
+def test_a_solo_missing_from_the_candidates_stops_the_job(
+    seed_arms: dict[tuple[str, int, int], str],
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    with pytest.raises(PipelineError, match="chr1:5000-5399"):
+        assign_families([_solo("chr1", 5000, 5399)], seed_arms, arm_families)
+
+
+def test_the_family_ratio_divides_solos_by_the_familys_elements(
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    solos = [_solo("chr1", 1, 9), _solo("chr1", 11, 19), _solo("chr1", 21, 29)]
+    for solo, family in zip(
+        solos, ["Toyu_F001", "Toyu_F001", "Toyu_F002"], strict=True
+    ):
+        solo.ltr_family = family
+    rows = {r["ltr_family"]: r for r in family_ratio_rows(solos, arm_families)}
+    # F001: one element with two arms; F002: two elements with one arm each.
+    assert (rows["Toyu_F001"]["intact_elements"], rows["Toyu_F001"]["solos"]) == (1, 2)
+    assert rows["Toyu_F001"]["solos_per_intact"] == pytest.approx(2.0)
+    assert (rows["Toyu_F002"]["intact_elements"], rows["Toyu_F002"]["solos"]) == (2, 1)
+
+
+def test_a_family_with_no_solo_still_has_a_row(
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    rows = family_ratio_rows([], arm_families)
+    assert [r["solos"] for r in rows] == [0, 0]

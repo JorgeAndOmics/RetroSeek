@@ -196,6 +196,27 @@ rule pfam_hmm_downloader:
         """
 
 
+# Dfam's curated models, for the optional LTR-family labels (ADR-023). Pinned like
+# Pfam. The archive (1.7 GB) is checked against Dfam's checksum and removed once
+# unpacked (about 11 GB); the checksum file stays as the record. Nothing reads the
+# models unless solo_ltr.families.dfam is on.
+rule dfam_downloader:
+    output:
+        md5 = os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Dfam-curated_only-1.hmm.gz.md5'),
+        hmm = os.path.join(defaults.PATH_DICT['HMM_PROFILE_DIR'], 'Dfam-curated_only-1.hmm')
+    params:
+        hmm_profile_dir = defaults.PATH_DICT['HMM_PROFILE_DIR'],
+        url = f'https://www.dfam.org/releases/Dfam_{defaults.DFAM_RELEASE}/families/Dfam-curated_only-1.hmm.gz'
+    shell:
+        """
+        cd {params.hmm_profile_dir:q} && \
+        wget -O Dfam-curated_only-1.hmm.gz {params.url:q} && \
+        wget -O {output.md5:q} {params.url:q}.md5 && \
+        md5sum -c {output.md5:q} && \
+        gunzip -f -v Dfam-curated_only-1.hmm.gz
+        """
+
+
 # Which Pfam release the domain scan used (ADR-019). Pfam-A.hmm carries no release
 # number, so this record is the only trace. It hangs off the aggregate targets
 # (domain_scanner, taxonomy_classify) and nothing consumes it, so adding it
@@ -651,6 +672,11 @@ rule ranges_analysis:
 # solo_ltr.*.
 _SOLO = config['solo_ltr']
 _SOLO_TREE = _SOLO['tree']
+# LTR families (ADR-023). Optional block: the default is the field's 80% rule,
+# counted over the whole shorter arm.
+_FAMILIES = _SOLO.get('families') or {}
+_FAMILY_IDENTITY = _FAMILIES.get('identity', 0.8)
+_FAMILY_DFAM = bool(_FAMILIES.get('dfam', False))
 
 
 rule solo_bait_builder_setup:
@@ -684,6 +710,104 @@ rule solo_bait_builder:
             os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
             genome=species_with_hits(wildcards)
         )
+
+
+# Pooled LTR families (ADR-023): every genome's bait arms clustered together, so a
+# family shared by several genomes is one family (Pool_F001...).
+rule solo_family_pooled:
+    input:
+        fasta = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+            genome=species_with_hits(wildcards)
+        ),
+        bed = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.bed'),
+            genome=species_with_hits(wildcards)
+        )
+    output:
+        families = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'pooled.ltr_families.csv'),
+        summary  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'pooled.ltr_family_summary.csv')
+    params:
+        identity = _FAMILY_IDENTITY,
+        bait_dir = defaults.PATH_DICT['SOLO_BAIT_DIR'],
+        genomes  = lambda wildcards: " ".join(species_with_hits(wildcards)),
+        workdir  = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', 'pooled')
+    log:
+        job_log('solo_family_pooled')
+    threads: 4
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_families_pooled.py --log {log:q} \
+            --bait-dir {params.bait_dir:q} --genomes {params.genomes} \
+            --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
+            --out-families {output.families:q} --out-summary {output.summary:q}
+        '''
+
+
+# Optional Dfam labels for the LTR families (ADR-023): each family's representative
+# arm searched with every curated Dfam model (nhmmer, E-value 1e-5 per model).
+# One table for every genome; evidence to read, never a filter.
+rule solo_family_dfam:
+    input:
+        families = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
+            genome=species_with_hits(wildcards)
+        ),
+        bait = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+            genome=species_with_hits(wildcards)
+        ),
+        hmm = rules.dfam_downloader.output.hmm
+    output:
+        labels = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], 'ltr_family_dfam.csv')
+    params:
+        release   = defaults.DFAM_RELEASE,
+        table_dir = defaults.PATH_DICT['SOLO_LTR_CSV_DIR'],
+        bait_dir  = defaults.PATH_DICT['SOLO_BAIT_DIR'],
+        genomes   = lambda wildcards: " ".join(species_with_hits(wildcards)),
+        workdir   = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', 'dfam')
+    log:
+        job_log('solo_family_dfam')
+    threads: 8
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_family_dfam.py --log {log:q} \
+            --genomes {params.genomes} --table-dir {params.table_dir:q} --bait-dir {params.bait_dir:q} \
+            --dfam-hmm {input.hmm:q} --release {params.release:q} \
+            --threads {threads} --workdir {params.workdir:q} --out {output.labels:q}
+        '''
+
+
+# LTR families (ADR-023): the bait arms grouped by cd-hit-est at
+# solo_ltr.families.identity over the whole shorter arm. Every element joins the
+# family of its arms; the annotator gives each solo its seed arm's family.
+rule solo_family_builder_setup:
+    input:
+        bait_fna = os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.fna'),
+        bait_bed = os.path.join(defaults.PATH_DICT['SOLO_BAIT_DIR'], '{genome}.bait.bed'),
+        loci     = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
+        elements = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'], '{genome}.gff3')
+    output:
+        families = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_families.csv'),
+        summary  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
+        genus    = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_genus.csv'),
+        manifest = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ltr_families.manifest.yaml')
+    params:
+        identity = _FAMILY_IDENTITY,
+        workdir  = lambda wildcards: os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_families', wildcards.genome)
+    log:
+        job_log('solo_family_builder', '{genome}')
+    threads: 4
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/solo_ltr/ltr_families.py --log {log:q} \
+            --genome {wildcards.genome:q} \
+            --bait-fna {input.bait_fna:q} --bait-bed {input.bait_bed:q} \
+            --loci-csv {input.loci:q} --ltrdigest-gff3 {input.elements:q} \
+            --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
+            --out-families {output.families:q} --out-summary {output.summary:q} \
+            --out-genus {output.genus:q} --out-manifest {output.manifest:q}
+        '''
 
 
 # The hit table is large (421 MB raw for one bat genome from 812 arms), so it is
@@ -786,14 +910,17 @@ rule solo_finder:
 # solo's DNA matched that element's LTR, so homology rather than proximity.
 rule solo_annotator_setup:
     input:
-        solo_list = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
-        loci      = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv')
+        solo_list  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_list.tsv'),
+        loci       = os.path.join(defaults.PATH_DICT['TAXONOMY_TABLES_CSV_DIR'], '{genome}.loci.csv'),
+        candidates = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
+        families   = rules.solo_family_builder_setup.output.families
     output:
         gff3          = os.path.join(defaults.PATH_DICT['TRACK_SOLO_LTR_DIR'], '{genome}.gff3'),
         solo_csv      = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_ltr.csv'),
         solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_ltr.parquet'),
         ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ratio.csv'),
-        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet')
+        ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet'),
+        family_ratio  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_ratio.csv')
     params:
         species  = lambda wildcards: defaults.SPECIES_DICT.get(
             wildcards.genome, wildcards.genome.replace('_', ' ')),
@@ -816,6 +943,8 @@ rule solo_annotator_setup:
             --output-solo-parquet {output.solo_parquet:q} \
             --output-ratio-csv {output.ratio_csv:q} \
             --output-ratio-parquet {output.ratio_parquet:q} \
+            --candidates-csv {input.candidates:q} --families-csv {input.families:q} \
+            --output-family-ratio {output.family_ratio:q} \
             --group-by {params.group_by} \
             --nearest-locus-max-distance {params.max_distance}
         '''
@@ -1036,6 +1165,12 @@ rule solo_ltr_detector:
             os.path.join(defaults.PATH_DICT['SOLO_LTR_PLOT_DIR'], '{genome}.solo_ltr.pdf'),
             genome=species_with_hits(wildcards)
         ),
+        families = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_summary.csv'),
+            genome=species_with_hits(wildcards)
+        ),
+        pooled_families = rules.solo_family_pooled.output.summary,
+        dfam_labels = [rules.solo_family_dfam.output.labels] if _FAMILY_DFAM else [],
         summary = rules.solo_plot_summary.output.pdf
 
 

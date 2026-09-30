@@ -75,7 +75,12 @@ solo_ltr_schema:
   blast_threads:         any(int(min=1), null(), required=False)
   calibration_lengths:   list(int(min=0))
   calibration_identities: list(num(min=0, max=100))
+  families:              include('solo_ltr_families_schema', required=False)
   tree:                  include('solo_ltr_tree_schema', required=False)
+
+solo_ltr_families_schema:
+  identity: num(min=0.8, max=1, required=False)
+  dfam:     bool(required=False)
 
 solo_ltr_tree_schema:
   enable:         bool()
@@ -131,6 +136,9 @@ input_schema:
   # Pfam release to download and record (ADR-019), e.g. '38.2'. Optional:
   # defaults to 38.2, the release the curated class table was checked against.
   pfam_release: str(matches='^[0-9]+[.][0-9]+$', required=False)
+  # Dfam release for the optional LTR-family labels (ADR-023), e.g. '4.0'.
+  # Optional: defaults to 4.0. The file name follows the 4.x layout.
+  dfam_release: str(matches='^[0-9]+[.][0-9]+$', required=False)
 
 display_schema:
   # How much the terminal shows during a run (ADR-021). Job logs are always full.
