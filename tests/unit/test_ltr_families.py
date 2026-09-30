@@ -166,7 +166,8 @@ def test_a_summary_counts_elements_once_and_flags_split_pairs(
         ("chr1", "LTR_retrotransposon1"): 91.0,
     }
     rows = {
-        r["ltr_family"]: r for r in lf.summary_rows(families, arms, genus, similarity)
+        r["ltr_family"]: r
+        for r in lf.summary_rows(families, arms, lf.ElementFacts(genus, similarity))
     }
     first = rows["Toyu_F001"]
     assert (first["n_arms"], first["n_elements"]) == (3, 2)
@@ -190,7 +191,7 @@ def test_the_median_arm_similarity_is_rounded(
         ("chr2", "LTR_retrotransposon5"): 93.1,
         ("chr1", "LTR_retrotransposon1"): 93.36,
     }
-    rows = lf.summary_rows(families, arms, {}, similarity)
+    rows = lf.summary_rows(families, arms, lf.ElementFacts({}, similarity))
     assert str(rows[0]["median_arm_similarity"]) == "93.23"
 
 
@@ -222,3 +223,45 @@ def test_a_real_run_puts_two_near_identical_arms_in_one_family(tmp_path: Path) -
     fna.write_text(f">c|e1|L\n{seq}\n>c|e1|R\n{seq[:-1]}A\n")
     clusters = lf.run_cdhit(fna, tmp_path / "work", 0.80, 1)
     assert len(clusters) == 1
+
+
+# ---- nearest virus (ADR-024) ----
+
+
+def test_the_loci_table_gives_each_elements_nearest_virus(tmp_path: Path) -> None:
+    loci = tmp_path / "loci.csv"
+    loci.write_text(
+        "seqname,parent,segment,nearest_virus,nearest_virus_identity\n"
+        "chr2,LTR_retrotransposon5,Betaretrovirus,Mouse mammary tumor virus,88.0\n"
+        "chr1,LTR_retrotransposon1,Gammaretrovirus,,\n"
+    )
+    assert lf.read_nearest(loci) == {
+        ("chr2", "LTR_retrotransposon5"): ("Mouse mammary tumor virus", 88.0)
+    }
+
+
+def test_a_loci_table_from_before_the_columns_gives_no_viruses(tmp_path: Path) -> None:
+    loci = tmp_path / "loci.csv"
+    loci.write_text(
+        "seqname,parent,segment\nchr1,LTR_retrotransposon1,Gammaretrovirus\n"
+    )
+    assert lf.read_nearest(loci) == {}
+
+
+def test_a_family_names_its_members_majority_virus_and_their_identity(
+    clstr: Path, arms: dict[str, Arm]
+) -> None:
+    families = lf.name_families(lf.parse_clstr(clstr), arms, "Toyu")
+    nearest = {
+        ("chr2", "LTR_retrotransposon5"): ("Mouse mammary tumor virus", 88.0),
+        ("chr1", "LTR_retrotransposon1"): ("Mouse mammary tumor virus", 91.0),
+    }
+    rows = {
+        r["ltr_family"]: r
+        for r in lf.summary_rows(families, arms, lf.ElementFacts({}, nearest=nearest))
+    }
+    assert rows["Toyu_F001"]["majority_nearest_virus"] == "Mouse mammary tumor virus"
+    assert rows["Toyu_F001"]["majority_virus_identity"] == pytest.approx(89.5)
+    # F002's elements have no nearest virus: blank, not an error.
+    assert rows["Toyu_F002"]["majority_nearest_virus"] == ""
+    assert rows["Toyu_F002"]["majority_virus_identity"] == ""

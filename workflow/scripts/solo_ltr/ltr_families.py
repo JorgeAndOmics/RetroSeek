@@ -27,7 +27,7 @@ import csv
 import logging
 import statistics
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -63,12 +63,24 @@ SUMMARY_COLUMNS = [
     "rep_end",
     "majority_genus",
     "genus_purity",
+    "majority_nearest_virus",
+    "majority_virus_identity",
     "median_arm_similarity",
     "split_elements",
 ]
 GENUS_COLUMNS = ["ltr_family", "genus", "n_elements"]
 
 Element = tuple[str, str]  # (seqname, element id): LTRdigest numbers ids per genome
+Nearest = tuple[str, float]  # (nearest reference virus, amino-acid identity in %)
+
+
+@dataclass(frozen=True)
+class ElementFacts:
+    """What the other tables say about each element, keyed by (seqname, element id)."""
+
+    genus: dict[Element, str]  # the loci table's `segment`
+    similarity: dict[Element, float] = field(default_factory=dict)  # LTRdigest, %
+    nearest: dict[Element, Nearest] = field(default_factory=dict)  # ADR-024
 
 
 @dataclass(frozen=True)
@@ -116,6 +128,23 @@ def read_genus(loci_csv: Path) -> dict[Element, str]:
     with loci_csv.open(newline="", encoding="utf-8") as handle:
         return {
             (r["seqname"], r["parent"]): r["segment"] for r in csv.DictReader(handle)
+        }
+
+
+def read_nearest(loci_csv: Path) -> dict[Element, Nearest]:
+    """Each element's nearest reference virus and its identity (ADR-024).
+
+    Leaves out loci without a reference hit; empty for a loci table written
+    before those columns existed.
+    """
+    with loci_csv.open(newline="", encoding="utf-8") as handle:
+        return {
+            (r["seqname"], r["parent"]): (
+                r["nearest_virus"],
+                float(r["nearest_virus_identity"]),
+            )
+            for r in csv.DictReader(handle)
+            if r.get("nearest_virus")
         }
 
 
@@ -261,19 +290,36 @@ def _majority(counts: Counter[str]) -> tuple[str, int]:
     return min(counts.items(), key=lambda item: (-item[1], item[0]))
 
 
+def _virus_summary(
+    elements: list[Element], nearest: dict[Element, Nearest]
+) -> tuple[str, object]:
+    """The members' most common nearest virus, and their median identity to it.
+
+    The identity is taken over the members that name that virus only, so the
+    name and the number describe the same comparison. Blank when no member has
+    a nearest virus.
+    """
+    found = [nearest[e] for e in elements if e in nearest]
+    if not found:
+        return "", ""
+    virus, _ = _majority(Counter(v for v, _ in found))
+    identities = [identity for v, identity in found if v == virus]
+    return virus, round(statistics.median(identities), 3)
+
+
 def _summary_row(
     family: Family,
     arms: dict[str, Arm],
-    genus: dict[Element, str],
-    similarity: dict[Element, float],
+    facts: ElementFacts,
     families_of: dict[Element, set[str]],
 ) -> dict[str, object]:
     """One family's row of the summary table."""
     elements = _elements(family, arms)
     split = sum(len(families_of[e]) > 1 for e in elements)
-    majority, count = _majority(Counter(genus.get(e, "") for e in elements))
-    ages = [similarity[e] for e in elements if e in similarity]
+    majority, count = _majority(Counter(facts.genus.get(e, "") for e in elements))
+    ages = [facts.similarity[e] for e in elements if e in facts.similarity]
     rep = arms[family.representative]
+    virus, virus_identity = _virus_summary(elements, facts.nearest)
     return {
         "ltr_family": family.name,
         "n_arms": len(family.members),
@@ -284,6 +330,8 @@ def _summary_row(
         "rep_end": rep.end,
         "majority_genus": majority,
         "genus_purity": round(count / len(elements), 4),
+        "majority_nearest_virus": virus,
+        "majority_virus_identity": virus_identity,
         # LTRdigest gives two decimals; a median of two is their mean.
         "median_arm_similarity": round(statistics.median(ages), 3) if ages else "",
         "split_elements": split,
@@ -291,12 +339,9 @@ def _summary_row(
 
 
 def summary_rows(
-    families: list[Family],
-    arms: dict[str, Arm],
-    genus: dict[Element, str],
-    similarity: dict[Element, float],
+    families: list[Family], arms: dict[str, Arm], facts: ElementFacts
 ) -> list[dict[str, object]]:
-    """One row per family: size, representative, genus mix, age and split elements.
+    """One row per family: size, representative, genus mix, nearest virus, age, splits.
 
     `split_elements` counts the family's elements whose other arm fell in another
     family: the arm pair is the method's own positive control.
@@ -305,10 +350,7 @@ def summary_rows(
     for family in families:
         for element in _elements(family, arms):
             families_of.setdefault(element, set()).add(family.name)
-    return [
-        _summary_row(family, arms, genus, similarity, families_of)
-        for family in families
-    ]
+    return [_summary_row(family, arms, facts, families_of) for family in families]
 
 
 def genus_rows(
@@ -376,9 +418,10 @@ def main(argv: list[str] | None = None) -> None:
     clusters = run_cdhit(args.bait_fna, args.workdir, args.identity, args.threads)
     families = name_families(clusters, arms, species_code(args.genome))
     genus = read_genus(args.loci_csv)
-    summary = summary_rows(
-        families, arms, genus, read_arm_similarity(args.ltrdigest_gff3)
+    facts = ElementFacts(
+        genus, read_arm_similarity(args.ltrdigest_gff3), read_nearest(args.loci_csv)
     )
+    summary = summary_rows(families, arms, facts)
     write_csv(family_rows(families, arms), FAMILY_COLUMNS, args.out_families)
     write_csv(summary, SUMMARY_COLUMNS, args.out_summary)
     write_csv(genus_rows(families, arms, genus), GENUS_COLUMNS, args.out_genus)

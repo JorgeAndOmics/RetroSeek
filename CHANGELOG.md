@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Nearest reference virus** (ADR-024): every locus, orphan and `catalog.csv`
+  row names the reference virus its headline gene is closest to, with the
+  amino-acid identity (`nearest_virus`, `nearest_virus_identity`,
+  `nearest_virus_gene`, `per_gene_nearest`). Most loci sit at 40 to 50% of their
+  nearest virus; the near-identical ones are the known endogenous copies (DrERV
+  in Desmodus, MLV in the mouse). Each LTR family summary names its members'
+  most common nearest virus and their median identity to it.
 - **LTR families** (ADR-023). The solo-LTR stage groups its bait arms into
   families with `cd-hit-est`: arms at least `solo_ltr.families.identity` (0.8 by
   default) identical over the whole shorter arm. New tables per genome: every arm

@@ -132,6 +132,30 @@ test_that("new plot builders return ggplot on data and empty_plot on empty", {
 })
 
 
+test_that("the catalog keeps the nearest virus and sorts by position (ADR-024)", {
+  combined <- tribble(
+    ~species, ~source,       ~seqname, ~start, ~end,   ~id,  ~per_gene,
+    ~nearest_virus,                  ~nearest_virus_identity, ~nearest_virus_gene,
+    ~per_gene_nearest,
+
+    "g1",     "ltr-flanked", "chr1",   "9000", "9900", "A2", "POL:x",
+    "Mouse mammary tumor virus",     "88.0",                  "POL",
+    "POL:Mouse mammary tumor virus(88.0)",
+
+    "g1",     "ltr-flanked", "chr1",   "1000", "2000", "A1", "POL:x",
+    "Moloney murine leukemia virus", "92.5",                  "POL",
+    "POL:Moloney murine leukemia virus(92.5)"
+  )
+  out <- catalog_table(combined)
+  expect_equal(out$id, c("A1", "A2"))
+  expect_equal(out$nearest_virus[1], "Moloney murine leukemia virus")
+  expect_true(all(c("nearest_virus_identity", "nearest_virus_gene",
+                    "per_gene_nearest") %in% names(out)))
+  expect_false("per_gene" %in% names(out))  # the catalog stays a summary
+  expect_equal(nrow(catalog_table(combined[0, ])), 0L)
+})
+
+
 test_that("reconcile_catalog drops orphans overlapping an ltr-flanked locus", {
   combined <- tribble(
     ~species, ~source,    ~seqname, ~start, ~end,   ~id,

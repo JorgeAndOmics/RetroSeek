@@ -32,6 +32,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 021   | [One console convention, drawn by the launcher](ADR-021-one-console-convention.md) | Accepted |
 | 022   | [Three gene lists, one job each](ADR-022-three-gene-lists.md) | Accepted |
 | 023   | [LTR families from the solo-LTR bait arms](ADR-023-ltr-families.md) | Accepted |
+| 024   | [Nearest reference virus, with its identity](ADR-024-nearest-reference-virus.md) | Accepted |
 
 ## When to write a new ADR
 

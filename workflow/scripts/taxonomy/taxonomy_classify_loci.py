@@ -20,11 +20,12 @@ import argparse
 import csv
 import hashlib
 import logging
+import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pandas as pd
 import taxonomy_lca as tlca
@@ -244,7 +245,9 @@ def search(query: Path, db: Path, out: Path, evalue: float, threads: int) -> Non
             "-out",
             str(out),
             "-outfmt",
-            "6 qseqid sseqid bitscore qframe",  # qframe = query translation frame
+            # qframe = query translation frame; pident = amino-acid identity of
+            # the alignment, for the nearest-virus columns (ADR-024)
+            "6 qseqid sseqid bitscore qframe pident",
             "-evalue",
             str(evalue),
             "-max_target_seqs",
@@ -304,12 +307,14 @@ def classify(
         annotate_loci_with_domains(loci, domains_parquet, domain_classes, scanned_txt)
     fna, hits_path = _search_regions(loci, genome, ref_dir, workdir, evalue, threads)
 
-    taxon_of, gene_of, axis = _ref_maps(ref_dir / "retro_reference.csv")
+    ref_csv = ref_dir / "retro_reference.csv"
+    taxon_of, gene_of, axis = _ref_maps(ref_csv)
     diagnostic = auto_diagnostic(gene_of, taxon_of)  # genes in only one axis taxon
     region_seq = _load_regions(fna)
-    hits, best_frame = _read_blastx(hits_path, taxon_of)
+    virus_of = _virus_names(ref_csv)
+    hits, best = _read_blastx(hits_path, taxon_of, virus_of)
     placement = _place_genes(
-        placement_genes, best_frame, region_seq, min_orf, ref_dir, workdir
+        placement_genes, best, region_seq, min_orf, ref_dir, workdir
     )
     if placement_out is not None:
         stem_prefix = f"{genome_name or genome.stem}.{source}"
@@ -332,6 +337,7 @@ def classify(
         segment_rank=segment_rank,
         gene_priority=gene_priority,
         gene_order=gene_order,
+        best=best,
     )
 
 
@@ -347,6 +353,21 @@ def _ref_maps(ref_csv: Path) -> tuple[dict[str, str], dict[str, str], set[str]]:
             taxon_of[r["accession"]] = r["taxon"]
             gene_of[r["accession"]] = r["gene"]
     return taxon_of, gene_of, set(taxon_of.values())
+
+
+def _virus_names(ref_csv: Path) -> dict[str, str]:
+    """Each reference accession's virus: the last [bracketed] name of its defline.
+
+    NCBI protein deflines end in the source organism, e.g. `gag protein [Mouse
+    mammary tumor virus]`; an earlier bracket can hold a strain. A defline with
+    no bracket is named by its accession, so the name is never blank.
+    """
+    names = {}
+    with ref_csv.open(encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            found = re.findall(r"\[([^\]]+)\]", r["defline"])
+            names[r["accession"]] = found[-1] if found else r["accession"]
+    return names
 
 
 def auto_diagnostic(
@@ -443,32 +464,45 @@ def _search_regions(
     return fna, hits_path
 
 
-def _read_blastx(
-    hits_path: Path, taxon_of: dict[str, str]
-) -> tuple[dict[str, list[tuple[str, float]]], dict[str, tuple[float, int]]]:
-    """Per region (``locus|gene``): its (taxon, bitscore) hits and best-scoring frame.
+class BestHit(NamedTuple):
+    """A region's best blastx hit: its virus, identity, strength and frame."""
 
-    Hits to accessions missing from the reference table are ignored.
+    virus: str
+    identity: float  # percent amino-acid identity over the alignment
+    bitscore: float
+    frame: int  # blastx query frame, 1 to 3 or -1 to -3
+
+
+def _read_blastx(
+    hits_path: Path, taxon_of: dict[str, str], virus_of: dict[str, str]
+) -> tuple[dict[str, list[tuple[str, float]]], dict[str, BestHit]]:
+    """Per region (``locus|gene``): its (taxon, bitscore) hits, and its best hit.
+
+    The best hit is the highest bitscore. It gives the frame placement translates
+    in, and the nearest virus (ADR-024), named from ``virus_of``. Hits to
+    accessions missing from the reference table are ignored.
     """
     hits: dict[str, list[tuple[str, float]]] = defaultdict(list)
-    best_frame: dict[str, tuple[float, int]] = {}
+    best: dict[str, BestHit] = {}
     with hits_path.open(encoding="utf-8") as fh:
         for line in fh:
-            qid, sid, bits, frame = line.rstrip("\n").split("\t")
+            qid, sid, bits, frame, pident = line.rstrip("\n").split("\t")
             qid = qid.split("(")[0]
-            taxon = taxon_of.get(sid.split()[0])
+            accession = sid.split()[0]
+            taxon = taxon_of.get(accession)
             if not taxon:
                 continue
             b = float(bits)
             hits[qid].append((taxon, b))
-            if qid not in best_frame or b > best_frame[qid][0]:
-                best_frame[qid] = (b, int(frame))
-    return hits, best_frame
+            if qid not in best or b > best[qid].bitscore:
+                # virus_of has every accession taxon_of has: one CSV feeds both.
+                best[qid] = BestHit(virus_of[accession], float(pident), b, int(frame))
+    return hits, best
 
 
 def _placement_queries(
     gene: str,
-    best_frame: dict[str, tuple[float, int]],
+    best: dict[str, BestHit],
     region_seq: dict[str, str],
     min_orf: int,
 ) -> dict[str, str]:
@@ -477,9 +511,9 @@ def _placement_queries(
     Translations shorter than ``min_orf`` residues are left out.
     """
     queries: dict[str, str] = {}
-    for qid, (_, frame) in best_frame.items():
+    for qid, hit in best.items():
         if qid.endswith(f"|{gene}") and qid in region_seq:
-            prot = translate_frame(region_seq[qid], frame).replace("*", "X")
+            prot = translate_frame(region_seq[qid], hit.frame).replace("*", "X")
             if len(prot) >= min_orf:
                 queries[qid] = prot
     return queries
@@ -487,7 +521,7 @@ def _placement_queries(
 
 def _place_genes(
     placement_genes: set[str],
-    best_frame: dict[str, tuple[float, int]],
+    best: dict[str, BestHit],
     region_seq: dict[str, str],
     min_orf: int,
     ref_dir: Path,
@@ -496,7 +530,7 @@ def _place_genes(
     """Placement calls per region, one batch per placement gene."""
     placement: dict[str, dict[str, str]] = {}
     for gene in placement_genes:
-        queries = _placement_queries(gene, best_frame, region_seq, min_orf)
+        queries = _placement_queries(gene, best, region_seq, min_orf)
         if queries:
             placement.update(
                 taxonomy_placement.place(
@@ -543,6 +577,7 @@ class _Assembly:
     structure_full_min: float
     source: str
     segment_rank: str
+    best: dict[str, BestHit]  # region -> its best blastx hit (ADR-024)
 
 
 def _assemble(
@@ -561,6 +596,7 @@ def _assemble(
     *,
     gene_priority: list[str] | None = None,
     gene_order: list[str] | None = None,
+    best: dict[str, BestHit] | None = None,
 ) -> list[dict[str, str]]:
     """One output record per locus, from its per-gene evidence.
 
@@ -584,6 +620,7 @@ def _assemble(
         structure_full_min=structure_full_min,
         source=source,
         segment_rank=segment_rank,
+        best=best or {},
     )
     return [_locus_record(lc, asm) for lc in loci]
 
@@ -615,32 +652,35 @@ def _gene_call(qid: str, gene: str, asm: _Assembly) -> dict[str, str]:
     }
 
 
-def _locus_call(
+def _priority(gene: str, asm: _Assembly) -> int:
+    """The gene's place in ``gene_priority``; a gene it does not list comes last."""
+    return asm.gene_priority.get(gene, len(asm.gene_priority))
+
+
+def _call_gene(
     per_gene: dict[str, dict[str, str]],
     confident: dict[str, dict[str, str]],
     asm: _Assembly,
-) -> dict[str, str]:
-    """The call a locus reports, picked from its genes' calls.
+) -> str | None:
+    """The gene whose call the locus reports, or None when no gene has one.
 
     Among genes resolved to an axis taxon: placement first, then marker
-    reliability (``gene_priority``; a gene it does not list comes last), then
-    confidence. Raw confidence alone would favour ENV, because it depends on how
-    much competes. With no gene resolved, the first gene with any call is used,
-    else unclassified.
+    reliability (``gene_priority``), then confidence. Raw confidence alone would
+    favour ENV, because it depends on how much competes. With no gene resolved,
+    the first gene with any call is used.
     """
     if confident:
-        default_priority = len(asm.gene_priority) + 1
-        best_gene = min(
+        return min(
             confident,
             key=lambda g: (
                 0 if confident[g]["method"] == "placement" else 1,
-                asm.gene_priority.get(g, default_priority),
+                _priority(g, asm),
                 -float(confident[g]["confidence"]),
             ),
         )
-        return confident[best_gene]
-    ranked = [c for c in per_gene.values() if c["taxon_call"] != tlca.UNCLASSIFIED]
-    return ranked[0] if ranked else dict(_UNCLASSIFIED_CALL)
+    return next(
+        (g for g, c in per_gene.items() if c["taxon_call"] != tlca.UNCLASSIFIED), None
+    )
 
 
 def _canonical_order(lc: dict[str, Any], gene_order: list[str]) -> str:
@@ -690,6 +730,44 @@ def _structure(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
     }
 
 
+NEAREST_COLUMNS = [
+    "nearest_virus",
+    "nearest_virus_identity",
+    "nearest_virus_gene",
+    "per_gene_nearest",
+]
+
+
+def _nearest(
+    lc: dict[str, Any], asm: _Assembly, call_gene: str | None
+) -> dict[str, str]:
+    """The locus's nearest reference virus, with its amino-acid identity (ADR-024).
+
+    Each gene region's best blastx hit names a reference virus. The headline gene
+    is ``call_gene``, the gene behind the locus's taxon call, so the name and the
+    call come from the same evidence. When that gene has no reference hit (or the
+    locus has no call), ``gene_priority`` decides, then the strongest hit. The
+    identity travels with the name, because a nearest virus is usually a distant
+    relative, not an instance (measurements in ADR-024). All four columns are
+    blank without a reference hit.
+    """
+    found = {g: hit for g in lc["genes"] if (hit := asm.best.get(f"{lc['id']}|{g}"))}
+    if not found:
+        return dict.fromkeys(NEAREST_COLUMNS, "")
+    if call_gene is not None and call_gene in found:
+        gene = call_gene
+    else:
+        gene = min(found, key=lambda g: (_priority(g, asm), -found[g].bitscore, g))
+    return {
+        "nearest_virus": found[gene].virus,
+        "nearest_virus_identity": f"{found[gene].identity:.1f}",
+        "nearest_virus_gene": gene,
+        "per_gene_nearest": ";".join(
+            f"{g}:{hit.virus}({hit.identity:.1f})" for g, hit in sorted(found.items())
+        ),
+    }
+
+
 def _mosaic(
     confident: dict[str, dict[str, str]], main_set: set[str]
 ) -> tuple[str, str]:
@@ -711,7 +789,8 @@ def _locus_record(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
     per_gene = {g: _gene_call(f"{lc['id']}|{g}", g, asm) for g in lc["genes"]}
     # 'confident' = resolved to an axis taxon (ADR-008), not the old rank=='genus'.
     confident = {g: c for g, c in per_gene.items() if c["taxon_call"] in asm.axis}
-    call = _locus_call(per_gene, confident, asm)
+    call_gene = _call_gene(per_gene, confident, asm)
+    call = per_gene[call_gene] if call_gene else dict(_UNCLASSIFIED_CALL)
     taxon_call = call["taxon_call"]
     is_mosaic, composition = _mosaic(confident, asm.main_set)
     # blastx evidence depth, summed over the locus's gene regions. Zero means valid
@@ -752,6 +831,7 @@ def _locus_record(lc: dict[str, Any], asm: _Assembly) -> dict[str, str]:
             f"{g}:{c['taxon_call']}({c['method']},{c['confidence']})"
             for g, c in sorted(per_gene.items())
         ),
+        **_nearest(lc, asm, call_gene),
         "is_mosaic": is_mosaic,
         "mosaic_composition": composition,
         "erv_class": tlca.ERV_CLASS.get(taxon_call, ""),
@@ -875,6 +955,7 @@ LOCI_COLUMNS = [
     "n_blastx_hits",
     "method",
     "per_gene",
+    *NEAREST_COLUMNS,
     "is_mosaic",
     "mosaic_composition",
     "erv_class",

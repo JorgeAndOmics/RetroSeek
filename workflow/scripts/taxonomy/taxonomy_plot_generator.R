@@ -98,6 +98,32 @@ load_orphans <- function(input_dir) {
 }
 
 
+# The catalog's columns, in order. The nearest reference virus and its amino-acid
+# identity (ADR-024) travel with the call, so the virus names survive to the end.
+CATALOG_COLS <- c(
+  "species", "source", "seqname", "start", "end", "strand",
+  "taxon_call", "rank", "segment", "segment_rank",
+  "resolved", "confidence", "confidence_tag", "erv_class",
+  "structure_class", "domain_tier", "oversized", "canonical_order",
+  "completeness", "n_main_genes", "genes_present", "is_mosaic",
+  "mosaic_composition", "n_blastx_hits", "method",
+  "nearest_virus", "nearest_virus_identity", "nearest_virus_gene", "per_gene_nearest",
+  "id"
+)
+
+
+# The unified catalog from both tiers: reconciled, trimmed to CATALOG_COLS (any
+# the frame lacks are skipped) and sorted by species and position.
+catalog_table <- function(combined) {
+  catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(CATALOG_COLS))
+  if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
+    catalog <- catalog %>%
+      dplyr::arrange(.data$species, .data$seqname, as.integer(.data$start))
+  }
+  catalog
+}
+
+
 # Reconcile the unified catalog to a fully non-overlapping record set with
 # LTR-FLANKED PRECEDENCE: within each (species, seqname), drop any orphan locus
 # whose span overlaps an LTR-flanked locus. LTR-flanked loci are LTR-confirmed;
@@ -1001,19 +1027,7 @@ main <- function() {
   # LTR-flanked proviruses (LTR-confirmed) + clustered orphan loci (proximity-
   # inferred), `source` keeping the confidence gradient explicit. The single
   # "this is what we found at this location, and here's everything about it" table.
-  catalog_cols <- c(
-    "species", "source", "seqname", "start", "end", "strand",
-    "taxon_call", "rank", "segment", "segment_rank",
-    "resolved", "confidence", "confidence_tag", "erv_class",
-    "structure_class", "domain_tier", "oversized", "canonical_order",
-    "completeness", "n_main_genes", "genes_present", "is_mosaic",
-    "mosaic_composition", "n_blastx_hits", "method", "id"
-  )
-  catalog <- reconcile_catalog(combined) %>% dplyr::select(dplyr::any_of(catalog_cols))
-  if (nrow(catalog) > 0L && all(c("species", "seqname", "start") %in% names(catalog))) {
-    catalog <- catalog %>%
-      dplyr::arrange(.data$species, .data$seqname, as.integer(.data$start))
-  }
+  catalog <- catalog_table(combined)
   dir.create(dirname(args$catalog_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(catalog, args$catalog_csv)
 
