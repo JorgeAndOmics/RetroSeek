@@ -401,6 +401,8 @@ PFAM_DOMAIN_CLASSES = _anchor(
 # Pinned Pfam release (ADR-019). The curated class table above was checked
 # against this release; an older library lacks some of its accessions.
 PFAM_RELEASE: str = str(config["input"].get("pfam_release", "38.2"))
+# Pinned Dfam release for the optional LTR-family labels (ADR-023).
+DFAM_RELEASE: str = str(config["input"].get("dfam_release", "4.0"))
 
 # Genomes
 SPECIES_DICT: dict[str, str] = config.get("species", {})

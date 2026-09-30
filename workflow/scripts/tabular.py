@@ -5,10 +5,13 @@ skip ``#`` comment lines, and skip rows too short to hold the columns the caller
 reads. Doing that in one place keeps the readers about their own columns. The
 GFF3 tracks the pipeline writes are read stricter, through ``gff3_features``, and
 all GFF3 readers share the parser of column 9, the ``key=value`` attributes.
+The one writer here, ``write_csv``, gives a table a fixed header even when it has
+no rows, so an empty genome still honours its output contract.
 """
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -91,3 +94,12 @@ def gff3_features(gff3: Path) -> Iterator[tuple[list[str], int, int]]:
                     hint="regenerate the file with the rule that writes it",
                 )
             yield fields, *coordinates
+
+
+def write_csv(rows: list[dict[str, object]], columns: list[str], path: Path) -> None:
+    """Write `rows` under the header `columns`, even when there are no rows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)

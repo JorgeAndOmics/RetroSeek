@@ -30,6 +30,7 @@ phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 |---|---|---|
 | `--download-genomes` | `genome_downloader` | `{genome}.fa` in `SPECIES_DB`, from `config.species` accessions |
 | `--download-hmm` | `pfam_hmm_downloader` | `Pfam-A.hmm`, the pinned release `input.pfam_release` (ADR-019) |
+| `--download-dfam` | `dfam_downloader` | `Dfam-curated_only-1.hmm`, the pinned release `input.dfam_release`, for the optional LTR-family labels (ADR-023) |
 | `--build-reference` | `taxonomy_reference_trees` | `data/taxonomy_reference/`: reference proteins, NCBI taxonomy, per-gene placement trees (network, built once) |
 | `--probe-extractor` | `probe_extractor` | `probe_dict.pkl` (+ CSV / Parquet) from `input.probe_csv` |
 

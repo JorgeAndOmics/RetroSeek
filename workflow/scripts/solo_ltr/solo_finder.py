@@ -39,7 +39,6 @@ from __future__ import annotations
 import argparse
 import csv
 import gzip
-import hashlib
 import logging
 from collections import Counter, defaultdict
 from collections.abc import Iterator
@@ -53,6 +52,7 @@ from solo_intervals import IntervalIndex
 
 from log import OK, job_logging, run_main
 from tabular import gff3_attributes, gff3_features
+from utils import file_md5
 
 logger = logging.getLogger(__name__)
 
@@ -468,15 +468,6 @@ def write_manifest(
     md5s, resolved options) so the two can be read side by side. Counts live here
     too because they are cheap and they make a stale manifest obvious.
     """
-
-    def md5(file: Path) -> str:
-        # A fingerprint for provenance, not a security boundary.
-        digest = hashlib.md5()
-        with file.open("rb") as handle:
-            for block in iter(lambda: handle.read(1 << 20), b""):
-                digest.update(block)
-        return digest.hexdigest()
-
     lines = [
         "generator: solo_ltr/solo_finder.py",
         f"timestamp: {datetime.now(timezone.utc).isoformat()}",
@@ -485,7 +476,7 @@ def write_manifest(
     for name, file in inputs.items():
         lines.append(f"  {name}:")
         lines.append(f"    path: {file}")
-        lines.append(f"    md5: {md5(file) if file.exists() else 'missing'}")
+        lines.append(f"    md5: {file_md5(file) if file.exists() else 'missing'}")
     lines.append("options:")
     for field, value in vars(thresholds).items():
         lines.append(f"  {field}: {value}")

@@ -45,6 +45,7 @@ dependencies:
   - raxml-ng             # --evaluate: optimise the placement model/branch lengths
   - epa-ng               # phylogenetic placement of query markers onto the reference tree
   - gappa                # turn placements (.jplace) into taxonomic calls
+  - cd-hit               # cd-hit-est: solo-LTR bait arms into LTR families (ADR-023)
                          #   blastx (from blast above) is the default translated search - no diamond.
 
   # -- python libs -----------------------------------------
