@@ -161,7 +161,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.tree_summary.csv` | the tree's positive control, clustering against its null, tip census, seed |
 | `{genome}.tree_adjacency.csv` | which fate sits beside which on the tree, as enrichment |
 | `{genome}.ltr_families.csv` | every bait arm with its element and LTR family (ADR-023; `ltr_family`, e.g. `Mmus_F001`, numbered by size) and whether it is the family's representative |
-| `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
+| `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, the members' most common nearest reference virus and their median identity to it (ADR-024), median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
 | `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
 | `{genome}.ltr_family_ratio.csv` | per LTR family: its intact elements (the ones that supplied bait), its solos, and solos per intact element |
 | `pooled.ltr_families.csv`, `pooled.ltr_family_summary.csv` | the same families built over every genome's arms at once (`Pool_F001`...): each arm with its pooled family, and per family the genomes it spans and their arm counts |

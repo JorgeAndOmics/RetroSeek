@@ -47,6 +47,9 @@ Four new columns on the loci and orphan tables, and in `catalog.csv`:
   the 383 current references lacks one).
 - The identity always travels with the name. The columns are evidence beside
   the genus call, never an input to it.
+- Each LTR family summary (ADR-023) gains `majority_nearest_virus`, its members'
+  most common nearest virus, and `majority_virus_identity`, the median identity
+  of the members that name it.
 
 ## Consequences
 
