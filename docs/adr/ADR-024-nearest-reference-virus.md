@@ -32,13 +32,16 @@ Four new columns on the loci and orphan tables, and in `catalog.csv`:
 | `nearest_virus` | the virus of the headline gene's best blastx hit |
 | `nearest_virus_identity` | that hit's amino-acid identity, in percent |
 | `nearest_virus_gene` | the headline gene |
-| `per_gene_nearest` | every gene's nearest virus and identity, e.g. `GAG:Mouse mammary tumor virus(55.0);POL:...` |
+| `per_gene_nearest` | every gene's nearest virus and identity, e.g. `GAG:Mouse mammary tumor virus(55.0);POL:...`; the identity is always the last parenthesis, since a virus name can hold one (`Feline sarcoma virus (STRAIN HARDY-ZUCKERMAN 4)`) |
 
 - **Best hit** = highest bit score among hits to the reference, the same hit that
-  gives the placement frame.
-- **Headline gene** follows `classification.gene_priority`, the order the genus
-  call already trusts (ADR-022); genes it does not list come after, strongest hit
-  first.
+  gives the placement frame. Its identity is that alignment's; the strongest
+  alignment of a long region is its long one, since bit score grows with length.
+- **Headline gene** is the gene behind the locus's `taxon_call`, so the virus
+  name and the call rest on the same evidence (a Betaretrovirus call from a
+  placed GAG must not sit beside POL's nearest gammaretrovirus). When that gene
+  has no reference hit, or the locus has no call, `classification.gene_priority`
+  decides (ADR-022), then the strongest hit.
 - **The virus** is the last `[bracket]` of the reference defline (an earlier one
   can hold a strain); a reference without one is named by its accession.
 - The identity always travels with the name. The columns are evidence beside
@@ -49,6 +52,10 @@ Four new columns on the loci and orphan tables, and in `catalog.csv`:
 - blastx writes one more field (`pident`); hits and calls are unchanged, so every
   existing column keeps its value. Loci without a reference hit leave the four
   columns blank.
+- Taking the headline from the call's gene matters: on Desmodus it moves the
+  headline for 95 of 406 loci away from the first gene in `gene_priority`. One of
+  the 34 DrERV loci then reports its call gene's lower identity; its POL match
+  stays visible in `per_gene_nearest`.
 - A reader can now separate "this locus is a copy of a known endogenous virus"
   (DrERV, MLV in the mouse) from "this locus is a distant relative of the nearest
   reference" (nearly everything else).

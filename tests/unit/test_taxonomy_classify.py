@@ -1157,13 +1157,14 @@ class TestNearestVirus:
         )
         taxon_of = {"A1": "Gammaretrovirus", "A4": "Gammaretrovirus"}
         virus_of = {"A1": "Moloney murine leukemia virus", "A4": ""}
-        _, best_frame, best_ref = tcl._read_blastx(hits, taxon_of, virus_of)
-        assert best_frame["L0|POL"] == (350.0, 2)
+        _, best = tcl._read_blastx(hits, taxon_of, virus_of)
         # A4's defline has no virus name, so its accession stands in.
-        assert best_ref["L0|POL"] == tcl.BestRef("A4", 60.0, 350.0)
+        assert best["L0|POL"] == tcl.BestHit("A4", 60.0, 350.0, 2)
 
     @staticmethod
-    def _record(genes: list[str], best_ref: dict, **lists) -> dict:
+    def _record(
+        genes: list[str], best_ref: dict, placement: dict | None = None, **lists
+    ) -> dict:
         locus = {
             "id": "L0",
             "seqname": "chr1",
@@ -1175,14 +1176,14 @@ class TestNearestVirus:
             "probe_label_set": "",
         }
         return tcl._assemble(
-            [locus], {}, {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS,
-            best_ref=best_ref, **lists,
+            [locus], {}, placement or {}, "v", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS,
+            best=best_ref, **lists,
         )[0]  # fmt: skip
 
     def test_the_headline_gene_follows_gene_priority(self) -> None:
         best_ref = {
-            "L0|GAG": tcl.BestRef("Mouse mammary tumor virus", 55.0, 400.0),
-            "L0|POL": tcl.BestRef("Moloney murine leukemia virus", 92.5, 300.0),
+            "L0|GAG": tcl.BestHit("Mouse mammary tumor virus", 55.0, 400.0, 1),
+            "L0|POL": tcl.BestHit("Moloney murine leukemia virus", 92.5, 300.0, 1),
         }
         rec = self._record(["GAG", "POL"], best_ref, gene_priority=["POL", "GAG"])
         assert rec["nearest_virus"] == "Moloney murine leukemia virus"
@@ -1192,12 +1193,39 @@ class TestNearestVirus:
             "GAG:Mouse mammary tumor virus(55.0);POL:Moloney murine leukemia virus(92.5)"
         )
 
+    def test_the_nearest_virus_comes_from_the_gene_behind_the_taxon_call(
+        self,
+    ) -> None:
+        # GAG is placed in Betaretrovirus and makes the call, although POL is
+        # listed first: the nearest virus must come from GAG too, or the row
+        # would name a gammaretrovirus beside a betaretrovirus call.
+        best_ref = {
+            "L0|GAG": tcl.BestHit("Mouse mammary tumor virus", 55.0, 400.0, 1),
+            "L0|POL": tcl.BestHit("Moloney murine leukemia virus", 92.5, 300.0, 1),
+        }
+        placed = {
+            "L0|GAG": {
+                "taxon_call": "Betaretrovirus",
+                "rank": "genus",
+                "confidence": "1.000",
+                "method": "placement",
+            }
+        }
+        rec = self._record(
+            ["GAG", "POL"], best_ref, placed, gene_priority=["POL", "GAG"]
+        )
+        assert rec["taxon_call"] == "Betaretrovirus"
+        assert (rec["nearest_virus_gene"], rec["nearest_virus"]) == (
+            "GAG",
+            "Mouse mammary tumor virus",
+        )
+
     def test_a_gene_outside_gene_priority_is_used_only_when_no_listed_gene_hit(
         self,
     ) -> None:
         best_ref = {
-            "L0|PRO": tcl.BestRef("Mouse mammary tumor virus", 40.0, 120.0),
-            "L0|OTHER": tcl.BestRef("Feline leukemia virus", 70.0, 90.0),
+            "L0|PRO": tcl.BestHit("Mouse mammary tumor virus", 40.0, 120.0, 1),
+            "L0|OTHER": tcl.BestHit("Feline leukemia virus", 70.0, 90.0, 1),
         }
         rec = self._record(["PRO", "OTHER"], best_ref, gene_priority=["POL"])
         # Neither gene is listed, so the best-scoring one heads the locus.
