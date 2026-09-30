@@ -288,8 +288,8 @@ class TestGeneLists:
         assert tcl.build_loci(feats)[0]["strand_tie"] is False
 
     def test_gene_lists_are_read_upper_cased_from_the_command_line(self) -> None:
-        assert tcl._gene_list(" pol, gag,,ENV ") == ["POL", "GAG", "ENV"]
-        assert tcl._gene_list("") == []
+        assert tcl._comma_list(" pol, gag,,ENV ") == ["POL", "GAG", "ENV"]
+        assert tcl._comma_list("") == []
 
 
 class TestAssembleStructure:
@@ -305,8 +305,8 @@ class TestAssembleStructure:
             "probe_label_set": "",
         }
 
-    def test_completeness_and_canonical_order(self) -> None:
-        # POL then GAG genomically, main order POL,GAG -> canonical, 2/3 complete.
+    def test_completeness_and_the_locus_call(self) -> None:
+        # Two of three main genes: 2/3 complete. (Gene order: TestGeneLists.)
         loci = [self._locus({"POL": (100, 200), "GAG": (210, 300)})]
         hits = {
             "L0|POL": [("Gammaretrovirus", 100.0)],
@@ -316,7 +316,6 @@ class TestAssembleStructure:
             loci, hits, {}, "vTEST", ["POL", "GAG", "ENV"], {}, 0.10, _AXIS
         )[0]
         assert rec["completeness"] == f"{2 / 3:.3f}"
-        assert rec["canonical_order"] == "True"
         assert rec["n_main_genes"] == "2"
         assert rec["taxon_call"] == "Gammaretrovirus"
         assert rec["resolved"] == "True"

@@ -107,6 +107,7 @@ _GENE_LIST_FALLBACKS: dict[tuple[str, ...], str] = {
         "the locus call ranks genes in the order of main_probes ({order})"
     ),
 }
+_GENE_LISTS = (_MAIN_PROBES, *_GENE_LIST_FALLBACKS)
 
 
 def _gene_list(config: dict[str, object], path: tuple[str, ...]) -> list[str]:
@@ -140,7 +141,7 @@ def gene_list_errors(config: dict[str, object]) -> list[str]:
     """
     return [
         error
-        for path in (_MAIN_PROBES, *_GENE_LIST_FALLBACKS)
+        for path in _GENE_LISTS
         for error in _list_errors(".".join(path), _gene_list(config, path))
     ]
 
@@ -158,15 +159,16 @@ def gene_list_notes(config: dict[str, object], probes: set[str] | None) -> list[
     """
     main_order = ", ".join(_gene_list(config, _MAIN_PROBES))
     notes = []
-    for path in (_MAIN_PROBES, *_GENE_LIST_FALLBACKS):
+    for path in _GENE_LISTS:
         key, names = ".".join(path), _gene_list(config, path)
-        if not names and path in _GENE_LIST_FALLBACKS:
-            consequence = _GENE_LIST_FALLBACKS[path].format(order=main_order)
+        fallback = _GENE_LIST_FALLBACKS.get(path)
+        if fallback and not names:
+            consequence = fallback.format(order=main_order)
             notes.append(
                 f"Config list `{key}` is not set: {consequence}. Add it to the "
                 'config (docs/configuration.md, "The three gene lists").'
             )
-        unknown = [name for name in names if probes is not None and name not in probes]
+        unknown = [] if probes is None else [n for n in names if n not in probes]
         if unknown:
             notes.append(
                 f"Config list `{key}` names {', '.join(unknown)}, which the probe "

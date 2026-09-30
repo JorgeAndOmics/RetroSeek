@@ -94,9 +94,10 @@ add_structure_companions <- function(df) {
     mutate(
       completeness    = suppressWarnings(as.numeric(.data$completeness)),  # blank: NA
       n_main_genes    = suppressWarnings(as.integer(.data$n_main_genes)),  # blank: NA
-      # Three answers (ADR-022): TRUE, FALSE, or NA when the locus had fewer than
-      # two of the ordered genes. That blank arrives as "" from the Parquet
-      # tables and as NA from the catalog CSV; as.logical reads both as NA.
+      # Three answers (ADR-022): TRUE, FALSE, or NA when the order could not be
+      # checked (fewer than two ordered genes, or a tied strand vote). That blank
+      # arrives as "" from the Parquet tables and as NA from the catalog CSV;
+      # as.logical reads both as NA.
       canonical_order = as.logical(as.character(.data$canonical_order)),
       span_bp         = as.numeric(.data$end) - as.numeric(.data$start) + 1
     )
@@ -241,8 +242,8 @@ gene_combinations_plot <- function(loci) {
 }
 
 # Loci per host whose gene order could be checked, canonical or rearranged. A
-# locus with fewer than two of the ordered genes has nothing to check and is
-# left out.
+# locus with fewer than two of the ordered genes, or a tied strand vote, has
+# nothing to check and is left out.
 gene_order_counts <- function(loci) {
   loci %>%
     filter(!is.na(.data$canonical_order)) %>%
@@ -265,7 +266,7 @@ canonical_order_plot <- function(loci, ctx = NULL) {
     p, "Gene order",
     sprintf(paste("Genes in the configured 5' to 3' order along the locus's",
                   "strand, or rearranged. %s of %s loci could be checked."),
-            format(sum(d$n), big.mark = ","), format(nrow(loci), big.mark = ","))
+            scales::comma(sum(d$n)), scales::comma(nrow(loci)))
   )
   on_rows(p, d$species, ctx)
 }

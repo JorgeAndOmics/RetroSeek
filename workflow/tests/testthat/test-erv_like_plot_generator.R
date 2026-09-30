@@ -120,9 +120,10 @@ test_that("rare gene combinations are pooled into one Other bar", {
 
 
 # ---------------------------------------------------------------------------
-# canonical_order has three answers (ADR-022): True, False, or blank when a
-# locus has fewer than two of the ordered genes. The Parquet tables carry the
-# blank as "", the catalog CSV as NA; both must read as "not assessable".
+# canonical_order has three answers (ADR-022): True, False, or blank when the
+# order could not be checked (fewer than two ordered genes, or a tied strand).
+# The Parquet tables carry the blank as "", the catalog CSV as NA; both must
+# read as "not assessable".
 test_that("a blank gene order reads as NA from either table", {
   df <- tibble::tibble(
     start = "1", end = "9", completeness = "1.000", n_main_genes = "3",

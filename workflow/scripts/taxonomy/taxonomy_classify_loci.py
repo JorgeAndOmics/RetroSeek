@@ -624,9 +624,9 @@ def _locus_call(
 
     Among genes resolved to an axis taxon: placement first, then marker
     reliability (``gene_priority``; a gene it does not list comes last), then
-    confidence. Raw confidence
-    alone would favour ENV, because it depends on how much competes. With no
-    gene resolved, the first gene with any call is used, else unclassified.
+    confidence. Raw confidence alone would favour ENV, because it depends on how
+    much competes. With no gene resolved, the first gene with any call is used,
+    else unclassified.
     """
     if confident:
         default_priority = len(asm.gene_priority) + 1
@@ -1073,7 +1073,7 @@ def _write_outputs(a: argparse.Namespace, records: list[dict[str, str]]) -> None
         logger.info("wrote track: %s", a.out_gff3)
 
 
-def _gene_list(text: str) -> list[str]:
+def _comma_list(text: str) -> list[str]:
     """A comma-separated gene list from the command line, upper-cased, blanks dropped."""
     return [gene.strip().upper() for gene in text.split(",") if gene.strip()]
 
@@ -1084,8 +1084,8 @@ def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
         a.gff3,
         a.genome,
         a.ref_dir,
-        set(_gene_list(a.placement_genes)),
-        _gene_list(a.main_probes),
+        set(_comma_list(a.placement_genes)),
+        _comma_list(a.main_probes),
         a.workdir,
         evalue=a.evalue,
         threads=a.threads,
@@ -1100,8 +1100,8 @@ def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
         domains_parquet=a.domains_parquet,
         domain_classes=a.domain_classes,
         scanned_txt=a.domains_scanned,
-        gene_priority=_gene_list(a.gene_priority),
-        gene_order=_gene_list(a.gene_order),
+        gene_priority=_comma_list(a.gene_priority),
+        gene_order=_comma_list(a.gene_order),
     )
 
 
