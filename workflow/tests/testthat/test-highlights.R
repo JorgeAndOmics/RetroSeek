@@ -52,7 +52,7 @@ test_that("the PDF has a key page and four pages, three without focal lineages",
   expect_length(highlights_pages(.catalog(), .axis(), NULL), 3L)
 })
 
-test_that("a focal lineage with no loci says so, and a name the catalog lacks is reported", {
+test_that("a focal lineage with no loci says so, and the log names it", {
   # A misspelt name in plots.focal_lineages must not look like "none found".
   stderr <- .capture_stderr(
     page <- focal_lineages_page(.catalog(), .axis(), "Deltaretrovirus")

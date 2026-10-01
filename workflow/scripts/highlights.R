@@ -218,7 +218,7 @@ main <- function() {
                   paste("The headline findings of this study, one page each. Hosts are",
                         "columns under the host tree. Every other figure is in its",
                         "stage PDF.",
-                        if (!nrow(catalog)) "This study has no loci, so no pages follow."),
+                        if (!nrow(catalog)) "This study has no loci: no pages follow."),
                   colours = stats::setNames(unname(.tier_colours()),
                                             display_label(names(.tier_colours()))),
                   pages = page_titles(pages))
