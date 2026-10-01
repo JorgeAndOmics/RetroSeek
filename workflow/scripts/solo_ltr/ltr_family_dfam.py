@@ -225,6 +225,9 @@ def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> lis
 
     Returns:
         The qualified family names written, in order.
+
+    Raises:
+        PipelineError: If a representative is missing from its bait FASTA.
     """
     names = []
     out.parent.mkdir(parents=True, exist_ok=True)
