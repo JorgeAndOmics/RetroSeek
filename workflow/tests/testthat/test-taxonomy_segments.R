@@ -34,7 +34,7 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
 
 
 # A catalog row set written the way taxonomy_classify_loci.py writes it: every
-# value a string, booleans as "True"/"False". Carries ALL 26 catalog columns,
+# value a string, booleans as "True"/"False". Carries ALL 30 catalog columns,
 # because the per-segment panel now drives the whole builder set and a builder
 # missing its column silently degrades to empty_plot() rather than erroring -
 # the exact failure this file already guards against.
@@ -76,7 +76,12 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
     "II",       "gene",           "non_domain",      "False",    "False",
     "0.333",       "1",           "ENV",          "False",
     "",                                       "0",            "lca",       "L4"
-  ) %>% write_csv(path)
+  ) %>%
+    # The nearest reference virus (ADR-024), the same for every row here.
+    mutate(nearest_virus = "Murine leukemia virus", nearest_virus_identity = "45.2",
+           nearest_virus_gene = "POL",
+           per_gene_nearest = "POL:Murine leukemia virus(45.2)") %>%
+    write_csv(path)
   path
 }
 
@@ -276,4 +281,41 @@ test_that("the overview and the segment PDFs go where the pipeline says", {
   expect_setequal(list.files(out("plots")),
                   c("Gammaretrovirus.pdf", "Betaretrovirus.pdf"))
   expect_true(file.exists(out("tables/by_genus/Gammaretrovirus.csv")))
+})
+
+
+# ---------------------------------------------------------------------------
+# Sparse segments: one table page instead of the full panel
+# ---------------------------------------------------------------------------
+.loaded_catalog <- function() {
+  load_catalog(.write_catalog(file.path(withr::local_tempdir(.local_envir = parent.frame()),
+                                        "catalog.csv")))
+}
+
+test_that("a segment with few loci gets one table page listing them", {
+  catalog <- .loaded_catalog()
+  beta <- catalog[catalog$segment == "Betaretrovirus", ]
+  out <- segment_pages(beta, beta[beta$source == "ltr-flanked", ],
+                       segment_panel(.full_registry(), "full"), ctx = list())
+  expect_length(out$pages, 1L)
+  expect_s3_class(out$pages[[1]], "ggplot")
+  expect_equal(out$pages[[1]]$labels$title, "The loci of this lineage")
+  expect_match(out$note, "2 loci")
+})
+
+test_that("a segment with enough loci gets the full panel", {
+  catalog <- .loaded_catalog()
+  many <- do.call(rbind, rep(list(catalog), 2))  # 10 loci, 6 LTR-flanked
+  panel <- segment_panel(.full_registry(), "curated")
+  out <- segment_pages(many, many[many$source == "ltr-flanked", ], panel, ctx = list())
+  expect_length(out$pages, length(panel))
+  expect_null(out$note)
+})
+
+test_that("a lineage with orphans only says its LTR-flanked pages are left out", {
+  catalog <- .loaded_catalog()
+  many <- do.call(rbind, rep(list(catalog[catalog$source == "orphan", ]), 3))
+  out <- segment_pages(many, many[0, ], segment_panel(.full_registry(), "full"),
+                       ctx = list())
+  expect_match(out$note, "no LTR-flanked loci")
 })

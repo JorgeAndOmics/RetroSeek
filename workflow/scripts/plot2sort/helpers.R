@@ -64,10 +64,16 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 # `data` picks its tier scope: "loci" is LTR-flanked only, "combined" is both
 # tiers. Losing that distinction would quietly mix orphans into the composition
 # and mosaic pages, which deliberately exclude them.
+# An entry whose scope has no rows is left out rather than drawn as a
+# placeholder: a lineage with orphans only has no LTR-flanked pages, and a
+# placeholder there read as "No loci" on a lineage that has some.
 render_panel <- function(registry, loci, combined, ctx) {
-  lapply(registry, function(e) {
-    e$build(if (identical(e$data, "loci")) loci else combined, ctx)
+  pages <- lapply(registry, function(e) {
+    data <- if (identical(e$data, "loci")) loci else combined
+    if (nrow(data) == 0L) return(NULL)
+    e$build(data, ctx)
   })
+  Filter(Negate(is.null), pages)
 }
 
 
