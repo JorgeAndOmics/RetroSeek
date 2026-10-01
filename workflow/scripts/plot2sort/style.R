@@ -304,6 +304,20 @@ display_label <- function(values) {
 # everything that is not a taxon name upright. Returns plotmath expressions,
 # which ggplot accepts anywhere it accepts labels.
 .NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
+# Breaks for a count axis: pretty() breaks, whole numbers only, so a panel of
+# two loci reads 0, 1, 2 rather than 0.0, 0.5, ... 2.0.
+.whole_number_breaks <- function(limits) {
+  breaks <- pretty(limits)
+  breaks[breaks == round(breaks)]
+}
+
+# The y scale of every count axis: thousands separators, whole-number breaks.
+# Takes the usual scale_y_continuous() arguments (expand, limits, ...).
+scale_y_count <- function(...) {
+  ggplot2::scale_y_continuous(labels = scales::label_comma(),
+                              breaks = .whole_number_breaks, ...)
+}
+
 # TRUE for a taxon name: one capitalised word ending like an ICTV genus,
 # subfamily or family ("Betaretrovirus", "Orthoretrovirinae", "Retroviridae").
 # Such names are italic. A virus name ("Murine leukemia virus") is not a taxon

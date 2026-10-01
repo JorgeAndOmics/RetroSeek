@@ -315,3 +315,10 @@ test_that("the key page sets taxa in its colour list in italics, other words upr
                           key$layers)[[1]]
   expect_equal(colour_labels$aes_params$fontface, c("italic", "plain"))
 })
+
+
+test_that("a count axis never shows fractions of a locus", {
+  expect_equal(.whole_number_breaks(c(0, 2)), c(0, 1, 2))
+  expect_true(all(.whole_number_breaks(c(0, 13000)) %% 1 == 0))
+  expect_s3_class(scale_y_count(), "ScaleContinuousPosition")
+})

@@ -136,7 +136,7 @@ segment_overview_plot <- function(catalog) {
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     coord_flip() +
     scale_x_discrete(labels = taxon_labels) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
     labs(x = NULL, y = "Loci", fill = NULL) +
     theme(panel.grid.major.y = element_blank())

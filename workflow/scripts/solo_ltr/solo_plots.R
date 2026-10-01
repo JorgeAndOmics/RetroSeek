@@ -134,7 +134,7 @@ identity_by_class_plot <- function(candidates, species, min_identity) {
   p <- ggplot(d, aes(x = .data$best_identity, fill = .data$fate)) +
     geom_histogram(bins = 40, alpha = 0.75, position = "identity") +
     geom_vline(xintercept = min_identity, linetype = "dashed", colour = .INK_SOFT) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     scale_fill_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek() +
     theme(legend.position = "bottom")
@@ -191,7 +191,7 @@ orphan_distance_plot <- function(candidates, species, orphan_pad) {
     geom_histogram(bins = 50, fill = .TIER_COLOUR[["orphan"]]) +
     geom_vline(xintercept = orphan_pad, linetype = "dashed", colour = .INK_SOFT) +
     scale_x_log10(labels = scales::comma) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     theme_retroseek()
   add_titles(
     p,
@@ -220,7 +220,7 @@ chromosome_density_plot <- function(candidates, species, top_n = 25) {
 
   p <- ggplot(d, aes(x = .data$seqname, y = .data$N, fill = .data$fate)) +
     geom_col(position = "stack") +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     scale_fill_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek() +
     theme(axis.text.x = element_text(angle = 60, hjust = 1),
@@ -246,7 +246,7 @@ family_abundance_plot <- function(candidates, species) {
 
   p <- ggplot(d, aes(x = .data$rank, y = .data$N)) +
     geom_col(fill = .FATE_COLOUR[["solo"]], width = 1) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     theme_retroseek()
   add_titles(
     p,
@@ -273,7 +273,7 @@ divergence_age_plot <- function(candidates, species) {
 
   p <- ggplot(d, aes(x = .data$age_my)) +
     geom_histogram(bins = 40, fill = .FATE_COLOUR[["solo"]]) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     theme_retroseek()
   add_titles(
     p,

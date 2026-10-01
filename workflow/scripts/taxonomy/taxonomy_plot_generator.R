@@ -362,7 +362,7 @@ taxon_composition_plot <- function(loci, ctx = NULL) {
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     scale_fill_taxon(counts$segment, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
   p <- add_titles(
     p, "Viral lineages per host",
@@ -385,7 +385,7 @@ lineage_composition_plot <- function(combined, ctx = NULL) {
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     scale_fill_taxon(counts$segment, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci, both tiers", fill = NULL)
   p <- add_titles(p, "Viral lineages per host, both tiers",
                   "Every locus by the lineage it rolls up to at the segment rank.")
@@ -404,7 +404,7 @@ taxon_by_source_plot <- function(combined, ctx = NULL) {
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_taxon(counts$taxon_call, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci with a confident call", fill = NULL)
   p <- add_titles(p, "Viral lineages per tier",
                   paste("Confident calls by lineage, per host and tier. A lineage seen",
@@ -438,7 +438,7 @@ method_mix_plot <- function(loci, ctx = NULL) {
     geom_col(width = 0.7) +
     scale_fill_manual(values = category_colours(sort(unique(counts$method))),
                       labels = display_label) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Confident calls", fill = NULL)
   p <- add_titles(p, "How each call was made",
                   "Phylogenetic placement or weighted LCA of blastx hits, per host.")
@@ -469,7 +469,7 @@ source_yield_plot <- function(combined, ctx = NULL) {
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$source)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.75) +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci", fill = NULL)
   p <- add_titles(p, "Loci per tier",
                   "LTR-flanked elements and recovered orphans, per host.")
@@ -604,7 +604,7 @@ confidence_gradient_plot <- function(combined, ctx = NULL) {
     geom_col(position = position_stack(reverse = TRUE), colour = NA, width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_ramp(limits = c(0, 1), name = "Confidence") +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci")
   p <- add_titles(
     p, "Confidence distribution per host",

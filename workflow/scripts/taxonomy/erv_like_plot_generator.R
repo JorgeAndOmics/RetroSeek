@@ -176,9 +176,14 @@ completeness_plot <- function(loci, ctx = NULL) {
   if (nrow(loci) == 0L) return(empty_plot("No loci"))
   d <- loci %>% filter(!is.na(.data$completeness))
   if (nrow(d) == 0L) return(empty_plot("No loci"))
+  # Completeness takes a few values (0, 1/3, 2/3, 1 with three main genes): one
+  # bar per value, its tick under it, rather than a histogram whose bins and
+  # ticks fall between them.
+  values <- sort(unique(d$completeness))
   p <- ggplot(d, aes(x = .data$completeness)) +
-    geom_histogram(bins = 20, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
-    scale_x_continuous(labels = scales::percent) +
+    geom_bar(fill = .DATA_COLOUR, width = 0.6 / max(1L, length(values) - 1L)) +
+    scale_x_continuous(labels = scales::percent, breaks = values) +
+    scale_y_count() +
     labs(x = "Main genes present", y = "Loci")
   p <- add_titles(
     p, "How complete the elements are",
@@ -277,11 +282,18 @@ length_distribution_plot <- function(loci, ctx = NULL) {
   d <- loci %>% filter(!is.na(.data$span_bp), .data$span_bp > 0)
   if (nrow(d) == 0L) return(empty_plot("No loci"))
   p <- ggplot(d, aes(x = .data$span_bp)) +
-    geom_histogram(bins = 40, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
+    # boundary = 0: the first bin starts at 0 bp, not half a bin below it.
+    geom_histogram(bins = 40, boundary = 0, fill = .DATA_COLOUR, colour = .PAPER,
+                   linewidth = 0.2) +
     scale_x_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = "Locus span (bp)", y = "Loci")
-  p <- add_titles(p, "Element length",
-                  "The genomic span of each LTR-flanked locus, per host.")
+  # A locus runs from its first to its last gene hit (taxonomy_classify_loci
+  # ._locus), so a lone ENV hit spans about 500 bp: this is coding span, not the
+  # element between its LTRs.
+  p <- add_titles(p, "Locus length",
+                  paste("From the first to the last gene hit of each LTR-flanked",
+                        "locus, per host. The LTRs are not part of it."))
   species_facets(p, ctx)
 }
 
