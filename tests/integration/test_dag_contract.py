@@ -23,7 +23,7 @@ import stages
 
 RULE_DEF_RE = re.compile(r"^rule\s+(\w+)\s*:", re.MULTILINE)
 WILDCARD_BLOCK_RE = re.compile(
-    r"wildcard_constraints\s*:\s*\n\s*genome\s*=\s*(.+?)$",
+    r"wildcard_constraints\s*:\s*\n\s*genome\s*=\s*(.+)$",
     re.MULTILINE,
 )
 
