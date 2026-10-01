@@ -133,6 +133,19 @@ genus_matrix_page <- function(catalog, axis) {
 }
 
 
+# The panel of a focal lineage with no loci: it keeps its place and says so, and
+# the log names it, since a misspelt name in plots.focal_lineages looks the same.
+.no_loci_panel <- function(lineage, n_columns) {
+  log_warn("focal lineage %s has no loci in this catalog: check the name in %s",
+           lineage, "plots.focal_lineages")
+  ggplot() +
+    annotate("text", x = (n_columns + 1) / 2, y = 0.5, label = "No loci",
+             colour = .INK_SOFT, size = 3.5, family = .FONT) +
+    labs(title = display_label(lineage), y = "Loci") +
+    theme(plot.title = element_text(face = "bold.italic", size = 11),
+          axis.text.y = element_blank(), panel.grid = element_blank())
+}
+
 # Page: the study's focal lineages, one panel each under one tree, or NULL when
 # none are configured. A lineage with no loci keeps its panel, saying so, so the
 # layout never shifts between studies.
@@ -140,6 +153,7 @@ focal_lineages_page <- function(catalog, axis, focal) {
   if (!length(focal)) return(NULL)
   panels <- lapply(focal, function(lineage) {
     d <- catalog %>% filter(.data$segment == lineage)
+    if (!nrow(d)) return(.no_loci_panel(lineage, length(axis$levels)))
     colours <- stats::setNames(taxon_colours(lineage), lineage)
     .count_panel(d, "segment", colours, taxon_labels(lineage), length(axis$levels),
                  title = display_label(lineage)) +
@@ -156,6 +170,7 @@ focal_lineages_page <- function(catalog, axis, focal) {
 # The pages after the key page, in reading order; the focal page only when the
 # config lists focal lineages.
 highlights_pages <- function(catalog, axis, focal) {
+  if (!nrow(catalog)) return(list())   # a study without loci: the key page only
   pages <- list(loci_by_tier_page(catalog, axis), lineage_mix_page(catalog, axis),
                 genus_matrix_page(catalog, axis),
                 focal_lineages_page(catalog, axis, focal))
@@ -165,6 +180,11 @@ highlights_pages <- function(catalog, axis, focal) {
 # The catalog columns this PDF reads, checked once at the boundary.
 .read_catalog <- function(path) {
   catalog <- readr::read_csv(path, col_types = readr::cols(.default = "c"), na = "")
+  # A study without loci writes a catalog with no columns at all: valid, empty.
+  if (!nrow(catalog)) {
+    return(tibble::tibble(species = character(), source = character(),
+                          segment = character()))
+  }
   missing <- setdiff(c("species", "source", "segment"), names(catalog))
   if (length(missing)) {
     abort_hint(sprintf("%s lacks the column(s) %s", path,
@@ -197,7 +217,8 @@ main <- function() {
   key <- key_page("Highlights",
                   paste("The headline findings of this study, one page each. Hosts are",
                         "columns under the host tree. Every other figure is in its",
-                        "stage PDF."),
+                        "stage PDF.",
+                        if (!nrow(catalog)) "This study has no loci, so no pages follow."),
                   colours = stats::setNames(unname(.tier_colours()),
                                             display_label(names(.tier_colours()))),
                   pages = page_titles(pages))
