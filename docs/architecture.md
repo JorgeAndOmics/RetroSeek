@@ -1,5 +1,8 @@
 # Architecture
 
+For a one-page overview (stages, outputs, which file answers which question) see
+[project_map.md](project_map.md).
+
 RetroSeek is a Snakemake-orchestrated bioinformatics pipeline combining Python, R, and Bash to detect endogenous retroviral (ERV) integrations in eukaryotic genomes.
 
 ## Stack
