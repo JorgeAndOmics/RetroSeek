@@ -84,6 +84,13 @@ div_colours <- function(n) {
 # Ordinal categories on the sequential ramp, strongest evidence darkest. Where a
 # level means "no evidence at all" it is grey, not the lightest step.
 .STRUCTURE_COLOUR <- stats::setNames(seq_colours(4)[4:2], c("full", "partial", "gene"))
+# What the three classes mean, for the pages that colour by them. The classifier
+# counts main genes only (taxonomy_classify_loci._structure), so a locus with
+# accessory genes alone is a single-gene locus. "Full" is every main gene at the
+# default classification.structure_full_min of 1.
+.STRUCTURE_MEANING <- paste("Full: every main gene. Partial: more than one, not all.",
+                            "Single gene: at most one main gene; accessory genes",
+                            "do not count.")
 .CONFIDENCE_COLOUR <- c(HC = seq_colours(4)[4], LC = seq_colours(4)[2])
 .RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2],
                                   c("genus", "subfamily", "family")),

@@ -348,19 +348,26 @@ add_numeric_companions <- function(df) {
 # ----------------------------------------------------------------------------
 
 # Confident calls per host, coloured by lineage.
+# Every LTR-flanked locus by the lineage it rolls up to at the segment rank, so a
+# call that stopped above that rank is the grey "unassigned" bar the key page
+# promises rather than a locus dropped without a word. The both-tiers version
+# is lineage_composition_plot().
 taxon_composition_plot <- function(loci, ctx = NULL) {
-  d <- loci %>% filter(.data$resolved == "True")
-  if (nrow(d) == 0L) return(empty_plot("No confident taxon calls"))
-  counts <- d %>% count(.data$species, .data$taxon_call, name = "n")
-  counts$taxon_call <- taxon_factor(counts$taxon_call, counts$n)
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon_call)) +
+  if (nrow(loci) == 0L || !"segment" %in% names(loci)) {
+    return(empty_plot("No segmented loci"))
+  }
+  counts <- loci %>% count(.data$species, segment = as.character(.data$segment),
+                           name = "n")
+  counts$segment <- taxon_factor(counts$segment, counts$n)
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
-    scale_fill_taxon(counts$taxon_call, counts$n) +
+    scale_fill_taxon(counts$segment, counts$n) +
     scale_y_continuous(labels = scales::comma) +
     labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
   p <- add_titles(
     p, "Viral lineages per host",
-    "LTR-flanked loci with a confident call, by the lineage they resolve to."
+    paste("LTR-flanked loci by the lineage they roll up to at the segment rank;",
+          "grey: not resolved that far.")
   )
   on_rows(p, counts$species, ctx)
 }
@@ -486,8 +493,7 @@ structure_class_composition_plot <- function(combined, ctx = NULL) {
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of loci", fill = NULL)
-  p <- add_titles(p, "Structural class per host",
-                  "Full, partial and single-gene loci, by tier.")
+  p <- add_titles(p, "Structural class per host, both tiers", .STRUCTURE_MEANING)
   on_rows(p, counts$species, ctx)
 }
 

@@ -167,9 +167,7 @@ structure_class_plot <- function(loci, ctx = NULL) {
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
-  p <- add_titles(p, "Structural class per host",
-                  paste("Full: every main gene present. Partial: some. Single gene:",
-                        "one main gene only."))
+  p <- add_titles(p, "Structural class per host, LTR-flanked loci", .STRUCTURE_MEANING)
   on_rows(p, d$species, ctx)
 }
 

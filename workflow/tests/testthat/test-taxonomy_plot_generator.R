@@ -360,3 +360,26 @@ test_that("tiers are drawn in the tier colours", {
   fills <- ggplot2::ggplot_build(source_yield_plot(.composition_loci()))$data[[1]]$fill
   expect_setequal(unique(fills), unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]))
 })
+
+
+test_that("the structural class page says what single gene means, and is titled apart", {
+  # A locus with only accessory genes is a 'gene' locus too; the subtitle used to
+  # say "one main gene only". Its sibling in the structure PDF has the same view
+  # for LTR-flanked loci, so the two titles must differ.
+  loci <- .composition_loci()
+  loci$structure_class <- "gene"
+  p <- structure_class_composition_plot(loci)
+  expect_equal(p$labels$title, "Structural class per host, both tiers")
+  expect_match(p$labels$subtitle, "at most one main gene", fixed = TRUE)
+})
+
+
+test_that("lineages per host keeps loci not resolved to a genus, as their own bar", {
+  # The page used to drop them silently while the key promised a grey bar.
+  loci <- .composition_loci()
+  loci$segment[1] <- "unassigned_at_genus"
+  loci$resolved <- c("False", rep("True", nrow(loci) - 1L))
+  p <- taxon_composition_plot(loci)
+  expect_equal(sum(p$data$n), nrow(loci))
+  expect_true("unassigned_at_genus" %in% as.character(p$data$segment))
+})

@@ -149,3 +149,10 @@ test_that("the gene-order page says so when no locus can be assessed", {
   loci$canonical_order <- c(NA, NA)
   expect_match(canonical_order_plot(loci)$labels$title, "No locus")
 })
+
+
+test_that("the LTR-flanked structural class page is titled apart and defines its classes", {
+  p <- structure_class_plot(.loci())
+  expect_equal(p$labels$title, "Structural class per host, LTR-flanked loci")
+  expect_match(p$labels$subtitle, "at most one main gene", fixed = TRUE)
+})
