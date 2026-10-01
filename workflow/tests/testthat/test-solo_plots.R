@@ -168,3 +168,14 @@ test_that("the family subtrees page names only the kinds it draws", {
   expect_false(grepl("without", p$labels$title))
   expect_match(.subtitle_text(p), "No family without an intact member")
 })
+
+
+test_that("the families page counts each genome's LTR families by repeat class", {
+  by_class <- stack_by_class(.class_tables)
+  p <- families_by_class_plot(by_class, tree = NULL, order = .order)
+  expect_s3_class(p, "ggplot")
+  expect_equal(sum(p$data$families), sum(by_class$families))
+  expect_equal(p$labels$title, "LTR families by repeat class")
+  expect_match(families_by_class_plot(by_class[0], NULL, .order)$labels$title,
+               "No per-class tables")
+})

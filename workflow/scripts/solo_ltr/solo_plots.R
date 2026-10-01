@@ -40,7 +40,8 @@
 #     2. solos_by_class     - solo candidates by the Dfam repeat class of their bait
 #                             family (ERV LTR, other LTR, LINE, SINE), with the ERV
 #                             LTR solos per bait element. Also solo_ltr_by_class.csv.
-#     3. class_composition  - the three fates per genome.
+#     3. families_by_class  - the LTR families per genome by the same repeat classes.
+#     4. class_composition  - the three fates per genome.
 #
 # Pages 8 to 12 appear only when the tree stage ran (solo_ltr.tree.enable).
 #
@@ -499,6 +500,28 @@ solos_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
 }
 
 
+#' Each genome's LTR families, counted by the Dfam repeat class of their arms.
+#'
+#' Read beside the page before it: most families are ERV LTR families, while
+#' most solo candidates come from the few LINE and SINE ones. Species on rows.
+families_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
+  if (!nrow(by_class)) return(empty_plot("No per-class tables"))
+  d <- copy(by_class)
+  d[, repeat_group := factor(repeat_group, levels = .REPEAT_GROUPS)]
+  p <- ggplot(d, aes(x = .data$species, y = .data$families, fill = .data$repeat_group)) +
+    geom_col(position = position_stack(reverse = TRUE), width = 0.66) +
+    scale_fill_manual(values = .repeat_colours(), limits = .REPEAT_GROUPS,
+                      drop = FALSE) +
+    scale_y_count() +
+    labs(x = NULL, y = "LTR families", fill = NULL)
+  p <- add_titles(p, title = "LTR families by repeat class",
+                  subtitle = paste("Bait-arm families per genome, by the Dfam class of",
+                                   "their arms. Compare the solo candidates they catch,",
+                                   "on the previous page."))
+  species_rows(p, unique(d$species), tree = tree, fallback_order = order)
+}
+
+
 # Family kinds as tree_families.py writes them, with reader-facing labels.
 .KIND_LABELS <- c(no_intact = "No intact member", with_intact = "Has an intact member")
 
@@ -815,6 +838,7 @@ draw <- function(args) {
   # The class split right after the ratio page, which points to it.
   pages <- list(solo_intact_ratio_plot(report, tree, order),
                 solos_by_class_plot(by_class, tree, order),
+                families_by_class_plot(by_class, tree, order),
                 class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree,
                                        order))
   key <- key_page(
