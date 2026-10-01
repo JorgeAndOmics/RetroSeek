@@ -143,6 +143,7 @@ Integrate BLAST + LTR evidence using an HPC profile:
 
 ## Documentation
 
+- [`docs/project_map.md`](docs/project_map.md) - the pipeline on one page: stages, outputs, and which file answers which question.
 - [`docs/architecture.md`](docs/architecture.md) - pipeline design, rule graph, data flow.
 - [`docs/usage.md`](docs/usage.md) - CLI reference and configuration overview.
 - [`docs/configuration.md`](docs/configuration.md) - field-by-field config reference.
