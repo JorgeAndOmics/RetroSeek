@@ -335,6 +335,18 @@ test_that("sankey_species_label_plot orders hosts by config and lineages by coun
   expect_equal(levels(p$data$label),   c("L_alpha", "L_beta"))
 })
 
+test_that("alluvium labels set hosts and lineages in italics, probes upright", {
+  df <- tibble::tibble(species = c("Homo sapiens", "Mus musculus"),
+                       label = c("Betaretrovirus", "Gammaretrovirus"), count = c(60, 40))
+  built <- ggplot2::ggplot_build(sankey_species_label_plot(df))
+  labels <- built$data[[3]]
+  faces <- stats::setNames(labels$fontface, sub(" \\(.*", "", labels$label))
+  expect_equal(unname(faces[c("Homo sapiens", "Betaretrovirus")]), c("italic", "italic"))
+  probes <- ggplot2::ggplot_build(sankey_label_probe_plot(
+    tibble::tibble(label = "Betaretrovirus", probe = "POL", count = 10)))$data[[3]]
+  expect_equal(probes$fontface[startsWith(probes$label, "POL")], "plain")
+})
+
 test_that("alluvial flows are coloured by probe or lineage, never by host", {
   p <- sankey_species_probe_plot(.sankey_input())
   expect_equal(rlang::as_label(p$layers[[1]]$mapping$fill), "probe")

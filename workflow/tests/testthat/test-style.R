@@ -298,3 +298,20 @@ test_that("a key page title puts the taxon in bold italics, a non-taxon upright"
   expect_equal(key_title("ERV loci:", "Unassigned at genus"),
                "ERV loci: Unassigned at genus")
 })
+
+
+test_that("a taxon name is one word ending like an ICTV genus, subfamily or family", {
+  expect_equal(.is_taxon_name(c("Betaretrovirus", "Orthoretrovirinae", "Retroviridae",
+                                "Murine leukemia virus", "Unassigned at genus",
+                                "LTR-flanked")),
+               c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE))
+})
+
+test_that("the key page sets taxa in its colour list in italics, other words upright", {
+  key <- key_page("Stage", "What it shows.",
+                  c(Betaretrovirus = "#000000", `LTR-flanked` = "#111111"))
+  colour_labels <- Filter(function(l) identical(l$aes_params$label,
+                                                c("Betaretrovirus", "LTR-flanked")),
+                          key$layers)[[1]]
+  expect_equal(colour_labels$aes_params$fontface, c("italic", "plain"))
+})

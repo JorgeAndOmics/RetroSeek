@@ -304,6 +304,12 @@ display_label <- function(values) {
 # everything that is not a taxon name upright. Returns plotmath expressions,
 # which ggplot accepts anywhere it accepts labels.
 .NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
+# TRUE for a taxon name: one capitalised word ending like an ICTV genus,
+# subfamily or family ("Betaretrovirus", "Orthoretrovirinae", "Retroviridae").
+# Such names are italic. A virus name ("Murine leukemia virus") is not a taxon
+# and stays upright, as do the pipeline's own words ("LTR-flanked").
+.is_taxon_name <- function(x) grepl("^[A-Z][a-z]+(virus|virinae|viridae)$", x)
+
 # A key page title naming a taxon or species: "ERV loci: Alpharetrovirus" with
 # the name in bold italics. plotmath ignores the theme's bold for plain strings,
 # so the prefix is bold() too. A name that is no taxon ("Unassigned at genus")
@@ -459,7 +465,9 @@ key_page <- function(title, description, colours = character(0), pages = charact
       ggplot2::annotate("rect", xmin = 0, xmax = 0.025, ymin = ys - 0.022,
                         ymax = ys + 0.022, fill = unname(colours)) +
       ggplot2::annotate("text", x = 0.035, y = ys, label = names(colours), hjust = 0,
-                        size = 4, family = .FONT, colour = .INK)
+                        size = 4, family = .FONT, colour = .INK,
+                        fontface = ifelse(.is_taxon_name(names(colours)), "italic",
+                                          "plain"))
   }
   if (length(pages)) {
     columns <- .page_list_columns(pages, beside_colours = length(colours) > 0L)

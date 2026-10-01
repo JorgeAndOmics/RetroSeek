@@ -932,10 +932,13 @@ mosaic_gene_discordance_plot <- function(loci) {
     geom_text(aes(label = scales::comma(.data$n)), hjust = -0.2, size = 3.2,
               family = .FONT) +
     coord_flip() +
-    scale_y_continuous(labels = scales::percent,
-                       expand = expansion(mult = c(0, 0.12))) +
+    # The whole 0 to 100% range, so a bar at 100% meets a labelled end.
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                       breaks = seq(0, 1, 0.25), expand = expansion(mult = c(0, 0.12))) +
     labs(x = NULL, y = "Share of calls differing from the locus majority") +
-    theme(panel.grid.major.y = element_blank())
+    # Gene symbols in italics, as on every other page that names them.
+    theme(panel.grid.major.y = element_blank(),
+          axis.text.y = element_text(face = "italic"))
   add_titles(p, "Which genes break from their locus",
              paste("Share of each gene's calls that differ from its locus's majority",
                    "lineage. Numbers are gene calls."))
