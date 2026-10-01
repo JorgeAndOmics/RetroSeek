@@ -140,20 +140,22 @@ focal_lineages_page <- function(cells, axis, focal) {
   n <- length(axis$levels)
   panels <- lapply(focal, function(lineage) {
     d <- counts %>% filter(.data$segment == lineage)
-    if (!nrow(d)) {
+    panel <- if (nrow(d)) {
+      column_count_panel(d, "segment", stats::setNames(taxon_colours(lineage), lineage),
+                         taxon_labels(lineage), n, title = .focal_title(lineage))
+    } else {
       log_warn("focal lineage %s has no loci in this catalog: check the name in %s",
                lineage, "plots.focal_lineages")
-      return(no_loci_column_panel(n, title = .focal_title(lineage)))
+      no_loci_column_panel(n, title = .focal_title(lineage))
     }
-    column_count_panel(d, "segment", stats::setNames(taxon_colours(lineage), lineage),
-                       taxon_labels(lineage), n, title = .focal_title(lineage))
+    panel + theme(plot.title = element_text(size = 11))
   })
   page <- on_columns(panels, axis, title = "The focal lineages",
                      subtitle = paste("Loci per host for each lineage this study looks",
                                       "at (plots.focal_lineages); each panel has its",
                                       "own scale."))
   # Each panel is titled with its lineage, so a legend would only repeat them.
-  page & theme(legend.position = "none", plot.title = element_text(size = 11))
+  page & theme(legend.position = "none")
 }
 
 
