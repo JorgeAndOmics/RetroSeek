@@ -242,6 +242,21 @@ test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   expect_equal(p$labels$title, "No data")
 })
 
+test_that("density_bitscore_plot names the quartiles in the subtitle, not on the plot", {
+  # Close quartiles printed their labels on top of each other (homology p14).
+  p <- density_bitscore_plot(.fake_plot_df(), q1 = 200, median = 220, q3 = 280)
+  expect_match(p$labels$subtitle, "the quartiles \\(200, 220 and 280\\)")
+  geoms <- vapply(p$layers, function(l) class(l$geom)[1], character(1))
+  expect_false("GeomText" %in% geoms)
+})
+
+test_that("density_bitscore_plot gives each probe a panel when there are many", {
+  df <- .fake_plot_df()
+  df <- do.call(rbind, lapply(sprintf("P%d", 1:8), function(pr) transform(df, probe = pr)))
+  p <- density_bitscore_plot(df, q1 = 200, median = 220, q3 = 280)
+  expect_s3_class(p$facet, "FacetWrap")
+})
+
 test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
   df <- .fake_plot_df()
   expect_silent(density_bitscore_plot(df, q1 = 200, median = 220, q3 = 280,
