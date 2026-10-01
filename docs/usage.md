@@ -59,7 +59,6 @@ phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 | `--segment` | `taxonomy_segments` | The catalog split by taxon at `classification.segment_rank`, one PDF per segment in `results/plots/segments/`, plus `results/plots/segments.pdf` for all of them |
 | `--solo-ltr-detector` | `solo_ltr_detector` | Solo LTRs: tracks, tables, the evidence tree and one PDF per genome (`docs/solo_ltr.md`) |
 | `--hotspot-detection` | `hotspot_detector` | Hotspot CSV + GFF3 + one PDF per genome |
-| `--pair-detection` | `pair_detector` | Per-species probe-pair tables |
 | `--placement-trees` | `placement_trees` | Heat-trees, EDPL/LWR tables, co-phylogeny against the host tree |
 
 **Figures**
@@ -184,7 +183,6 @@ cp data/config/config.example.yaml data/config/config.local.yaml
   - `gene_order` - the genes 5' to 3', for the `canonical_order` column.
   - `merge_option` - how overlapping ranges collapse (`virus` or `label`, strict enum).
   - `aggregation` - per-field strategy (`list` / `concatenate` / `best` / `majority` / `first` / `strict`) applied when merged ranges collapse. See [`docs/configuration.md`](configuration.md#aggregation-strategies) for the vocabulary and [ADR-002](adr/ADR-002-aggregation-strategies.md) for the rationale.
-  - Pair settings: `probe_to_pair`, `pair_max_gap`.
   - (The composite ERV assembly is no longer a `parameters.erv_like` tier - it is now the genus-founded loci table from the `classification` stage; the erv-like plot panel reads that table.)
 - **`hotspot`** - deterministic NB-GLM hotspot detection (its own top-level config section): `input` (`catalog` | `original`), `group_by`, `source`, `window_size`, `mask_size` / `mask_mismatch`, `pvalue_threshold`, `min_hits`, `merge_gap`, `strata_by_chromosome`, `unplaced_min_factor`. See [`docs/configuration.md`](configuration.md#hotspot).
 - **`solo_ltr`** - native solo-LTR detection (ADR-017): the acceptance thresholds (`min_bait_length`, `min_hit_length`, `min_identity`, the coverage window), the monoLTR-at-orphan distance (`orphan_pad`), the blastn settings, and a `tree:` subblock for the evidence phylogeny. Every value the method depends on lives here; the scripts carry no defaults of their own. See [`docs/configuration.md`](configuration.md#solo_ltr) and [`docs/solo_ltr.md`](solo_ltr.md).
@@ -208,7 +206,7 @@ cp data/config/config.example.yaml data/config/config.local.yaml
 
 The path specified by `config.input.probe_csv` points to a CSV describing probes. Expected columns are parsed by `workflow/scripts/probe_extractor.py::table_parser()`. A template lives under `data/tables/_input/` (not tracked - user-provided).
 
-Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.gene_order`, `config.classification.gene_priority`, `config.parameters.probe_min_length` and `config.parameters.probe_to_pair`. The launcher stops on a lower-case or repeated name in the three gene lists.
+Probe name strings are **uppercased** on load; downstream comparisons (including config matching) are case-sensitive. Use uppercase in `config.parameters.main_probes`, `config.parameters.gene_order`, `config.classification.gene_priority` and `config.parameters.probe_min_length`. The launcher stops on a lower-case or repeated name in the three gene lists.
 
 ## Resuming after interruption
 

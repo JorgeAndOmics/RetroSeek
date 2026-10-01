@@ -219,7 +219,7 @@ def cli_entry() -> None:
     stopped the run.
     """
     parser = stages.build_parser()
-    args, unknown = parser.parse_known_args()
+    args, unknown = stages.parse_known(parser)
     chosen = stages.selected(args)
     if not chosen:
         parser.print_help()

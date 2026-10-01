@@ -42,7 +42,7 @@ def absolute_configfile(argv: list[str]) -> tuple[list[str], str | None]:
 
 def main() -> int:
     parser = stages.build_parser()
-    args, _ = parser.parse_known_args()
+    args, _ = stages.parse_known(parser)
 
     if hasattr(args, "config_help"):
         import config_help

@@ -47,8 +47,6 @@ parameters:
   ltr_resize: 0
   ltr_flank_margin: 0
   merge_option: 'virus'
-  probe_to_pair: 'ENV'
-  pair_max_gap: 300000
   main_probes:
     - 'POL'
     - 'GAG'

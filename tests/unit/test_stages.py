@@ -115,8 +115,29 @@ def test_downstream_is_every_analysis_and_figures_stage() -> None:
     )
 
 
-def test_circle_plot_stage_is_gone() -> None:
-    assert "--generate-circle-plots" not in {s.flag for s in stages.STAGES}
+@pytest.mark.parametrize("flag", sorted(stages.RETIRED_FLAGS))
+def test_a_retired_stage_flag_stops_with_its_replacement(flag: str) -> None:
+    """A retired flag is no stage, and naming it gets a message, not silence.
+
+    Without the message, `./RetroSeek --pair-detection` alone printed the help
+    and exited 0, and beside a real stage it reached Snakemake as an unknown
+    option.
+    """
+    assert flag not in {s.flag for s in stages.STAGES}
+    messages = stages.retired_flag_messages(["-n", flag])
+    assert len(messages) == 1
+    assert flag in messages[0]
+
+
+def test_parsing_stops_on_a_retired_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as stop:
+        stages.parse_known(stages.build_parser(), ["--classify", "--pair-detection"])
+    assert stop.value.code == 2
+    assert "--pair-detection was retired" in capsys.readouterr().err
+
+
+def test_snakemake_options_are_not_retired_flags() -> None:
+    assert stages.retired_flag_messages(["-n", "--forcerun", "x"]) == []
 
 
 def test_nothing_selected_without_stage_flags() -> None:

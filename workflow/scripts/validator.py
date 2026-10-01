@@ -66,6 +66,8 @@ RETIRED_KEYS: dict[tuple[str, ...], str] = {
         "plots",
         "circle_plot_bitscore_threshold",
     ): "nothing: the circle-plot stage was removed",
+    ("parameters", "probe_to_pair"): "nothing: the probe-pair stage was removed",
+    ("parameters", "pair_max_gap"): "nothing: the probe-pair stage was removed",
 }
 
 

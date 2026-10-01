@@ -62,7 +62,7 @@ See [`docs/usage.md`](docs/usage.md) for full invocation reference, [`docs/archi
 - **Phylogenetic placement outputs**: the `.jplace` evidence behind every taxon call is published (iTOL-ready) rather than left in scratch, alongside per-genome heat-trees showing where a genome's ERV load sits on the retroviral phylogeny, EDPL placement-uncertainty tables, and a co-phylogeny comparison asking whether ERV complements track host ancestry. See [ADR-014](docs/adr/ADR-014-publishing-placement-evidence-and-cophylogeny.md).
 - **Solo-LTR detection**, finding the single LTRs left behind when a provirus's two LTRs recombine and excise everything between them. In mammals these outnumber intact proviruses by one to two orders of magnitude, and each marks an ancestral integration the probe search cannot see. The LTR arms of ERV-bearing elements are used as `blastn` bait, and what is left after removing intact-element flanks and lone LTRs beside surviving coding sequence is a solo. Solos inherit taxonomy from the element whose arm matched them, and solo/intact ratios are emitted as a lineage-age proxy. See [`docs/solo_ltr.md`](docs/solo_ltr.md).
 - **Per-locus taxonomic classification** assigning each valid ERV locus a calibrated **genus call** (rank, confidence, mosaic, ERV class) - POL/GAG by phylogenetic placement, weighted-LCA otherwise - against an independent, genus-comprehensive reference built from NCBI. Replaces best-bitscore probe-label transfer; the per-locus table is the genus-founded ERV assembly. Probe-/gene-agnostic and reproducible. See [`docs/taxonomy_classification/`](docs/taxonomy_classification/) and [ADR-007](docs/adr/ADR-007-taxonomic-classification.md).
-- Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices, hotspot detection (deterministic negative-binomial GLM), and probe-pair tables.
+- Modular R analysis layer (GenomicRanges / plyranges) producing overlap matrices and hotspot detection (deterministic negative-binomial GLM).
 - Configurable metadata aggregation across merged ranges (list / concatenate / best / majority / first / strict) so downstream code can choose lossless vs single-valued columns per field. See [`docs/configuration.md`](docs/configuration.md#aggregation-strategies) and [ADR-002](docs/adr/ADR-002-aggregation-strategies.md).
 - Publication-ready figures: one multi-page vector PDF per stage in a single colour-blind-safe visual system, with host species on rows beside the host phylogeny ([visual style](docs/visual_style.md)).
 - A readable run: one line per finished job, warnings and errors with their fix, a progress bar and a closing summary, while every job keeps its own complete log ([console style](docs/console_style.md)).
@@ -104,7 +104,6 @@ they run as one Snakemake workflow, in dependency order.
 | | `--segment` | Split the catalog by taxon at `classification.segment_rank` |
 | | `--solo-ltr-detector` | Solo-LTR detection with its evidence tree |
 | | `--hotspot-detection` | Deterministic NB-GLM hotspot detection |
-| | `--pair-detection` | Probe-pair (e.g. GAG-ENV) detection per species |
 | | `--placement-trees` | Placement evidence: heat-trees and co-phylogeny |
 | Figures | `--generate-global-plots` | Homology, integration and structure PDFs |
 

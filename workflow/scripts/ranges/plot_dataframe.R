@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Module ranges/plot_dataframe.R
 # -----------------------------------------------------------------------------
-# Build the per-row tibble consumed by plot2sort.R and pair_detector.R.
+# Build the per-row tibble consumed by plot2sort.R.
 # Replaces the pre-refactor three-file fanout (main / accessory / full) with a
 # single tibble carrying a `probe_type` column.
 

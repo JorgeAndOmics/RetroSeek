@@ -22,10 +22,14 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestGreenLight:
@@ -258,6 +262,41 @@ class TestRetiredKeys:
         messages = v.retired_key_messages(config)
         assert len(messages) == 1
         assert "plots.circle_plot_bitscore_threshold" in messages[0]
+
+    def test_retired_probe_pair_settings_are_named(self) -> None:
+        """The probe-pair stage was removed; both of its settings went with it."""
+        import validator as v
+
+        config = {"parameters": {"probe_to_pair": "ENV", "pair_max_gap": 300000}}
+        messages = v.retired_key_messages(config)
+        assert len(messages) == 2
+        joined = "\n".join(messages)
+        assert "parameters.probe_to_pair" in joined
+        assert "parameters.pair_max_gap" in joined
+
+    @pytest.mark.parametrize(
+        "shipped",
+        [
+            "data/config/config.yaml",
+            "data/config/config.example.yaml",
+            "tests/fixtures/example_test_config.yaml",
+        ],
+    )
+    def test_no_shipped_config_carries_a_retired_key(self, shipped: str) -> None:
+        """RETIRED_KEYS is the one list of retired settings; no shipped file uses one."""
+        import validator as v
+
+        config = yaml.safe_load((REPO_ROOT / shipped).read_text(encoding="utf-8"))
+        assert v.retired_key_messages(config) == []
+
+    def test_the_schema_declares_no_retired_key(self) -> None:
+        import validator as v
+
+        schema = (REPO_ROOT / "data" / "config" / "schema.yaml").read_text(
+            encoding="utf-8"
+        )
+        for path in v.RETIRED_KEYS:
+            assert not re.search(rf"^\s*{path[-1]}\s*:", schema, re.MULTILINE), path
 
     def test_a_current_config_has_no_retired_keys(self) -> None:
         import validator as v

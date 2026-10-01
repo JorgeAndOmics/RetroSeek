@@ -92,13 +92,6 @@ meaningful column.
 `completeness` (and therefore `structure_full_min` and `structure_class`) uses
 only the **number** of main genes, so adding a gene to `main_probes` lowers it.
 
-### Pair detection
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `probe_to_pair` | string | `"ENV"` | Probe name used as the anchor for `pair_detector.R`. |
-| `pair_max_gap` | number >= 0 | `300000` | Maximum bp distance between paired probes. |
-
 ### Aggregation strategies
 
 When overlapping ranges are collapsed via `plyranges::reduce_ranges_directed`, their metadata (virus, label, probe, species) must be reduced to a single value *per merged range*. The strategy is configurable per field.
@@ -238,7 +231,11 @@ on. Log files never contain colour codes.
 **Retired keys** (a config that still has them stops at launch, naming the
 replacement): `display.display_snakemake_info`, `display.display_operation_info`
 and `display.display_requests_warning` became `display.verbosity`; the `logging:`
-block (colour styles) is gone, the colours are fixed.
+block (colour styles) is gone, the colours are fixed;
+`plots.circle_plot_bitscore_threshold`, `parameters.probe_to_pair` and
+`parameters.pair_max_gap` went with the circle-plot and probe-pair stages. The
+launcher likewise stops on a retired stage flag (`--generate-circle-plots`,
+`--pair-detection`) and says what replaced it.
 
 ## `root`
 

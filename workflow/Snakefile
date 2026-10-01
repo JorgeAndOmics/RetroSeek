@@ -8,7 +8,7 @@
 #   4. Range analysis                      (tBLASTn x LTR integration -> valid/orphans tracks)
 #   5. Solo-LTR workstream                 (bait, blastn, find, annotate, tree, plots)
 #   6. Provirus & structural plots         (plot2sort, stage, erv-like panels)
-#   7. Hotspot & pair detection
+#   7. Hotspot detection
 #   8. Taxonomic classification            (reference build, classify, orphans tier, plots)
 #   9. Loss analysis                       (per-stage funnel + novel candidates)
 # Each rule is split into a `*_setup` worker (per-genome) + an aggregate target,
@@ -1329,8 +1329,8 @@ _HOTSPOT_INPUT_DIR, _HOTSPOT_INPUT_FILE = _HOTSPOT_TRACK[_HOTSPOT_INPUT]
 
 
 # =============================================================================
-# 7. HOTSPOT & PAIR DETECTION
-#    NB-GLM detection of integration hotspots, and tBLASTn<->LTRdigest pair overlaps.
+# 7. HOTSPOT DETECTION
+#    NB-GLM detection of integration hotspots.
 # =============================================================================
 rule hotspot_detector_setup:
     input:
@@ -1373,35 +1373,6 @@ rule hotspot_detector:
         hotspot_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
         hotspot_pdf=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}.hotspots.pdf'), genome=species_with_hits(wildcards)),
         hotspot_track=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['TRACK_HOTSPOTS_DIR'], '{genome}.gff3'), genome=species_with_hits(wildcards))
-
-
-rule pair_detector_setup:
-    input:
-        gff3_file=os.path.join(defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'], '{genome}.gff3'),
-    output:
-        pair_table_csv=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'),
-        pair_table_parquet=os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet')
-    params:
-        config_yaml=defaults.CONFIG_FILE,
-        parquet_dir=defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'],
-        csv_dir=defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR']
-    threads:
-        workflow.cores
-    log:
-        job_log('pair_detector', '{genome}')
-    shell:
-        '''
-        Rscript scripts/pair_detector.R --log {log:q} \
-        --config {params.config_yaml:q} \
-        --gff {input.gff3_file:q} \
-        --parquet_dir {params.parquet_dir:q} \
-        --csv_dir {params.csv_dir:q}
-        '''
-
-rule pair_detector:
-    input:
-        pair_table_csv=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_CSV_DIR'], '{genome}.csv'), genome=species_with_hits(wildcards)),
-        pair_table_parquet=lambda wildcards: expand(os.path.join(defaults.PATH_DICT['PROBE_PAIRS_PARQUET_DIR'], '{genome}.parquet'), genome=species_with_hits(wildcards))
 
 
 # ------------------------------- Domain evidence -----------------------------
