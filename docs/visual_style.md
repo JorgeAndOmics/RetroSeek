@@ -59,14 +59,16 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
   as a member of its genus. The shades are fixed once per stage.
 - **Ordinal categories** take the sequential ramp, strongest evidence darkest:
   structural class (full, partial, single gene), call confidence, resolved rank,
-  domain support. A level meaning "no evidence" is grey, not the lightest step.
+  domain support, and the call method (placement dark, weighted LCA light). A
+  level meaning "no evidence" is grey, not the lightest step. A page drawn with a
+  fixed class list keeps a legend key for every class, present or not.
 - **Continuous values** (counts, shares, confidence) take the same sequential
   ramp, from `#F3F1F9` to indigo; numbers printed on a tile switch to white on
   the dark end.
 - **A single data series** with no category meaning is a mid step of the ramp.
   In a two-way split, the subset of interest takes that colour and the rest grey.
-- **Open-ended categories** with no fixed meaning (probes, methods, LTR
-  families) take the palette in an order that leaves the tier colours for last.
+- **Open-ended categories** with no fixed meaning (probes, LTR families) take
+  the palette in an order that leaves the tier colours for last.
   Past nine levels the nine keep their colours and extra levels take lighter
   tints. Within a stage, a probe keeps one colour on every page. These borrowed
   hues can coincide with a genus colour on another page, so they always come
@@ -82,7 +84,10 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
 - Titles bold, left-aligned, sentence case. Subtitles regular and grey: what the
   page shows and how to read it, in one or two sentences.
 - **Italics** for species binomials, viral taxa and gene symbols (ICTV and
-  nomenclature convention). "Other", "Unassigned" and similar stay upright.
+  nomenclature convention). "Other", "Unassigned" and similar stay upright, and
+  so does a virus name ("Murine leukemia virus") in a mixed list.
+- **Counts are whole numbers**: every count axis uses `scale_y_count()`, with
+  thousands separators and no fractional ticks.
 
 ## Words
 
@@ -93,11 +98,15 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
   words (`ltr-flanked` to "LTR-flanked", `mono_ltr_at_orphan` to "MonoLTR at an
   orphan", `lca` to "Weighted LCA"); anything unlisted falls back to underscores
   as spaces, capitalised.
-- **What a page is about leads its subtitle** ("Homo sapiens. Every LTR began as
-  ..."), so titles stay identical across genomes and subsets.
+- **What a page is about leads its subtitle** ("*Homo sapiens*. Every LTR began
+  as ..."), so titles stay identical across genomes and subsets. A species leads
+  in italics (`add_titles(species = )`); a probe set or segment leads upright
+  (`subset_label`). plotmath, which sets the italics, cannot break lines, so a
+  subtitle with a line break keeps an upright lead.
 - **No dash as punctuation.** Never a spaced hyphen, an arrow, an em dash or an
-  en dash between words: use a colon, a comma, "to", or a new sentence. Hyphens
-  inside compound words ("LTR-flanked") are words, not punctuation.
+  en dash between words: use a colon, a comma, "to", or a new sentence. Number
+  ranges read "2 to 5". Hyphens inside compound words ("LTR-flanked") are words,
+  not punctuation.
 
 ## Species on rows
 
@@ -139,7 +148,12 @@ the host phylogeny sit directly beside them.
 - **A4 landscape.** A page grows taller past 20 species, by `plots.per_stratum`
   inches per species, so rows keep their room in a large study.
 - **Every PDF opens with a key page**: what the stage shows, what its colours
-  mean, and the list of pages, read from the pages themselves.
+  mean (taxa in italics), and the list of pages, read from the pages themselves,
+  in columns of at most 14 so any number fits. A title naming a taxon or species
+  sets it in bold italics (`key_title()`).
+- **No empty pages.** A page whose tier has no loci is left out, and the key page
+  says so; a segment with fewer than 5 loci gets one page listing them instead
+  of the full panel.
 - The README's demo figures are the one exception: PNG, because GitHub renders
   images inline.
 - The placement heat-trees are drawn by gappa, given house colours: branches
@@ -151,13 +165,15 @@ the host phylogeny sit directly beside them.
 1. Build it with `theme_retroseek()` (set for the session by
    `use_retroseek_style()`); take colours from `style.R` (`.TIER_COLOUR`,
    `scale_fill_taxon()`, `.STRUCTURE_COLOUR`, `scale_fill_ramp()`,
-   `category_colours()`), never a hex value.
-2. Title and subtitle through `add_titles()`; labels through `display_label()`,
-   species through `display_species()`, taxa through `taxon_labels()`.
+   `category_colours()`), never a hex value; a count axis through
+   `scale_y_count()`.
+2. Title and subtitle through `add_titles()` (a genome's page passes
+   `species =`); labels through `display_label()`, species through
+   `display_species()`, taxa through `taxon_labels()`.
 3. If genomes are an axis, map them to x and pass the plot to `on_rows()` (or
    `species_facets()` for a histogram) with the panel's `ctx`.
 4. Add the page to its stage's page list or panel registry; the key page picks
    it up.
 5. `make check` runs the guards: `tests/unit/test_visual_style.py` (no stray
-   colour, dash or foreign palette) and `workflow/tests/testthat/test-style.R`
+   colour, dash, hyphen range or foreign palette) and `workflow/tests/testthat/test-style.R`
    (colour-blind distances, fixed genus colours, ordinal ramps).

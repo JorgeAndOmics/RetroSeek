@@ -283,8 +283,7 @@ orphan_recovery_plot <- function(funnel, ctx = NULL) {
                   label = sprintf("%s recovered",
                                   scales::percent(.data$share, accuracy = 1))),
               hjust = -0.1, size = 3.2, family = .FONT) +
-    scale_y_continuous(labels = scales::label_comma(),
-                       expand = expansion(mult = c(0, 0.2))) +
+    scale_y_count(expand = expansion(mult = c(0, 0.2))) +
     labs(x = NULL, y = "Orphan loci")
   p <- add_titles(
     p, "Orphans recovered",

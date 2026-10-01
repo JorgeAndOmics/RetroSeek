@@ -14,7 +14,7 @@
 #
 # Output is ONE PDF (results/plots/structure.pdf): a key
 # page, then one page per structure_panel_registry() entry: structural class,
-# completeness, gene count, gene combinations, gene order, element length, and
+# completeness, gene count, gene combinations, gene order, locus length, and
 # the lineage by gene heatmap. Pages follow the house style (plot2sort/style.R,
 # docs/visual_style.md): hosts on rows beside the host tree, readable names.
 #
@@ -201,7 +201,7 @@ n_main_genes_plot <- function(loci) {
   counts <- d %>% count(.data$n_main_genes, name = "n")
   p <- ggplot(counts, aes(x = factor(.data$n_main_genes), y = .data$n)) +
     geom_col(fill = .DATA_COLOUR, width = 0.65) +
-    scale_y_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = "Main genes per locus", y = "Loci") +
     theme(panel.grid.major.x = element_blank())
   add_titles(p, "Main genes per element",
@@ -236,7 +236,7 @@ gene_combinations_plot <- function(loci) {
     geom_col(width = 0.7, show.legend = FALSE) +
     coord_flip() +
     scale_fill_manual(values = c(`FALSE` = .DATA_COLOUR, `TRUE` = .GREY_OTHER)) +
-    scale_y_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci") +
     # Gene symbols take italics.
     theme(axis.text.y = element_text(face = "italic"),
@@ -264,8 +264,7 @@ canonical_order_plot <- function(loci, ctx = NULL) {
   d <- gene_order_counts(loci)
   if (nrow(d) == 0L) return(empty_plot("No locus with two ordered genes"))
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
-             show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     scale_fill_manual(values = c(canonical = .GREY_MID, rearranged = .DATA_COLOUR),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +

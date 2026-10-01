@@ -167,11 +167,6 @@ write_overview_pdf <- function(catalog, seg_rank, tiers, path, height) {
 # empty. Measured 2026-10-01: Bovispumavirus, one locus, 16 of 28 pages empty.
 SPARSE_SEGMENT <- 5L
 
-# "1 locus", "12 loci".
-.loci_count <- function(n) {
-  if (n == 1L) "1 locus" else paste(scales::comma(n), "loci")
-}
-
 # The pages of one segment's PDF, and a sentence for its key page saying what
 # was left out (NULL when nothing was).
 #   sub       the segment's catalog rows (both tiers)
@@ -181,7 +176,7 @@ segment_pages <- function(sub, sub_loci, panel, ctx) {
   if (nrow(sub) < SPARSE_SEGMENT) {
     return(list(pages = list(segment_loci_page(sub)),
                 note = sprintf("With only %s, one page lists them instead.",
-                               .loci_count(nrow(sub)))))
+                               .count_of(nrow(sub), "locus", "loci"))))
   }
   note <- if (nrow(sub_loci) == 0L) {
     "This lineage has no LTR-flanked loci, so the pages about them are left out."
@@ -323,7 +318,7 @@ segments_main <- function() {
       paste(sprintf(paste("The taxonomy and structure pages, restricted to the %s",
                           "of this lineage. Hosts are rows in the order of the host",
                           "tree."),
-                    .loci_count(nrow(sub))), out$note %||% ""),
+                    .count_of(nrow(sub), "locus", "loci")), out$note %||% ""),
       colours = tiers, pages = page_titles(out$pages)
     )
     save_stage_pdf(c(list(key), out$pages), file.path(plot_root, paste0(stem, ".pdf")),

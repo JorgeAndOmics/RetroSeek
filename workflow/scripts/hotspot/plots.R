@@ -56,18 +56,10 @@ suppressMessages({
 # (pool_small_scaffolds), so what is drawn is what the model treats as a
 # chromosome. An assembly with no sequence that long draws its longest ones.
 sequences_to_draw <- function(seqlengths, min_length, max_n = 40L) {
-  big <- names(seqlengths)[seqlengths >= min_length]
-  if (length(big) == 0L || length(big) > max_n) {
-    candidates <- if (length(big)) seqlengths[big] else seqlengths
-    longest <- names(sort(candidates, decreasing = TRUE))
-    big <- longest[seq_len(min(max_n, length(longest)))]
-  }
-  names(seqlengths)[names(seqlengths) %in% big]
-}
-
-# "1 hotspot", "27 sequences".
-.count_of <- function(n, one, many) {
-  paste(scales::comma(n), if (n == 1L) one else many)
+  candidates <- seqlengths[seqlengths >= min_length]
+  if (length(candidates) == 0L) candidates <- seqlengths
+  keep <- names(utils::head(sort(candidates, decreasing = TRUE), max_n))
+  names(seqlengths)[names(seqlengths) %in% keep]
 }
 
 # The caption naming what a genome-wide page leaves out, or NULL.
@@ -232,13 +224,15 @@ plot_summary_panel <- function(hotspots, seqlengths, species = NULL) {
 
   p_widths <- ggplot(hs_df, aes(x = .data$width_kb)) +
     geom_histogram(bins = 30L, fill = .DATA_COLOUR) +
+    scale_y_count() +
     labs(title = "Hotspot widths", x = "Width (kb)", y = "Hotspots") + .panel_title
 
+  # The species leads in italics, as on the pages built with add_titles().
+  subtitle <- paste0(.count_of(length(hotspots), "hotspot", "hotspots"), ".")
   (p_density / p_widths) +
     patchwork::plot_annotation(
       title = "Hotspot summary",
-      subtitle = paste(c(species, sprintf("%d hotspots.", length(hotspots))),
-                       collapse = ". "),
+      subtitle = .species_lead(species, subtitle),
       theme = theme_retroseek()
     )
 }
@@ -286,7 +280,9 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
       labs(x = NULL) +
       theme(panel.grid.major.y = element_blank()) + .panel_title
   }
+  subtitle <- tier_note %||% "Loci by structural class."
   p_counts <- bars(position_stack(reverse = TRUE)) +
+    scale_y_count() +
     labs(title = "Loci per hotspot", y = "Loci")
   p_share <- bars(position_fill(reverse = TRUE)) +
     scale_y_continuous(labels = scales::percent) +
@@ -296,8 +292,7 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
     patchwork::plot_layout(guides = "collect") +
     patchwork::plot_annotation(
       title = "What each hotspot is made of",
-      subtitle = paste(c(species, tier_note %||% "Loci by structural class."),
-                       collapse = ". "),
+      subtitle = .species_lead(species, subtitle),
       theme = theme_retroseek()
     )
 }

@@ -47,9 +47,9 @@
   colours <- c(colours, stats::setNames(rep(.GREY_OTHER, length(others)), others))
 
   # Hosts and lineages are set in italics (house style), probes upright.
-  strata <- as.character(unlist(data[c(axis_a, axis_b)]))
-  italic <- unique(c(if ("species" %in% c(axis_a, axis_b)) as.character(data$species),
-                     Filter(.is_taxon_name, strata)))
+  strata <- unique(as.character(unlist(data[c(axis_a, axis_b)])))
+  italic <- c(if ("species" %in% c(axis_a, axis_b)) as.character(data$species),
+              strata[.is_taxon_name(strata)])
   p <- ggplot(data, aes(axis1 = .data[[axis_a]], axis2 = .data[[axis_b]], y = count)) +
     geom_alluvium(aes(fill = .data[[fill_axis]]), alpha = 0.7, width = 0.2) +
     geom_stratum(fill = .PAPER, colour = .GREY_MID, width = 0.2) +

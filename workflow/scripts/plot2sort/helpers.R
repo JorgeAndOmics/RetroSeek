@@ -93,11 +93,18 @@ empty_plot <- function(label = "No data") {
 }
 
 
+# A count with its noun: "1 locus", "12 loci", "27 sequences".
+.count_of <- function(n, one, many) {
+  paste(scales::comma(n), if (n == 1L) one else many)
+}
+
+
 # TRUE for NULL or an empty string: nothing to print.
 .is_blank <- function(x) is.null(x) || !nzchar(x)
 
-# The subtitle with `lead` (a probe set, a segment) in front, "Lead. Subtitle";
-# either alone when the other is blank.
+# The subtitle with `lead` (a probe set, a segment; a species only before a
+# line break, see .italic_lead) in front, "Lead. Subtitle"; either alone when
+# the other is blank.
 .lead_subtitle <- function(lead, subtitle) {
   if (.is_blank(lead)) return(subtitle)
   if (.is_blank(subtitle)) return(lead)
@@ -112,6 +119,13 @@ empty_plot <- function(label = "No data") {
   if (.is_blank(subtitle)) return(bquote(italic(.(species))))
   if (grepl("\n", subtitle, fixed = TRUE)) return(.lead_subtitle(species, subtitle))
   bquote(italic(.(species)) * ". " * .(subtitle))
+}
+
+
+# A subtitle led by the species in italics when there is one: for pages that
+# set their titles without add_titles() (patchwork compositions).
+.species_lead <- function(species, subtitle) {
+  if (.is_blank(species)) subtitle else .italic_lead(species, subtitle)
 }
 
 

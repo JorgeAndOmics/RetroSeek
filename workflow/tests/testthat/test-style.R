@@ -267,7 +267,7 @@ test_that("within a genus the most abundant virus takes the genus colour", {
 # ---------------------------------------------------------------------------
 # Key page: the page list fits however many pages a PDF has
 # ---------------------------------------------------------------------------
-# One text block per column; the segment PDFs list 27 pages, and a single block
+# One text block per column; the segment PDFs list 28 pages, and a single block
 # of 27 lines ran off the bottom of the A4 page, losing the last entry.
 .page_list_blocks <- function(key) {
   labels <- unlist(lapply(key$layers, function(l) l$aes_params$label))

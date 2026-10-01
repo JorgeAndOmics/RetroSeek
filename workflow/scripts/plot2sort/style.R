@@ -303,10 +303,6 @@ display_label <- function(values) {
   paste0(toupper(substr(words, 1, 1)), substr(words, 2, nchar(words)))
 }
 
-# Legend or axis labels with taxa in italics (ICTV and binomial convention) and
-# everything that is not a taxon name upright. Returns plotmath expressions,
-# which ggplot accepts anywhere it accepts labels.
-.NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
 # Breaks for a count axis: pretty() breaks, whole numbers only, so a panel of
 # two loci reads 0, 1, 2 rather than 0.0, 0.5, ... 2.0.
 .whole_number_breaks <- function(limits) {
@@ -321,21 +317,30 @@ scale_y_count <- function(...) {
                               breaks = .whole_number_breaks, ...)
 }
 
+# Two tests for italics, for two kinds of label. Among values already known to
+# be taxa or species (legends, axes, key titles), everything is italic except
+# the words in .NOT_A_TAXON. Among mixed labels (a key page's colour list, an
+# alluvium's strata), only a name .is_taxon_name() recognises is italic.
+.NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
+
 # TRUE for a taxon name: one capitalised word ending like an ICTV genus,
 # subfamily or family ("Betaretrovirus", "Orthoretrovirinae", "Retroviridae").
-# Such names are italic. A virus name ("Murine leukemia virus") is not a taxon
-# and stays upright, as do the pipeline's own words ("LTR-flanked").
+# On a mixed list a virus name ("Murine leukemia virus") or a pipeline word
+# ("LTR-flanked") stays upright.
 .is_taxon_name <- function(x) grepl("^[A-Z][a-z]+(virus|virinae|viridae)$", x)
 
 # A key page title naming a taxon or species: "ERV loci: Alpharetrovirus" with
 # the name in bold italics. plotmath ignores the theme's bold for plain strings,
-# so the prefix is bold() too. A name that is no taxon ("Unassigned at genus")
-# keeps a plain string.
+# so the prefix is bold() too. It uses the exclusion test because the name may
+# be a binomial; a name that is no taxon ("Unassigned at genus") stays plain.
 key_title <- function(prefix, name) {
   if (grepl(.NOT_A_TAXON, name)) return(paste(prefix, name))
   bquote(bold(.(prefix)) ~ bolditalic(.(name)))
 }
 
+# Legend or axis labels with taxa in italics (ICTV and binomial convention) and
+# everything that is not a taxon name upright. Returns plotmath expressions,
+# which ggplot accepts anywhere it accepts labels.
 italic_labels <- function(values) {
   lapply(as.character(values), function(v) {
     if (grepl(.NOT_A_TAXON, v)) bquote(.(v)) else bquote(italic(.(v)))

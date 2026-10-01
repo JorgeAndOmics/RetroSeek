@@ -510,7 +510,9 @@ families_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
   d[, repeat_group := factor(repeat_group, levels = .REPEAT_GROUPS)]
   p <- ggplot(d, aes(x = .data$species, y = .data$families,
                      fill = .data$repeat_group)) +
-    geom_col(position = position_stack(reverse = TRUE), width = 0.66) +
+    # show.legend keeps a key for a class a study lacks (drop = FALSE below).
+    geom_col(position = position_stack(reverse = TRUE), width = 0.66,
+             show.legend = TRUE) +
     scale_fill_manual(values = .repeat_colours(), limits = .REPEAT_GROUPS,
                       drop = FALSE) +
     scale_y_count() +

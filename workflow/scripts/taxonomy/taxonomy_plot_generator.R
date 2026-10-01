@@ -350,49 +350,36 @@ add_numeric_companions <- function(df) {
 # are rows in the canonical order, beside the host tree when one is configured.
 # ----------------------------------------------------------------------------
 
-# Confident calls per host, coloured by lineage.
-# Every LTR-flanked locus by the lineage it rolls up to at the segment rank, so a
-# call that stopped above that rank is the grey "unassigned" bar the key page
-# promises rather than a locus dropped without a word. The both-tiers version
-# is lineage_composition_plot().
-taxon_composition_plot <- function(loci, ctx = NULL) {
-  if (nrow(loci) == 0L || !"segment" %in% names(loci)) {
+# Loci per host by the lineage they roll up to at the segment rank, so a call
+# that stopped above that rank is the grey "unassigned" bar the key page
+# promises rather than a locus dropped without a word. One builder for the two
+# pages below, which differ only in tier and words.
+.lineage_bars <- function(d, y_label, title, subtitle, ctx) {
+  if (nrow(d) == 0L || !"segment" %in% names(d)) {
     return(empty_plot("No segmented loci"))
   }
-  counts <- loci %>% count(.data$species, segment = as.character(.data$segment),
-                           name = "n")
+  counts <- d %>%
+    count(.data$species, segment = as.character(.data$segment), name = "n")
   counts$segment <- taxon_factor(counts$segment, counts$n)
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     scale_fill_taxon(counts$segment, counts$n) +
     scale_y_count() +
-    labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
-  p <- add_titles(
-    p, "Viral lineages per host",
-    paste("LTR-flanked loci by the lineage they roll up to at the segment rank;",
-          "grey: not resolved that far.")
-  )
-  on_rows(p, counts$species, ctx)
+    labs(x = NULL, y = y_label, fill = NULL)
+  on_rows(add_titles(p, title, subtitle), counts$species, ctx)
 }
 
-# Every locus of both tiers by the lineage it rolls up to at the segment rank,
-# so unresolved calls are one honest "unassigned" bar rather than scattered
-# higher ranks. Reads as "did related hosts keep related viruses?" (ADR-014).
+# LTR-flanked loci only.
+taxon_composition_plot <- function(loci, ctx = NULL) {
+  .lineage_bars(loci, "LTR-flanked loci", "Viral lineages per host",
+                paste("LTR-flanked loci by the lineage they roll up to at the segment",
+                      "rank; grey: not resolved that far."), ctx)
+}
+
+# Both tiers. Reads as "did related hosts keep related viruses?" (ADR-014).
 lineage_composition_plot <- function(combined, ctx = NULL) {
-  if (nrow(combined) == 0L || !"segment" %in% names(combined)) {
-    return(empty_plot("No segmented loci"))
-  }
-  counts <- combined %>% count(.data$species, segment = as.character(.data$segment),
-                               name = "n")
-  counts$segment <- taxon_factor(counts$segment, counts$n)
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
-    geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
-    scale_fill_taxon(counts$segment, counts$n) +
-    scale_y_count() +
-    labs(x = NULL, y = "Loci, both tiers", fill = NULL)
-  p <- add_titles(p, "Viral lineages per host, both tiers",
-                  "Every locus by the lineage it rolls up to at the segment rank.")
-  on_rows(p, counts$species, ctx)
+  .lineage_bars(combined, "Loci, both tiers", "Viral lineages per host, both tiers",
+                "Every locus by the lineage it rolls up to at the segment rank.", ctx)
 }
 
 # Lineages split by tier: a lineage seen only among orphans is either new or has
@@ -439,7 +426,9 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
 nearest_virus_identity_plot <- function(combined, ctx = NULL) {
   missing <- empty_plot("No nearest-virus identity in this catalog")
   if (!"nearest_virus_identity" %in% names(combined)) return(missing)
+  # Three columns only: the page keeps its data until the PDF is written.
   d <- combined %>%
+    select("species", "segment", "nearest_virus_identity") %>%
     mutate(identity = as.numeric(.data$nearest_virus_identity)) %>%
     filter(!is.na(.data$identity), !is.na(.data$segment))
   if (nrow(d) == 0L) return(missing)
@@ -469,7 +458,7 @@ nearest_virus_identity_plot <- function(combined, ctx = NULL) {
 # How each call was made, for every LTR-flanked locus.
 method_mix_plot <- function(loci, ctx = NULL) {
   d <- loci %>% filter(!is.na(.data$method), nzchar(.data$method))
-  if (nrow(d) == 0L) return(empty_plot("No LTR-flanked loci"))
+  if (nrow(d) == 0L) return(empty_plot("No call method recorded"))
   counts <- d %>% count(.data$species, .data$method, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$method)) +
     geom_col(width = 0.7, show.legend = TRUE) +
@@ -489,8 +478,7 @@ erv_class_composition_plot <- function(loci, ctx = NULL) {
   if (nrow(d) == 0L) return(empty_plot("No ERV class assignments"))
   counts <- d %>% count(.data$species, .data$erv_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$erv_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
-             show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     scale_fill_manual(values = .ERV_CLASS_COLOUR) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of classified loci", fill = NULL)
@@ -603,11 +591,11 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .CONFIDENCE_COLOUR, labels = display_label) +
     labs(x = NULL, y = y_label, fill = NULL)
-  p <- p + scale_y_continuous(labels = if (inherits(position, "PositionFill")) {
-    scales::percent
+  p <- p + if (inherits(position, "PositionFill")) {
+    scale_y_continuous(labels = scales::percent)
   } else {
-    scales::comma
-  })
+    scale_y_count()
+  }
   on_rows(add_titles(p, title, subtitle), counts$species, ctx)
 }
 
@@ -705,6 +693,7 @@ evidence_depth_plot <- function(combined) {
     scale_fill_manual(values = c("FALSE" = .GREY_MID, "TRUE" = .DATA_COLOUR),
                       labels = c("FALSE" = "Has homology", "TRUE" = "No blastx hit")) +
     facet_wrap(~ .data$source, scales = "free_y", labeller = .word_strips) +
+    scale_y_count() +
     labs(x = "Blastx hits per locus (pseudo-log scale)", y = "Loci", fill = NULL)
   add_titles(p, "Blastx evidence per locus",
              paste("Hits per locus, by tier.",
@@ -874,8 +863,7 @@ mosaic_burden_plot <- function(loci, ctx = NULL) {
     mutate(kind = ifelse(.data$is_mosaic == "True", "mosaic", "single_lineage")) %>%
     count(.data$species, .data$kind, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$kind)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
-             show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     scale_fill_manual(values = c(mosaic = .DATA_COLOUR, single_lineage = .GREY_OTHER),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
@@ -894,8 +882,7 @@ mosaic_composition_by_species_plot <- function(loci, ctx = NULL) {
   counts <- flows %>% count(.data$species, .data$taxon, name = "n")
   counts$taxon <- taxon_factor(counts$taxon, counts$n)
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
-             show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
     scale_fill_taxon(counts$taxon, counts$n) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of gene calls in mosaic loci", fill = NULL)
@@ -1076,7 +1063,8 @@ main <- function() {
   )
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
-  # split by tier. Concordant with the plots (same combined frame).
+  # split by tier, from the same combined frame as the plots. Its taxon and
+  # method counts keep resolved calls only; the lineage pages count every locus.
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 

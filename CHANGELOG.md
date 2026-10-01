@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two pages**: "How far from a known virus" in `taxonomy.pdf` (median
+  amino-acid identity to the nearest reference virus, per host and lineage)
+  and "LTR families by repeat class" in `solo_ltr.pdf`.
 - **Solo counts by repeat class**: with Dfam labels on, every solo carries its
   family's class (`ltr_family_class`) and a new `solo_ltr_by_class.csv`, drawn in
   the all-species solo PDF, splits solo candidates into ERV LTR, non-ERV LTR
@@ -109,6 +112,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Figure review of the model-5 PDFs** (about 160 distinct pages read):
+  - Key pages list every page, in columns when there are many (the segment
+    PDFs lost their last page off the bottom of the list).
+  - Segment PDFs leave out pages whose tier has no loci, instead of drawing
+    placeholders that often said the wrong thing, and a lineage with fewer than
+    5 loci gets one page listing them instead of 28.
+  - Hotspot PDFs draw only the sequences the model treats as chromosomes, with
+    a caption counting the rest (Homo sapiens: 27 drawn, 682 not); with no
+    hotspot called, the summary and composition pages and the key's pointer to
+    them are left out.
+  - Wording: "Single gene" means at most one main gene (accessory genes do not
+    count), "Locus length" is the span of a locus's gene hits, the lineage and
+    method pages count every LTR-flanked locus rather than only resolved
+    calls, and the loss legend names the branch that holds the LTR-flanked loci.
+  - Style: species in italics where a page leads with one, taxa in italics on
+    key pages and alluvia, whole-number count axes (`scale_y_count()`), "2 to
+    5" rather than "2-5", fixed colours for the call method, legend keys for
+    every fixed class, and readable bitscore density with many probes.
 - **BLAST hits could overwrite each other.** Each hit was keyed by its accession
   and six random characters; a repeated draw on one chromosome replaced the
   earlier hit without a word (about 2 hits expected lost across the model

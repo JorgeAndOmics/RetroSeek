@@ -338,7 +338,7 @@ log_job(args$log, "hotspot_detector")
 
 # The genome-wide pages: the karyotype always; the summary and the composition
 # only when a hotspot was called (otherwise both would be the same empty page).
-.genome_pages <- function(inputs, result, plot_species, draw, group_col) {
+.genome_pages <- function(inputs, opts, result, plot_species, draw, group_col) {
   karyotype <- plot_karyotype(inputs$seqlengths, result$hotspots, plot_species,
                               draw = draw)
   if (length(result$hotspots) == 0L) return(list(karyotype))
@@ -346,7 +346,7 @@ log_job(args$log, "hotspot_detector")
        plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
        plot_hotspot_composition(result$hotspots, plot_species,
                                 sprintf("The %s tier, grouped by %s.",
-                                        inputs$opts$input, group_col)))
+                                        opts$input, group_col)))
 }
 
 # The key page's description: what a hotspot is, how many were called, and the
@@ -384,7 +384,7 @@ log_job(args$log, "hotspot_detector")
                             opts$window_size * opts$unplaced_min_factor)
   pages <- c(.label_pages(result$windows, opts, plot_species,
                           callable$label[callable$tested], draw),
-             .genome_pages(inputs, result, plot_species, draw, group_col))
+             .genome_pages(inputs, opts, result, plot_species, draw, group_col))
   # The structure colours belong to the composition page alone.
   colours <- if (length(result$hotspots)) {
     stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR)))

@@ -315,8 +315,7 @@ test_that("a segment with enough loci gets the full panel", {
 test_that("a lineage with orphans only says its LTR-flanked pages are left out", {
   catalog <- .loaded_catalog()
   many <- do.call(rbind, rep(list(catalog[catalog$source == "orphan", ]), 3))
-  out <- segment_pages(many, many[0, ], segment_panel(.full_registry(), "full"),
-                       ctx = list())
+  out <- segment_pages(many, many[0, ], panel = list(), ctx = list())
   expect_match(out$note, "no LTR-flanked loci")
 })
 
