@@ -410,7 +410,7 @@ test_that("waffle_virus_plot returns ggplot at unit_hits = 1", {
   p <- waffle_virus_plot(.fake_plot_df(), unit_hits = 1L)
   expect_s3_class(p, "ggplot")
   expect_equal(p$labels$title,   "Ranges per virus")
-  expect_equal(p$labels$caption, "1 square = 1 hit")
+  expect_equal(p$labels$caption, "1 square = 1 range")
 })
 
 test_that("waffle_virus_plot uses unit_hits to bucket squares", {
@@ -419,8 +419,8 @@ test_that("waffle_virus_plot uses unit_hits to bucket squares", {
   p_one  <- waffle_virus_plot(df, unit_hits = 1L)
   p_ten  <- waffle_virus_plot(df, unit_hits = 10L)
   # Caption distinguishes the two configurations.
-  expect_equal(p_one$labels$caption, "1 square = 1 hit")
-  expect_equal(p_ten$labels$caption, "1 square = 10 hits")
+  expect_equal(p_one$labels$caption, "1 square = 1 range")
+  expect_equal(p_ten$labels$caption, "1 square = 10 ranges")
 })
 
 test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap", {
@@ -428,7 +428,7 @@ test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap"
   # 10,000 hits with a 400-square cap -> auto-derive forces unit_hits to 25
   df <- tibble::tibble(virus = rep("HIV", 10000))
   p <- waffle_virus_plot(df, unit_hits = NULL)
-  expect_match(p$labels$caption, "auto-scaled from 10000 total hits")
+  expect_match(p$labels$caption, "auto-scaled from 10,000 ranges")
 })
 
 

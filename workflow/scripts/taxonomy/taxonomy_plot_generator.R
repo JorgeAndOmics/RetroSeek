@@ -522,7 +522,7 @@ structure_by_tier_plot <- function(combined) {
     geom_col(position = position_dodge(width = 0.8), width = 0.75) +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = "Main genes present", y = "Share of the tier's loci", fill = NULL) +
+    labs(x = "Main genes present", y = "Share of loci in each tier", fill = NULL) +
     theme(panel.grid.major.x = element_blank())
   add_titles(
     p, "Structural completeness by tier",
@@ -635,17 +635,18 @@ confidence_density_plot <- function(combined, confidence_min = 0.5) {
 }
 
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
-# (unit-tested): 0 / 1 / 2-5 / 6+. Robust to numeric (non-integer) input.
+# (unit-tested): 0 / 1 / 2 to 5 / 6+ (words, not a hyphen: house style). Robust
+# to numeric (non-integer) input.
 bucket_evidence <- function(n) {
   n <- as.integer(n)
   out <- dplyr::case_when(
     is.na(n) ~ NA_character_,
     n <= 0L  ~ "0",
     n == 1L  ~ "1",
-    n <= 5L  ~ "2-5",
+    n <= 5L  ~ "2 to 5",
     TRUE     ~ "6+"
   )
-  factor(out, levels = c("0", "1", "2-5", "6+"))
+  factor(out, levels = c("0", "1", "2 to 5", "6+"))
 }
 
 # Per-locus blastx evidence depth; the zero bin is the candidate novel retrovirus
@@ -665,8 +666,11 @@ evidence_depth_plot <- function(combined) {
     facet_wrap(~ .data$source, scales = "free_y", labeller = .word_strips) +
     labs(x = "Blastx hits per locus (pseudo-log scale)", y = "Loci", fill = NULL)
   add_titles(p, "Blastx evidence per locus",
-             sprintf(paste("Hits per locus, by tier. %s loci have no hit at all:",
-                           "candidate novel retroviruses."), scales::comma(n_novel)))
+             paste("Hits per locus, by tier.",
+                   if (n_novel > 0L) {
+                     sprintf("%s loci have no hit at all: candidate novel retroviruses.",
+                             scales::comma(n_novel))
+                   }))
 }
 
 # Call confidence across blastx evidence-depth buckets: does more homology mean

@@ -327,7 +327,7 @@ loss_waterfall_plot <- function(funnel, ctx = NULL) {
     facet_wrap(~ .data$genome, scales = "free_x") +
     scale_x_continuous(labels = scales::label_comma(),
                        expand = expansion(mult = c(0, 0.3))) +
-    labs(x = "Surviving ranges or loci", y = NULL) +
+    labs(x = "Surviving ranges", y = NULL) +
     theme(panel.grid.major.y = element_blank(),
           strip.text = element_text(face = "bold.italic"))
   add_titles(

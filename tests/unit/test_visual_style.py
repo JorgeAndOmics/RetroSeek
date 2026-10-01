@@ -173,6 +173,27 @@ def test_no_dash_or_arrow_as_punctuation_in_plot_text(path: Path) -> None:
     )
 
 
+# A number range set with a hyphen ("2-5"); plot text says "2 to 5".
+_HYPHEN_RANGE = re.compile(r"(?<![\w.%])\d+-\d+(?![\w.])")
+
+
+@pytest.mark.parametrize("path", _PLOTTING_SCRIPTS, ids=lambda p: p.name)
+def test_no_hyphen_number_range_in_plot_text(path: Path) -> None:
+    offenders = [
+        f"{number}: {literal!r}"
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        for literal in r_string_literals(line)
+        if _HYPHEN_RANGE.search(literal)
+    ]
+    assert not offenders, f"{path.name}: write ranges with 'to':\n" + "\n".join(offenders)
+
+
+def test_hyphen_range_pattern_catches_a_range_and_spares_ids() -> None:
+    assert _HYPHEN_RANGE.search("2-5")
+    assert not _HYPHEN_RANGE.search("LTR-flanked")
+    assert not _HYPHEN_RANGE.search("%d-mer")
+
+
 def test_r_string_scanner_ignores_comments_and_keeps_hashes_in_strings() -> None:
     line = 'x <- c("#332288", "a - b") # a comment - with "quotes"'
     assert r_string_literals(line) == ["#332288", "a - b"]

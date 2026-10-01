@@ -215,11 +215,13 @@ gene_combinations_plot <- function(loci) {
     rest <- counts[-seq_len(.TOP_COMBINATIONS), ]
     counts <- bind_rows(
       counts[seq_len(.TOP_COMBINATIONS), ],
-      tibble(genes_present = sprintf("Other (%d combinations)", nrow(rest)),
+      tibble(genes_present = sprintf("Other (%s combinations)", scales::comma(nrow(rest))),
              n = sum(rest$n))
     )
   }
   counts <- counts %>%
+    # "GAG, POL" reads as a list; the table value "GAG,POL" does not.
+    mutate(genes_present = gsub(",", ", ", .data$genes_present)) %>%
     mutate(genes_present = factor(.data$genes_present,
                                   levels = rev(.data$genes_present)),
            other = grepl("^Other", .data$genes_present))

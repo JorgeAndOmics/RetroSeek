@@ -48,7 +48,7 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
   if (length(ranking) <= top_n) return(df)
   keep <- ranking[seq_len(top_n)]
   k_collapsed <- length(ranking) - top_n
-  label_with_count <- sprintf("%s (%d)", other_label, k_collapsed)
+  label_with_count <- sprintf("%s (%s)", other_label, scales::comma(k_collapsed))
   df %>%
     dplyr::mutate(
       "{col}" := dplyr::if_else(

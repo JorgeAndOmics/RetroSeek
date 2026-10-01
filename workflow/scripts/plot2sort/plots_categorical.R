@@ -166,15 +166,16 @@ heatmap_probe_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
   list(hits = if (auto) auto_unit else user_unit, auto = auto)
 }
 
-# "1 square = N hits", noting when the scale was chosen automatically.
+# "1 square = N ranges", noting when the scale was chosen automatically. Each
+# square counts merged ranges, not raw hits (the plot's input is ranges).
 .waffle_caption <- function(unit_hits, auto, total_hits) {
   unit_caption <- if (unit_hits > 1L) {
-    sprintf("1 square = %d hits", unit_hits)
+    sprintf("1 square = %s ranges", scales::comma(unit_hits))
   } else {
-    "1 square = 1 hit"
+    "1 square = 1 range"
   }
   if (!auto || unit_hits <= 1L) return(unit_caption)
-  sprintf("%s (auto-scaled from %d total hits)", unit_caption, total_hits)
+  sprintf("%s (auto-scaled from %s ranges)", unit_caption, scales::comma(total_hits))
 }
 
 # Waffle chart - virus proportions. Each square represents `unit_hits` ranges.
