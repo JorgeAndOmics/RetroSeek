@@ -50,15 +50,44 @@ suppressMessages({
 }
 
 
+# The sequences a genome-wide page draws: those at least `min_length` long, in
+# their own order, at most `max_n` of them (the longest win). The caller passes
+# the length below which the model pools a scaffold into "Unplaced"
+# (pool_small_scaffolds), so what is drawn is what the model treats as a
+# chromosome. An assembly with no sequence that long draws its longest ones.
+sequences_to_draw <- function(seqlengths, min_length, max_n = 40L) {
+  big <- names(seqlengths)[seqlengths >= min_length]
+  if (length(big) == 0L || length(big) > max_n) {
+    candidates <- if (length(big)) seqlengths[big] else seqlengths
+    big <- names(sort(candidates, decreasing = TRUE))[seq_len(min(max_n, length(candidates)))]
+  }
+  names(seqlengths)[names(seqlengths) %in% big]
+}
+
+# The caption naming what a genome-wide page leaves out, or NULL.
+.hidden_caption <- function(n_hidden) {
+  if (n_hidden == 0L) return(NULL)
+  sprintf("%s shorter %s tested but not drawn.", scales::comma(n_hidden),
+          if (n_hidden == 1L) "sequence is" else "sequences are")
+}
+
+
 # Smaller titles for the panels inside a composed page, under the page title.
 .panel_title <- theme(plot.title = element_text(size = 12, face = "bold"))
 
 
 #' Manhattan plot: genome-wide -log10(qval_nb) against stitched genomic position,
 #' chromosomes in alternating shades so neighbours stay apart. Dashed line at
-#' the significance threshold.
-plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
+#' the significance threshold. `draw` (sequences_to_draw()) limits the x axis
+#' to the sequences worth a label; NULL draws every one.
+plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL,
+                           draw = NULL) {
   if (nrow(window_df) == 0L) return(empty_plot("No windows to plot"))
+  n_hidden <- 0L
+  if (!is.null(draw)) {
+    n_hidden <- length(setdiff(unique(window_df$chrom), draw))
+    window_df <- dplyr::filter(window_df, .data$chrom %in% draw)
+  }
   seqlengths <- tapply(window_df$end, window_df$chrom, max)
   offsets <- .chrom_offsets(seqlengths)
   df <- window_df %>%
@@ -79,7 +108,7 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
                         guide = "none") +
     scale_x_continuous(breaks = offsets$chrom_centre, labels = offsets$chrom,
                        expand = expansion(mult = 0.01)) +
-    labs(x = NULL, y = expression(-log[10](q))) +
+    labs(x = NULL, y = expression(-log[10](q)), caption = .hidden_caption(n_hidden)) +
     # Sequence names are a dense axis of accession codes: the one place a tilted
     # label is the lesser evil.
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
@@ -88,7 +117,7 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
              sprintf(
                paste("%s loci per window, tested against a negative binomial model.",
                      "Dashed line: q = %s."),
-               label %||% "All", format(threshold)
+               display_label(label %||% "All"), format(threshold)
              ),
              subset_label = species)
 }
@@ -96,9 +125,16 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL) {
 
 #' Karyotype / ideogram plot: chromosomes as horizontal bars with hotspots
 #' overlaid in their lineage colour. Pure ggplot2 (faceted) rather than ggbio,
-#' so the module is robust to ggbio API drift across versions.
-plot_karyotype <- function(seqlengths, hotspots, species = NULL) {
+#' so the module is robust to ggbio API drift across versions. `draw`
+#' (sequences_to_draw()) picks the bars; NULL draws every sequence.
+plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
   if (length(seqlengths) == 0L) return(empty_plot("No chromosomes"))
+  n_hidden <- 0L
+  if (!is.null(draw)) {
+    n_hidden <- length(seqlengths) - length(draw)
+    hotspots <- hotspots[as.character(GenomicRanges::seqnames(hotspots)) %in% draw]
+    seqlengths <- seqlengths[draw]
+  }
   chrom_df <- tibble::tibble(
     chrom = factor(names(seqlengths), levels = names(seqlengths)),
     start_mb = 0,
@@ -128,7 +164,7 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL) {
     facet_grid(rows = vars(.data$chrom), switch = "y") +
     scale_y_continuous(breaks = NULL, expand = expansion(mult = 0)) +
     scale_x_continuous(labels = scales::comma_format(suffix = " Mb")) +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL, caption = .hidden_caption(n_hidden)) +
     theme(strip.text.y.left = element_text(angle = 0, hjust = 1, size = 7,
                                            face = "plain"),
           panel.grid.major.y = element_blank(),
@@ -158,7 +194,7 @@ plot_qq <- function(window_df, species = NULL, label = NULL) {
              sprintf(
                paste("%s windows: observed p-values against the uniform null. Points",
                      "on the dashed line mean a calibrated model."),
-               label %||% "All"
+               display_label(label %||% "All")
              ),
              subset_label = species)
 }
