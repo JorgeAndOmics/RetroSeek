@@ -193,12 +193,13 @@ segment_pages <- function(sub, sub_loci, panel, ctx) {
 # carries and how it was called. For the few loci of a sparse segment.
 segment_loci_page <- function(sub) {
   confidence <- sprintf("%.2f", as.numeric(sub$confidence))
-  details <- sprintf(
-    "%s, %s:%s to %s (%s). Genes: %s. Called %s at confidence %s. Nearest virus: %s at %s%% identity.",
-    display_label(sub$source), sub$seqname, scales::comma(as.numeric(sub$start)),
-    scales::comma(as.numeric(sub$end)), sub$strand,
-    gsub(",", ", ", sub$genes_present), display_label(sub$taxon_call), confidence,
-    sub$nearest_virus, sub$nearest_virus_identity)
+  template <- paste("%s, %s:%s to %s (%s). Genes: %s. Called %s at confidence %s.",
+                    "Nearest virus: %s at %s%% identity.")
+  details <- sprintf(template, display_label(sub$source), sub$seqname,
+                     scales::comma(as.numeric(sub$start)),
+                     scales::comma(as.numeric(sub$end)), sub$strand,
+                     gsub(",", ", ", sub$genes_present), display_label(sub$taxon_call),
+                     confidence, sub$nearest_virus, sub$nearest_virus_identity)
   details <- vapply(details, function(d) paste(strwrap(d, 160), collapse = "\n"),
                     character(1), USE.NAMES = FALSE)
   y <- 1 - (seq_len(nrow(sub)) - 1) * 0.18
@@ -306,7 +307,8 @@ segments_main <- function() {
     key <- key_page(
       key_title("ERV loci:", display_label(seg)),
       paste(sprintf(paste("The taxonomy and structure pages, restricted to the %s",
-                          "of this lineage. Hosts are rows in the order of the host tree."),
+                          "of this lineage. Hosts are rows in the order of the host",
+                          "tree."),
                     .loci_count(nrow(sub))), out$note %||% ""),
       colours = tiers, pages = page_titles(out$pages)
     )

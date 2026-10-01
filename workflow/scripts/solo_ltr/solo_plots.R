@@ -508,16 +508,17 @@ families_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
   if (!nrow(by_class)) return(empty_plot("No per-class tables"))
   d <- copy(by_class)
   d[, repeat_group := factor(repeat_group, levels = .REPEAT_GROUPS)]
-  p <- ggplot(d, aes(x = .data$species, y = .data$families, fill = .data$repeat_group)) +
+  p <- ggplot(d, aes(x = .data$species, y = .data$families,
+                     fill = .data$repeat_group)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.66) +
     scale_fill_manual(values = .repeat_colours(), limits = .REPEAT_GROUPS,
                       drop = FALSE) +
     scale_y_count() +
     labs(x = NULL, y = "LTR families", fill = NULL)
   p <- add_titles(p, title = "LTR families by repeat class",
-                  subtitle = paste("Bait-arm families per genome, by the Dfam class of",
-                                   "their arms. Compare the solo candidates they catch,",
-                                   "on the previous page."))
+                  subtitle = paste("Bait-arm families per genome, by the Dfam class",
+                                   "of their arms. Compare the solo candidates they",
+                                   "catch, on the previous page."))
   species_rows(p, unique(d$species), tree = tree, fallback_order = order)
 }
 

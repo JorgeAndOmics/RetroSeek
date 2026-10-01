@@ -96,15 +96,20 @@ empty_plot <- function(label = "No data") {
 # TRUE for NULL or an empty string: nothing to print.
 .is_blank <- function(x) is.null(x) || !nzchar(x)
 
-# The subtitle with `lead` (a genome, a probe set) in front, "Lead. Subtitle";
-# either alone when the other is blank. An italic lead (a species) needs
-# plotmath, the only way ggplot2 mixes faces in one line; plotmath cannot break
-# lines, so it is used only there, and species-led subtitles are one line.
-.lead_subtitle <- function(lead, subtitle, italic = FALSE) {
+# The subtitle with `lead` (a probe set, a segment) in front, "Lead. Subtitle";
+# either alone when the other is blank.
+.lead_subtitle <- function(lead, subtitle) {
   if (.is_blank(lead)) return(subtitle)
-  if (!italic) return(if (.is_blank(subtitle)) lead else paste0(lead, ". ", subtitle))
-  if (.is_blank(subtitle)) return(bquote(italic(.(lead))))
-  bquote(italic(.(lead)) * ". " * .(subtitle))
+  if (.is_blank(subtitle)) return(lead)
+  paste0(lead, ". ", subtitle)
+}
+
+# The same with an italic lead (a species). plotmath is the only way ggplot2
+# mixes faces in one line, and it cannot break lines, so it is used only here:
+# no species-led subtitle has a line break.
+.italic_lead <- function(species, subtitle) {
+  if (.is_blank(subtitle)) return(bquote(italic(.(species))))
+  bquote(italic(.(species)) * ". " * .(subtitle))
 }
 
 
@@ -117,7 +122,7 @@ empty_plot <- function(label = "No data") {
 add_titles <- function(p, title, subtitle, subset_label = NULL,
                        warning_caption = NULL, species = NULL) {
   lead <- if (.is_blank(species)) .lead_subtitle(subset_label, subtitle) else
-    .lead_subtitle(species, subtitle, italic = TRUE)
+    .italic_lead(species, subtitle)
   p <- p + labs(title = title, subtitle = lead) +
     # A void-theme page (sankey, placeholder) is otherwise transparent, which some
     # viewers compose on black and which hides the title.

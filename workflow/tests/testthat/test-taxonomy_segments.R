@@ -287,9 +287,9 @@ test_that("the overview and the segment PDFs go where the pipeline says", {
 # ---------------------------------------------------------------------------
 # Sparse segments: one table page instead of the full panel
 # ---------------------------------------------------------------------------
-.loaded_catalog <- function() {
-  load_catalog(.write_catalog(file.path(withr::local_tempdir(.local_envir = parent.frame()),
-                                        "catalog.csv")))
+.loaded_catalog <- function(env = parent.frame()) {
+  dir <- withr::local_tempdir(.local_envir = env)  # removed when the test ends
+  load_catalog(.write_catalog(file.path(dir, "catalog.csv")))
 }
 
 test_that("a segment with few loci gets one table page listing them", {

@@ -65,7 +65,8 @@ position_within_provirus_plot <- function(ltr_int_df, subset_label = NULL,
       "Position of each locus along the retrotransposon that contains it,",
       "strand-aware.",
       if (any(counts$n < 5L)) {
-        sprintf("%d probes with fewer than 5 such loci are left out.", sum(counts$n < 5L))
+        sprintf("%d probes with fewer than 5 such loci are left out.",
+                sum(counts$n < 5L))
       }
     ),
     subset_label    = subset_label,

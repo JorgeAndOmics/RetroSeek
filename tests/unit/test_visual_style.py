@@ -185,7 +185,9 @@ def test_no_hyphen_number_range_in_plot_text(path: Path) -> None:
         for literal in r_string_literals(line)
         if _HYPHEN_RANGE.search(literal)
     ]
-    assert not offenders, f"{path.name}: write ranges with 'to':\n" + "\n".join(offenders)
+    assert not offenders, f"{path.name}: write ranges with 'to':\n" + "\n".join(
+        offenders
+    )
 
 
 def test_hyphen_range_pattern_catches_a_range_and_spares_ids() -> None:

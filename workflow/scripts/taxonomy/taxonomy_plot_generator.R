@@ -423,7 +423,8 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
                          levels = .RANK_LEVELS)) %>%
     count(.data$species, .data$rank, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$rank)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .RANK_COLOUR, labels = display_label, drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = "Resolved to")
@@ -439,7 +440,7 @@ nearest_virus_identity_plot <- function(combined, ctx = NULL) {
   missing <- empty_plot("No nearest-virus identity in this catalog")
   if (!"nearest_virus_identity" %in% names(combined)) return(missing)
   d <- combined %>%
-    mutate(identity = suppressWarnings(as.numeric(.data$nearest_virus_identity))) %>%
+    mutate(identity = as.numeric(.data$nearest_virus_identity)) %>%
     filter(!is.na(.data$identity), !is.na(.data$segment))
   if (nrow(d) == 0L) return(missing)
   cells <- d %>%
@@ -456,10 +457,12 @@ nearest_virus_identity_plot <- function(combined, ctx = NULL) {
     scale_x_discrete(labels = taxon_labels) +
     labs(x = NULL, y = NULL) +
     # Eleven genus names across one page: the tilted label is the lesser evil.
-    theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1))
   p <- add_titles(p, "How far from a known virus",
-                  paste("Median amino-acid identity of each host's loci to the nearest",
-                        "reference virus, by lineage. Low: far from anything described."))
+                  paste("Median amino-acid identity of each host's loci to the",
+                        "nearest reference virus, by lineage. Low: far from anything",
+                        "described."))
   on_rows(p, cells$species, ctx, axis = "y")
 }
 
@@ -486,7 +489,8 @@ erv_class_composition_plot <- function(loci, ctx = NULL) {
   if (nrow(d) == 0L) return(empty_plot("No ERV class assignments"))
   counts <- d %>% count(.data$species, .data$erv_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$erv_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .ERV_CLASS_COLOUR) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of classified loci", fill = NULL)
@@ -521,7 +525,8 @@ structure_class_composition_plot <- function(combined, ctx = NULL) {
   counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n,
                           fill = .data$structure_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
                       drop = FALSE) +
@@ -573,7 +578,8 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
     mutate(domain_tier = factor(.data$domain_tier, levels = .DOMAIN_TIER_LEVELS))
   counts <- d %>% count(.data$species, .data$domain_tier, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$domain_tier)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .DOMAIN_TIER_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
@@ -703,8 +709,8 @@ evidence_depth_plot <- function(combined) {
   add_titles(p, "Blastx evidence per locus",
              paste("Hits per locus, by tier.",
                    if (n_novel > 0L) {
-                     sprintf("%s loci have no hit at all: candidate novel retroviruses.",
-                             scales::comma(n_novel))
+                     sprintf(paste("%s loci have no hit at all: candidate novel",
+                                   "retroviruses."), scales::comma(n_novel))
                    }))
 }
 
@@ -868,7 +874,8 @@ mosaic_burden_plot <- function(loci, ctx = NULL) {
     mutate(kind = ifelse(.data$is_mosaic == "True", "mosaic", "single_lineage")) %>%
     count(.data$species, .data$kind, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$kind)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = c(mosaic = .DATA_COLOUR, single_lineage = .GREY_OTHER),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
@@ -887,7 +894,8 @@ mosaic_composition_by_species_plot <- function(loci, ctx = NULL) {
   counts <- flows %>% count(.data$species, .data$taxon, name = "n")
   counts$taxon <- taxon_factor(counts$taxon, counts$n)
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_taxon(counts$taxon, counts$n) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of gene calls in mosaic loci", fill = NULL)
@@ -969,7 +977,8 @@ mosaic_gene_discordance_plot <- function(loci) {
     coord_flip() +
     # The whole 0 to 100% range, so a bar at 100% meets a labelled end.
     scale_y_continuous(labels = scales::percent, limits = c(0, 1),
-                       breaks = seq(0, 1, 0.25), expand = expansion(mult = c(0, 0.12))) +
+                       breaks = seq(0, 1, 0.25),
+                       expand = expansion(mult = c(0, 0.12))) +
     labs(x = NULL, y = "Share of calls differing from the locus majority") +
     # Gene symbols in italics, as on every other page that names them.
     theme(panel.grid.major.y = element_blank(),

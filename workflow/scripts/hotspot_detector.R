@@ -345,8 +345,8 @@ log_job(args$log, "hotspot_detector")
   list(karyotype,
        plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
        plot_hotspot_composition(result$hotspots, plot_species,
-                                sprintf("The %s tier, grouped by %s.", inputs$opts$input,
-                                        group_col)))
+                                sprintf("The %s tier, grouped by %s.",
+                                        inputs$opts$input, group_col)))
 }
 
 # The key page's description: what a hotspot is, how many were called, and the
@@ -364,7 +364,8 @@ log_job(args$log, "hotspot_detector")
             opts$input, format(opts$pvalue_threshold)),
     called,
     if (length(untested)) {
-      sprintf("Too few loci to test: %s.", paste(display_label(untested), collapse = ", "))
+      sprintf("Too few loci to test: %s.",
+              paste(display_label(untested), collapse = ", "))
     }
   )
 }
@@ -379,7 +380,8 @@ log_job(args$log, "hotspot_detector")
     dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
   # Draw what the model treats as a chromosome: scaffolds it pools into
   # "Unplaced" are tested but would only smear the genome-wide axes.
-  draw <- sequences_to_draw(inputs$seqlengths, opts$window_size * opts$unplaced_min_factor)
+  draw <- sequences_to_draw(inputs$seqlengths,
+                            opts$window_size * opts$unplaced_min_factor)
   pages <- c(.label_pages(result$windows, opts, plot_species,
                           callable$label[callable$tested], draw),
              .genome_pages(inputs, result, plot_species, draw, group_col))

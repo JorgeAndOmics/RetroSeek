@@ -151,7 +151,7 @@ test_that("the gene-order page says so when no locus can be assessed", {
 })
 
 
-test_that("the LTR-flanked structural class page is titled apart and defines its classes", {
+test_that("the LTR-flanked structural class page has its own title and meanings", {
   p <- structure_class_plot(.loci())
   expect_equal(p$labels$title, "Structural class per host, LTR-flanked loci")
   expect_match(p$labels$subtitle, "at most one main gene", fixed = TRUE)

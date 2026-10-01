@@ -158,7 +158,8 @@ test_that("render_panel leaves out a page whose tier scope is empty", {
     list(name = "a", data = "loci", build = function(d, ctx) nrow(d)),
     list(name = "b", data = "combined", build = function(d, ctx) nrow(d))
   )
-  expect_equal(render_panel(reg, data.frame(x = integer(0)), data.frame(x = 1:3), list()),
+  empty <- data.frame(x = integer(0))
+  expect_equal(render_panel(reg, empty, data.frame(x = 1:3), list()),
                list(3L))
 })
 

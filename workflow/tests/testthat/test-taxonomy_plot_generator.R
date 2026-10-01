@@ -362,7 +362,7 @@ test_that("tiers are drawn in the tier colours", {
 })
 
 
-test_that("the structural class page says what single gene means, and is titled apart", {
+test_that("the structural class page defines single gene and has its own title", {
   # A locus with only accessory genes is a 'gene' locus too; the subtitle used to
   # say "one main gene only". Its sibling in the structure PDF has the same view
   # for LTR-flanked loci, so the two titles must differ.
@@ -410,10 +410,11 @@ test_that("the method page counts every locus, in the method colours", {
 
 test_that("the nearest-virus page shows each host and lineage's median identity", {
   loci <- .composition_loci()
-  loci$nearest_virus_identity <- c("40.0", "60.0", "50.0", "90.0", "30.0")[seq_len(nrow(loci))]
+  loci$nearest_virus_identity <- c("40.0", "60.0", "50.0", "90.0", "30.0")
   p <- nearest_virus_identity_plot(loci)
   expect_s3_class(p, "ggplot")
-  cell <- p$data[p$data$species == "Antrozous pallidus" & p$data$segment == "Betaretrovirus", ]
+  cell <- p$data[p$data$species == "Antrozous pallidus" &
+                   p$data$segment == "Betaretrovirus", ]
   expect_equal(cell$median, 55)   # orphans at 60 and 50
   expect_equal(p$labels$title, "How far from a known virus")
   expect_true("nearest_virus_identity" %in%

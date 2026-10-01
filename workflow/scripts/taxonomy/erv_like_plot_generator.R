@@ -162,7 +162,8 @@ structure_class_plot <- function(loci, ctx = NULL) {
                                     levels = .STRUCTURE_LEVELS)) %>%
     count(.data$species, .data$structure_class, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
@@ -220,7 +221,8 @@ gene_combinations_plot <- function(loci) {
     rest <- counts[-seq_len(.TOP_COMBINATIONS), ]
     counts <- bind_rows(
       counts[seq_len(.TOP_COMBINATIONS), ],
-      tibble(genes_present = sprintf("Other (%s combinations)", scales::comma(nrow(rest))),
+      tibble(genes_present = sprintf("Other (%s combinations)",
+                                     scales::comma(nrow(rest))),
              n = sum(rest$n))
     )
   }
@@ -262,7 +264,8 @@ canonical_order_plot <- function(loci, ctx = NULL) {
   d <- gene_order_counts(loci)
   if (nrow(d) == 0L) return(empty_plot("No locus with two ordered genes"))
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$order)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = c(canonical = .GREY_MID, rearranged = .DATA_COLOUR),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +

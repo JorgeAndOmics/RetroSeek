@@ -59,7 +59,8 @@ sequences_to_draw <- function(seqlengths, min_length, max_n = 40L) {
   big <- names(seqlengths)[seqlengths >= min_length]
   if (length(big) == 0L || length(big) > max_n) {
     candidates <- if (length(big)) seqlengths[big] else seqlengths
-    big <- names(sort(candidates, decreasing = TRUE))[seq_len(min(max_n, length(candidates)))]
+    longest <- names(sort(candidates, decreasing = TRUE))
+    big <- longest[seq_len(min(max_n, length(longest)))]
   }
   names(seqlengths)[names(seqlengths) %in% big]
 }

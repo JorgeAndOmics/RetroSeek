@@ -242,7 +242,7 @@ test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   expect_equal(p$labels$title, "No data")
 })
 
-test_that("density_bitscore_plot names the quartiles in the subtitle, not on the plot", {
+test_that("density_bitscore_plot names the quartiles in the subtitle", {
   # Close quartiles printed their labels on top of each other (homology p14).
   p <- density_bitscore_plot(.fake_plot_df(), q1 = 200, median = 220, q3 = 280)
   expect_match(p$labels$subtitle, "the quartiles \\(200, 220 and 280\\)")
@@ -252,7 +252,8 @@ test_that("density_bitscore_plot names the quartiles in the subtitle, not on the
 
 test_that("density_bitscore_plot gives each probe a panel when there are many", {
   df <- .fake_plot_df()
-  df <- do.call(rbind, lapply(sprintf("P%d", 1:8), function(pr) transform(df, probe = pr)))
+  df <- do.call(rbind, lapply(sprintf("P%d", 1:8),
+                              function(pr) transform(df, probe = pr)))
   p <- density_bitscore_plot(df, q1 = 200, median = 220, q3 = 280)
   expect_s3_class(p$facet, "FacetWrap")
 })
@@ -337,13 +338,15 @@ test_that("sankey_species_label_plot orders hosts by config and lineages by coun
 
 test_that("alluvium labels set hosts and lineages in italics, probes upright", {
   df <- tibble::tibble(species = c("Homo sapiens", "Mus musculus"),
-                       label = c("Betaretrovirus", "Gammaretrovirus"), count = c(60, 40))
+                       label = c("Betaretrovirus", "Gammaretrovirus"),
+                       count = c(60, 40))
   built <- ggplot2::ggplot_build(sankey_species_label_plot(df))
   labels <- built$data[[3]]
   faces <- stats::setNames(labels$fontface, sub(" \\(.*", "", labels$label))
-  expect_equal(unname(faces[c("Homo sapiens", "Betaretrovirus")]), c("italic", "italic"))
-  probes <- ggplot2::ggplot_build(sankey_label_probe_plot(
-    tibble::tibble(label = "Betaretrovirus", probe = "POL", count = 10)))$data[[3]]
+  expect_equal(unname(faces[c("Homo sapiens", "Betaretrovirus")]),
+               c("italic", "italic"))
+  probe_input <- tibble::tibble(label = "Betaretrovirus", probe = "POL", count = 10)
+  probes <- ggplot2::ggplot_build(sankey_label_probe_plot(probe_input))$data[[3]]
   expect_equal(probes$fontface[startsWith(probes$label, "POL")], "plain")
 })
 

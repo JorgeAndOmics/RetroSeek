@@ -310,9 +310,10 @@ test_that("a taxon name is one word ending like an ICTV genus, subfamily or fami
 test_that("the key page sets taxa in its colour list in italics, other words upright", {
   key <- key_page("Stage", "What it shows.",
                   c(Betaretrovirus = "#000000", `LTR-flanked` = "#111111"))
-  colour_labels <- Filter(function(l) identical(l$aes_params$label,
-                                                c("Betaretrovirus", "LTR-flanked")),
-                          key$layers)[[1]]
+  is_colour_list <- function(l) {
+    identical(l$aes_params$label, c("Betaretrovirus", "LTR-flanked"))
+  }
+  colour_labels <- Filter(is_colour_list, key$layers)[[1]]
   expect_equal(colour_labels$aes_params$fontface, c("italic", "plain"))
 })
 
