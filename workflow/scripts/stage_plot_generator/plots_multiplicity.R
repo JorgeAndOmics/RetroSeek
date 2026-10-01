@@ -41,7 +41,7 @@ multiplicity_m1_plot <- function(hits_df, subset_label = NULL,
                                  candidate = .TIER_COLOUR[["ltr-flanked"]]),
                       labels = c(original = "Every first-reduced locus",
                                  candidate = "Overlapping an LTR element")) +
-    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Share of the tier's loci",
+    labs(x = "Raw tBLASTn hits per locus (M1)", y = "Share of loci in each tier",
          fill = NULL) +
     theme(panel.grid.major.x = element_blank())
   add_titles(

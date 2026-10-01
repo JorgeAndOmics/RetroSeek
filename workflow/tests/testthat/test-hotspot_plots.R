@@ -63,3 +63,41 @@ test_that("composition uses the structure-class colours", {
   fills <- unique(ggplot_build(p[[1]])$data[[1]]$fill)
   expect_setequal(fills, unname(.STRUCTURE_COLOUR))
 })
+
+
+# ---------------------------------------------------------------------------
+# Small scaffolds: tested, but not drawn
+# ---------------------------------------------------------------------------
+# The Homo sapiens assembly has 709 sequences; drawing every one turned the
+# karyotype and the Manhattan axis into an unreadable smear of accessions.
+test_that("only sequences of model size are drawn, in their own order", {
+  sl <- c(chr2 = 8e6, scaf1 = 1e5, chr1 = 9e6, scaf2 = 2e5)
+  expect_equal(sequences_to_draw(sl, min_length = 5e6), c("chr2", "chr1"))
+})
+
+test_that("past the cap, the longest sequences are drawn", {
+  sl <- c(a = 6e6, b = 9e6, c = 7e6)
+  expect_equal(sequences_to_draw(sl, min_length = 5e6, max_n = 2L), c("b", "c"))
+})
+
+test_that("an assembly of small scaffolds still draws its longest ones", {
+  sl <- c(a = 1e5, b = 3e5, c = 2e5)
+  expect_equal(sequences_to_draw(sl, min_length = 5e6, max_n = 2L), c("b", "c"))
+})
+
+test_that("the karyotype and the Manhattan page say what they leave out", {
+  sl <- c(chr1 = 2e6, chr2 = 2e6, scaf9 = 1e4)
+  kary <- plot_karyotype(sl, .hotspots(), "Mus musculus", draw = c("chr1", "chr2"))
+  expect_equal(levels(kary$layers[[1]]$data$chrom), c("chr1", "chr2"))
+  expect_match(kary$labels$caption, "1 shorter sequence is tested but not drawn")
+  manh <- plot_manhattan(.windows(), 0.05, "Mus musculus", "Betaretrovirus",
+                         draw = "chr1")
+  expect_setequal(unique(manh$data$chrom), "chr1")
+  expect_match(manh$labels$caption, "1 shorter sequence is tested but not drawn")
+})
+
+test_that("a lineage is named in words, not as a table value", {
+  p <- plot_manhattan(.windows(), 0.05, "Mus musculus", "unassigned_at_genus")
+  expect_match(.subtitle_text(p), "Unassigned at genus loci per window")
+  expect_no_match(.subtitle_text(p), "unassigned_at_genus")
+})

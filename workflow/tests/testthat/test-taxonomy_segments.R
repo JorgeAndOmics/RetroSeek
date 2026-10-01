@@ -34,7 +34,7 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
 
 
 # A catalog row set written the way taxonomy_classify_loci.py writes it: every
-# value a string, booleans as "True"/"False". Carries ALL 26 catalog columns,
+# value a string, booleans as "True"/"False". Carries ALL 30 catalog columns,
 # because the per-segment panel now drives the whole builder set and a builder
 # missing its column silently degrades to empty_plot() rather than erroring -
 # the exact failure this file already guards against.
@@ -76,7 +76,12 @@ source(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
     "II",       "gene",           "non_domain",      "False",    "False",
     "0.333",       "1",           "ENV",          "False",
     "",                                       "0",            "lca",       "L4"
-  ) %>% write_csv(path)
+  ) %>%
+    # The nearest reference virus (ADR-024), the same for every row here.
+    mutate(nearest_virus = "Murine leukemia virus", nearest_virus_identity = "45.2",
+           nearest_virus_gene = "POL",
+           per_gene_nearest = "POL:Murine leukemia virus(45.2)") %>%
+    write_csv(path)
   path
 }
 
@@ -175,9 +180,9 @@ test_that("every registry entry is well formed and uniquely named", {
 
 
 test_that("the registry covers the whole published panel", {
-  # 23 taxonomy + 7 structure. If a builder is added without a registry entry
+  # 24 taxonomy + 7 structure. If a builder is added without a registry entry
   # it silently stops being drawn, which is the failure this pins.
-  expect_equal(length(panel_registry()), 23L)
+  expect_equal(length(panel_registry()), 24L)
   expect_equal(length(structure_panel_registry()), 7L)
 })
 
@@ -189,7 +194,7 @@ test_that("exactly the three degenerate plots are excluded from segments", {
 
   expect_setequal(excluded, c("erv_class_composition", "taxon_confidence_tree",
                               "taxon_tier_tree"))
-  expect_equal(length(segment_panel(reg, "full")), 27L)
+  expect_equal(length(segment_panel(reg, "full")), 28L)
 })
 
 
@@ -276,4 +281,54 @@ test_that("the overview and the segment PDFs go where the pipeline says", {
   expect_setequal(list.files(out("plots")),
                   c("Gammaretrovirus.pdf", "Betaretrovirus.pdf"))
   expect_true(file.exists(out("tables/by_genus/Gammaretrovirus.csv")))
+})
+
+
+# ---------------------------------------------------------------------------
+# Sparse segments: one table page instead of the full panel
+# ---------------------------------------------------------------------------
+.loaded_catalog <- function(env = parent.frame()) {
+  dir <- withr::local_tempdir(.local_envir = env)  # removed when the test ends
+  load_catalog(.write_catalog(file.path(dir, "catalog.csv")))
+}
+
+test_that("a segment with few loci gets one table page listing them", {
+  catalog <- .loaded_catalog()
+  beta <- catalog[catalog$segment == "Betaretrovirus", ]
+  out <- segment_pages(beta, beta[beta$source == "ltr-flanked", ],
+                       segment_panel(.full_registry(), "full"), ctx = list())
+  expect_length(out$pages, 1L)
+  expect_s3_class(out$pages[[1]], "ggplot")
+  expect_equal(out$pages[[1]]$labels$title, "The loci of this lineage")
+  expect_match(out$note, "2 loci")
+})
+
+test_that("a segment with enough loci gets the full panel", {
+  catalog <- .loaded_catalog()
+  many <- do.call(rbind, rep(list(catalog), 2))  # 10 loci, 6 LTR-flanked
+  panel <- segment_panel(.full_registry(), "curated")
+  out <- segment_pages(many, many[many$source == "ltr-flanked", ], panel, ctx = list())
+  expect_length(out$pages, length(panel))
+  expect_null(out$note)
+})
+
+test_that("a lineage with orphans only says its LTR-flanked pages are left out", {
+  catalog <- .loaded_catalog()
+  many <- do.call(rbind, rep(list(catalog[catalog$source == "orphan", ]), 3))
+  out <- segment_pages(many, many[0, ], panel = list(), ctx = list())
+  expect_match(out$note, "no LTR-flanked loci")
+})
+
+
+test_that("the loci page reads a locus with no reference hit, and an older catalog", {
+  catalog <- .loaded_catalog()
+  beta <- catalog[catalog$segment == "Betaretrovirus", ]
+  beta$nearest_virus[1] <- NA
+  beta$nearest_virus_identity[1] <- NA
+  labels <- unlist(lapply(segment_loci_page(beta)$layers,
+                          function(l) l$aes_params$label))
+  expect_false(any(grepl("NA", labels)))
+  expect_true(any(grepl("no reference virus", labels)))
+  older <- beta[, setdiff(names(beta), c("nearest_virus", "nearest_virus_identity"))]
+  expect_s3_class(segment_loci_page(older), "ggplot")
 })

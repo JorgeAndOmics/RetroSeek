@@ -238,6 +238,9 @@ panel_registry <- function() {
     list(name = "rank_resolution",
          build = function(d, ctx) rank_resolution_plot(d, ctx),
          data = "loci", segment = TRUE),
+    list(name = "nearest_virus_identity",
+         build = function(d, ctx) nearest_virus_identity_plot(d, ctx),
+         data = "combined", segment = TRUE),
     list(name = "method_mix",
          build = function(d, ctx) method_mix_plot(d, ctx),
          data = "loci", segment = TRUE),
@@ -347,42 +350,36 @@ add_numeric_companions <- function(df) {
 # are rows in the canonical order, beside the host tree when one is configured.
 # ----------------------------------------------------------------------------
 
-# Confident calls per host, coloured by lineage.
-taxon_composition_plot <- function(loci, ctx = NULL) {
-  d <- loci %>% filter(.data$resolved == "True")
-  if (nrow(d) == 0L) return(empty_plot("No confident taxon calls"))
-  counts <- d %>% count(.data$species, .data$taxon_call, name = "n")
-  counts$taxon_call <- taxon_factor(counts$taxon_call, counts$n)
-  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon_call)) +
-    geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
-    scale_fill_taxon(counts$taxon_call, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
-    labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
-  p <- add_titles(
-    p, "Viral lineages per host",
-    "LTR-flanked loci with a confident call, by the lineage they resolve to."
-  )
-  on_rows(p, counts$species, ctx)
-}
-
-# Every locus of both tiers by the lineage it rolls up to at the segment rank,
-# so unresolved calls are one honest "unassigned" bar rather than scattered
-# higher ranks. Reads as "did related hosts keep related viruses?" (ADR-014).
-lineage_composition_plot <- function(combined, ctx = NULL) {
-  if (nrow(combined) == 0L || !"segment" %in% names(combined)) {
+# Loci per host by the lineage they roll up to at the segment rank, so a call
+# that stopped above that rank is the grey "unassigned" bar the key page
+# promises rather than a locus dropped without a word. One builder for the two
+# pages below, which differ only in tier and words.
+.lineage_bars <- function(d, y_label, title, subtitle, ctx) {
+  if (nrow(d) == 0L || !"segment" %in% names(d)) {
     return(empty_plot("No segmented loci"))
   }
-  counts <- combined %>% count(.data$species, segment = as.character(.data$segment),
-                               name = "n")
+  counts <- d %>%
+    count(.data$species, segment = as.character(.data$segment), name = "n")
   counts$segment <- taxon_factor(counts$segment, counts$n)
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$segment)) +
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     scale_fill_taxon(counts$segment, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
-    labs(x = NULL, y = "Loci, both tiers", fill = NULL)
-  p <- add_titles(p, "Viral lineages per host, both tiers",
-                  "Every locus by the lineage it rolls up to at the segment rank.")
-  on_rows(p, counts$species, ctx)
+    scale_y_count() +
+    labs(x = NULL, y = y_label, fill = NULL)
+  on_rows(add_titles(p, title, subtitle), counts$species, ctx)
+}
+
+# LTR-flanked loci only.
+taxon_composition_plot <- function(loci, ctx = NULL) {
+  .lineage_bars(loci, "LTR-flanked loci", "Viral lineages per host",
+                paste("LTR-flanked loci by the lineage they roll up to at the segment",
+                      "rank; grey: not resolved that far."), ctx)
+}
+
+# Both tiers. Reads as "did related hosts keep related viruses?" (ADR-014).
+lineage_composition_plot <- function(combined, ctx = NULL) {
+  .lineage_bars(combined, "Loci, both tiers", "Viral lineages per host, both tiers",
+                "Every locus by the lineage it rolls up to at the segment rank.", ctx)
 }
 
 # Lineages split by tier: a lineage seen only among orphans is either new or has
@@ -397,7 +394,7 @@ taxon_by_source_plot <- function(combined, ctx = NULL) {
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_taxon(counts$taxon_call, counts$n) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci with a confident call", fill = NULL)
   p <- add_titles(p, "Viral lineages per tier",
                   paste("Confident calls by lineage, per host and tier. A lineage seen",
@@ -413,7 +410,8 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
                          levels = .RANK_LEVELS)) %>%
     count(.data$species, .data$rank, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$rank)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .RANK_COLOUR, labels = display_label, drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = "Resolved to")
@@ -422,17 +420,52 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
   on_rows(p, d$species, ctx)
 }
 
-# How each confident call was made.
+# How far each host's loci sit from any described virus, by lineage: the median
+# amino-acid identity to the nearest reference virus (ADR-024), hosts on rows.
+# A catalog written before ADR-024 has no such column and gets a placeholder.
+nearest_virus_identity_plot <- function(combined, ctx = NULL) {
+  missing <- empty_plot("No nearest-virus identity in this catalog")
+  if (!"nearest_virus_identity" %in% names(combined)) return(missing)
+  # Three columns only: the page keeps its data until the PDF is written.
+  d <- combined %>%
+    select("species", "segment", "nearest_virus_identity") %>%
+    mutate(identity = as.numeric(.data$nearest_virus_identity)) %>%
+    filter(!is.na(.data$identity), !is.na(.data$segment))
+  if (nrow(d) == 0L) return(missing)
+  cells <- d %>%
+    group_by(.data$species, .data$segment) %>%
+    summarise(median = stats::median(.data$identity), n = dplyr::n(), .groups = "drop")
+  cells$segment <- factor(cells$segment, levels = taxon_levels(cells$segment, cells$n))
+  cells$ink <- ink_on_ramp(cells$median)
+  p <- ggplot(cells, aes(x = .data$segment, y = .data$species, fill = .data$median)) +
+    geom_tile(colour = .PAPER, linewidth = 0.6) +
+    geom_text(aes(label = sprintf("%.0f%%", .data$median), colour = .data$ink),
+              size = 3, family = .FONT) +
+    scale_fill_ramp(name = "Median identity (%)") +
+    scale_colour_identity() +
+    scale_x_discrete(labels = taxon_labels) +
+    labs(x = NULL, y = NULL) +
+    # Eleven genus names across one page: the tilted label is the lesser evil.
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1))
+  p <- add_titles(p, "How far from a known virus",
+                  paste("Median amino-acid identity of each host's loci to the",
+                        "nearest reference virus, by lineage. Low: far from anything",
+                        "described."))
+  on_rows(p, cells$species, ctx, axis = "y")
+}
+
+# How each call was made, for every LTR-flanked locus.
 method_mix_plot <- function(loci, ctx = NULL) {
-  d <- loci %>% filter(.data$resolved == "True")
-  if (nrow(d) == 0L) return(empty_plot("No confident taxon calls"))
+  d <- loci %>% filter(!is.na(.data$method), nzchar(.data$method))
+  if (nrow(d) == 0L) return(empty_plot("No call method recorded"))
   counts <- d %>% count(.data$species, .data$method, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$method)) +
-    geom_col(width = 0.7) +
-    scale_fill_manual(values = category_colours(sort(unique(counts$method))),
-                      labels = display_label) +
-    scale_y_continuous(labels = scales::comma) +
-    labs(x = NULL, y = "Confident calls", fill = NULL)
+    geom_col(width = 0.7, show.legend = TRUE) +
+    scale_fill_manual(values = .METHOD_COLOUR, labels = display_label,
+                      limits = names(.METHOD_COLOUR), drop = FALSE) +
+    scale_y_count() +
+    labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
   p <- add_titles(p, "How each call was made",
                   "Phylogenetic placement or weighted LCA of blastx hits, per host.")
   on_rows(p, counts$species, ctx)
@@ -462,7 +495,7 @@ source_yield_plot <- function(combined, ctx = NULL) {
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$source)) +
     geom_col(position = position_dodge(width = 0.8), width = 0.75) +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci", fill = NULL)
   p <- add_titles(p, "Loci per tier",
                   "LTR-flanked elements and recovered orphans, per host.")
@@ -480,14 +513,14 @@ structure_class_composition_plot <- function(combined, ctx = NULL) {
   counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n,
                           fill = .data$structure_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of loci", fill = NULL)
-  p <- add_titles(p, "Structural class per host",
-                  "Full, partial and single-gene loci, by tier.")
+  p <- add_titles(p, "Structural class per host, both tiers", .STRUCTURE_MEANING)
   on_rows(p, counts$species, ctx)
 }
 
@@ -516,7 +549,7 @@ structure_by_tier_plot <- function(combined) {
     geom_col(position = position_dodge(width = 0.8), width = 0.75) +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
-    labs(x = "Main genes present", y = "Share of the tier's loci", fill = NULL) +
+    labs(x = "Main genes present", y = "Share of loci in each tier", fill = NULL) +
     theme(panel.grid.major.x = element_blank())
   add_titles(
     p, "Structural completeness by tier",
@@ -533,7 +566,8 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
     mutate(domain_tier = factor(.data$domain_tier, levels = .DOMAIN_TIER_LEVELS))
   counts <- d %>% count(.data$species, .data$domain_tier, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$domain_tier)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .DOMAIN_TIER_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
@@ -557,11 +591,11 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .CONFIDENCE_COLOUR, labels = display_label) +
     labs(x = NULL, y = y_label, fill = NULL)
-  p <- p + scale_y_continuous(labels = if (inherits(position, "PositionFill")) {
-    scales::percent
+  p <- p + if (inherits(position, "PositionFill")) {
+    scale_y_continuous(labels = scales::percent)
   } else {
-    scales::comma
-  })
+    scale_y_count()
+  }
   on_rows(add_titles(p, title, subtitle), counts$species, ctx)
 }
 
@@ -598,7 +632,7 @@ confidence_gradient_plot <- function(combined, ctx = NULL) {
     geom_col(position = position_stack(reverse = TRUE), colour = NA, width = 0.7) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_ramp(limits = c(0, 1), name = "Confidence") +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci")
   p <- add_titles(
     p, "Confidence distribution per host",
@@ -622,6 +656,7 @@ confidence_density_plot <- function(combined, confidence_min = 0.5) {
     facet_wrap(~ .data$method, scales = "free_y", ncol = 1, labeller = .word_strips) +
     # Zoom rather than limit the scale: scale limits would drop the edge bins.
     coord_cartesian(xlim = c(0, 1)) +
+    scale_y_count() +
     labs(x = "Call confidence", y = "Loci")
   add_titles(p, "Confidence calibration",
              sprintf(paste("Call confidence by method. Dashed line: the %.2f threshold",
@@ -629,17 +664,18 @@ confidence_density_plot <- function(combined, confidence_min = 0.5) {
 }
 
 # Bucket a per-locus blastx hit count into ordered evidence bands. Pure helper
-# (unit-tested): 0 / 1 / 2-5 / 6+. Robust to numeric (non-integer) input.
+# (unit-tested): 0 / 1 / 2 to 5 / 6+ (words, not a hyphen: house style). Robust
+# to numeric (non-integer) input.
 bucket_evidence <- function(n) {
   n <- as.integer(n)
   out <- dplyr::case_when(
     is.na(n) ~ NA_character_,
     n <= 0L  ~ "0",
     n == 1L  ~ "1",
-    n <= 5L  ~ "2-5",
+    n <= 5L  ~ "2 to 5",
     TRUE     ~ "6+"
   )
-  factor(out, levels = c("0", "1", "2-5", "6+"))
+  factor(out, levels = c("0", "1", "2 to 5", "6+"))
 }
 
 # Per-locus blastx evidence depth; the zero bin is the candidate novel retrovirus
@@ -657,10 +693,14 @@ evidence_depth_plot <- function(combined) {
     scale_fill_manual(values = c("FALSE" = .GREY_MID, "TRUE" = .DATA_COLOUR),
                       labels = c("FALSE" = "Has homology", "TRUE" = "No blastx hit")) +
     facet_wrap(~ .data$source, scales = "free_y", labeller = .word_strips) +
+    scale_y_count() +
     labs(x = "Blastx hits per locus (pseudo-log scale)", y = "Loci", fill = NULL)
   add_titles(p, "Blastx evidence per locus",
-             sprintf(paste("Hits per locus, by tier. %s loci have no hit at all:",
-                           "candidate novel retroviruses."), scales::comma(n_novel)))
+             paste("Hits per locus, by tier.",
+                   if (n_novel > 0L) {
+                     sprintf(paste("%s loci have no hit at all: candidate novel",
+                                   "retroviruses."), scales::comma(n_novel))
+                   }))
 }
 
 # Call confidence across blastx evidence-depth buckets: does more homology mean
@@ -922,10 +962,14 @@ mosaic_gene_discordance_plot <- function(loci) {
     geom_text(aes(label = scales::comma(.data$n)), hjust = -0.2, size = 3.2,
               family = .FONT) +
     coord_flip() +
-    scale_y_continuous(labels = scales::percent,
+    # The whole 0 to 100% range, so a bar at 100% meets a labelled end.
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1),
+                       breaks = seq(0, 1, 0.25),
                        expand = expansion(mult = c(0, 0.12))) +
     labs(x = NULL, y = "Share of calls differing from the locus majority") +
-    theme(panel.grid.major.y = element_blank())
+    # Gene symbols in italics, as on every other page that names them.
+    theme(panel.grid.major.y = element_blank(),
+          axis.text.y = element_text(face = "italic"))
   add_titles(p, "Which genes break from their locus",
              paste("Share of each gene's calls that differ from its locus's majority",
                    "lineage. Numbers are gene calls."))
@@ -1019,7 +1063,8 @@ main <- function() {
   )
 
   # Tidy report: counts by taxon / confidence / method + mosaic + integrations,
-  # split by tier. Concordant with the plots (same combined frame).
+  # split by tier, from the same combined frame as the plots. Its taxon and
+  # method counts keep resolved calls only; the lineage pages count every locus.
   dir.create(dirname(args$report_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(build_report(combined), args$report_csv)
 

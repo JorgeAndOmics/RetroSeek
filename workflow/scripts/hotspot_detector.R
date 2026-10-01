@@ -328,12 +328,46 @@ log_job(args$log, "hotspot_detector")
 # model could test; a label with too few loci has no callable window, and a
 # page per such label would be a run of empty placeholders. They are named on
 # the key page instead.
-.label_pages <- function(windows_df, opts, plot_species, labels) {
+.label_pages <- function(windows_df, opts, plot_species, labels, draw) {
   unlist(lapply(labels, function(lbl) {
     windows <- dplyr::filter(windows_df, .data$label == lbl)
-    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl),
+    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl, draw = draw),
          plot_qq(windows, plot_species, lbl))
   }), recursive = FALSE)
+}
+
+# The genome-wide pages: the karyotype always; the summary and the composition
+# only when a hotspot was called (otherwise both would be the same empty page).
+.genome_pages <- function(inputs, opts, result, plot_species, draw, group_col) {
+  karyotype <- plot_karyotype(inputs$seqlengths, result$hotspots, plot_species,
+                              draw = draw)
+  if (length(result$hotspots) == 0L) return(list(karyotype))
+  list(karyotype,
+       plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
+       plot_hotspot_composition(result$hotspots, plot_species,
+                                sprintf("The %s tier, grouped by %s.",
+                                        opts$input, group_col)))
+}
+
+# The key page's description: what a hotspot is, how many were called, and the
+# lineages too sparse to test.
+.key_description <- function(opts, n_hotspots, untested) {
+  called <- if (n_hotspots == 0L) {
+    "No window passed, so there are no summary or composition pages."
+  } else {
+    sprintf("Called: %s; the composition page shows what each is made of.",
+            .count_of(n_hotspots, "hotspot", "hotspots"))
+  }
+  paste(
+    sprintf(paste("Windows of the genome holding more %s loci than a negative binomial",
+                  "model expects, merged into hotspots (q below %s)."),
+            opts$input, format(opts$pvalue_threshold)),
+    called,
+    if (length(untested)) {
+      sprintf("Too few loci to test: %s.",
+              paste(display_label(untested), collapse = ", "))
+    }
+  )
 }
 
 .write_plots <- function(args, inputs, result, group_col) {
@@ -344,33 +378,23 @@ log_job(args$log, "hotspot_detector")
   callable <- result$windows %>%
     dplyr::group_by(.data$label) %>%
     dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
-  untested <- sort(callable$label[!callable$tested])
-  pages <- c(
-    .label_pages(result$windows, opts, plot_species, callable$label[callable$tested]),
-    list(plot_karyotype(inputs$seqlengths, result$hotspots, plot_species),
-         plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
-         plot_hotspot_composition(result$hotspots, plot_species,
-                                  sprintf("The %s tier, grouped by %s.", opts$input,
-                                          group_col)))
-  )
-  key <- key_page(
-    sprintf("Integration hotspots in %s", plot_species),
-    paste(
-      sprintf(
-        paste("Windows of the genome holding more %s loci than a negative binomial",
-              "model expects, merged into hotspots (q below %s). %d hotspots were",
-              "called. The composition page shows what each is made of."),
-        opts$input, format(opts$pvalue_threshold), length(result$hotspots)
-      ),
-      if (length(untested)) {
-        sprintf("Too few loci to test: %s.",
-                paste(display_label(untested), collapse = ", "))
-      }
-    ),
-    colours = stats::setNames(unname(.STRUCTURE_COLOUR),
-                              display_label(names(.STRUCTURE_COLOUR))),
-    pages = page_titles(pages)
-  )
+  # Draw what the model treats as a chromosome: scaffolds it pools into
+  # "Unplaced" are tested but would only smear the genome-wide axes.
+  draw <- sequences_to_draw(inputs$seqlengths,
+                            opts$window_size * opts$unplaced_min_factor)
+  pages <- c(.label_pages(result$windows, opts, plot_species,
+                          callable$label[callable$tested], draw),
+             .genome_pages(inputs, opts, result, plot_species, draw, group_col))
+  # The structure colours belong to the composition page alone.
+  colours <- if (length(result$hotspots)) {
+    stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR)))
+  } else {
+    character(0)
+  }
+  key <- key_page(key_title("Integration hotspots in", plot_species),
+                  .key_description(opts, length(result$hotspots),
+                                   sort(callable$label[!callable$tested])),
+                  colours = colours, pages = page_titles(pages))
   save_stage_pdf(c(list(key), pages), args$out_pdf)
 }
 

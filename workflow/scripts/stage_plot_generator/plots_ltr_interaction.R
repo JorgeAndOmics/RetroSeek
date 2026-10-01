@@ -61,10 +61,13 @@ position_within_provirus_plot <- function(ltr_int_df, subset_label = NULL,
   add_titles(
     p,
     title    = "Where each probe lands inside an element",
-    subtitle = sprintf(
-      paste("Position of each locus along the retrotransposon that contains",
-            "it, strand-aware. Probes with fewer than 5 such loci left out (%d)."),
-      sum(counts$n < 5L)
+    subtitle = paste(
+      "Position of each locus along the retrotransposon that contains it,",
+      "strand-aware.",
+      if (any(counts$n < 5L)) {
+        sprintf("%d probes with fewer than 5 such loci are left out.",
+                sum(counts$n < 5L))
+      }
     ),
     subset_label    = subset_label,
     warning_caption = warning_caption

@@ -14,7 +14,7 @@
 #
 # Output is ONE PDF (results/plots/structure.pdf): a key
 # page, then one page per structure_panel_registry() entry: structural class,
-# completeness, gene count, gene combinations, gene order, element length, and
+# completeness, gene count, gene combinations, gene order, locus length, and
 # the lineage by gene heatmap. Pages follow the house style (plot2sort/style.R,
 # docs/visual_style.md): hosts on rows beside the host tree, readable names.
 #
@@ -162,14 +162,13 @@ structure_class_plot <- function(loci, ctx = NULL) {
                                     levels = .STRUCTURE_LEVELS)) %>%
     count(.data$species, .data$structure_class, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$structure_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7,
+             show.legend = TRUE) +
     scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = NULL)
-  p <- add_titles(p, "Structural class per host",
-                  paste("Full: every main gene present. Partial: some. Single gene:",
-                        "one main gene only."))
+  p <- add_titles(p, "Structural class per host, LTR-flanked loci", .STRUCTURE_MEANING)
   on_rows(p, d$species, ctx)
 }
 
@@ -178,9 +177,17 @@ completeness_plot <- function(loci, ctx = NULL) {
   if (nrow(loci) == 0L) return(empty_plot("No loci"))
   d <- loci %>% filter(!is.na(.data$completeness))
   if (nrow(d) == 0L) return(empty_plot("No loci"))
+  # Completeness takes a few values (0, 1/3, 2/3, 1 with three main genes): one
+  # bar per value, its tick under it, rather than a histogram whose bins and
+  # ticks fall between them.
+  values <- sort(unique(d$completeness))
+  # Bars 60% as wide as the smallest gap between values, so neighbours never
+  # overlap however few values a segment has (1/3 and 2/3 alone, for one).
+  gap <- if (length(values) > 1L) min(diff(values)) else 1
   p <- ggplot(d, aes(x = .data$completeness)) +
-    geom_histogram(bins = 20, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
-    scale_x_continuous(labels = scales::percent) +
+    geom_bar(fill = .DATA_COLOUR, width = 0.6 * gap) +
+    scale_x_continuous(labels = scales::percent, breaks = values) +
+    scale_y_count() +
     labs(x = "Main genes present", y = "Loci")
   p <- add_titles(
     p, "How complete the elements are",
@@ -197,7 +204,7 @@ n_main_genes_plot <- function(loci) {
   counts <- d %>% count(.data$n_main_genes, name = "n")
   p <- ggplot(counts, aes(x = factor(.data$n_main_genes), y = .data$n)) +
     geom_col(fill = .DATA_COLOUR, width = 0.65) +
-    scale_y_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = "Main genes per locus", y = "Loci") +
     theme(panel.grid.major.x = element_blank())
   add_titles(p, "Main genes per element",
@@ -217,11 +224,14 @@ gene_combinations_plot <- function(loci) {
     rest <- counts[-seq_len(.TOP_COMBINATIONS), ]
     counts <- bind_rows(
       counts[seq_len(.TOP_COMBINATIONS), ],
-      tibble(genes_present = sprintf("Other (%d combinations)", nrow(rest)),
+      tibble(genes_present = sprintf("Other (%s combinations)",
+                                     scales::comma(nrow(rest))),
              n = sum(rest$n))
     )
   }
   counts <- counts %>%
+    # "GAG, POL" reads as a list; the table value "GAG,POL" does not.
+    mutate(genes_present = gsub(",", ", ", .data$genes_present)) %>%
     mutate(genes_present = factor(.data$genes_present,
                                   levels = rev(.data$genes_present)),
            other = grepl("^Other", .data$genes_present))
@@ -229,7 +239,7 @@ gene_combinations_plot <- function(loci) {
     geom_col(width = 0.7, show.legend = FALSE) +
     coord_flip() +
     scale_fill_manual(values = c(`FALSE` = .DATA_COLOUR, `TRUE` = .GREY_OTHER)) +
-    scale_y_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = NULL, y = "Loci") +
     # Gene symbols take italics.
     theme(axis.text.y = element_text(face = "italic"),
@@ -277,11 +287,18 @@ length_distribution_plot <- function(loci, ctx = NULL) {
   d <- loci %>% filter(!is.na(.data$span_bp), .data$span_bp > 0)
   if (nrow(d) == 0L) return(empty_plot("No loci"))
   p <- ggplot(d, aes(x = .data$span_bp)) +
-    geom_histogram(bins = 40, fill = .DATA_COLOUR, colour = .PAPER, linewidth = 0.2) +
+    # boundary = 0: the first bin starts at 0 bp, not half a bin below it.
+    geom_histogram(bins = 40, boundary = 0, fill = .DATA_COLOUR, colour = .PAPER,
+                   linewidth = 0.2) +
     scale_x_continuous(labels = scales::label_comma()) +
+    scale_y_count() +
     labs(x = "Locus span (bp)", y = "Loci")
-  p <- add_titles(p, "Element length",
-                  "The genomic span of each LTR-flanked locus, per host.")
+  # A locus runs from its first to its last gene hit (taxonomy_classify_loci
+  # ._locus), so a lone ENV hit spans about 500 bp: this is coding span, not the
+  # element between its LTRs.
+  p <- add_titles(p, "Locus length",
+                  paste("From the first to the last gene hit of each LTR-flanked",
+                        "locus, per host. The LTRs are not part of it."))
   species_facets(p, ctx)
 }
 

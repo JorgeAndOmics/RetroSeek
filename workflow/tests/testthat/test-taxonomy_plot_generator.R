@@ -71,14 +71,14 @@ test_that("build_report is empty-safe", {
 
 test_that("bucket_evidence maps hit counts to ordered buckets", {
   b <- bucket_evidence(c(0L, 1L, 2L, 5L, 6L, 25L))
-  expect_equal(as.character(b), c("0", "1", "2-5", "2-5", "6+", "6+"))
+  expect_equal(as.character(b), c("0", "1", "2 to 5", "2 to 5", "6+", "6+"))
   expect_true(is.factor(b))
-  expect_equal(levels(b), c("0", "1", "2-5", "6+"))
+  expect_equal(levels(b), c("0", "1", "2 to 5", "6+"))
 })
 
 test_that("bucket_evidence handles empty and is robust to numeric input", {
   expect_length(bucket_evidence(integer()), 0L)
-  expect_equal(as.character(bucket_evidence(c(3))), "2-5")  # numeric, not integer
+  expect_equal(as.character(bucket_evidence(c(3))), "2 to 5")  # numeric, not integer
 })
 
 
@@ -359,4 +359,69 @@ test_that("a genus is drawn in its fixed colour", {
 test_that("tiers are drawn in the tier colours", {
   fills <- ggplot2::ggplot_build(source_yield_plot(.composition_loci()))$data[[1]]$fill
   expect_setequal(unique(fills), unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]))
+})
+
+
+test_that("the structural class page defines single gene and has its own title", {
+  # A locus with only accessory genes is a 'gene' locus too; the subtitle used to
+  # say "one main gene only". Its sibling in the structure PDF has the same view
+  # for LTR-flanked loci, so the two titles must differ.
+  loci <- .composition_loci()
+  loci$structure_class <- "gene"
+  p <- structure_class_composition_plot(loci)
+  expect_equal(p$labels$title, "Structural class per host, both tiers")
+  expect_match(p$labels$subtitle, "at most one main gene", fixed = TRUE)
+})
+
+
+test_that("lineages per host keeps loci not resolved to a genus, as their own bar", {
+  # The page used to drop them silently while the key promised a grey bar.
+  loci <- .composition_loci()
+  loci$segment[1] <- "unassigned_at_genus"
+  loci$resolved <- c("False", rep("True", nrow(loci) - 1L))
+  p <- taxon_composition_plot(loci)
+  expect_equal(sum(p$data$n), nrow(loci))
+  expect_true("unassigned_at_genus" %in% as.character(p$data$segment))
+})
+
+
+test_that("a class the data lacks still gets its colour square in the legend", {
+  # With drop = FALSE ggplot2 3.5 lists an absent level but draws its key only
+  # when the layer has show.legend = TRUE; the review found bare 'Family',
+  # 'None', 'Other domain' entries.
+  loci <- .composition_loci()
+  loci$rank <- "genus"
+  loci$domain_tier <- "domain_selected"
+  for (p in list(rank_resolution_plot(loci), domain_tier_composition_plot(loci))) {
+    expect_true(isTRUE(p$layers[[1]]$show.legend))
+  }
+})
+
+test_that("the method page counts every locus, in the method colours", {
+  loci <- .composition_loci()
+  loci$method <- c("placement", "lca")[seq_len(nrow(loci)) %% 2L + 1L]
+  loci$resolved <- "False"   # resolution is not what this page is about
+  p <- method_mix_plot(loci)
+  expect_equal(sum(p$data$n), nrow(loci))
+  fills <- ggplot2::ggplot_build(p)$data[[1]]$fill
+  expect_setequal(unique(fills), unname(.METHOD_COLOUR))
+})
+
+
+test_that("the nearest-virus page shows each host and lineage's median identity", {
+  loci <- .composition_loci()
+  loci$nearest_virus_identity <- c("40.0", "60.0", "50.0", "90.0", "30.0")
+  p <- nearest_virus_identity_plot(loci)
+  expect_s3_class(p, "ggplot")
+  cell <- p$data[p$data$species == "Antrozous pallidus" &
+                   p$data$segment == "Betaretrovirus", ]
+  expect_equal(cell$median, 55)   # orphans at 60 and 50
+  expect_equal(p$labels$title, "How far from a known virus")
+  expect_true("nearest_virus_identity" %in%
+                vapply(panel_registry(), function(e) e$name, character(1)))
+})
+
+test_that("the nearest-virus page waits for the column on an older catalog", {
+  expect_match(nearest_virus_identity_plot(.composition_loci())$labels$title,
+               "No nearest-virus identity")
 })

@@ -60,7 +60,7 @@ test_that("funnel labels are words, never dash separators", {
   p <- funnel_plot(funnel, "Homo sapiens")
   labels <- levels(p$data$label)
   expect_false(any(grepl("^- | - |->", labels)))
-  expect_match(p$labels$subtitle, "^Homo sapiens\\. ")
+  expect_match(.subtitle_text(p), "^Homo sapiens\\. ")
 })
 
 test_that("empty inputs give a placeholder page rather than an error", {
@@ -166,5 +166,16 @@ test_that("the family subtrees page names only the kinds it draws", {
   segs <- data.table(family = "F1", x = 0, y = 1, xend = 1, yend = 1)
   p <- family_subtrees_plot(tips, segs, families, "Homo sapiens")
   expect_false(grepl("without", p$labels$title))
-  expect_match(p$labels$subtitle, "No family without an intact member")
+  expect_match(.subtitle_text(p), "No family without an intact member")
+})
+
+
+test_that("the families page counts each genome's LTR families by repeat class", {
+  by_class <- stack_by_class(.class_tables)
+  p <- families_by_class_plot(by_class, tree = NULL, order = .order)
+  expect_s3_class(p, "ggplot")
+  expect_equal(sum(p$data$families), sum(by_class$families))
+  expect_equal(p$labels$title, "LTR families by repeat class")
+  expect_match(families_by_class_plot(by_class[0], NULL, .order)$labels$title,
+               "No per-class tables")
 })

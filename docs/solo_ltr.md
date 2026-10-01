@@ -148,7 +148,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | file | what it is |
 |---|---|
 | `{genome}.solo_ltr.pdf` | twelve pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null, the family census, the solo-only tree, and the largest family subtrees. Pages 8 to 12 only when `tree.enable` |
-| `solo_ltr.pdf` | three pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, and the three fates per genome |
+| `solo_ltr.pdf` | four pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, the LTR families per genome by the same classes, and the three fates per genome |
 
 **Tables for people** (`results/tables/solo_ltr/`)
 

@@ -48,7 +48,7 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
   if (length(ranking) <= top_n) return(df)
   keep <- ranking[seq_len(top_n)]
   k_collapsed <- length(ranking) - top_n
-  label_with_count <- sprintf("%s (%d)", other_label, k_collapsed)
+  label_with_count <- sprintf("%s (%s)", other_label, scales::comma(k_collapsed))
   df %>%
     dplyr::mutate(
       "{col}" := dplyr::if_else(
@@ -64,10 +64,16 @@ collapse_long_tail <- function(df, col, top_n, other_label = "Other",
 # `data` picks its tier scope: "loci" is LTR-flanked only, "combined" is both
 # tiers. Losing that distinction would quietly mix orphans into the composition
 # and mosaic pages, which deliberately exclude them.
+# An entry whose scope has no rows is left out rather than drawn as a
+# placeholder: a lineage with orphans only has no LTR-flanked pages, and a
+# placeholder there read as "No loci" on a lineage that has some.
 render_panel <- function(registry, loci, combined, ctx) {
-  lapply(registry, function(e) {
-    e$build(if (identical(e$data, "loci")) loci else combined, ctx)
+  pages <- lapply(registry, function(e) {
+    data <- if (identical(e$data, "loci")) loci else combined
+    if (nrow(data) == 0L) return(NULL)
+    e$build(data, ctx)
   })
+  Filter(Negate(is.null), pages)
 }
 
 
@@ -87,26 +93,53 @@ empty_plot <- function(label = "No data") {
 }
 
 
+# A count with its noun: "1 locus", "12 loci", "27 sequences".
+.count_of <- function(n, one, many) {
+  paste(scales::comma(n), if (n == 1L) one else many)
+}
+
+
 # TRUE for NULL or an empty string: nothing to print.
 .is_blank <- function(x) is.null(x) || !nzchar(x)
 
-# The subtitle with `lead` (a genome, a probe set) in front, "Lead. Subtitle";
-# either alone when the other is blank.
+# The subtitle with `lead` (a probe set, a segment; a species only before a
+# line break, see .italic_lead) in front, "Lead. Subtitle"; either alone when
+# the other is blank.
 .lead_subtitle <- function(lead, subtitle) {
   if (.is_blank(lead)) return(subtitle)
   if (.is_blank(subtitle)) return(lead)
   paste0(lead, ". ", subtitle)
 }
 
+# The same with an italic lead (a species). plotmath is the only way ggplot2
+# mixes faces in one line, and it cannot break lines, so a subtitle with a line
+# break keeps a plain lead (several solo pages break theirs over two or three
+# lines; backlog: shorten them, or adopt ggtext).
+.italic_lead <- function(species, subtitle) {
+  if (.is_blank(subtitle)) return(bquote(italic(.(species))))
+  if (grepl("\n", subtitle, fixed = TRUE)) return(.lead_subtitle(species, subtitle))
+  bquote(italic(.(species)) * ". " * .(subtitle))
+}
+
+
+# A subtitle led by the species in italics when there is one: for pages that
+# set their titles without add_titles() (patchwork compositions).
+.species_lead <- function(species, subtitle) {
+  if (.is_blank(species)) subtitle else .italic_lead(species, subtitle)
+}
+
+
 # Title and subtitle for a plot, in the house style (style.R): left-aligned,
-# sentence case. `subset_label` names what the page is about (a genome, a probe
-# set, a segment); it leads the subtitle rather than being glued onto the title
-# with a dash, so titles stay short and identical across genomes. Genome stems
-# must already be readable names here (display_species), never file names.
+# sentence case. What the page is about leads the subtitle rather than being
+# glued onto the title with a dash, so titles stay short and identical across
+# genomes: `species` (a readable binomial, from display_species(), drawn in
+# italics) or `subset_label` (a probe set, a segment; upright).
 # `warning_caption`, when supplied, stamps a caveat that travels with the page.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
-                       warning_caption = NULL) {
-  p <- p + labs(title = title, subtitle = .lead_subtitle(subset_label, subtitle)) +
+                       warning_caption = NULL, species = NULL) {
+  lead <- if (.is_blank(species)) .lead_subtitle(subset_label, subtitle) else
+    .italic_lead(species, subtitle)
+  p <- p + labs(title = title, subtitle = lead) +
     # A void-theme page (sankey, placeholder) is otherwise transparent, which some
     # viewers compose on black and which hides the title.
     theme(plot.background = element_rect(fill = .PAPER, colour = NA))

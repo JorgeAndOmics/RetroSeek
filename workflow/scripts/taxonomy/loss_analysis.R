@@ -197,9 +197,11 @@ novel_burden_table <- function(funnel) {
     orphan         = .TIER_COLOUR[["orphan"]],
     classification = .GREY_MID)
 }
-.BRANCH_LABELS <- c(main = "Main chain, to LTR-flanked loci",
+# The main chain is ranges; the LTR-flanked loci it leads to are counted on the
+# classification branch, so the legend names them there.
+.BRANCH_LABELS <- c(main = "Main chain of ranges",
                     orphan = "Orphan branch",
-                    classification = "Classification of loci")
+                    classification = "LTR-flanked loci, classified")
 
 # Genomes as a factor in canonical order, first on top (small multiples read
 # from the top left).
@@ -231,7 +233,7 @@ loss_funnel_plot <- function(funnel, ctx = NULL) {
   )
 }
 
-# Per-step retention: genome by step, the fraction of the previous stage that
+# Per-step retention: genome by step, the fraction of its parent step that
 # survives. Only true reduction steps (the main chain and the orphan branch);
 # classification groups loci rather than removing them, so it would put a second
 # meaning on the scale.
@@ -252,7 +254,8 @@ step_retention_plot <- function(funnel, ctx = NULL) {
     theme(panel.grid = element_blank())
   p <- add_titles(
     p, "How much each step keeps",
-    "The share of the previous stage that survives each reduction step."
+    paste("The share of its parent step that survives each reduction step.",
+          "The orphan branch starts from the first reduction.", sep = "\n")
   )
   on_rows(p, d$genome, ctx, axis = "y")
 }
@@ -280,8 +283,7 @@ orphan_recovery_plot <- function(funnel, ctx = NULL) {
                   label = sprintf("%s recovered",
                                   scales::percent(.data$share, accuracy = 1))),
               hjust = -0.1, size = 3.2, family = .FONT) +
-    scale_y_continuous(labels = scales::label_comma(),
-                       expand = expansion(mult = c(0, 0.2))) +
+    scale_y_count(expand = expansion(mult = c(0, 0.2))) +
     labs(x = NULL, y = "Orphan loci")
   p <- add_titles(
     p, "Orphans recovered",
@@ -327,7 +329,7 @@ loss_waterfall_plot <- function(funnel, ctx = NULL) {
     facet_wrap(~ .data$genome, scales = "free_x") +
     scale_x_continuous(labels = scales::label_comma(),
                        expand = expansion(mult = c(0, 0.3))) +
-    labs(x = "Surviving ranges or loci", y = NULL) +
+    labs(x = "Surviving ranges", y = NULL) +
     theme(panel.grid.major.y = element_blank(),
           strip.text = element_text(face = "bold.italic"))
   add_titles(

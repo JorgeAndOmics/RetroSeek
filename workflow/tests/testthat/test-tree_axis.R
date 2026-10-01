@@ -151,6 +151,18 @@ test_that("render_panel feeds each entry the tier scope it declares", {
                list(1L, 3L))
 })
 
+test_that("render_panel leaves out a page whose tier scope is empty", {
+  # A lineage with orphans only has no LTR-flanked loci: its LTR-flanked pages
+  # are left out rather than drawn as placeholders with a misleading message.
+  reg <- list(
+    list(name = "a", data = "loci", build = function(d, ctx) nrow(d)),
+    list(name = "b", data = "combined", build = function(d, ctx) nrow(d))
+  )
+  empty <- data.frame(x = integer(0))
+  expect_equal(render_panel(reg, empty, data.frame(x = 1:3), list()),
+               list(3L))
+})
+
 test_that("species_facets stacks one row per species, first configured on top", {
   d <- data.frame(species = c("Homo sapiens", "Mus musculus", "Homo sapiens"),
                   value = c(1, 2, 3))

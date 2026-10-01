@@ -84,7 +84,17 @@ div_colours <- function(n) {
 # Ordinal categories on the sequential ramp, strongest evidence darkest. Where a
 # level means "no evidence at all" it is grey, not the lightest step.
 .STRUCTURE_COLOUR <- stats::setNames(seq_colours(4)[4:2], c("full", "partial", "gene"))
+# What the three classes mean, for the pages that colour by them. The classifier
+# counts main genes only (taxonomy_classify_loci._structure), so a locus with
+# accessory genes alone is a single-gene locus. "Full" is every main gene at the
+# default classification.structure_full_min of 1.
+.STRUCTURE_MEANING <- paste("Full: every main gene. Partial: more than one, not all.",
+                            "Single gene: at most one main gene; accessory genes",
+                            "do not count.")
 .CONFIDENCE_COLOUR <- c(HC = seq_colours(4)[4], LC = seq_colours(4)[2])
+# How a call was made: placement is the primary method, weighted LCA the
+# fallback. Ramp shades, so neither borrows a genus colour from the same PDF.
+.METHOD_COLOUR <- c(placement = seq_colours(4)[4], lca = seq_colours(4)[2])
 .RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2],
                                   c("genus", "subfamily", "family")),
                   none = .GREY_OTHER)
@@ -293,10 +303,44 @@ display_label <- function(values) {
   paste0(toupper(substr(words, 1, 1)), substr(words, 2, nchar(words)))
 }
 
+# Breaks for a count axis: pretty() breaks, whole numbers only, so a panel of
+# two loci reads 0, 1, 2 rather than 0.0, 0.5, ... 2.0.
+.whole_number_breaks <- function(limits) {
+  breaks <- pretty(limits)
+  breaks[breaks == round(breaks)]
+}
+
+# The y scale of every count axis: thousands separators, whole-number breaks.
+# Takes the usual scale_y_continuous() arguments (expand, limits, ...).
+scale_y_count <- function(...) {
+  ggplot2::scale_y_continuous(labels = scales::label_comma(),
+                              breaks = .whole_number_breaks, ...)
+}
+
+# Two tests for italics, for two kinds of label. Among values already known to
+# be taxa or species (legends, axes, key titles), everything is italic except
+# the words in .NOT_A_TAXON. Among mixed labels (a key page's colour list, an
+# alluvium's strata), only a name .is_taxon_name() recognises is italic.
+.NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
+
+# TRUE for a taxon name: one capitalised word ending like an ICTV genus,
+# subfamily or family ("Betaretrovirus", "Orthoretrovirinae", "Retroviridae").
+# On a mixed list a virus name ("Murine leukemia virus") or a pipeline word
+# ("LTR-flanked") stays upright.
+.is_taxon_name <- function(x) grepl("^[A-Z][a-z]+(virus|virinae|viridae)$", x)
+
+# A key page title naming a taxon or species: "ERV loci: Alpharetrovirus" with
+# the name in bold italics. plotmath ignores the theme's bold for plain strings,
+# so the prefix is bold() too. It uses the exclusion test because the name may
+# be a binomial; a name that is no taxon ("Unassigned at genus") stays plain.
+key_title <- function(prefix, name) {
+  if (grepl(.NOT_A_TAXON, name)) return(paste(prefix, name))
+  bquote(bold(.(prefix)) ~ bolditalic(.(name)))
+}
+
 # Legend or axis labels with taxa in italics (ICTV and binomial convention) and
 # everything that is not a taxon name upright. Returns plotmath expressions,
 # which ggplot accepts anywhere it accepts labels.
-.NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
 italic_labels <- function(values) {
   lapply(as.character(values), function(v) {
     if (grepl(.NOT_A_TAXON, v)) bquote(.(v)) else bquote(italic(.(v)))
@@ -443,15 +487,29 @@ key_page <- function(title, description, colours = character(0), pages = charact
       ggplot2::annotate("rect", xmin = 0, xmax = 0.025, ymin = ys - 0.022,
                         ymax = ys + 0.022, fill = unname(colours)) +
       ggplot2::annotate("text", x = 0.035, y = ys, label = names(colours), hjust = 0,
-                        size = 4, family = .FONT, colour = .INK)
+                        size = 4, family = .FONT, colour = .INK,
+                        fontface = ifelse(.is_taxon_name(names(colours)), "italic",
+                                          "plain"))
   }
   if (length(pages)) {
-    x <- if (length(colours)) 0.5 else 0
-    listing <- paste(sprintf("%2d. %s", seq_along(pages) + 1L, pages), collapse = "\n")
-    p <- p + heading(x, "Pages") +
-      ggplot2::annotate("text", x = x, y = 0.93, label = listing, hjust = 0,
-                        vjust = 1, size = 3.8, family = .FONT, colour = .INK_SOFT,
-                        lineheight = 1.3)
+    columns <- .page_list_columns(pages, beside_colours = length(colours) > 0L)
+    p <- p + heading(columns$x[[1]], "Pages") +
+      ggplot2::annotate("text", x = columns$x, y = 0.93, label = columns$label,
+                        hjust = 0, vjust = 1, size = 3.8, family = .FONT,
+                        colour = .INK_SOFT, lineheight = 1.3)
   }
   p
+}
+
+# The key page's page list as text columns of at most `per_column` lines: about
+# as many as fit below a two-line description on an A4 page. Page numbers start
+# at 2, the key page being 1. Beside the colour key a single column starts at
+# mid page; two or more start further left, so long titles keep their width.
+.page_list_columns <- function(pages, beside_colours, per_column = 14L) {
+  numbered <- sprintf("%2d. %s", seq_along(pages) + 1L, pages)
+  n_columns <- ceiling(length(numbered) / per_column)
+  start <- if (!beside_colours) 0 else if (n_columns == 1L) 0.5 else 0.36
+  column <- ceiling(seq_along(numbered) / per_column)
+  list(x = start + (1 - start) / n_columns * (seq_len(n_columns) - 1),
+       label = vapply(split(numbered, column), paste, character(1), collapse = "\n"))
 }

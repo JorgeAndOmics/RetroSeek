@@ -17,8 +17,8 @@
 #   <overview_pdf>                       every segment side by side
 #
 # How much is rendered per segment is set by `plots.segment_panel`:
-#   full     (default) every page that means something within one segment: 20 of
-#            the 23 taxonomy pages plus all 7 structure pages, so 27.
+#   full     (default) every page that means something within one segment: 21 of
+#            the 24 taxonomy pages plus all 7 structure pages, so 28.
 #   curated  the small legacy subset of 3.
 #   none     tables only.
 # Cost scales as segments x pages and each page has a row per species, so drop
@@ -136,7 +136,7 @@ segment_overview_plot <- function(catalog) {
     geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
     coord_flip() +
     scale_x_discrete(labels = taxon_labels) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_count() +
     scale_fill_manual(values = .TIER_COLOUR, labels = display_label) +
     labs(x = NULL, y = "Loci", fill = NULL) +
     theme(panel.grid.major.y = element_blank())
@@ -159,6 +159,69 @@ write_overview_pdf <- function(catalog, seg_rank, tiers, path, height) {
                         "folder beside this one."),
                   colours = tiers, pages = page_titles(list(overview)))
   save_stage_pdf(list(key, overview), path, height = height)
+}
+
+
+# Below this many loci a segment gets one page listing them: the full panel
+# would draw some 28 pages that each restate the same few loci, most of them
+# empty. Measured 2026-10-01: Bovispumavirus, one locus, 16 of 28 pages empty.
+SPARSE_SEGMENT <- 5L
+
+# The pages of one segment's PDF, and a sentence for its key page saying what
+# was left out (NULL when nothing was).
+#   sub       the segment's catalog rows (both tiers)
+#   sub_loci  its LTR-flanked rows
+#   panel     the registry entries to draw (segment_panel())
+segment_pages <- function(sub, sub_loci, panel, ctx) {
+  if (nrow(sub) < SPARSE_SEGMENT) {
+    return(list(pages = list(segment_loci_page(sub)),
+                note = sprintf("With only %s, one page lists them instead.",
+                               .count_of(nrow(sub), "locus", "loci"))))
+  }
+  note <- if (nrow(sub_loci) == 0L) {
+    "This lineage has no LTR-flanked loci, so the pages about them are left out."
+  }
+  list(pages = render_panel(panel, sub_loci, sub, ctx), note = note)
+}
+
+# " Nearest virus: X at Y% identity." per locus; "no reference virus found" when
+# the classifier found none (a blank cell), nothing at all for a catalog written
+# before ADR-024, which has no such columns.
+.nearest_phrase <- function(sub) {
+  if (!all(c("nearest_virus", "nearest_virus_identity") %in% names(sub))) {
+    return(rep("", nrow(sub)))
+  }
+  found <- !is.na(sub$nearest_virus) & nzchar(sub$nearest_virus)
+  ifelse(found,
+         sprintf(" Nearest virus: %s at %s%% identity.", sub$nearest_virus,
+                 sub$nearest_virus_identity),
+         " Nearest virus: no reference virus found.")
+}
+
+# One block per locus: the host as a heading, then where it is, what it
+# carries and how it was called. For the few loci of a sparse segment.
+segment_loci_page <- function(sub) {
+  confidence <- as.numeric(sub$confidence)
+  confidence <- ifelse(is.na(confidence), "unknown", sprintf("%.2f", confidence))
+  template <- "%s, %s:%s to %s (%s). Genes: %s. Called %s at confidence %s.%s"
+  details <- sprintf(template, display_label(sub$source), sub$seqname,
+                     scales::comma(as.numeric(sub$start)),
+                     scales::comma(as.numeric(sub$end)), sub$strand,
+                     gsub(",", ", ", sub$genes_present), display_label(sub$taxon_call),
+                     confidence, .nearest_phrase(sub))
+  details <- vapply(details, function(d) paste(strwrap(d, 160), collapse = "\n"),
+                    character(1), USE.NAMES = FALSE)
+  y <- 1 - (seq_len(nrow(sub)) - 1) * 0.18
+  p <- ggplot() +
+    annotate("text", x = 0, y = y, label = sub$species, hjust = 0, vjust = 1,
+             size = 4.2, fontface = "bold.italic", family = .FONT, colour = .INK) +
+    annotate("text", x = 0, y = y - 0.04, label = details, hjust = 0, vjust = 1,
+             size = 3.6, family = .FONT, colour = .INK, lineheight = 1.2) +
+    scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+    theme_retroseek_blank()
+  add_titles(p, "The loci of this lineage",
+             "Too few loci for the usual pages, so each is listed with its evidence.")
 }
 
 
@@ -249,15 +312,16 @@ segments_main <- function() {
     # `data` keeps the tier scope: composition and mosaic pages are LTR-flanked
     # only, so orphans are not silently mixed in.
     sub_loci <- sub %>% filter(as.character(.data$source) == "ltr-flanked")
-    pages <- render_panel(panel, sub_loci, sub, ctx)
+    out <- segment_pages(sub, sub_loci, panel, ctx)
     key <- key_page(
-      sprintf("ERV loci: %s", display_label(seg)),
-      sprintf(paste("The taxonomy and structure pages, restricted to the %s loci",
-                    "of this lineage. Hosts are rows in the order of the host tree."),
-              scales::comma(nrow(sub))),
-      colours = tiers, pages = page_titles(pages)
+      key_title("ERV loci:", display_label(seg)),
+      paste(sprintf(paste("The taxonomy and structure pages, restricted to the %s",
+                          "of this lineage. Hosts are rows in the order of the host",
+                          "tree."),
+                    .count_of(nrow(sub), "locus", "loci")), out$note %||% ""),
+      colours = tiers, pages = page_titles(out$pages)
     )
-    save_stage_pdf(c(list(key), pages), file.path(plot_root, paste0(stem, ".pdf")),
+    save_stage_pdf(c(list(key), out$pages), file.path(plot_root, paste0(stem, ".pdf")),
                    height = height)
   }
   log_info("wrote %d segment tables to %s and PDFs to %s",

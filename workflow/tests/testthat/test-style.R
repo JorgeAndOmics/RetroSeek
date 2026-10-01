@@ -262,3 +262,64 @@ test_that("within a genus the most abundant virus takes the genus colour", {
                         c("Betaretrovirus", "Betaretrovirus"), weights = c(500, 20))
   expect_equal(cols[["Mouse mammary tumor virus"]], .GENUS_COLOUR[["Betaretrovirus"]])
 })
+
+
+# ---------------------------------------------------------------------------
+# Key page: the page list fits however many pages a PDF has
+# ---------------------------------------------------------------------------
+# One text block per column; the segment PDFs list 28 pages, and a single block
+# of 27 lines ran off the bottom of the A4 page, losing the last entry.
+.page_list_blocks <- function(key) {
+  labels <- unlist(lapply(key$layers, function(l) l$aes_params$label))
+  labels[grepl("^ ?[0-9]+\\. ", labels)]
+}
+
+test_that("a long page list is split into columns that fit the page", {
+  titles <- sprintf("Page title %d", 1:30)
+  blocks <- .page_list_blocks(key_page("Stage", "What it shows.", .TIER_COLOUR, titles))
+  lines <- unlist(strsplit(blocks, "\n"))
+  expect_gt(length(blocks), 1L)
+  expect_true(all(lengths(strsplit(blocks, "\n")) <= 14L))
+  expect_length(lines, 30L)
+  expect_match(lines[[30]], "31\\. Page title 30")
+})
+
+test_that("a short page list stays one column", {
+  blocks <- .page_list_blocks(key_page("Stage", "What it shows.", pages = c("A", "B")))
+  expect_length(blocks, 1L)
+})
+
+
+test_that("a key page title puts the taxon in bold italics, a non-taxon upright", {
+  taxon <- key_title("ERV loci:", "Alpharetrovirus")
+  expect_true(is.call(taxon))
+  expect_match(paste(deparse(taxon), collapse = ""), 'bolditalic("Alpharetrovirus")',
+               fixed = TRUE)
+  expect_equal(key_title("ERV loci:", "Unassigned at genus"),
+               "ERV loci: Unassigned at genus")
+})
+
+
+test_that("a taxon name is one word ending like an ICTV genus, subfamily or family", {
+  expect_equal(.is_taxon_name(c("Betaretrovirus", "Orthoretrovirinae", "Retroviridae",
+                                "Murine leukemia virus", "Unassigned at genus",
+                                "LTR-flanked")),
+               c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE))
+})
+
+test_that("the key page sets taxa in its colour list in italics, other words upright", {
+  key <- key_page("Stage", "What it shows.",
+                  c(Betaretrovirus = "#000000", `LTR-flanked` = "#111111"))
+  is_colour_list <- function(l) {
+    identical(l$aes_params$label, c("Betaretrovirus", "LTR-flanked"))
+  }
+  colour_labels <- Filter(is_colour_list, key$layers)[[1]]
+  expect_equal(colour_labels$aes_params$fontface, c("italic", "plain"))
+})
+
+
+test_that("a count axis never shows fractions of a locus", {
+  expect_equal(.whole_number_breaks(c(0, 2)), c(0, 1, 2))
+  expect_true(all(.whole_number_breaks(c(0, 13000)) %% 1 == 0))
+  expect_s3_class(scale_y_count(), "ScaleContinuousPosition")
+})

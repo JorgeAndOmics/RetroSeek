@@ -242,6 +242,22 @@ test_that("density_bitscore_plot empty-input guard fires on 0 rows", {
   expect_equal(p$labels$title, "No data")
 })
 
+test_that("density_bitscore_plot names the quartiles in the subtitle", {
+  # Close quartiles printed their labels on top of each other (homology p14).
+  p <- density_bitscore_plot(.fake_plot_df(), q1 = 200, median = 220, q3 = 280)
+  expect_match(p$labels$subtitle, "the quartiles \\(200, 220 and 280\\)")
+  geoms <- vapply(p$layers, function(l) class(l$geom)[1], character(1))
+  expect_false("GeomText" %in% geoms)
+})
+
+test_that("density_bitscore_plot gives each probe a panel when there are many", {
+  df <- .fake_plot_df()
+  df <- do.call(rbind, lapply(sprintf("P%d", 1:8),
+                              function(pr) transform(df, probe = pr)))
+  p <- density_bitscore_plot(df, q1 = 200, median = 220, q3 = 280)
+  expect_s3_class(p$facet, "FacetWrap")
+})
+
 test_that("density_bitscore_plot accepts x_scale = 'log10' without erroring", {
   df <- .fake_plot_df()
   expect_silent(density_bitscore_plot(df, q1 = 200, median = 220, q3 = 280,
@@ -320,6 +336,20 @@ test_that("sankey_species_label_plot orders hosts by config and lineages by coun
   expect_equal(levels(p$data$label),   c("L_alpha", "L_beta"))
 })
 
+test_that("alluvium labels set hosts and lineages in italics, probes upright", {
+  df <- tibble::tibble(species = c("Homo sapiens", "Mus musculus"),
+                       label = c("Betaretrovirus", "Gammaretrovirus"),
+                       count = c(60, 40))
+  built <- ggplot2::ggplot_build(sankey_species_label_plot(df))
+  labels <- built$data[[3]]
+  faces <- stats::setNames(labels$fontface, sub(" \\(.*", "", labels$label))
+  expect_equal(unname(faces[c("Homo sapiens", "Betaretrovirus")]),
+               c("italic", "italic"))
+  probe_input <- tibble::tibble(label = "Betaretrovirus", probe = "POL", count = 10)
+  probes <- ggplot2::ggplot_build(sankey_label_probe_plot(probe_input))$data[[3]]
+  expect_equal(probes$fontface[startsWith(probes$label, "POL")], "plain")
+})
+
 test_that("alluvial flows are coloured by probe or lineage, never by host", {
   p <- sankey_species_probe_plot(.sankey_input())
   expect_equal(rlang::as_label(p$layers[[1]]$mapping$fill), "probe")
@@ -395,7 +425,7 @@ test_that("waffle_virus_plot returns ggplot at unit_hits = 1", {
   p <- waffle_virus_plot(.fake_plot_df(), unit_hits = 1L)
   expect_s3_class(p, "ggplot")
   expect_equal(p$labels$title,   "Ranges per virus")
-  expect_equal(p$labels$caption, "1 square = 1 hit")
+  expect_equal(p$labels$caption, "1 square = 1 range")
 })
 
 test_that("waffle_virus_plot uses unit_hits to bucket squares", {
@@ -404,8 +434,8 @@ test_that("waffle_virus_plot uses unit_hits to bucket squares", {
   p_one  <- waffle_virus_plot(df, unit_hits = 1L)
   p_ten  <- waffle_virus_plot(df, unit_hits = 10L)
   # Caption distinguishes the two configurations.
-  expect_equal(p_one$labels$caption, "1 square = 1 hit")
-  expect_equal(p_ten$labels$caption, "1 square = 10 hits")
+  expect_equal(p_one$labels$caption, "1 square = 1 range")
+  expect_equal(p_ten$labels$caption, "1 square = 10 ranges")
 })
 
 test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap", {
@@ -413,7 +443,7 @@ test_that("waffle_virus_plot auto-derives unit_hits when input would exceed cap"
   # 10,000 hits with a 400-square cap -> auto-derive forces unit_hits to 25
   df <- tibble::tibble(virus = rep("HIV", 10000))
   p <- waffle_virus_plot(df, unit_hits = NULL)
-  expect_match(p$labels$caption, "auto-scaled from 10000 total hits")
+  expect_match(p$labels$caption, "auto-scaled from 10,000 ranges")
 })
 
 
@@ -430,6 +460,25 @@ test_that(
     expect_equal(q$labels$subtitle, "Main. Bar")
   }
 )
+
+test_that("add_titles leads the subtitle with the species, in italics", {
+  # A binomial is always italic (docs/visual_style.md); a probe set is not.
+  q <- add_titles(ggplot2::ggplot(), title = "Foo", subtitle = "Bar.",
+                  species = "Mus musculus")
+  expect_equal(q$labels$title, "Foo")
+  expect_true(is.call(q$labels$subtitle))
+  expect_match(paste(deparse(q$labels$subtitle), collapse = ""),
+               'italic("Mus musculus")', fixed = TRUE)
+  expect_match(paste(deparse(q$labels$subtitle), collapse = ""), '"Bar."', fixed = TRUE)
+})
+
+test_that("a species-led subtitle with a line break keeps its lines", {
+  # plotmath cannot break lines, so a multi-line subtitle keeps a plain lead:
+  # several solo pages break their subtitles over two or three lines.
+  q <- add_titles(ggplot2::ggplot(), title = "Foo", subtitle = "One.\nTwo.",
+                  species = "Mus musculus")
+  expect_equal(q$labels$subtitle, "Mus musculus. One.\nTwo.")
+})
 
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
   p <- ggplot2::ggplot()
