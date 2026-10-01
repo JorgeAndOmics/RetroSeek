@@ -383,3 +383,26 @@ test_that("lineages per host keeps loci not resolved to a genus, as their own ba
   expect_equal(sum(p$data$n), nrow(loci))
   expect_true("unassigned_at_genus" %in% as.character(p$data$segment))
 })
+
+
+test_that("a class the data lacks still gets its colour square in the legend", {
+  # With drop = FALSE ggplot2 3.5 lists an absent level but draws its key only
+  # when the layer has show.legend = TRUE; the review found bare 'Family',
+  # 'None', 'Other domain' entries.
+  loci <- .composition_loci()
+  loci$rank <- "genus"
+  loci$domain_tier <- "domain_selected"
+  for (p in list(rank_resolution_plot(loci), domain_tier_composition_plot(loci))) {
+    expect_true(isTRUE(p$layers[[1]]$show.legend))
+  }
+})
+
+test_that("the method page counts every locus, in the method colours", {
+  loci <- .composition_loci()
+  loci$method <- c("placement", "lca")[seq_len(nrow(loci)) %% 2L + 1L]
+  loci$resolved <- "False"   # resolution is not what this page is about
+  p <- method_mix_plot(loci)
+  expect_equal(sum(p$data$n), nrow(loci))
+  fills <- ggplot2::ggplot_build(p)$data[[1]]$fill
+  expect_setequal(unique(fills), unname(.METHOD_COLOUR))
+})

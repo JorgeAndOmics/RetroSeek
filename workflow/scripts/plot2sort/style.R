@@ -92,6 +92,9 @@ div_colours <- function(n) {
                             "Single gene: at most one main gene; accessory genes",
                             "do not count.")
 .CONFIDENCE_COLOUR <- c(HC = seq_colours(4)[4], LC = seq_colours(4)[2])
+# How a call was made: placement is the primary method, weighted LCA the
+# fallback. Ramp shades, so neither borrows a genus colour from the same PDF.
+.METHOD_COLOUR <- c(placement = seq_colours(4)[4], lca = seq_colours(4)[2])
 .RANK_COLOUR <- c(stats::setNames(seq_colours(4)[4:2],
                                   c("genus", "subfamily", "family")),
                   none = .GREY_OTHER)

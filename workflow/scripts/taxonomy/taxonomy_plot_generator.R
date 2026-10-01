@@ -420,7 +420,7 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
                          levels = .RANK_LEVELS)) %>%
     count(.data$species, .data$rank, name = "n")
   p <- ggplot(d, aes(x = .data$species, y = .data$n, fill = .data$rank)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     scale_fill_manual(values = .RANK_COLOUR, labels = display_label, drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of LTR-flanked loci", fill = "Resolved to")
@@ -429,17 +429,17 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
   on_rows(p, d$species, ctx)
 }
 
-# How each confident call was made.
+# How each call was made, for every LTR-flanked locus.
 method_mix_plot <- function(loci, ctx = NULL) {
-  d <- loci %>% filter(.data$resolved == "True")
-  if (nrow(d) == 0L) return(empty_plot("No confident taxon calls"))
+  d <- loci %>% filter(!is.na(.data$method), nzchar(.data$method))
+  if (nrow(d) == 0L) return(empty_plot("No LTR-flanked loci"))
   counts <- d %>% count(.data$species, .data$method, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$method)) +
-    geom_col(width = 0.7) +
-    scale_fill_manual(values = category_colours(sort(unique(counts$method))),
-                      labels = display_label) +
+    geom_col(width = 0.7, show.legend = TRUE) +
+    scale_fill_manual(values = .METHOD_COLOUR, labels = display_label,
+                      limits = names(.METHOD_COLOUR), drop = FALSE) +
     scale_y_count() +
-    labs(x = NULL, y = "Confident calls", fill = NULL)
+    labs(x = NULL, y = "LTR-flanked loci", fill = NULL)
   p <- add_titles(p, "How each call was made",
                   "Phylogenetic placement or weighted LCA of blastx hits, per host.")
   on_rows(p, counts$species, ctx)
@@ -452,7 +452,7 @@ erv_class_composition_plot <- function(loci, ctx = NULL) {
   if (nrow(d) == 0L) return(empty_plot("No ERV class assignments"))
   counts <- d %>% count(.data$species, .data$erv_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$erv_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     scale_fill_manual(values = .ERV_CLASS_COLOUR) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of classified loci", fill = NULL)
@@ -487,7 +487,7 @@ structure_class_composition_plot <- function(combined, ctx = NULL) {
   counts <- d %>% count(.data$species, .data$source, .data$structure_class, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n,
                           fill = .data$structure_class)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     facet_wrap(~ .data$source, labeller = .word_strips) +
     scale_fill_manual(values = .STRUCTURE_COLOUR, labels = display_label,
                       drop = FALSE) +
@@ -539,7 +539,7 @@ domain_tier_composition_plot <- function(loci, ctx = NULL) {
     mutate(domain_tier = factor(.data$domain_tier, levels = .DOMAIN_TIER_LEVELS))
   counts <- d %>% count(.data$species, .data$domain_tier, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$domain_tier)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     scale_fill_manual(values = .DOMAIN_TIER_COLOUR, labels = display_label,
                       drop = FALSE) +
     scale_y_continuous(labels = scales::percent) +
@@ -833,7 +833,7 @@ mosaic_burden_plot <- function(loci, ctx = NULL) {
     mutate(kind = ifelse(.data$is_mosaic == "True", "mosaic", "single_lineage")) %>%
     count(.data$species, .data$kind, name = "n")
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$kind)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     scale_fill_manual(values = c(mosaic = .DATA_COLOUR, single_lineage = .GREY_OTHER),
                       labels = display_label) +
     scale_y_continuous(labels = scales::percent) +
@@ -852,7 +852,7 @@ mosaic_composition_by_species_plot <- function(loci, ctx = NULL) {
   counts <- flows %>% count(.data$species, .data$taxon, name = "n")
   counts$taxon <- taxon_factor(counts$taxon, counts$n)
   p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data$taxon)) +
-    geom_col(position = position_fill(reverse = TRUE), width = 0.7) +
+    geom_col(position = position_fill(reverse = TRUE), width = 0.7, show.legend = TRUE) +
     scale_fill_taxon(counts$taxon, counts$n) +
     scale_y_continuous(labels = scales::percent) +
     labs(x = NULL, y = "Share of gene calls in mosaic loci", fill = NULL)
