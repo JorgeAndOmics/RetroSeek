@@ -446,12 +446,24 @@ key_page <- function(title, description, colours = character(0), pages = charact
                         size = 4, family = .FONT, colour = .INK)
   }
   if (length(pages)) {
-    x <- if (length(colours)) 0.5 else 0
-    listing <- paste(sprintf("%2d. %s", seq_along(pages) + 1L, pages), collapse = "\n")
-    p <- p + heading(x, "Pages") +
-      ggplot2::annotate("text", x = x, y = 0.93, label = listing, hjust = 0,
-                        vjust = 1, size = 3.8, family = .FONT, colour = .INK_SOFT,
-                        lineheight = 1.3)
+    columns <- .page_list_columns(pages, beside_colours = length(colours) > 0L)
+    p <- p + heading(columns$x[[1]], "Pages") +
+      ggplot2::annotate("text", x = columns$x, y = 0.93, label = columns$label,
+                        hjust = 0, vjust = 1, size = 3.8, family = .FONT,
+                        colour = .INK_SOFT, lineheight = 1.3)
   }
   p
+}
+
+# The key page's page list as text columns of at most `per_column` lines: about
+# as many as fit below a two-line description on an A4 page. Page numbers start
+# at 2, the key page being 1. Beside the colour key a single column starts at
+# mid page; two or more start further left, so long titles keep their width.
+.page_list_columns <- function(pages, beside_colours, per_column = 14L) {
+  numbered <- sprintf("%2d. %s", seq_along(pages) + 1L, pages)
+  n_columns <- ceiling(length(numbered) / per_column)
+  start <- if (!beside_colours) 0 else if (n_columns == 1L) 0.5 else 0.36
+  column <- ceiling(seq_along(numbered) / per_column)
+  list(x = start + (1 - start) / n_columns * (seq_len(n_columns) - 1),
+       label = vapply(split(numbered, column), paste, character(1), collapse = "\n"))
 }

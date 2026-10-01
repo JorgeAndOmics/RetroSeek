@@ -262,3 +262,29 @@ test_that("within a genus the most abundant virus takes the genus colour", {
                         c("Betaretrovirus", "Betaretrovirus"), weights = c(500, 20))
   expect_equal(cols[["Mouse mammary tumor virus"]], .GENUS_COLOUR[["Betaretrovirus"]])
 })
+
+
+# ---------------------------------------------------------------------------
+# Key page: the page list fits however many pages a PDF has
+# ---------------------------------------------------------------------------
+# One text block per column; the segment PDFs list 27 pages, and a single block
+# of 27 lines ran off the bottom of the A4 page, losing the last entry.
+.page_list_blocks <- function(key) {
+  labels <- unlist(lapply(key$layers, function(l) l$aes_params$label))
+  labels[grepl("^ ?[0-9]+\\. ", labels)]
+}
+
+test_that("a long page list is split into columns that fit the page", {
+  titles <- sprintf("Page title %d", 1:30)
+  blocks <- .page_list_blocks(key_page("Stage", "What it shows.", .TIER_COLOUR, titles))
+  lines <- unlist(strsplit(blocks, "\n"))
+  expect_gt(length(blocks), 1L)
+  expect_true(all(lengths(strsplit(blocks, "\n")) <= 14L))
+  expect_length(lines, 30L)
+  expect_match(lines[[30]], "31\\. Page title 30")
+})
+
+test_that("a short page list stays one column", {
+  blocks <- .page_list_blocks(key_page("Stage", "What it shows.", pages = c("A", "B")))
+  expect_length(blocks, 1L)
+})
