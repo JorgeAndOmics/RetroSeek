@@ -406,3 +406,21 @@ test_that("the method page counts every locus, in the method colours", {
   fills <- ggplot2::ggplot_build(p)$data[[1]]$fill
   expect_setequal(unique(fills), unname(.METHOD_COLOUR))
 })
+
+
+test_that("the nearest-virus page shows each host and lineage's median identity", {
+  loci <- .composition_loci()
+  loci$nearest_virus_identity <- c("40.0", "60.0", "50.0", "90.0", "30.0")[seq_len(nrow(loci))]
+  p <- nearest_virus_identity_plot(loci)
+  expect_s3_class(p, "ggplot")
+  cell <- p$data[p$data$species == "Antrozous pallidus" & p$data$segment == "Betaretrovirus", ]
+  expect_equal(cell$median, 55)   # orphans at 60 and 50
+  expect_equal(p$labels$title, "How far from a known virus")
+  expect_true("nearest_virus_identity" %in%
+                vapply(panel_registry(), function(e) e$name, character(1)))
+})
+
+test_that("the nearest-virus page waits for the column on an older catalog", {
+  expect_match(nearest_virus_identity_plot(.composition_loci())$labels$title,
+               "No nearest-virus identity")
+})

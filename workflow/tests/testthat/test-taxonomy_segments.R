@@ -180,9 +180,9 @@ test_that("every registry entry is well formed and uniquely named", {
 
 
 test_that("the registry covers the whole published panel", {
-  # 23 taxonomy + 7 structure. If a builder is added without a registry entry
+  # 24 taxonomy + 7 structure. If a builder is added without a registry entry
   # it silently stops being drawn, which is the failure this pins.
-  expect_equal(length(panel_registry()), 23L)
+  expect_equal(length(panel_registry()), 24L)
   expect_equal(length(structure_panel_registry()), 7L)
 })
 
@@ -194,7 +194,7 @@ test_that("exactly the three degenerate plots are excluded from segments", {
 
   expect_setequal(excluded, c("erv_class_composition", "taxon_confidence_tree",
                               "taxon_tier_tree"))
-  expect_equal(length(segment_panel(reg, "full")), 27L)
+  expect_equal(length(segment_panel(reg, "full")), 28L)
 })
 
 

@@ -238,6 +238,9 @@ panel_registry <- function() {
     list(name = "rank_resolution",
          build = function(d, ctx) rank_resolution_plot(d, ctx),
          data = "loci", segment = TRUE),
+    list(name = "nearest_virus_identity",
+         build = function(d, ctx) nearest_virus_identity_plot(d, ctx),
+         data = "combined", segment = TRUE),
     list(name = "method_mix",
          build = function(d, ctx) method_mix_plot(d, ctx),
          data = "loci", segment = TRUE),
@@ -427,6 +430,37 @@ rank_resolution_plot <- function(loci, ctx = NULL) {
   p <- add_titles(p, "How deep the calls go",
                   "The rank each LTR-flanked locus resolves to, per host.")
   on_rows(p, d$species, ctx)
+}
+
+# How far each host's loci sit from any described virus, by lineage: the median
+# amino-acid identity to the nearest reference virus (ADR-024), hosts on rows.
+# A catalog written before ADR-024 has no such column and gets a placeholder.
+nearest_virus_identity_plot <- function(combined, ctx = NULL) {
+  missing <- empty_plot("No nearest-virus identity in this catalog")
+  if (!"nearest_virus_identity" %in% names(combined)) return(missing)
+  d <- combined %>%
+    mutate(identity = suppressWarnings(as.numeric(.data$nearest_virus_identity))) %>%
+    filter(!is.na(.data$identity), !is.na(.data$segment))
+  if (nrow(d) == 0L) return(missing)
+  cells <- d %>%
+    group_by(.data$species, .data$segment) %>%
+    summarise(median = stats::median(.data$identity), n = dplyr::n(), .groups = "drop")
+  cells$segment <- factor(cells$segment, levels = taxon_levels(cells$segment, cells$n))
+  cells$ink <- ink_on_ramp(cells$median)
+  p <- ggplot(cells, aes(x = .data$segment, y = .data$species, fill = .data$median)) +
+    geom_tile(colour = .PAPER, linewidth = 0.6) +
+    geom_text(aes(label = sprintf("%.0f%%", .data$median), colour = .data$ink),
+              size = 3, family = .FONT) +
+    scale_fill_ramp(name = "Median identity (%)") +
+    scale_colour_identity() +
+    scale_x_discrete(labels = taxon_labels) +
+    labs(x = NULL, y = NULL) +
+    # Eleven genus names across one page: the tilted label is the lesser evil.
+    theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+  p <- add_titles(p, "How far from a known virus",
+                  paste("Median amino-acid identity of each host's loci to the nearest",
+                        "reference virus, by lineage. Low: far from anything described."))
+  on_rows(p, cells$species, ctx, axis = "y")
 }
 
 # How each call was made, for every LTR-flanked locus.

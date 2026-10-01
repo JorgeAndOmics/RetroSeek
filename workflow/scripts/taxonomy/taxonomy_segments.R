@@ -17,8 +17,8 @@
 #   <overview_pdf>                       every segment side by side
 #
 # How much is rendered per segment is set by `plots.segment_panel`:
-#   full     (default) every page that means something within one segment: 20 of
-#            the 23 taxonomy pages plus all 7 structure pages, so 27.
+#   full     (default) every page that means something within one segment: 21 of
+#            the 24 taxonomy pages plus all 7 structure pages, so 28.
 #   curated  the small legacy subset of 3.
 #   none     tables only.
 # Cost scales as segments x pages and each page has a row per species, so drop

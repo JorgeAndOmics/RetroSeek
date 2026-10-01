@@ -188,7 +188,7 @@ classification:
 
 plots:
   # How many pages the --segment stage draws in each segment's PDF:
-  #   full     every page that means something for a single segment (27).
+  #   full     every page that means something for a single segment (28).
   #   curated  the small legacy subset (3): who carries it, how sure, what shape.
   #   none     per-segment tables only, no figures.
   # Cost scales as segments x pages, and each page has a row per genome, so
