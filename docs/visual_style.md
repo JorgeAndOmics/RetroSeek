@@ -125,6 +125,11 @@ the host phylogeny sit directly beside them.
   page says which species the tree could not place.
 - Plots whose x axis is a measurement (histograms, funnels) become **small
   multiples, one per species**, in the same order.
+- **The one exception is `highlights.pdf`**: a few 16:9 pages of headline
+  findings, with hosts as **columns** under the host tree
+  (`species_columns()` and `on_columns()` in `tree_axis.R`), since a wide page
+  holds more hosts across than down. Anything beyond the headlines belongs in
+  its stage PDF.
 
 ## Output
 
@@ -143,6 +148,7 @@ the host phylogeny sit directly beside them.
   | Segments | `segments.pdf` (all segments), `segments/<segment>.pdf` |
   | Solo LTRs | `solo_ltr.pdf` (all genomes), `solo_ltr/<genome>.solo_ltr.pdf` |
   | Hotspots | `hotspots/<genome>.hotspots.pdf` |
+  | Highlights | `highlights.pdf` (16:9, hosts as columns) |
   | Placement | `placement/<genome>.<tier>.<gene>.tree.svg` |
 
 - **A4 landscape.** A page grows taller past 20 species, by `plots.per_stratum`

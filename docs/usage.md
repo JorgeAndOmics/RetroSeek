@@ -65,7 +65,7 @@ phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 
 | Flag | Snakemake target(s) | Makes |
 |---|---|---|
-| `--generate-global-plots` | `plot_generator`, `stage_plot_generator`, `erv_like_plot_generator` | `homology.pdf`, `integration.pdf`, `structure.pdf` |
+| `--generate-global-plots` | `plot_generator`, `stage_plot_generator`, `erv_like_plot_generator`, `highlights_generator` | `homology.pdf`, `integration.pdf`, `structure.pdf`, and `highlights.pdf` (headline findings; it reads the classified catalog, so classification runs first if its outputs are missing) |
 
 > **Note (ADR-012):** hotspot detection counts **integration events** from the
 > per-locus catalog (`hotspot.input: catalog`), not tBLASTn hits, so a stale

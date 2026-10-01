@@ -105,7 +105,7 @@ they run as one Snakemake workflow, in dependency order.
 | | `--solo-ltr-detector` | Solo-LTR detection with its evidence tree |
 | | `--hotspot-detection` | Deterministic NB-GLM hotspot detection |
 | | `--placement-trees` | Placement evidence: heat-trees and co-phylogeny |
-| Figures | `--generate-global-plots` | Homology, integration and structure PDFs |
+| Figures | `--generate-global-plots` | Homology, integration and structure PDFs, and a short highlights PDF of the headline findings |
 
 | Option | Meaning |
 |---|---|

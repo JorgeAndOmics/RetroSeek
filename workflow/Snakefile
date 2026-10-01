@@ -1774,6 +1774,31 @@ rule taxonomy_plot_generator:
         plots=rules.taxonomy_plot_generator_setup.output
 
 
+# The headline findings in a few slide-shaped pages (highlights.R): loci per
+# host, the lineage mix, the lineage-by-host matrix and the focal lineages
+# (plots.focal_lineages). Reads the classified catalog, so asking for it runs
+# classification first when its outputs are missing.
+rule highlights_generator:
+    input:
+        catalog      = rules.taxonomy_plot_generator_setup.output.catalog,
+        species_tree = rules.species_tree_layout.output.tips
+    output:
+        pdf = os.path.join(defaults.PATH_DICT['PLOT_DIR'], 'highlights.pdf')
+    params:
+        species_tree_dir = defaults.PATH_DICT['SPECIES_TREE_DIR'],
+        config_yaml      = defaults.CONFIG_FILE
+    log:
+        job_log('highlights', 'all')
+    shell:
+        '''
+        Rscript scripts/highlights.R --log {log:q} \
+        --catalog {input.catalog:q} \
+        --species_tree_dir {params.species_tree_dir:q} \
+        --config {params.config_yaml:q} \
+        --out_pdf {output.pdf:q}
+        '''
+
+
 # Unified loss funnel - UNIONs the ranges-analysis counts with the blastx-stage
 # classification + orphans counts into one per-stage attrition table, exports
 # the per-genome novel candidates (loci with zero blastx homology), and renders

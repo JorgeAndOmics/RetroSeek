@@ -87,6 +87,19 @@ the rules. The system is described for people in [visual_style.md](../visual_sty
 - A journal requiring a figure format other than vector PDF.
 - The circle-plot stage being repaired: it is broken and not yet in the house style.
 
+## Amendment, 2026-10-01
+
+- **`results/plots` is one level deep.** A stage's PDF sits directly in it; only
+  the stages that write one file per genome, segment or tree keep a folder.
+- **One exception to species on rows: `highlights.pdf`.** It holds the headline
+  findings in a few 16:9 pages meant to open first or drop into a slide deck, so
+  hosts are columns under the host tree (`species_columns()` and `on_columns()`
+  in `tree_axis.R`): a wide page holds more hosts across than down. Every other
+  figure keeps species on rows, and anything beyond the headlines stays in its
+  stage PDF.
+- **Italics reach every lead and key title** (`add_titles(species = )`,
+  `key_title()`), except a subtitle with a line break, which plotmath cannot set.
+
 ## References
 
 - [visual_style.md](../visual_style.md)

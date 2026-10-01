@@ -172,3 +172,39 @@ test_that("species_facets stacks one row per species, first configured on top", 
   expect_equal(levels(faceted$data$species), c("Mus musculus", "Homo sapiens"))
   expect_s3_class(faceted$facet, "FacetGrid")
 })
+
+
+# ---------------------------------------------------------------------------
+# Species as columns under the tree (highlights.pdf)
+# ---------------------------------------------------------------------------
+test_that("columns run left to right in the tree's top-to-bottom order", {
+  axis <- species_columns(c("Homo sapiens", "Mus musculus", "Desmodus rotundus"),
+                          tree = .tree)
+  expect_equal(axis$levels, c("Desmodus rotundus", "Homo sapiens", "Mus musculus"))
+  expect_equal(axis$n_tips, 3L)
+  expect_null(axis$note)
+})
+
+test_that("a species the tree lacks goes to the right end and is named", {
+  axis <- species_columns(c("Homo sapiens", "Myotis lucifugus"), tree = .tree)
+  expect_equal(tail(axis$levels, 1), "Myotis lucifugus")
+  expect_match(axis$note, "Myotis lucifugus")
+})
+
+test_that("without a tree the columns follow the config order", {
+  axis <- species_columns(c("B b", "A a"), fallback_order = c("B b", "A a"))
+  expect_equal(axis$levels, c("B b", "A a"))
+  expect_null(axis$tree)
+})
+
+test_that("on_columns stacks the tree above panels sharing one species axis", {
+  axis <- species_columns(c("Homo sapiens", "Mus musculus"), tree = .tree)
+  page <- on_columns(list(.panel(c("Homo sapiens", "Mus musculus")),
+                          .panel(c("Homo sapiens", "Mus musculus"))), axis,
+                     width_in = 12)
+  expect_s3_class(page, "patchwork")
+  expect_length(page$patches$plots, 2L)   # the tree and the first panel
+  bare <- on_columns(list(.panel("Homo sapiens")),
+                     species_columns("Homo sapiens"), width_in = 12)
+  expect_s3_class(bare, "patchwork")
+})

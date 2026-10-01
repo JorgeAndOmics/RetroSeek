@@ -177,3 +177,88 @@ species_facets <- function(panel, ctx = NULL, scales = "free_y") {
     theme(strip.text.y.left = element_text(angle = 0, hjust = 1, face = "italic"),
           strip.placement = "outside")
 }
+
+
+# ---------------------------------------------------------------------------
+# Species as COLUMNS under the host tree: the slide-shaped highlights pages
+# (docs/visual_style.md), the one exception to species on rows. A wide page holds
+# more hosts across than down, and a column keeps its host from top to bottom
+# through every stacked panel.
+# ---------------------------------------------------------------------------
+
+# The column order and the tree to draw above it.
+#   levels  species, left to right: the tree's tips top row first, then any
+#           species the tree lacks, alphabetically, at the right end
+#   tree    the tree, or NULL
+#   n_tips  how many columns (the leftmost) the tree spans
+#   note    names the species the tree could not place, or NULL
+# Without a tree the columns follow `fallback_order` (the config order).
+species_columns <- function(species, tree = NULL, fallback_order = NULL) {
+  species <- unique(as.character(species))
+  if (is.null(tree)) {
+    canonical <- if (is.null(fallback_order)) sort(species) else fallback_order
+    levels <- c(canonical, sort(setdiff(species, canonical)))
+    return(list(levels = levels, tree = NULL, n_tips = 0L, note = NULL))
+  }
+  # Tips are stored bottom row first (y = 1); the top row becomes the left column.
+  tips <- rev(tree$tips$tip[order(tree$tips$y)])
+  off_tree <- sort(setdiff(species, tips))
+  note <- if (length(off_tree)) {
+    paste("Not on the host tree, shown at the right:", paste(off_tree, collapse = ", "))
+  }
+  list(levels = c(tips, off_tree), tree = tree, n_tips = length(tips), note = note)
+}
+
+# The tree turned on its side: root at the top, each tip directly above its
+# column. A tip on row y sits in column n_tips + 1 - y, the same flip that puts
+# the top row on the left.
+.tree_on_top <- function(tree, n_tips, n_columns) {
+  ggplot(tree$segments) +
+    geom_segment(aes(x = n_tips + 1 - .data$y, xend = n_tips + 1 - .data$yend,
+                     y = -.data$x, yend = -.data$xend),
+                 colour = .GREY_MID, linewidth = 0.45, lineend = "round") +
+    scale_x_continuous(limits = c(0.5, n_columns + 0.5), expand = c(0, 0)) +
+    theme_void(base_family = .FONT)
+}
+
+# Species names under the bottom panel: as large as the column width allows,
+# within a readable range, and turned upright past a dozen species.
+.column_label_style <- function(n, width_in) {
+  size <- max(4.5, min(10, width_in * 72 / n * 0.62))
+  if (n <= 12) return(element_text(face = "italic", size = size, colour = .INK))
+  element_text(face = "italic", size = size, colour = .INK, angle = 90, hjust = 1,
+               vjust = 0.5)
+}
+
+# Stack the tree (when there is one) above panels whose x axis is species. Only
+# the bottom panel prints the names; one legend is collected below.
+#   panels    ggplots with species on a discrete x axis
+#   axis      species_columns()
+#   width_in  the page width, which sizes the species labels
+#   title, subtitle  the page's, set over the whole composition
+#   legend    where the one collected legend goes ("none" when titles say it all)
+on_columns <- function(panels, axis, width_in, title = NULL, subtitle = NULL,
+                       tree_share = 0.16, legend = "bottom") {
+  n <- length(axis$levels)
+  last <- length(panels)
+  panels <- lapply(seq_along(panels), function(i) {
+    p <- panels[[i]] +
+      scale_x_discrete(limits = axis$levels, drop = FALSE,
+                       expand = expansion(add = 0.5)) +
+      theme(axis.title.x = element_blank())
+    if (i < last) return(p + theme(axis.text.x = element_blank()))
+    p + theme(axis.text.x = .column_label_style(n, width_in))
+  })
+  heights <- rep((1 - tree_share) / last, last)
+  if (!is.null(axis$tree)) {
+    panels <- c(list(.tree_on_top(axis$tree, axis$n_tips, n)), panels)
+    heights <- c(tree_share, heights)
+  }
+  page <- patchwork::wrap_plots(panels, ncol = 1, heights = heights,
+                                guides = "collect") &
+    theme(legend.position = legend)
+  # One annotation for the whole page: its title (which page_titles() reads for
+  # the key page), its subtitle, and the note on species the tree lacks.
+  page + patchwork::plot_annotation(title = title, subtitle = subtitle,
+                                    caption = axis$note, theme = theme_retroseek())
+}

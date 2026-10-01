@@ -201,6 +201,9 @@ plots:
   # Page growth for studies with many genomes: inches added to the A4 page height
   # per genome past 20, so each genome's row keeps its room (docs/visual_style.md).
   per_stratum: 0.18
+  # The lineages highlights.pdf gives a page of their own (segment names, e.g.
+  # Alpharetrovirus). Empty: no focal page.
+  focal_lineages: []
 
 execution:
   num_cores: 64
