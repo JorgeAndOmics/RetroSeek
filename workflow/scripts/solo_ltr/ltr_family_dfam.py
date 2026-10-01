@@ -145,6 +145,20 @@ def best_hits(tblouts: list[Path]) -> dict[str, Hit]:
     return best
 
 
+def _hit_columns(hit: Hit | None, classes: dict[str, str]) -> dict[str, object]:
+    """The Dfam columns for one family's best hit; none when no model matched."""
+    if hit is None:
+        return {}
+    return {
+        "dfam_name": hit.model,
+        "dfam_accession": hit.accession,
+        "dfam_class": classes.get(hit.model, ""),
+        "dfam_evalue": hit.evalue,
+        "dfam_score": hit.score,
+        "dfam_coverage": round(hit.coverage, 4),
+    }
+
+
 def label_rows(
     families: list[str], best: dict[str, Hit], classes: dict[str, str], release: str
 ) -> list[dict[str, object]]:
@@ -159,26 +173,10 @@ def label_rows(
     rows: list[dict[str, object]] = []
     for family in families:
         genome, name = family.split("|", 1)
-        hit = best.get(family)
-        if hit is None:
-            blank: dict[str, object] = dict.fromkeys(LABEL_COLUMNS, "")
-            rows.append(
-                blank | {"genome": genome, "ltr_family": name, "dfam_release": release}
-            )
-            continue
-        rows.append(
-            {
-                "genome": genome,
-                "ltr_family": name,
-                "dfam_name": hit.model,
-                "dfam_accession": hit.accession,
-                "dfam_class": classes.get(hit.model, ""),
-                "dfam_evalue": hit.evalue,
-                "dfam_score": hit.score,
-                "dfam_coverage": round(hit.coverage, 4),
-                "dfam_release": release,
-            }
-        )
+        row: dict[str, object] = dict.fromkeys(LABEL_COLUMNS, "")
+        row.update(genome=genome, ltr_family=name, dfam_release=release)
+        row.update(_hit_columns(best.get(family), classes))
+        rows.append(row)
     return rows
 
 
@@ -197,6 +195,27 @@ def _representatives(summary_csv: Path) -> dict[str, str]:
         }
 
 
+def _genome_representatives(
+    genome: str, summary_csv: Path, bait_fna: Path
+) -> dict[str, str]:
+    """One genome's representative sequences, by `genome|family`.
+
+    Raises:
+        PipelineError: If a representative is missing from the bait FASTA; the
+            two files would then come from different runs.
+    """
+    reps = _representatives(summary_csv)
+    sequences = _read_fasta(bait_fna, set(reps))
+    missing = sorted(reps[arm] for arm in set(reps) - set(sequences))
+    if missing:
+        raise PipelineError(
+            f"{genome}: the representatives of {', '.join(missing)} are not "
+            f"in {bait_fna.name}",
+            hint="the family summary and the bait must come from one run",
+        )
+    return {f"{genome}|{reps[arm]}": sequence for arm, sequence in sequences.items()}
+
+
 def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> list[str]:
     """Write each family's representative arm under `genome|family`.
 
@@ -206,27 +225,16 @@ def write_representatives(pairs: list[tuple[str, Path, Path]], out: Path) -> lis
 
     Returns:
         The qualified family names written, in order.
-
-    Raises:
-        PipelineError: If a representative is missing from its bait FASTA; the
-            two files would then come from different runs.
     """
     names = []
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as handle:
         for genome, summary_csv, bait_fna in pairs:
-            reps = _representatives(summary_csv)
-            sequences = _read_fasta(bait_fna, set(reps))
-            missing = sorted(reps[arm] for arm in set(reps) - set(sequences))
-            if missing:
-                raise PipelineError(
-                    f"{genome}: the representatives of {', '.join(missing)} are not "
-                    f"in {bait_fna.name}",
-                    hint="the family summary and the bait must come from one run",
-                )
-            for arm, sequence in sequences.items():
-                handle.write(f">{genome}|{reps[arm]}\n{sequence}\n")
-                names.append(f"{genome}|{reps[arm]}")
+            for name, sequence in _genome_representatives(
+                genome, summary_csv, bait_fna
+            ).items():
+                handle.write(f">{name}\n{sequence}\n")
+                names.append(name)
     return names
 
 
