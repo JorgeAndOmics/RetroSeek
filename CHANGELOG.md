@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`results/plots/highlights.pdf`**, drawn by `--generate-global-plots`: the
+  headline findings in a few 16:9 pages (loci per host, the lineage mix, a
+  lineage-by-host bubble matrix, and with `plots.focal_lineages` the focal
+  lineages), hosts as columns under the host tree. Everything else stays in its
+  stage PDF.
 - **Two pages**: "How far from a known virus" in `taxonomy.pdf` (median
   amino-acid identity to the nearest reference virus, per host and lineage)
   and "LTR families by repeat class" in `solo_ltr.pdf`.

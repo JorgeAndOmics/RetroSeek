@@ -366,6 +366,7 @@ def test_stage_pdfs_declared(project_root: Path) -> None:
         "loss.pdf",
         "solo_ltr.pdf",
         "segments.pdf",
+        "highlights.pdf",
     ):
         declared = f"os.path.join(defaults.PATH_DICT['PLOT_DIR'], '{pdf}')"
         assert declared in text, f"stage PDF {pdf} not declared in results/plots"

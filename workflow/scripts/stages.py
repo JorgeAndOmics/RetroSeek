@@ -219,8 +219,15 @@ STAGES: tuple[Stage, ...] = (
     Stage(
         "--generate-global-plots",
         "Figures",
-        ("plot_generator", "stage_plot_generator", "erv_like_plot_generator"),
-        "The homology, integration and structure PDFs.",
+        (
+            "plot_generator",
+            "stage_plot_generator",
+            "erv_like_plot_generator",
+            "highlights_generator",
+        ),
+        "The homology, integration and structure PDFs, and highlights.pdf "
+        "(which reads the classified catalog: classification runs first if its "
+        "outputs are missing).",
         tools=("Rscript",),
     ),
 )

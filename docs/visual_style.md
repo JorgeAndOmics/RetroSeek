@@ -110,7 +110,8 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
 
 ## Species on rows
 
-Every figure that compares genomes puts them on **rows**, never on the x axis.
+Every figure that compares genomes puts them on **rows**, never on the x axis,
+with one exception, `highlights.pdf` (below).
 Rows read naturally for long italic binomials, need no rotated labels, and let
 the host phylogeny sit directly beside them.
 
@@ -125,6 +126,11 @@ the host phylogeny sit directly beside them.
   page says which species the tree could not place.
 - Plots whose x axis is a measurement (histograms, funnels) become **small
   multiples, one per species**, in the same order.
+- **The one exception is `highlights.pdf`**: a few 16:9 pages of headline
+  findings, with hosts as **columns** under the host tree
+  (`species_columns()` and `on_columns()` in `tree_axis.R`), since a wide page
+  holds more hosts across than down. Anything beyond the headlines belongs in
+  its stage PDF.
 
 ## Output
 
@@ -143,9 +149,10 @@ the host phylogeny sit directly beside them.
   | Segments | `segments.pdf` (all segments), `segments/<segment>.pdf` |
   | Solo LTRs | `solo_ltr.pdf` (all genomes), `solo_ltr/<genome>.solo_ltr.pdf` |
   | Hotspots | `hotspots/<genome>.hotspots.pdf` |
+  | Highlights | `highlights.pdf` (16:9, hosts as columns) |
   | Placement | `placement/<genome>.<tier>.<gene>.tree.svg` |
 
-- **A4 landscape.** A page grows taller past 20 species, by `plots.per_stratum`
+- **A4 landscape** (`highlights.pdf`: 16:9). A page grows taller past 20 species, by `plots.per_stratum`
   inches per species, so rows keep their room in a large study.
 - **Every PDF opens with a key page**: what the stage shows, what its colours
   mean (taxa in italics), and the list of pages, read from the pages themselves,

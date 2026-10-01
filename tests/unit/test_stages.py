@@ -136,6 +136,12 @@ def test_parsing_stops_on_a_retired_flag(capsys: pytest.CaptureFixture[str]) -> 
     assert "--pair-detection was retired" in capsys.readouterr().err
 
 
+def test_global_plots_draw_the_highlights() -> None:
+    """The headline PDF is drawn with the other study-wide figures."""
+    stage = next(s for s in stages.STAGES if s.flag == "--generate-global-plots")
+    assert "highlights_generator" in stage.targets
+
+
 def test_snakemake_options_are_not_retired_flags() -> None:
     assert stages.retired_flag_messages(["-n", "--forcerun", "x"]) == []
 

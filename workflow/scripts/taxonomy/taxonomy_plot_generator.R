@@ -981,8 +981,7 @@ mosaic_gene_discordance_plot <- function(loci) {
 # ----------------------------------------------------------------------------
 # Tiers first, then every lineage the study resolved, in its fixed colour.
 taxonomy_key_colours <- function(combined) {
-  tiers <- stats::setNames(unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]),
-                           display_label(c("ltr-flanked", "orphan")))
+  tiers <- tier_key_colours()
   if (!"segment" %in% names(combined) || nrow(combined) == 0L) return(tiers)
   segments <- taxon_levels(combined$segment)
   c(tiers, stats::setNames(unname(taxon_colours(segments)[segments]),
