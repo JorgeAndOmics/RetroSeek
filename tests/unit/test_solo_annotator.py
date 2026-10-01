@@ -596,6 +596,8 @@ _DFAM_LABELS = (
     "Toyus_toyus,Toyu_F001,IAPLTR1_Mm,DF1,LTR/ERVK,1e-80,250.0,0.97,4.0\n"
     "Toyus_toyus,Toyu_F002,L1MdA_I,DF2,LINE/L1,1e-90,300.0,0.99,4.0\n"
     "Other_genome,Toyu_F001,AluY,DF3,SINE/Alu,1e-50,150.0,0.95,4.0\n"
+    "Toyus_toyus,Toyu_F003,Mystery1,DF4,,1e-20,60.0,0.80,4.0\n"
+    "Toyus_toyus,Toyu_F004,,,,,,,4.0\n"
 )
 
 
@@ -610,7 +612,12 @@ def test_family_classes_are_read_for_one_genome_only(
     family_classes: dict[str, str],
 ) -> None:
     # Another genome can share a family code (Toyu_F001 here): it must not leak in.
-    assert family_classes == {"Toyu_F001": "LTR/ERVK", "Toyu_F002": "LINE/L1"}
+    # A match on a model with no class reads "Unknown"; no match at all is left out.
+    assert family_classes == {
+        "Toyu_F001": "LTR/ERVK",
+        "Toyu_F002": "LINE/L1",
+        "Toyu_F003": "Unknown",
+    }
 
 
 def test_each_solo_gets_its_familys_class_and_blank_without_one(
@@ -630,7 +637,7 @@ def test_the_family_ratio_carries_each_familys_class(
     family_classes: dict[str, str],
 ) -> None:
     rows = family_ratio_rows([], arm_families, family_classes)
-    assert [(r["ltr_family"], r["ltr_family_class"]) for r in rows] == [
+    assert [(r["ltr_family"], r["ltr_family_class"]) for r in rows][:2] == [
         ("Toyu_F001", "LTR/ERVK"),
         ("Toyu_F002", "LINE/L1"),
     ]

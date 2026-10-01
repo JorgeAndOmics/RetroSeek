@@ -573,14 +573,15 @@ def read_family_classes(dfam_labels: Path, genome: str) -> dict[str, str]:
     """One genome's LTR family -> Dfam class (`ltr_family_dfam.csv`, ADR-023).
 
     Only this genome's rows: two genomes can share a family code. Families without
-    a curated match are left out, so they read as blank.
+    a curated match are left out, so they read as blank; a match on a model that
+    carries no class reads "Unknown", so it is not mistaken for no match.
     """
+    classes = {}
     with dfam_labels.open(newline="", encoding="utf-8") as handle:
-        return {
-            row["ltr_family"]: row["dfam_class"]
-            for row in csv.DictReader(handle)
-            if row["genome"] == genome and row["dfam_class"]
-        }
+        for row in csv.DictReader(handle):
+            if row["genome"] == genome and row["dfam_name"]:
+                classes[row["ltr_family"]] = row["dfam_class"] or "Unknown"
+    return classes
 
 
 def assign_family_classes(solos: list[SoloLTR], classes: dict[str, str]) -> None:

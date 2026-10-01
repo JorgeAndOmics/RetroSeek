@@ -84,23 +84,28 @@ test_that("empty inputs give a placeholder page rather than an error", {
 test_that("Dfam classes fold into a few repeat groups, blank as no label", {
   # fread reads an all-empty column (Dfam off) as logical NA.
   expect_equal(repeat_group(c(NA, NA)), c("No Dfam label", "No Dfam label"))
+  # Only ERV1, ERVK and ERVL are ERV LTRs; MaLR, Gypsy and a bare LTR are not.
   expect_equal(
-    repeat_group(c("LTR/ERVK", "LTR", "LINE/L1", "SINE/Alu", "DNA/hAT",
-                   "RC/Helitron", "")),
-    c("LTR", "LTR", "LINE", "SINE", "Other repeat", "Other repeat", "No Dfam label")
+    repeat_group(c("LTR/ERVK", "LTR/ERV1", "LTR/ERVL", "LTR/ERVL-MaLR", "LTR/Gypsy",
+                   "LTR")),
+    c("ERV LTR", "ERV LTR", "ERV LTR", "Other LTR", "Other LTR", "Other LTR")
+  )
+  expect_equal(
+    repeat_group(c("LINE/L1", "SINE/Alu", "DNA/hAT", "Unknown", "")),
+    c("LINE", "SINE", "Other repeat", "Other repeat", "No Dfam label")
   )
 })
 
 test_that("the class breakdown sums families, intact elements and solos per group", {
   out <- solos_by_class(.ratios)
-  homo_ltr <- out[species == "Homo sapiens" & repeat_group == "LTR"]
+  homo_ltr <- out[species == "Homo sapiens" & repeat_group == "ERV LTR"]
   expect_equal(homo_ltr$families, 1L)
   expect_equal(homo_ltr$solos, 100L)
   expect_equal(homo_ltr$solos_per_intact, 10)
   expect_equal(out[species == "Homo sapiens", sum(solos)], 1507L)
   # Every group a genome has gets a row, the unlabelled family included.
   expect_setequal(out[species == "Homo sapiens", repeat_group],
-                  c("LTR", "LINE", "SINE", "No Dfam label"))
+                  c("ERV LTR", "LINE", "SINE", "No Dfam label"))
 })
 
 test_that("the by-class page keeps the species order and never uses fate colours", {
@@ -114,6 +119,23 @@ test_that("the by-class page says so when no family has a Dfam label", {
   unlabelled <- copy(.ratios)[, ltr_family_class := ""]
   p <- solos_by_class_plot(solos_by_class(unlabelled), tree = NULL, order = .order)
   expect_match(p$labels$subtitle, "No family has a Dfam label")
+  # Labelling may be on and simply have matched nothing: no advice to switch it on.
+  expect_false(grepl("switch on", p$labels$subtitle))
+})
+
+test_that("no ratio tables at all give an empty breakdown, not an error", {
+  out <- solos_by_class(data.table())
+  expect_equal(nrow(out), 0L)
+  expect_s3_class(solos_by_class_plot(out, tree = NULL, order = .order), "ggplot")
+})
+
+test_that("a genome without a ratio table is skipped, not fatal", {
+  expect_null(read_family_ratios(tempfile(fileext = ".csv"), "Mus_musculus", NULL))
+})
+
+test_that("the subtrees words stay generic when no known kind is drawn", {
+  words <- .subtrees_titles(character(0))
+  expect_false(grepl("no family", words$subtitle))
 })
 
 
