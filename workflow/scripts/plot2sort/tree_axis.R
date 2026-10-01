@@ -1,8 +1,10 @@
 # tree_axis.R - species on rows, in one canonical order, with the host tree.
 #
 # Every RetroSeek plot that compares genomes puts them on ROWS (the house style,
-# docs/visual_style.md). Rows read naturally for long italic binomials, never need
-# rotated labels, and let the host phylogeny sit directly beside them. The same
+# docs/visual_style.md), except the slide-shaped highlights.pdf, which puts them
+# on columns: species_columns() and on_columns() at the end of this file. Rows
+# read naturally for long italic binomials, never need rotated labels, and let
+# the host phylogeny sit directly beside them. The same
 # species is therefore in the same place on every page of every stage.
 #
 # The canonical order:
@@ -183,36 +185,32 @@ species_facets <- function(panel, ctx = NULL, scales = "free_y") {
 # Species as COLUMNS under the host tree: the slide-shaped highlights pages
 # (docs/visual_style.md), the one exception to species on rows. A wide page holds
 # more hosts across than down, and a column keeps its host from top to bottom
-# through every stacked panel.
+# through every stacked panel. The results deck kit uses the same functions.
 # ---------------------------------------------------------------------------
 
 # The column order and the tree to draw above it.
-#   levels  species, left to right: the tree's tips top row first, then any
-#           species the tree lacks, alphabetically, at the right end
+#   levels  species, left to right: the tree's tips top row first (else the
+#           config order, else alphabetical), then any species outside that
+#           order, alphabetically, at the right end
 #   tree    the tree, or NULL
-#   n_tips  how many columns (the leftmost) the tree spans
 #   note    names the species the tree could not place, or NULL
-# Without a tree the columns follow `fallback_order` (the config order).
 species_columns <- function(species, tree = NULL, fallback_order = NULL) {
   species <- unique(as.character(species))
-  if (is.null(tree)) {
-    canonical <- if (is.null(fallback_order)) sort(species) else fallback_order
-    levels <- c(canonical, sort(setdiff(species, canonical)))
-    return(list(levels = levels, tree = NULL, n_tips = 0L, note = NULL))
-  }
   # Tips are stored bottom row first (y = 1); the top row becomes the left column.
-  tips <- rev(tree$tips$tip[order(tree$tips$y)])
-  off_tree <- sort(setdiff(species, tips))
-  note <- if (length(off_tree)) {
-    paste("Not on the host tree, shown at the right:", paste(off_tree, collapse = ", "))
+  canonical <- if (!is.null(tree)) rev(tree$tips$tip[order(tree$tips$y)]) else
+    if (!is.null(fallback_order)) fallback_order else sort(species)
+  extra <- sort(setdiff(species, canonical))
+  note <- if (!is.null(tree) && length(extra)) {
+    paste("Not on the host tree, shown at the right:", paste(extra, collapse = ", "))
   }
-  list(levels = c(tips, off_tree), tree = tree, n_tips = length(tips), note = note)
+  list(levels = c(canonical, extra), tree = tree, note = note)
 }
 
 # The tree turned on its side: root at the top, each tip directly above its
 # column. A tip on row y sits in column n_tips + 1 - y, the same flip that puts
 # the top row on the left.
-.tree_on_top <- function(tree, n_tips, n_columns) {
+.tree_on_top <- function(tree, n_columns) {
+  n_tips <- nrow(tree$tips)
   ggplot(tree$segments) +
     geom_segment(aes(x = n_tips + 1 - .data$y, xend = n_tips + 1 - .data$yend,
                      y = -.data$x, yend = -.data$xend),
@@ -231,14 +229,15 @@ species_columns <- function(species, tree = NULL, fallback_order = NULL) {
 }
 
 # Stack the tree (when there is one) above panels whose x axis is species. Only
-# the bottom panel prints the names; one legend is collected below.
-#   panels    ggplots with species on a discrete x axis
-#   axis      species_columns()
-#   width_in  the page width, which sizes the species labels
+# the bottom panel prints the names; one legend is collected below. The tree
+# takes the same share of every page, so it does not jump between pages.
+#   panels           ggplots with species on a discrete x axis
+#   axis             species_columns()
 #   title, subtitle  the page's, set over the whole composition
-#   legend    where the one collected legend goes ("none" when titles say it all)
-on_columns <- function(panels, axis, width_in, title = NULL, subtitle = NULL,
-                       tree_share = 0.16, legend = "bottom") {
+#   width_in         the page width, which sizes the species labels
+on_columns <- function(panels, axis, title = NULL, subtitle = NULL,
+                       width_in = .SLIDE_WIDTH) {
+  tree_share <- 0.16
   n <- length(axis$levels)
   last <- length(panels)
   panels <- lapply(seq_along(panels), function(i) {
@@ -251,14 +250,44 @@ on_columns <- function(panels, axis, width_in, title = NULL, subtitle = NULL,
   })
   heights <- rep((1 - tree_share) / last, last)
   if (!is.null(axis$tree)) {
-    panels <- c(list(.tree_on_top(axis$tree, axis$n_tips, n)), panels)
+    panels <- c(list(.tree_on_top(axis$tree, n)), panels)
     heights <- c(tree_share, heights)
   }
   page <- patchwork::wrap_plots(panels, ncol = 1, heights = heights,
                                 guides = "collect") &
-    theme(legend.position = legend)
+    theme(legend.position = "bottom")
   # One annotation for the whole page: its title (which page_titles() reads for
   # the key page), its subtitle, and the note on species the tree lacks.
   page + patchwork::plot_annotation(title = title, subtitle = subtitle,
                                     caption = axis$note, theme = theme_retroseek())
+}
+
+# A column panel of loci per host, stacked by `fill`, from pre-counted rows
+# (species, the fill column, n): counting once keeps a large study's pages
+# small. A total sits above each bar while the hosts are few enough for the
+# numbers not to collide.
+column_count_panel <- function(counts, fill, colours, labels, n_species, title = NULL) {
+  totals <- counts %>% dplyr::count(.data$species, wt = .data$n, name = "n")
+  p <- ggplot(counts, aes(x = .data$species, y = .data$n, fill = .data[[fill]])) +
+    # show.legend keeps a key for a class with no loci (a study without orphans).
+    geom_col(width = 0.72, position = position_stack(reverse = TRUE),
+             show.legend = TRUE) +
+    scale_fill_manual(values = colours, breaks = names(colours), labels = labels,
+                      limits = names(colours), drop = FALSE, name = NULL) +
+    scale_y_count(expand = expansion(mult = c(0, 0.22))) +
+    labs(y = "Loci", title = title) +
+    theme(panel.grid.major.x = element_blank())
+  if (n_species > 30L || !nrow(totals)) return(p)
+  p + geom_text(data = totals, aes(x = .data$species, y = .data$n,
+                                   label = scales::comma(.data$n)),
+                inherit.aes = FALSE, vjust = -0.4, size = 3, colour = .INK_SOFT)
+}
+
+# The column panel of a lineage with no loci: it keeps its place and says so.
+no_loci_column_panel <- function(n_columns, title = NULL) {
+  ggplot() +
+    annotate("text", x = (n_columns + 1) / 2, y = 0.5, label = "No loci",
+             colour = .INK_SOFT, size = 3.5, family = .FONT) +
+    labs(title = title, y = "Loci") +
+    theme(axis.text.y = element_blank(), panel.grid = element_blank())
 }

@@ -60,6 +60,11 @@
   orphan        = .TOL_MUTED[["teal"]],     # coding sequence without an LTR pair
   `solo-ltr`    = .TOL_MUTED[["rose"]]      # a lone LTR, provirus excised
 )
+# The two catalog tiers keyed by their readable names, for key pages.
+tier_key_colours <- function() {
+  tiers <- c("ltr-flanked", "orphan")
+  stats::setNames(unname(.TIER_COLOUR[tiers]), display_label(tiers))
+}
 .FATE_COLOUR <- c(
   intact_flank       = .TIER_COLOUR[["ltr-flanked"]],
   mono_ltr_at_orphan = .TIER_COLOUR[["orphan"]],
@@ -424,6 +429,9 @@ use_retroseek_style <- function() {
 # so a stage with many species passes a taller height for its whole document.
 .PAGE_WIDTH  <- 11.69
 .PAGE_HEIGHT <- 8.27
+# A 16:9 widescreen slide, for highlights.pdf (the one non-A4 PDF).
+.SLIDE_WIDTH  <- 13.33
+.SLIDE_HEIGHT <- 7.5
 
 page_height_for <- function(n_species, base = .PAGE_HEIGHT, per_species = 0.18,
                             threshold = 20, cap = 40) {

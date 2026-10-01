@@ -197,7 +197,7 @@ Per-locus ERV taxonomic classification - turns each valid LTR-element locus into
 | `sankey_other_label` | str | `Other` | Label prefix for the bundled-tail stratum. The actual rendered label is `<prefix> (k)` where `k` is the number of folded strata. |
 | `waffle_unit_hits` | int >= 1 | `1` | Number of ranges represented by one waffle square. Bump on huge inputs (e.g. `10` -> "1 square = 10 ranges"). |
 | `per_stratum` | number >= 0 | `0.18` | Inches added to a stage PDF's page height per genome past 20, so each genome's row keeps its room in a large study (pages are A4 landscape otherwise; see [visual_style.md](visual_style.md)). `0` keeps every page A4. |
-| `focal_lineages` | list of segment names | `[]` | The lineages `highlights.pdf` gives a page of their own, one panel each under the host tree (e.g. `Alpharetrovirus`). Empty: no focal page. A listed lineage with no loci keeps its panel, saying so. |
+| `focal_lineages` | list of segment names | `[]` | The lineages drawn on `highlights.pdf`'s focal page, one panel each under the host tree (e.g. `Alpharetrovirus`). Empty: no focal page. A listed lineage with no loci keeps its panel, saying so. |
 
 ## `execution`
 

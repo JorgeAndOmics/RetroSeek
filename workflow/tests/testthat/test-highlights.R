@@ -23,28 +23,29 @@ use_retroseek_style()
   )
 }
 .axis <- function() species_columns(c("Homo sapiens", "Mus musculus"))
+.cells <- function() count_cells(.catalog())
 
 test_that("every headline page is a titled composition", {
-  for (page in list(loci_by_tier_page(.catalog(), .axis()),
-                    lineage_mix_page(.catalog(), .axis()),
-                    genus_matrix_page(.catalog(), .axis()))) {
+  for (page in list(loci_by_tier_page(.cells(), .axis()),
+                    lineage_mix_page(.cells(), .axis()),
+                    lineage_matrix_page(.cells(), .axis()))) {
     expect_s3_class(page, "patchwork")
     expect_true(nzchar(page_titles(list(page))))
   }
 })
 
-test_that("the genus matrix has one bubble per host and lineage, sized by loci", {
-  cells <- genus_matrix_cells(.catalog())
+test_that("the lineage matrix has one bubble per host and lineage, sized by loci", {
+  cells <- lineage_matrix_cells(.cells())
   expect_equal(sum(cells$n), nrow(.catalog()))
   expect_equal(cells$n[cells$species == "Mus musculus" &
                          cells$segment == "Betaretrovirus"], 2L)
 })
 
 test_that("the focal page draws one panel per listed lineage, absent ones kept", {
-  page <- focal_lineages_page(.catalog(), .axis(),
-                              c("Alpharetrovirus", "Deltaretrovirus"))
+  page <- suppressMessages(focal_lineages_page(.cells(), .axis(),
+                                               c("Alpharetrovirus", "Deltaretrovirus")))
   expect_s3_class(page, "patchwork")
-  expect_null(focal_lineages_page(.catalog(), .axis(), character(0)))
+  expect_null(focal_lineages_page(.cells(), .axis(), character(0)))
 })
 
 test_that("the PDF has a key page and four pages, three without focal lineages", {
@@ -55,7 +56,7 @@ test_that("the PDF has a key page and four pages, three without focal lineages",
 test_that("a focal lineage with no loci says so, and the log names it", {
   # A misspelt name in plots.focal_lineages must not look like "none found".
   stderr <- .capture_stderr(
-    page <- focal_lineages_page(.catalog(), .axis(), "Deltaretrovirus")
+    page <- focal_lineages_page(.cells(), .axis(), "Deltaretrovirus")
   )
   labels <- unlist(lapply(page$patches$plots, function(p) {
     lapply(p$layers, function(l) l$aes_params$label)

@@ -181,7 +181,6 @@ test_that("columns run left to right in the tree's top-to-bottom order", {
   axis <- species_columns(c("Homo sapiens", "Mus musculus", "Desmodus rotundus"),
                           tree = .tree)
   expect_equal(axis$levels, c("Desmodus rotundus", "Homo sapiens", "Mus musculus"))
-  expect_equal(axis$n_tips, 3L)
   expect_null(axis$note)
 })
 
@@ -200,11 +199,9 @@ test_that("without a tree the columns follow the config order", {
 test_that("on_columns stacks the tree above panels sharing one species axis", {
   axis <- species_columns(c("Homo sapiens", "Mus musculus"), tree = .tree)
   page <- on_columns(list(.panel(c("Homo sapiens", "Mus musculus")),
-                          .panel(c("Homo sapiens", "Mus musculus"))), axis,
-                     width_in = 12)
+                          .panel(c("Homo sapiens", "Mus musculus"))), axis)
   expect_s3_class(page, "patchwork")
   expect_length(page$patches$plots, 2L)   # the tree and the first panel
-  bare <- on_columns(list(.panel("Homo sapiens")),
-                     species_columns("Homo sapiens"), width_in = 12)
+  bare <- on_columns(list(.panel("Homo sapiens")), species_columns("Homo sapiens"))
   expect_s3_class(bare, "patchwork")
 })

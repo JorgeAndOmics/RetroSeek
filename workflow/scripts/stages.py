@@ -226,7 +226,8 @@ STAGES: tuple[Stage, ...] = (
             "highlights_generator",
         ),
         "The homology, integration and structure PDFs, and highlights.pdf "
-        "(which needs the classified catalog, and runs --classify if missing).",
+        "(which reads the classified catalog: classification runs first if its "
+        "outputs are missing).",
         tools=("Rscript",),
     ),
 )

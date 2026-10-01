@@ -110,7 +110,8 @@ Neutrals: light grey `#DDDDDD` for "Other" and anything not resolved, mid grey
 
 ## Species on rows
 
-Every figure that compares genomes puts them on **rows**, never on the x axis.
+Every figure that compares genomes puts them on **rows**, never on the x axis,
+with one exception, `highlights.pdf` (below).
 Rows read naturally for long italic binomials, need no rotated labels, and let
 the host phylogeny sit directly beside them.
 
@@ -151,7 +152,7 @@ the host phylogeny sit directly beside them.
   | Highlights | `highlights.pdf` (16:9, hosts as columns) |
   | Placement | `placement/<genome>.<tier>.<gene>.tree.svg` |
 
-- **A4 landscape.** A page grows taller past 20 species, by `plots.per_stratum`
+- **A4 landscape** (`highlights.pdf`: 16:9). A page grows taller past 20 species, by `plots.per_stratum`
   inches per species, so rows keep their room in a large study.
 - **Every PDF opens with a key page**: what the stage shows, what its colours
   mean (taxa in italics), and the list of pages, read from the pages themselves,

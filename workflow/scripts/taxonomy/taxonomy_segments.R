@@ -284,8 +284,7 @@ segments_main <- function() {
   dir.create(dirname(args$summary_csv), showWarnings = FALSE, recursive = TRUE)
   readr::write_csv(summary_tbl, args$summary_csv)
 
-  tiers <- stats::setNames(unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]),
-                           display_label(c("ltr-flanked", "orphan")))
+  tiers <- tier_key_colours()
   per_species <- cfg$plots$per_stratum %||% 0.18
   overview_height <- page_height_for(nrow(summary_tbl), per_species = per_species)
   write_overview_pdf(catalog, seg_rank, tiers,
