@@ -472,6 +472,14 @@ test_that("add_titles leads the subtitle with the species, in italics", {
   expect_match(paste(deparse(q$labels$subtitle), collapse = ""), '"Bar."', fixed = TRUE)
 })
 
+test_that("a species-led subtitle with a line break keeps its lines", {
+  # plotmath cannot break lines, so a multi-line subtitle keeps a plain lead:
+  # several solo pages break their subtitles over two or three lines.
+  q <- add_titles(ggplot2::ggplot(), title = "Foo", subtitle = "One.\nTwo.",
+                  species = "Mus musculus")
+  expect_equal(q$labels$subtitle, "Mus musculus. One.\nTwo.")
+})
+
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
   p <- ggplot2::ggplot()
   q1 <- add_titles(p, "Foo", "Bar", subset_label = NULL)

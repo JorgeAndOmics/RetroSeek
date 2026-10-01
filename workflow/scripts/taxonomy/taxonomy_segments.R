@@ -189,17 +189,31 @@ segment_pages <- function(sub, sub_loci, panel, ctx) {
   list(pages = render_panel(panel, sub_loci, sub, ctx), note = note)
 }
 
+# " Nearest virus: X at Y% identity." per locus; "no reference virus found" when
+# the classifier found none (a blank cell), nothing at all for a catalog written
+# before ADR-024, which has no such columns.
+.nearest_phrase <- function(sub) {
+  if (!all(c("nearest_virus", "nearest_virus_identity") %in% names(sub))) {
+    return(rep("", nrow(sub)))
+  }
+  found <- !is.na(sub$nearest_virus) & nzchar(sub$nearest_virus)
+  ifelse(found,
+         sprintf(" Nearest virus: %s at %s%% identity.", sub$nearest_virus,
+                 sub$nearest_virus_identity),
+         " Nearest virus: no reference virus found.")
+}
+
 # One block per locus: the host as a heading, then where it is, what it
 # carries and how it was called. For the few loci of a sparse segment.
 segment_loci_page <- function(sub) {
-  confidence <- sprintf("%.2f", as.numeric(sub$confidence))
-  template <- paste("%s, %s:%s to %s (%s). Genes: %s. Called %s at confidence %s.",
-                    "Nearest virus: %s at %s%% identity.")
+  confidence <- as.numeric(sub$confidence)
+  confidence <- ifelse(is.na(confidence), "unknown", sprintf("%.2f", confidence))
+  template <- "%s, %s:%s to %s (%s). Genes: %s. Called %s at confidence %s.%s"
   details <- sprintf(template, display_label(sub$source), sub$seqname,
                      scales::comma(as.numeric(sub$start)),
                      scales::comma(as.numeric(sub$end)), sub$strand,
                      gsub(",", ", ", sub$genes_present), display_label(sub$taxon_call),
-                     confidence, sub$nearest_virus, sub$nearest_virus_identity)
+                     confidence, .nearest_phrase(sub))
   details <- vapply(details, function(d) paste(strwrap(d, 160), collapse = "\n"),
                     character(1), USE.NAMES = FALSE)
   y <- 1 - (seq_len(nrow(sub)) - 1) * 0.18

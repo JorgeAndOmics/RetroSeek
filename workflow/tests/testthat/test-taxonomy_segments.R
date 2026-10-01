@@ -319,3 +319,17 @@ test_that("a lineage with orphans only says its LTR-flanked pages are left out",
                        ctx = list())
   expect_match(out$note, "no LTR-flanked loci")
 })
+
+
+test_that("the loci page reads a locus with no reference hit, and an older catalog", {
+  catalog <- .loaded_catalog()
+  beta <- catalog[catalog$segment == "Betaretrovirus", ]
+  beta$nearest_virus[1] <- NA
+  beta$nearest_virus_identity[1] <- NA
+  labels <- unlist(lapply(segment_loci_page(beta)$layers,
+                          function(l) l$aes_params$label))
+  expect_false(any(grepl("NA", labels)))
+  expect_true(any(grepl("no reference virus", labels)))
+  older <- beta[, setdiff(names(beta), c("nearest_virus", "nearest_virus_identity"))]
+  expect_s3_class(segment_loci_page(older), "ggplot")
+})
