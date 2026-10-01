@@ -628,6 +628,7 @@ confidence_density_plot <- function(combined, confidence_min = 0.5) {
     facet_wrap(~ .data$method, scales = "free_y", ncol = 1, labeller = .word_strips) +
     # Zoom rather than limit the scale: scale limits would drop the edge bins.
     coord_cartesian(xlim = c(0, 1)) +
+    scale_y_count() +
     labs(x = "Call confidence", y = "Loci")
   add_titles(p, "Confidence calibration",
              sprintf(paste("Call confidence by method. Dashed line: the %.2f threshold",

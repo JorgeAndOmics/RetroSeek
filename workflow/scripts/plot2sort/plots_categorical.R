@@ -100,7 +100,9 @@ balloon_virus_species_plot <- function(data, subset_label = NULL, ctx = NULL) {
 
   p <- ggplot(d, aes(x = abbreviation, y = species, size = count, colour = label)) +
     geom_point(alpha = 0.85) +
-    scale_size_area(max_size = 11, labels = scales::label_comma(), name = "Ranges") +
+    # Four sizes at most: five bubbles ran off the right edge of the page.
+    scale_size_area(max_size = 11, labels = scales::label_comma(), name = "Ranges",
+                    breaks = scales::breaks_extended(n = 4)) +
     scale_colour_manual(values = taxon_colours(d$label), labels = taxon_labels,
                         breaks = taxon_levels(d$label, d$count), name = NULL) +
     labs(x = NULL, y = NULL) +
