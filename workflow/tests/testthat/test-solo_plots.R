@@ -68,3 +68,50 @@ test_that("empty inputs give a placeholder page rather than an error", {
   expect_s3_class(class_composition_plot(data.table(species = character(),
                                                     fate = character())), "ggplot")
 })
+
+
+# ---- solos by the repeat class of their bait family (backlog 16) ----
+
+.ratios <- data.table(
+  species = c(rep("Homo sapiens", 4), "Mus musculus"),
+  genome = c(rep("Homo_sapiens", 4), "Mus_musculus"),
+  ltr_family = c("Hsap_F001", "Hsap_F002", "Hsap_F003", "Hsap_F004", "Mmus_F001"),
+  ltr_family_class = c("LTR/ERV1", "LINE/L1", "SINE/Alu", "", "LTR/ERVK"),
+  intact_elements = c(10L, 2L, 3L, 1L, 50L),
+  solos = c(100L, 900L, 500L, 7L, 200L)
+)
+
+test_that("Dfam classes fold into a few repeat groups, blank as no label", {
+  # fread reads an all-empty column (Dfam off) as logical NA.
+  expect_equal(repeat_group(c(NA, NA)), c("No Dfam label", "No Dfam label"))
+  expect_equal(
+    repeat_group(c("LTR/ERVK", "LTR", "LINE/L1", "SINE/Alu", "DNA/hAT",
+                   "RC/Helitron", "")),
+    c("LTR", "LTR", "LINE", "SINE", "Other repeat", "Other repeat", "No Dfam label")
+  )
+})
+
+test_that("the class breakdown sums families, intact elements and solos per group", {
+  out <- solos_by_class(.ratios)
+  homo_ltr <- out[species == "Homo sapiens" & repeat_group == "LTR"]
+  expect_equal(homo_ltr$families, 1L)
+  expect_equal(homo_ltr$solos, 100L)
+  expect_equal(homo_ltr$solos_per_intact, 10)
+  expect_equal(out[species == "Homo sapiens", sum(solos)], 1507L)
+  # Every group a genome has gets a row, the unlabelled family included.
+  expect_setequal(out[species == "Homo sapiens", repeat_group],
+                  c("LTR", "LINE", "SINE", "No Dfam label"))
+})
+
+test_that("the by-class page keeps the species order and never uses fate colours", {
+  p <- solos_by_class_plot(solos_by_class(.ratios), tree = NULL, order = .order)
+  expect_equal(p$scales$get_scales("x")$limits, rev(.order))
+  fills <- unique(ggplot_build(p)$data[[1]]$fill)
+  expect_false(any(fills %in% .FATE_COLOUR))
+})
+
+test_that("the by-class page says so when no family has a Dfam label", {
+  unlabelled <- copy(.ratios)[, ltr_family_class := ""]
+  p <- solos_by_class_plot(solos_by_class(unlabelled), tree = NULL, order = .order)
+  expect_match(p$labels$subtitle, "No family has a Dfam label")
+})

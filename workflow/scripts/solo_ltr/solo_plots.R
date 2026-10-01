@@ -38,6 +38,9 @@
 #   all_species.solo_ltr.pdf, species on rows beside the host tree:
 #     1. solo_intact_ratio  - the headline biological number, per genome.
 #     2. class_composition  - the three fates per genome.
+#     3. solos_by_class     - solo candidates by the Dfam repeat class of their bait
+#                             family (LTR, LINE, SINE), with the LTR-class ratio.
+#                             Also written as solo_ltr_by_class.csv.
 #
 # Pages 8 to 12 appear only when the tree stage ran (solo_ltr.tree.enable).
 #
@@ -419,6 +422,79 @@ class_composition_plot <- function(all_candidates, tree = NULL, order = NULL) {
 }
 
 
+# Dfam classes folded into the few groups a reader needs to judge the solo
+# counts (backlog 16): bait families whose arms are retroviral LTRs, and those
+# whose "LTRs" are really LINE or SINE copies.
+.REPEAT_GROUPS <- c("LTR", "LINE", "SINE", "Other repeat", "No Dfam label")
+
+#' A Dfam class ("LTR/ERVK", "LINE/L1") as its repeat group; blank or NA (Dfam
+#' off, or no curated match) as "No Dfam label".
+repeat_group <- function(dfam_class) {
+  cls <- ifelse(is.na(dfam_class), "", as.character(dfam_class))
+  top <- sub("/.*", "", cls)
+  ifelse(!nzchar(cls), "No Dfam label",
+         ifelse(top %in% c("LTR", "LINE", "SINE"), top, "Other repeat"))
+}
+
+# The groups' colours: never a fate colour, so the page cannot be read as fates.
+.repeat_colours <- function() {
+  c(category_colours(c("LTR", "LINE", "SINE")),
+    `Other repeat` = .GREY_MID, `No Dfam label` = .GREY_OTHER)
+}
+
+
+#' Families, intact elements and solos per genome and repeat group.
+#'
+#' `ratios` holds every genome's `{genome}.ltr_family_ratio.csv` rows with
+#' `genome` and `species` added. One row per genome and group it has.
+solos_by_class <- function(ratios) {
+  d <- copy(ratios)
+  d[, repeat_group := factor(repeat_group(ltr_family_class), levels = .REPEAT_GROUPS)]
+  out <- d[, .(families = .N, intact_elements = sum(intact_elements),
+               solos = sum(solos)),
+           by = .(genome, species, repeat_group)]
+  out[, solos_per_intact := round(solos / intact_elements, 2)]
+  setorder(out, genome, repeat_group)
+  out[, repeat_group := as.character(repeat_group)][]
+}
+
+
+#' Each genome's solo candidates split by the repeat class of their bait family.
+#'
+#' Species on rows in the canonical order. The text beside each bar gives the
+#' LTR-class solos and their ratio to intact elements: the number the solo/intact
+#' page would show if every bait arm were a retroviral LTR.
+solos_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
+  if (!nrow(by_class)) return(empty_plot("No LTR family tables"))
+  d <- copy(by_class)
+  d[, repeat_group := factor(repeat_group, levels = .REPEAT_GROUPS)]
+  ltr <- d[repeat_group == "LTR"]
+  ltr[, label := sprintf("LTR class: %s solos, %.1f per intact element",
+                         scales::comma(solos), solos_per_intact)]
+  p <- ggplot(d, aes(x = .data$species, y = .data$solos)) +
+    geom_col(aes(fill = .data$repeat_group), position = "fill", width = 0.66) +
+    geom_text(data = ltr, aes(x = .data$species, y = 1, label = .data$label),
+              hjust = -0.04, size = 3.1, family = .FONT, colour = .INK_SOFT) +
+    scale_fill_manual(values = .repeat_colours(),
+                      guide = guide_legend(reverse = TRUE)) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.75)),
+                       breaks = seq(0, 1, 0.25)) +
+    labs(x = NULL, y = "Share of solo candidates", fill = NULL)
+  labelled <- any(d$repeat_group != "No Dfam label")
+  subtitle <- if (labelled) {
+    paste("Solo candidates by the Dfam class of the LTR family whose arm caught them.",
+          "\nThe LTR share counts copies of retroviral LTR families; the LINE and SINE",
+          "shares count copies of other repeats that reached the bait as LTR arms.")
+  } else {
+    paste("No family has a Dfam label: switch on solo_ltr.families.dfam to split the",
+          "solo candidates by repeat class.")
+  }
+  p <- add_titles(p, title = "Solo candidates by repeat class of their bait",
+                  subtitle = subtitle)
+  species_rows(p, unique(d$species), tree = tree, fallback_order = order)
+}
+
+
 # Family kinds as tree_families.py writes them, with reader-facing labels.
 .KIND_LABELS <- c(no_intact = "No intact member", with_intact = "Has an intact member")
 
@@ -554,6 +630,15 @@ family_subtrees_plot <- function(tips, segs, families, species) {
 }
 
 
+# One genome's family ratio table with its genome and species, ready to stack.
+# A table from before the class column (or with Dfam off) reads as unlabelled.
+read_family_ratios <- function(path, genome, species_map) {
+  d <- fread(path)
+  if (!"ltr_family_class" %in% names(d)) d[, ltr_family_class := NA_character_]
+  d[, `:=`(genome = genome, species = display_species(genome, species_map))][]
+}
+
+
 # Read an optional table: NULL when the file is absent (tree stage disabled).
 read_optional <- function(path) {
   if (file.exists(path)) fread(path) else NULL
@@ -601,6 +686,8 @@ main <- function() {
                       help = "Render this genome's PDF; omit for the summary.")
   parser$add_argument("--report", default = NULL,
                       help = "Summary mode only: where to write the report CSV.")
+  parser$add_argument("--by_class", default = NULL,
+                      help = "Summary mode only: where to write the per-class CSV.")
   parser$add_argument(
     "--species_tree_dir", default = "",
     help = "Summary mode: the host tree coordinates (species_tree_layout.py)."
@@ -675,6 +762,7 @@ draw <- function(args) {
   genomes <- sub("\\.funnel\\.csv$", "", basename(funnels))
   report_rows <- list()
   all_candidates <- list()
+  ratios <- list()
   for (genome in genomes) {
     funnel <- fread(table(genome, ".funnel.csv"))
     solos <- funnel[stage == "solo", count][1]
@@ -691,13 +779,17 @@ draw <- function(args) {
     candidates <- fread(table(genome, ".candidates.csv"), select = "fate")
     candidates[, species := display_species(genome, species_map)]
     all_candidates[[genome]] <- candidates
+    ratios[[genome]] <- read_family_ratios(table(genome, ".ltr_family_ratio.csv"),
+                                           genome, species_map)
   }
   report <- rbindlist(report_rows, fill = TRUE)
+  by_class <- solos_by_class(rbindlist(ratios, fill = TRUE))
   tree <- read_species_tree(args$species_tree_dir)
   order <- display_species(names(species_map), species_map)
   pages <- list(solo_intact_ratio_plot(report, tree, order),
                 class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree,
-                                       order))
+                                       order),
+                solos_by_class_plot(by_class, tree, order))
   key <- key_page(
     "Solo LTRs across genomes",
     paste("The solo-LTR stage for every genome side by side, genomes on rows in the",
@@ -708,6 +800,7 @@ draw <- function(args) {
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(nrow(report)))
   fwrite(report, args$report)
+  if (!is.null(args$by_class)) fwrite(by_class, args$by_class)
   log_ok("wrote %s and %s, %d genomes", basename(args$out_pdf), basename(args$report),
          nrow(report))
 }

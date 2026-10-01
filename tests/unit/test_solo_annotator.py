@@ -28,12 +28,14 @@ from solo_annotator import (
     _warn_on_no_solos,
     annotate_solos,
     assign_families,
+    assign_family_classes,
     compute_solo_intact_ratio,
     family_ratio_rows,
     parse_library_locus,
     parse_loci_csv,
     parse_solo_list,
     read_arm_families,
+    read_family_classes,
     read_seed_arms,
     write_solo_ltr_gff3,
     write_solo_table,
@@ -584,3 +586,58 @@ def test_a_family_with_no_solo_still_has_a_row(
 ) -> None:
     rows = family_ratio_rows([], arm_families)
     assert [r["solos"] for r in rows] == [0, 0]
+
+
+# ---- Dfam class per solo (backlog 16: report per class) ----
+
+_DFAM_LABELS = (
+    "genome,ltr_family,dfam_name,dfam_accession,dfam_class,dfam_evalue,dfam_score,"
+    "dfam_coverage,dfam_release\n"
+    "Toyus_toyus,Toyu_F001,IAPLTR1_Mm,DF1,LTR/ERVK,1e-80,250.0,0.97,4.0\n"
+    "Toyus_toyus,Toyu_F002,L1MdA_I,DF2,LINE/L1,1e-90,300.0,0.99,4.0\n"
+    "Other_genome,Toyu_F001,AluY,DF3,SINE/Alu,1e-50,150.0,0.95,4.0\n"
+)
+
+
+@pytest.fixture
+def family_classes(tmp_path: Path) -> dict[str, str]:
+    path = tmp_path / "ltr_family_dfam.csv"
+    path.write_text(_DFAM_LABELS)
+    return read_family_classes(path, "Toyus_toyus")
+
+
+def test_family_classes_are_read_for_one_genome_only(
+    family_classes: dict[str, str],
+) -> None:
+    # Another genome can share a family code (Toyu_F001 here): it must not leak in.
+    assert family_classes == {"Toyu_F001": "LTR/ERVK", "Toyu_F002": "LINE/L1"}
+
+
+def test_each_solo_gets_its_familys_class_and_blank_without_one(
+    family_classes: dict[str, str],
+) -> None:
+    solos = [_solo("chr1", 1, 9), _solo("chr1", 11, 19), _solo("chr1", 21, 29)]
+    for solo, family in zip(
+        solos, ["Toyu_F001", "Toyu_F002", "Toyu_F009"], strict=True
+    ):
+        solo.ltr_family = family
+    assign_family_classes(solos, family_classes)
+    assert [s.ltr_family_class for s in solos] == ["LTR/ERVK", "LINE/L1", ""]
+
+
+def test_the_family_ratio_carries_each_familys_class(
+    arm_families: dict[str, tuple[str, str, str]],
+    family_classes: dict[str, str],
+) -> None:
+    rows = family_ratio_rows([], arm_families, family_classes)
+    assert [(r["ltr_family"], r["ltr_family_class"]) for r in rows] == [
+        ("Toyu_F001", "LTR/ERVK"),
+        ("Toyu_F002", "LINE/L1"),
+    ]
+
+
+def test_without_dfam_labels_the_class_is_blank(
+    arm_families: dict[str, tuple[str, str, str]],
+) -> None:
+    rows = family_ratio_rows([], arm_families)
+    assert [r["ltr_family_class"] for r in rows] == ["", ""]
