@@ -105,6 +105,38 @@ class TestConfigDirResolution:
         assert Path(path_dict["LOG_DIR"]).is_relative_to(tmp_path)
 
 
+# The plot folders and their names: one per stage that writes a file per genome,
+# segment or placement tree.
+PLOT_FAN_OUT = {
+    "SOLO_LTR_PLOT_DIR": "solo_ltr",
+    "HOTSPOT_PLOT_DIR": "hotspots",
+    "SEGMENTS_PLOT_DIR": "segments",
+    "PLACEMENT_PLOT_DIR": "placement",
+}
+
+
+class TestPlotLayoutIsOneLevel:
+    """``results/plots`` is one level deep (docs/visual_style.md, "Output").
+
+    A stage that writes one PDF writes it straight into ``PLOT_DIR``; only the
+    stages that fan out (one file per genome, per segment, per placement tree)
+    get a folder, and that folder sits directly under ``PLOT_DIR``.
+    """
+
+    def test_only_fan_out_stages_have_a_folder(self, tmp_path: Path) -> None:
+        path_dict = _path_dict_with_data_root(tmp_path)
+        plot_keys = {k for k in path_dict if k.endswith("_PLOT_DIR")} - {"PLOT_DIR"}
+
+        assert plot_keys == set(PLOT_FAN_OUT)
+
+    def test_each_folder_sits_directly_under_plot_dir(self, tmp_path: Path) -> None:
+        path_dict = _path_dict_with_data_root(tmp_path)
+        plot_dir = Path(path_dict["PLOT_DIR"])
+
+        for key, name in PLOT_FAN_OUT.items():
+            assert Path(path_dict[key]) == plot_dir / name, key
+
+
 class TestDownloadLogIsAFile:
     """``DOWNLOAD_LOG`` is the one FILE in ``PATH_DICT``.
 

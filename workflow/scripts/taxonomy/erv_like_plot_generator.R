@@ -12,7 +12,7 @@
 # canonical provirus object (the taxon loci table), viewed two ways - the
 # taxonomic panel (taxonomy_plot_generator.R) and this structural panel.
 #
-# Output is ONE PDF (results/plots/classification/structure/structure.pdf): a key
+# Output is ONE PDF (results/plots/structure.pdf): a key
 # page, then one page per structure_panel_registry() entry: structural class,
 # completeness, gene count, gene combinations, gene order, element length, and
 # the lineage by gene heatmap. Pages follow the house style (plot2sort/style.R,

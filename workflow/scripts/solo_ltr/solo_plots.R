@@ -20,7 +20,7 @@
 # Both open with a key page (what the stage does, the fate colours, the page list)
 # and follow the house style in plot2sort/style.R (docs/visual_style.md).
 #
-#   {genome}.solo_ltr.pdf (results/plots/classification/solo_ltr/), one page each:
+#   {genome}.solo_ltr.pdf (results/plots/solo_ltr/), one page each:
 #     1. funnel             - the subtraction as a waterfall: raw hits to solos.
 #     2. identity_by_class  - identity to bait per class, with the cut drawn.
 #     3. length_scatter     - candidate length vs identity, with the cut drawn.
@@ -35,7 +35,7 @@
 #    11. solo_tree          - the tree pruned to its solos, coloured by family.
 #    12. family_subtrees    - the largest families of each kind, side by side.
 #
-#   all_species.solo_ltr.pdf, species on rows beside the host tree:
+#   results/plots/solo_ltr.pdf, all genomes, species on rows beside the host tree:
 #     1. solo_intact_ratio  - the headline biological number, per genome.
 #     2. solos_by_class     - solo candidates by the Dfam repeat class of their bait
 #                             family (ERV LTR, other LTR, LINE, SINE), with the ERV

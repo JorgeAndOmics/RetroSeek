@@ -23,7 +23,7 @@ import stages
 
 RULE_DEF_RE = re.compile(r"^rule\s+(\w+)\s*:", re.MULTILINE)
 WILDCARD_BLOCK_RE = re.compile(
-    r"wildcard_constraints\s*:\s*\n\s*genome\s*=\s*(.+?)$",
+    r"wildcard_constraints\s*:\s*\n\s*genome\s*=\s*(.+)$",
     re.MULTILINE,
 )
 
@@ -331,7 +331,6 @@ def test_erv_like_plot_generator_reads_genus_loci(project_root: Path) -> None:
     rules = _all_rules(project_root)
     assert "erv_like_plot_generator_setup" in rules
     assert "erv_like_plot_generator" in rules
-    assert "STRUCTURE_PLOT_DIR" in text  # panel renamed erv-like -> structure
     # Its input is now the genus-founded loci table, not ranges_analysis tables.
     assert "TAXONOMY_TABLES_PARQUET_DIR" in text
 
@@ -352,16 +351,23 @@ def test_stage_pdfs_declared(project_root: Path) -> None:
     stale and a half-finished run looks complete.
     """
     text = _read_snakefile(project_root)
+    # One PDF per stage sits directly in results/plots; the study-wide summaries
+    # of the fan-out stages sit beside them.
     for pdf in (
-        "'homology.pdf'",
-        "'integration.pdf'",
-        "'taxonomy.pdf'",
-        "'structure.pdf'",
-        "'loss.pdf'",
-        "'all_species.solo_ltr.pdf'",
-        "'{genome}.hotspots.pdf'",
+        "homology.pdf",
+        "integration.pdf",
+        "taxonomy.pdf",
+        "structure.pdf",
+        "loss.pdf",
+        "solo_ltr.pdf",
+        "segments.pdf",
     ):
-        assert pdf in text, f"stage PDF {pdf} not declared in the Snakefile"
+        declared = f"os.path.join(defaults.PATH_DICT['PLOT_DIR'], '{pdf}')"
+        assert declared in text, f"stage PDF {pdf} not declared in results/plots"
+    assert (
+        "os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}.hotspots.pdf')"
+        in text
+    )
 
 
 def test_provirus_tables_declared(project_root: Path) -> None:

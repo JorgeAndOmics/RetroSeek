@@ -70,7 +70,7 @@ test_that("the detector writes every output and calls each lineage's cluster", {
     c(shQuote(.detector), "--fasta", shQuote(fasta), "--hits", shQuote(catalog),
       "--config", shQuote(config), "--parquet_dir", shQuote(out("pq")),
       "--csv_dir", shQuote(out("csv")), "--track_output_dir", shQuote(out("tracks")),
-      "--pdf_output_dir", shQuote(out("pdf")), "--log", shQuote(out("job.log"))),
+      "--out_pdf", shQuote(out("pdf/toy.pdf")), "--log", shQuote(out("job.log"))),
     stdout = TRUE, stderr = TRUE
   ))  # a non-zero exit is a warning here; the status is checked below
   status <- attr(console, "status")  # set only on a non-zero exit
@@ -80,7 +80,7 @@ test_that("the detector writes every output and calls each lineage's cluster", {
   for (f in c("csv/Toyus_toyus.csv", "csv/Toyus_toyus.hotspots.csv",
               "pq/Toyus_toyus.parquet", "pq/Toyus_toyus.manifest.yaml",
               "tracks/Toyus_toyus.gff3", "tracks/Toyus_toyus.bed",
-              "pdf/Toyus_toyus.hotspots.pdf")) {
+              "pdf/toy.pdf")) {  # the PDF goes exactly where --out_pdf says
     expect_true(file.exists(out(f)), info = f)
   }
   windows <- utils::read.csv(out("csv/Toyus_toyus.csv"))

@@ -7,7 +7,7 @@
 # Because every plot is computed from those same loci tables, the panel is
 # concordant with the tables by construction.
 #
-# Output is ONE PDF (results/plots/classification/taxonomy/taxonomy.pdf): a key
+# Output is ONE PDF (results/plots/taxonomy.pdf): a key
 # page, then one page per panel_registry() entry, in registry order: lineage
 # composition per host and per tier, call depth and method, ERV class, tier
 # yield, structure and domain support, confidence in four views, the two
