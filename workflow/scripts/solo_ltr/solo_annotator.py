@@ -144,6 +144,7 @@ class SoloLTR:
     source_loci: list[str] = field(default_factory=list)
     label_source: str = "none"  # "library" | "nearest_locus" | "none"
     ltr_family: str = ""  # the seed arm's LTR family (ADR-023)
+    ltr_family_class: str = ""  # that family's Dfam class, e.g. LTR/ERVK (backlog 16)
 
 
 # ---------------------------------------------------------------------
@@ -456,6 +457,7 @@ def solo_table(solos: list[SoloLTR], species: str) -> pd.DataFrame:
                 "source_loci": ",".join(solo.source_loci),
                 "label_source": solo.label_source,
                 "ltr_family": solo.ltr_family,
+                "ltr_family_class": solo.ltr_family_class,
                 "id": solo_id(index),
             }
             for index, solo in enumerate(solos)
@@ -485,6 +487,7 @@ def solo_table(solos: list[SoloLTR], species: str) -> pd.DataFrame:
             "source_loci",
             "label_source",
             "ltr_family",
+            "ltr_family_class",
             "id",
         ],
     )
@@ -508,7 +511,13 @@ def _write_frame(frame: pd.DataFrame, csv_path: Path, parquet_path: Path) -> Non
 # ---------------------------------------------------------------------
 # LTR families (ADR-023)
 # ---------------------------------------------------------------------
-FAMILY_RATIO_COLUMNS = ["ltr_family", "intact_elements", "solos", "solos_per_intact"]
+FAMILY_RATIO_COLUMNS = [
+    "ltr_family",
+    "ltr_family_class",
+    "intact_elements",
+    "solos",
+    "solos_per_intact",
+]
 
 
 def read_seed_arms(candidates_csv: Path) -> dict[tuple[str, int, int], str]:
@@ -560,14 +569,111 @@ def assign_families(
         )
 
 
-def family_ratio_rows(
-    solos: list[SoloLTR], arm_families: dict[str, tuple[str, str, str]]
+def read_family_classes(dfam_labels: Path, genome: str) -> dict[str, str]:
+    """One genome's LTR family -> Dfam class (`ltr_family_dfam.csv`, ADR-023).
+
+    Only this genome's rows: two genomes can share a family code. Families without
+    a curated match are left out, so they read as blank; a match on a model that
+    carries no class reads "Unknown", so it is not mistaken for no match.
+    """
+    classes = {}
+    with dfam_labels.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            if row["genome"] == genome and row["dfam_name"]:
+                classes[row["ltr_family"]] = row["dfam_class"] or "Unknown"
+    return classes
+
+
+def assign_family_classes(solos: list[SoloLTR], classes: dict[str, str]) -> None:
+    """Give every solo its family's Dfam class; blank when the family has none.
+
+    The class is what tells a retroviral LTR family from bait arms that are
+    really LINE or SINE copies (backlog 16), so solo counts can be read per class.
+    """
+    for solo in solos:
+        solo.ltr_family_class = classes.get(solo.ltr_family, "")
+
+
+# Dfam classes folded into the few groups a reader needs to judge the solo counts
+# (backlog 16). solo_plots.R draws them in this order: keep its .REPEAT_GROUPS in
+# step with this list.
+REPEAT_GROUPS = [
+    "ERV LTR",
+    "Non-ERV LTR",
+    "LINE",
+    "SINE",
+    "Other repeat",
+    "No Dfam label",
+]
+_ERV_CLASSES = {"LTR/ERV1", "LTR/ERVK", "LTR/ERVL"}  # LTR/ERVL-MaLR is not an ERV
+CLASS_COLUMNS = [
+    "repeat_group",
+    "families",
+    "bait_elements",
+    "solos",
+    "solos_per_bait_element",
+]
+
+
+def repeat_group(dfam_class: str) -> str:
+    """A Dfam class ("LTR/ERVK", "LINE/L1") as its repeat group.
+
+    ERV LTR is ERV1, ERVK and ERVL; other LTR elements (MaLR, Gypsy, Copia) are
+    LTRs but not retroviruses. A blank class is "No Dfam label".
+    """
+    if not dfam_class:
+        return "No Dfam label"
+    if dfam_class in _ERV_CLASSES:
+        return "ERV LTR"
+    top = dfam_class.split("/", 1)[0]
+    if top == "LTR":
+        return "Non-ERV LTR"
+    return top if top in ("LINE", "SINE") else "Other repeat"
+
+
+def class_rows(
+    solos: list[SoloLTR],
+    arm_families: dict[str, tuple[str, str, str]],
+    classes: dict[str, str],
 ) -> list[dict[str, object]]:
-    """Per LTR family: its intact elements, its solos, and solos per intact element.
+    """Per repeat group: families, bait elements, solos and solos per bait element.
+
+    A bait element counts once per group even when its two arms fall in two
+    families of that group, which is why this is counted here, where each arm's
+    element is known, rather than summed from the per-family table.
+    """
+    families: dict[str, set[str]] = defaultdict(set)
+    elements: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for family, seqname, element in arm_families.values():
+        group = repeat_group(classes.get(family, ""))
+        families[group].add(family)
+        elements[group].add((seqname, element))
+    solos_in = Counter(repeat_group(solo.ltr_family_class) for solo in solos)
+    return [
+        {
+            "repeat_group": group,
+            "families": len(families[group]),
+            "bait_elements": len(elements[group]),
+            "solos": solos_in[group],
+            "solos_per_bait_element": round(solos_in[group] / len(elements[group]), 4),
+        }
+        for group in REPEAT_GROUPS
+        if group in elements
+    ]
+
+
+def family_ratio_rows(
+    solos: list[SoloLTR],
+    arm_families: dict[str, tuple[str, str, str]],
+    classes: dict[str, str] | None = None,
+) -> list[dict[str, object]]:
+    """Per LTR family: its class, intact elements, solos, and solos per intact element.
 
     The intact elements are the ones that supplied bait arms, which is every
-    ERV-bearing element with an arm long enough to be bait.
+    ERV-bearing element with an arm long enough to be bait. The class is blank
+    without Dfam labels.
     """
+    classes = classes or {}
     elements: dict[str, set[tuple[str, str]]] = {}
     for family, seqname, element in arm_families.values():
         elements.setdefault(family, set()).add((seqname, element))
@@ -575,6 +681,7 @@ def family_ratio_rows(
     return [
         {
             "ltr_family": family,
+            "ltr_family_class": classes.get(family, ""),
             "intact_elements": len(members),
             "solos": solos_in[family],
             "solos_per_intact": round(solos_in[family] / len(members), 4),
@@ -623,6 +730,17 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="ltr_families.py output: each bait arm's LTR family.",
     )
     parser.add_argument("--output-family-ratio", type=Path, required=True)
+    parser.add_argument(
+        "--output-class-ratio",
+        type=Path,
+        required=True,
+        help="Per repeat group of the bait family's Dfam class (solo_by_class).",
+    )
+    parser.add_argument(
+        "--dfam-labels",
+        type=Path,
+        help="ltr_family_dfam.py output: each family's Dfam class (optional).",
+    )
     parser.add_argument("--group-by", choices=VALID_GROUP_BY, default="segment")
     parser.add_argument("--nearest-locus-max-distance", type=int, default=10000)
     parser.add_argument("--log", type=Path, help="job log (the Snakemake log: path)")
@@ -650,6 +768,10 @@ def main(argv: list[str] | None = None) -> None:
     annotate_solos(solos, loci, max_distance=args.nearest_locus_max_distance)
     arm_families = read_arm_families(args.families_csv)
     assign_families(solos, read_seed_arms(args.candidates_csv), arm_families)
+    classes = (
+        read_family_classes(args.dfam_labels, args.genome) if args.dfam_labels else {}
+    )
+    assign_family_classes(solos, classes)
 
     _warn_on_no_solos(solos, loci)
 
@@ -661,12 +783,21 @@ def main(argv: list[str] | None = None) -> None:
         solos, loci, species=args.species, group_by=args.group_by
     )
     _write_frame(ratio, args.output_ratio_csv, args.output_ratio_parquet)
-    family_ratio = pd.DataFrame(
-        family_ratio_rows(solos, arm_families), columns=FAMILY_RATIO_COLUMNS
+    _write_csv(
+        family_ratio_rows(solos, arm_families, classes),
+        FAMILY_RATIO_COLUMNS,
+        args.output_family_ratio,
     )
-    args.output_family_ratio.parent.mkdir(parents=True, exist_ok=True)
-    family_ratio.to_csv(args.output_family_ratio, index=False)
+    _write_csv(
+        class_rows(solos, arm_families, classes), CLASS_COLUMNS, args.output_class_ratio
+    )
     _log_summary(solos)
+
+
+def _write_csv(rows: list[dict[str, object]], columns: list[str], path: Path) -> None:
+    """One family-level table as CSV, with its header even when empty."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=columns).to_csv(path, index=False)
 
 
 def _log_summary(solos: list[SoloLTR]) -> None:

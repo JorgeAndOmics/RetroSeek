@@ -37,7 +37,10 @@
 #
 #   all_species.solo_ltr.pdf, species on rows beside the host tree:
 #     1. solo_intact_ratio  - the headline biological number, per genome.
-#     2. class_composition  - the three fates per genome.
+#     2. solos_by_class     - solo candidates by the Dfam repeat class of their bait
+#                             family (ERV LTR, other LTR, LINE, SINE), with the ERV
+#                             LTR solos per bait element. Also solo_ltr_by_class.csv.
+#     3. class_composition  - the three fates per genome.
 #
 # Pages 8 to 12 appear only when the tree stage ran (solo_ltr.tree.enable).
 #
@@ -109,9 +112,10 @@ funnel_plot <- function(funnel, species) {
   add_titles(
     p,
     title = "From raw LTR matches to solo LTRs",
-    subtitle = paste("Every LTR began as one of a pair flanking a provirus, so",
-                     "removing the pairable ones and those beside surviving coding",
-                     "sequence leaves the solos. Log scale."),
+    subtitle = paste("Genomic matches to the bait arms, minus the copies that flank",
+                     "an intact element and those beside surviving coding sequence.",
+                     "\nWhat remains are solo candidates; their bait class is on the",
+                     "all-species page. Log scale."),
     subset_label = species
   ) + labs(x = NULL, y = "Count (log scale)")
 }
@@ -130,6 +134,7 @@ identity_by_class_plot <- function(candidates, species, min_identity) {
   p <- ggplot(d, aes(x = .data$best_identity, fill = .data$fate)) +
     geom_histogram(bins = 40, alpha = 0.75, position = "identity") +
     geom_vline(xintercept = min_identity, linetype = "dashed", colour = .INK_SOFT) +
+    scale_y_continuous(labels = scales::comma) +
     scale_fill_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek() +
     theme(legend.position = "bottom")
@@ -156,7 +161,7 @@ length_scatter_plot <- function(candidates, species, min_hit_length) {
   p <- ggplot(d, aes(x = .data$length, y = .data$best_identity, colour = .data$fate)) +
     geom_point(alpha = 0.35, size = 0.8) +
     geom_vline(xintercept = min_hit_length, linetype = "dashed", colour = .INK_SOFT) +
-    scale_x_log10() +
+    scale_x_log10(labels = scales::comma) +
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     # Legend keys at full size and opacity; the points themselves are faint.
     guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1))) +
@@ -186,6 +191,7 @@ orphan_distance_plot <- function(candidates, species, orphan_pad) {
     geom_histogram(bins = 50, fill = .TIER_COLOUR[["orphan"]]) +
     geom_vline(xintercept = orphan_pad, linetype = "dashed", colour = .INK_SOFT) +
     scale_x_log10(labels = scales::comma) +
+    scale_y_continuous(labels = scales::comma) +
     theme_retroseek()
   add_titles(
     p,
@@ -214,6 +220,7 @@ chromosome_density_plot <- function(candidates, species, top_n = 25) {
 
   p <- ggplot(d, aes(x = .data$seqname, y = .data$N, fill = .data$fate)) +
     geom_col(position = "stack") +
+    scale_y_continuous(labels = scales::comma) +
     scale_fill_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek() +
     theme(axis.text.x = element_text(angle = 60, hjust = 1),
@@ -229,9 +236,9 @@ chromosome_density_plot <- function(candidates, species, top_n = 25) {
 
 #' Solos per seeding element, rank-ordered.
 #'
-#' Shows whether recombination is concentrated in a few prolific families or
-#' spread evenly. A steep curve means a handful of families account for most of
-#' the solo burden.
+#' Shows whether a few seeding elements account for most solo candidates. A
+#' steep curve is not evidence of recombination by itself: an arm that is a LINE
+#' or SINE copy catches thousands of genomic copies (backlog 16).
 family_abundance_plot <- function(candidates, species) {
   d <- candidates[fate == "solo", .N, by = parent][order(-N)]
   if (!nrow(d)) return(empty_plot("No solos"))
@@ -239,13 +246,15 @@ family_abundance_plot <- function(candidates, species) {
 
   p <- ggplot(d, aes(x = .data$rank, y = .data$N)) +
     geom_col(fill = .FATE_COLOUR[["solo"]], width = 1) +
+    scale_y_continuous(labels = scales::comma) +
     theme_retroseek()
   add_titles(
     p,
     title = "Solo LTRs per seeding element",
-    subtitle = paste("Elements ranked by how many solos their LTR caught.",
-                     "A steep curve means recombination is concentrated in a few",
-                     "families."),
+    subtitle = paste("Elements ranked by how many solo candidates their arm caught.",
+                     "A steep curve means a few seeding elements account for most",
+                     "\nof the candidates; the all-species page shows how many of",
+                     "those arms are LINE or SINE copies rather than LTRs."),
     subset_label = species
   ) + labs(x = "Seeding element, ranked", y = "Solo LTRs")
 }
@@ -264,12 +273,13 @@ divergence_age_plot <- function(candidates, species) {
 
   p <- ggplot(d, aes(x = .data$age_my)) +
     geom_histogram(bins = 40, fill = .FATE_COLOUR[["solo"]]) +
+    scale_y_continuous(labels = scales::comma) +
     theme_retroseek()
   add_titles(
     p,
     title = "Divergence from the bait exemplar, as time",
     subtitle = paste("At 2.2e-9 substitutions/site/year. This is divergence from a",
-                     "surviving relative, NOT insertion age: a solo has one arm, so",
+                     "surviving relative, NOT insertion age:\na solo has one arm, so",
                      "the two-arm clock cannot be applied to it."),
     subset_label = species
   ) + labs(x = "Divergence from the bait exemplar (My equivalent)", y = "Solo LTRs")
@@ -297,7 +307,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
 
   subtitle <- sprintf(
     paste(
-      "%d tips: both LTR arms of sampled ERV-bearing elements (every sampled solo's",
+      "%d tips: both LTR arms of sampled bait elements (every sampled solo's",
       "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
       "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
       "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."
@@ -348,7 +358,8 @@ tree_enrichment_plot <- function(summary_dt, species) {
   p <- ggplot(d, aes(x = .data$what, y = .data$value, fill = .data$what)) +
     geom_col(width = 0.55) +
     geom_errorbar(aes(ymin = .data$lower, ymax = .data$upper), width = 0.15) +
-    scale_fill_manual(values = c("Observed" = .FATE_COLOUR[["solo"]],
+    # Observed covers all three fates, so it takes a neutral ink, not a fate colour.
+    scale_fill_manual(values = c("Observed" = .INK_SOFT,
                                  "Label-permuted null" = .GREY_MID)) +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
     theme_retroseek() +
@@ -378,20 +389,20 @@ solo_intact_ratio_plot <- function(report, tree = NULL, order = NULL) {
   if (!nrow(report)) return(empty_plot("No per-genome summary"))
   p <- ggplot(report, aes(x = .data$species, y = .data$solo_to_intact_ratio)) +
     # The published mammalian range: solos outnumber intact proviruses by one to
-    # two orders of magnitude. A bar far outside it is a red flag, not a finding.
-    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1, ymax = 100,
+    # two orders of magnitude, 10 to 100. A bar far outside it is a red flag.
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = 10, ymax = 100,
              fill = .TOL_MUTED[["cyan"]], alpha = 0.18) +
     geom_col(fill = .FATE_COLOUR[["solo"]], width = 0.62) +
     geom_text(aes(label = sprintf("%.1f to 1", .data$solo_to_intact_ratio)),
               hjust = -0.15, size = 3.3, family = .FONT) +
-    scale_y_log10(expand = expansion(mult = c(0, 0.18))) +
-    labs(x = NULL, y = "Solo LTRs per intact locus (log scale)")
+    scale_y_log10(labels = scales::comma, expand = expansion(mult = c(0, 0.18))) +
+    labs(x = NULL, y = "Solo candidates per intact locus (log scale)")
   p <- add_titles(
     p,
-    title = "Solo LTRs per intact ERV locus",
-    subtitle = paste("Shaded band: the published mammalian range, one to two",
-                     "orders of magnitude. A high ratio means most of a lineage's",
-                     "integrations have had time to recombine away.")
+    title = "Solo candidates per intact locus",
+    subtitle = paste("Shaded band: the published mammalian range for retroviral",
+                     "solos, 10 to 100 per provirus.\nRaw counts over every bait",
+                     "arm, LINE and SINE copies included: the next page splits them.")
   )
   species_rows(p, report$species, tree = tree, fallback_order = order)
 }
@@ -415,6 +426,75 @@ class_composition_plot <- function(all_candidates, tree = NULL, order = NULL) {
     subtitle = paste("Every candidate locus, by fate. The monoLTR class is the one",
                      "LTR_retriever structurally could not separate out.")
   )
+  species_rows(p, unique(d$species), tree = tree, fallback_order = order)
+}
+
+
+# The repeat groups of the bait family's Dfam class, in drawing order (backlog 16).
+# solo_annotator.py assigns them (REPEAT_GROUPS there): keep the two lists in step.
+.REPEAT_GROUPS <- c("ERV LTR", "Non-ERV LTR", "LINE", "SINE", "Other repeat",
+                    "No Dfam label")
+
+# The groups' colours: never a fate colour, so the page cannot be read as fates.
+# No group name may start with "Other" unless it is meant to be grey: the shared
+# category_colours() greys every such level.
+.repeat_colours <- function() {
+  c(category_colours(c("ERV LTR", "Non-ERV LTR", "LINE", "SINE")),
+    `Other repeat` = .GREY_MID, `No Dfam label` = .GREY_OTHER)
+}
+
+# The empty per-class table: the same columns, no rows.
+.EMPTY_BY_CLASS <- data.table(
+  genome = character(), species = character(), repeat_group = character(),
+  families = integer(), bait_elements = integer(), solos = integer(),
+  solos_per_bait_element = numeric()
+)
+
+
+#' Every genome's `{genome}.solo_by_class.csv` stacked into one table.
+#'
+#' `tables` is a list of those tables with `genome` and `species` added (NULL for
+#' a genome without one). The counting itself is done by solo_annotator.py, where
+#' each bait arm's element is known, so an element counts once per group.
+stack_by_class <- function(tables) {
+  d <- rbindlist(tables, fill = TRUE)
+  if (!nrow(d)) return(copy(.EMPTY_BY_CLASS))
+  d[, names(.EMPTY_BY_CLASS), with = FALSE]
+}
+
+
+#' Each genome's solo candidates split by the repeat class of their bait family.
+#'
+#' Species on rows in the canonical order. The text beside each bar gives the ERV
+#' LTR solos per bait element (the elements that supplied that group's bait
+#' arms), not per intact locus as on the solo/intact page.
+solos_by_class_plot <- function(by_class, tree = NULL, order = NULL) {
+  if (!nrow(by_class)) return(empty_plot("No per-class tables"))
+  d <- copy(by_class)
+  d[, repeat_group := factor(repeat_group, levels = .REPEAT_GROUPS)]
+  erv <- d[repeat_group == "ERV LTR"]
+  erv[, label := sprintf("ERV LTR: %s solos, %.1f per bait element",
+                         scales::comma(solos), solos_per_bait_element)]
+  p <- ggplot(d, aes(x = .data$species, y = .data$solos)) +
+    geom_col(aes(fill = .data$repeat_group), position = "fill", width = 0.66) +
+    geom_text(data = erv, aes(y = 1, label = .data$label),
+              hjust = -0.04, size = 3.1, family = .FONT, colour = .INK_SOFT) +
+    scale_fill_manual(values = .repeat_colours(),
+                      guide = guide_legend(reverse = TRUE)) +
+    scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.75)),
+                       breaks = seq(0, 1, 0.25)) +
+    labs(x = NULL, y = "Share of solo candidates", fill = NULL)
+  labelled <- any(d$repeat_group != "No Dfam label")
+  subtitle <- if (labelled) {
+    paste("Solo candidates by the Dfam class of the LTR family whose arm caught them.",
+          "\nERV LTR: ERV1, ERVK, ERVL. Non-ERV LTR: MaLR, Gypsy and the like.",
+          "LINE and SINE: copies of other repeats that reached the bait as LTR arms.")
+  } else {
+    paste("No family has a Dfam label: labelling is off (solo_ltr.families.dfam) or",
+          "no curated model matched.")
+  }
+  p <- add_titles(p, title = "Solo candidates by repeat class of their bait",
+                  subtitle = subtitle)
   species_rows(p, unique(d$species), tree = tree, fallback_order = order)
 }
 
@@ -478,8 +558,9 @@ family_census_plot <- function(families, species, top_n = 30) {
 #'
 #' Pruning keeps the relationships the full tree inferred, so this is the same
 #' evidence with everything but the solos removed. Only the largest families get
-#' their own colour; a colour per family would be unreadable past a handful.
-solo_tree_plot <- function(tips, segs, species, n_colours = 8) {
+#' their own colour; a colour per family would be unreadable past a handful. Six,
+#' because category colours past six reach the fate colours (style.R).
+solo_tree_plot <- function(tips, segs, species, n_colours = 6) {
   if (is.null(tips) || nrow(tips) < 3) return(empty_plot("Too few solos for a tree"))
   d <- copy(tips)
   top <- d[, .N, by = family][order(-N)][seq_len(min(n_colours, .N)), family]
@@ -543,14 +624,42 @@ family_subtrees_plot <- function(tips, segs, families, species) {
     facet_wrap(~ panel, scales = "free") +
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek_blank()
-  add_titles(
-    p, title = "The largest LTR families, with and without an intact member",
-    subtitle = paste("Each panel is one family cut from the evidence tree. \"No",
-                     "intact member\" means none among the sampled elements:",
-                     "every solo has an intact relative at 95% identity or more."),
-    subset_label = species
-  ) +
+  words <- .subtrees_titles(unique(labels[family %in% tips$family, kind]))
+  add_titles(p, title = words$title, subtitle = words$subtitle,
+             subset_label = species) +
     labs(colour = NULL)
+}
+
+
+# Title and subtitle naming only the family kinds the page draws: a genome whose
+# families without an intact member are all one or two tips has nothing of that
+# kind to draw, and the page must not promise it.
+.subtrees_titles <- function(drawn_kinds) {
+  known <- intersect(drawn_kinds, c("no_intact", "with_intact"))
+  both <- length(known) == 2L
+  lead <- "Each panel is one family cut from the evidence tree."
+  note <- if (both) {
+    "\"No intact member\" means none among the sampled elements."
+  } else if (length(known) == 1L) {
+    sprintf(paste("No family %s an intact member\nhas three or more tips here,",
+                  "so none is drawn."),
+            if (known == "with_intact") "without" else "with")
+  }
+  title <- if (both) {
+    "The largest LTR families, with and without an intact member"
+  } else {
+    "The largest LTR families on the evidence tree"
+  }
+  list(title = title, subtitle = paste(c(lead, note), collapse = " "))
+}
+
+
+# One genome's per-class table with its genome and species, ready to stack; NULL
+# when the genome has none (a leftover funnel from another run, say).
+read_by_class <- function(path, genome, species_map) {
+  d <- read_optional(path)
+  if (is.null(d)) return(NULL)
+  d[, `:=`(genome = genome, species = display_species(genome, species_map))][]
 }
 
 
@@ -601,6 +710,8 @@ main <- function() {
                       help = "Render this genome's PDF; omit for the summary.")
   parser$add_argument("--report", default = NULL,
                       help = "Summary mode only: where to write the report CSV.")
+  parser$add_argument("--by_class", default = NULL,
+                      help = "Summary mode only: where to write the per-class CSV.")
   parser$add_argument(
     "--species_tree_dir", default = "",
     help = "Summary mode: the host tree coordinates (species_tree_layout.py)."
@@ -654,14 +765,18 @@ draw <- function(args) {
       ))
     }
     key <- key_page(
-      sprintf("Solo LTRs in %s", species),
+      # One line, so plotmath can set the species in italics (house style).
+      # plotmath ignores the theme's bold for plain strings, so bold() it.
+      bquote(bold("Solo LTRs in") ~ bolditalic(.(species))),
       paste(
         "A solo LTR is what a provirus leaves behind when its two LTRs recombine",
-        "and excise everything between them. This stage finds every copy of a",
-        "known retroviral LTR and removes the copies that are something else:",
-        "flanks of intact elements, and lone LTRs beside surviving coding sequence.",
-        "What remains are the solos. The later pages show the LTR evidence tree",
-        "and the LTR families cut from it."
+        "and excise everything between them. This stage takes the LTR arms of every",
+        "element with a probe hit (the bait), finds their copies in the genome and",
+        "removes the copies that are something else: flanks of intact elements, and",
+        "lone LTRs beside surviving coding sequence. What remains are solo",
+        "candidates. Not every bait arm is a retroviral LTR: some are LINE or SINE",
+        "copies, and the all-species PDF splits the candidates by repeat class. The",
+        "later pages show the LTR evidence tree and the LTR families cut from it."
       ),
       colours = .fate_key(), pages = page_titles(plots)
     )
@@ -675,6 +790,7 @@ draw <- function(args) {
   genomes <- sub("\\.funnel\\.csv$", "", basename(funnels))
   report_rows <- list()
   all_candidates <- list()
+  class_tables <- list()
   for (genome in genomes) {
     funnel <- fread(table(genome, ".funnel.csv"))
     solos <- funnel[stage == "solo", count][1]
@@ -691,11 +807,16 @@ draw <- function(args) {
     candidates <- fread(table(genome, ".candidates.csv"), select = "fate")
     candidates[, species := display_species(genome, species_map)]
     all_candidates[[genome]] <- candidates
+    class_tables[[genome]] <- read_by_class(table(genome, ".solo_by_class.csv"),
+                                            genome, species_map)
   }
   report <- rbindlist(report_rows, fill = TRUE)
+  by_class <- stack_by_class(class_tables)
   tree <- read_species_tree(args$species_tree_dir)
   order <- display_species(names(species_map), species_map)
+  # The class split right after the ratio page, which points to it.
   pages <- list(solo_intact_ratio_plot(report, tree, order),
+                solos_by_class_plot(by_class, tree, order),
                 class_composition_plot(rbindlist(all_candidates, fill = TRUE), tree,
                                        order))
   key <- key_page(
@@ -708,6 +829,7 @@ draw <- function(args) {
   save_stage_pdf(c(list(key), pages), args$out_pdf,
                  height = page_height_for(nrow(report)))
   fwrite(report, args$report)
+  fwrite(by_class, args$by_class)
   log_ok("wrote %s and %s, %d genomes", basename(args$out_pdf), basename(args$report),
          nrow(report))
 }

@@ -148,13 +148,13 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | file | what it is |
 |---|---|
 | `{genome}.solo_ltr.pdf` | twelve pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null, the family census, the solo-only tree, and the largest family subtrees. Pages 8 to 12 only when `tree.enable` |
-| `all_species.solo_ltr.pdf` | two pages: solo:intact per genome against the published range, and the three fates per genome |
+| `all_species.solo_ltr.pdf` | three pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, and the three fates per genome |
 
 **Tables for people** (`results/tables/solo_ltr/`)
 
 | file | what it is |
 |---|---|
-| `{genome}.solo_ltr.csv` | one row per solo, in `catalog.csv`'s column vocabulary: coordinates, `taxon_call`, `rank`, `segment`, `erv_class`, `library_id` (the seeding element), `label_source` and `ltr_family` (the seed arm's LTR family, ADR-023) |
+| `{genome}.solo_ltr.csv` | one row per solo, in `catalog.csv`'s column vocabulary: coordinates, `taxon_call`, `rank`, `segment`, `erv_class`, `library_id` (the seeding element), `label_source` and `ltr_family` (the seed arm's LTR family, ADR-023) and `ltr_family_class` (that family's Dfam class, blank without Dfam labels) |
 | `{genome}.candidates.csv` | **every** candidate, all three fates, with best identity, hit count, seeding bait and element, and distance to the nearest orphan. The evidence behind every call |
 | `{genome}.funnel.csv` | counts at every stage, where each rejected hit failed, and the solo:intact ratio |
 | `{genome}.ratio.csv` | solo:intact per taxonomic segment |
@@ -163,7 +163,9 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ltr_families.csv` | every bait arm with its element and LTR family (ADR-023; `ltr_family`, e.g. `Mmus_F001`, numbered by size) and whether it is the family's representative |
 | `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, the members' most common nearest reference virus and their median identity to it (ADR-024), median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
 | `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
-| `{genome}.ltr_family_ratio.csv` | per LTR family: its intact elements (the ones that supplied bait), its solos, and solos per intact element |
+| `{genome}.ltr_family_ratio.csv` | per LTR family: its Dfam class (blank without Dfam labels), its intact elements (the ones that supplied bait), its solos, and solos per intact element |
+| `{genome}.solo_by_class.csv` | per repeat group of the bait family's Dfam class (ERV LTR = ERV1, ERVK, ERVL; non-ERV LTR = MaLR, Gypsy and the like; LINE; SINE; other repeat; no Dfam label): families, bait elements (each counted once per group), solo candidates and solos per bait element. Without Dfam labels every family is "no Dfam label" |
+| `solo_ltr_by_class.csv` | always written; every genome's `solo_by_class` stacked, with genome and species. Page 2 of the all-species solo PDF. Most solo candidates sit in LINE or SINE families, whose bait arms are not retroviral LTRs; the ERV LTR group is the retroviral solo count |
 | `pooled.ltr_families.csv`, `pooled.ltr_family_summary.csv` | the same families built over every genome's arms at once (`Pool_F001`...): each arm with its pooled family, and per family the genomes it spans and their arm counts |
 | `ltr_family_dfam.csv` | only with `solo_ltr.families.dfam`: one row per genome and family, with its best curated Dfam model (name, accession, class such as `LTR/ERVK`, E-value, bit score, coverage of the representative, Dfam release); blank where none matched |
 | `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |
