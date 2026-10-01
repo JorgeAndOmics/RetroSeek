@@ -181,8 +181,11 @@ completeness_plot <- function(loci, ctx = NULL) {
   # bar per value, its tick under it, rather than a histogram whose bins and
   # ticks fall between them.
   values <- sort(unique(d$completeness))
+  # Bars 60% as wide as the smallest gap between values, so neighbours never
+  # overlap however few values a segment has (1/3 and 2/3 alone, for one).
+  gap <- if (length(values) > 1L) min(diff(values)) else 1
   p <- ggplot(d, aes(x = .data$completeness)) +
-    geom_bar(fill = .DATA_COLOUR, width = 0.6 / max(1L, length(values) - 1L)) +
+    geom_bar(fill = .DATA_COLOUR, width = 0.6 * gap) +
     scale_x_continuous(labels = scales::percent, breaks = values) +
     scale_y_count() +
     labs(x = "Main genes present", y = "Loci")

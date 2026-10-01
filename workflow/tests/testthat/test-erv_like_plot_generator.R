@@ -156,3 +156,13 @@ test_that("the LTR-flanked structural class page has its own title and meanings"
   expect_equal(p$labels$title, "Structural class per host, LTR-flanked loci")
   expect_match(p$labels$subtitle, "at most one main gene", fixed = TRUE)
 })
+
+
+test_that("completeness bars never overlap, whatever values a segment has", {
+  # Two values a third apart once got bars 0.6 wide: ggplot warned that
+  # position_stack needs non-overlapping intervals.
+  loci <- .loci()
+  loci$species <- "Homo sapiens"   # both values in one host's panel
+  loci$completeness <- c(1 / 3, 2 / 3)
+  expect_no_warning(ggplot2::ggplot_build(completeness_plot(loci)))
+})
