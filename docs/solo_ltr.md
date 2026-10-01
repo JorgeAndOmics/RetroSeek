@@ -143,12 +143,12 @@ library involved.
 All paths are under the configured results and data roots. `{genome}` is one of the model 5. Every
 file is a declared Snakemake output, so a missing or stale one is rebuilt.
 
-**Figures** (`results/plots/classification/solo_ltr/`)
+**Figures** (`results/plots/solo_ltr.pdf` for all genomes, `results/plots/solo_ltr/` for one PDF per genome)
 
 | file | what it is |
 |---|---|
 | `{genome}.solo_ltr.pdf` | twelve pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null, the family census, the solo-only tree, and the largest family subtrees. Pages 8 to 12 only when `tree.enable` |
-| `all_species.solo_ltr.pdf` | three pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, and the three fates per genome |
+| `solo_ltr.pdf` | three pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, and the three fates per genome |
 
 **Tables for people** (`results/tables/solo_ltr/`)
 

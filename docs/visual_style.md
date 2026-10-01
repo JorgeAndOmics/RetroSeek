@@ -120,18 +120,21 @@ the host phylogeny sit directly beside them.
 ## Output
 
 - **One multi-page vector PDF per stage**, or per genome where the pages are per
-  genome:
+  genome. `results/plots/` is one level deep: each stage's PDF sits directly in
+  it, and only the stages that write one file per genome, per segment or per
+  tree get a folder.
 
   | Stage | File (under `results/plots/`) |
   |---|---|
-  | Homology | `ranges/homology/homology.pdf` |
-  | Integration | `ranges/integration/integration.pdf` |
-  | Taxonomy | `classification/taxonomy/taxonomy.pdf` |
-  | Structure | `classification/structure/structure.pdf` |
-  | Loss | `classification/loss/loss.pdf` |
-  | Segments | `classification/segments/by_<rank>/<segment>.pdf` and `overview.pdf` |
-  | Solo LTRs | `classification/solo_ltr/<genome>.solo_ltr.pdf` and `all_species.solo_ltr.pdf` |
-  | Hotspots | `hotspot/<genome>.hotspots.pdf` |
+  | Homology | `homology.pdf` |
+  | Integration | `integration.pdf` |
+  | Taxonomy | `taxonomy.pdf` |
+  | Structure | `structure.pdf` |
+  | Loss | `loss.pdf` |
+  | Segments | `segments.pdf` (all segments), `segments/<segment>.pdf` |
+  | Solo LTRs | `solo_ltr.pdf` (all genomes), `solo_ltr/<genome>.solo_ltr.pdf` |
+  | Hotspots | `hotspots/<genome>.hotspots.pdf` |
+  | Placement | `placement/<genome>.<tier>.<gene>.tree.svg` |
 
 - **A4 landscape.** A page grows taller past 20 species, by `plots.per_stratum`
   inches per species, so rows keep their room in a large study.

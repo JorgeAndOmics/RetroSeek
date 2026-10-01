@@ -10,11 +10,11 @@
 # `unassigned_at_<rank>` and get their own segment, rather than being dropped or
 # given invented precision.
 #
-# Outputs are split by TYPE, both under a rank-agnostic by_<rank>/ level:
+# Outputs are split by TYPE; only the tables keep a rank-agnostic by_<rank>/ level:
 #   <out_dir>/by_<rank>/<segment>.csv    one table per segment
 #   segment_summary.csv                  loci / species / HC counts per segment
-#   <plots>/by_<rank>/<segment>.pdf      the segment's pages, after a key page
-#   <plots>/by_<rank>/overview.pdf       every segment side by side
+#   <plots>/<segment>.pdf                the segment's pages, after a key page
+#   <overview_pdf>                       every segment side by side
 #
 # How much is rendered per segment is set by `plots.segment_panel`:
 #   full     (default) every page that means something within one segment: 20 of
@@ -120,8 +120,7 @@ load_catalog <- function(path) {
 
 
 # ----------------------------------------------------------------------------
-# Overview: loci per segment, split by tier. The one page that shows every
-# segment at once, so it has its own PDF beside the per-segment ones.
+# Overview: loci per segment, split by tier.
 # ----------------------------------------------------------------------------
 segment_overview_plot <- function(catalog) {
   if (nrow(catalog) == 0L || !"segment" %in% names(catalog)) {
@@ -146,6 +145,23 @@ segment_overview_plot <- function(catalog) {
 }
 
 
+# The study-wide overview: a key page, then loci per lineage. Written apart from
+# the per-segment PDFs because it describes every segment at once.
+#   catalog   the loaded catalog
+#   seg_rank  the configured segment rank, named in the key page title
+#   tiers     tier label -> colour, for the key page
+#   path      where the PDF goes; height  page height in inches
+write_overview_pdf <- function(catalog, seg_rank, tiers, path, height) {
+  overview <- segment_overview_plot(catalog)
+  key <- key_page(sprintf("ERV loci by %s", seg_rank),
+                  paste("How the study's ERV loci divide among viral lineages at the",
+                        "segment rank. Each lineage has its own PDF in the segments",
+                        "folder beside this one."),
+                  colours = tiers, pages = page_titles(list(overview)))
+  save_stage_pdf(list(key, overview), path, height = height)
+}
+
+
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
@@ -158,10 +174,10 @@ segments_main <- function() {
                       help = "authoritative catalog.csv from taxonomy_plot_generator")
   parser$add_argument("--output", required = TRUE,
                       help = "directory for the by_<rank>/ tables")
-  parser$add_argument("--plots", required = FALSE, default = NULL,
-                      help = paste("directory for the by_<rank>/ figures.",
-                                   "Defaults to --output for standalone use;",
-                                   "the pipeline points it at results/plots/."))
+  parser$add_argument("--plots", required = TRUE,
+                      help = "directory for one PDF per segment")
+  parser$add_argument("--overview_pdf", required = TRUE,
+                      help = "path of the overview PDF of every segment")
   parser$add_argument("--species_tree_dir", required = FALSE, default = "",
                       help = "species_tree_layout.py output: the host tree coordinates")
   parser$add_argument("--tree_dir", required = FALSE, default = "",
@@ -193,10 +209,12 @@ segments_main <- function() {
   log_section(sprintf("Segmenting %d catalog loci by %s", nrow(catalog), seg_rank))
 
   # Tables and figures split by TYPE, not by stage: results/tables/ is CSV and
-  # results/plots/ is figures. Both keep the rank-agnostic by_<rank>/ level.
+  # results/plots/ is figures. The tables keep a by_<rank>/ level; the figures
+  # do not, since results/plots is one level deep and each key page names the
+  # rank (docs/visual_style.md, "Output").
   root <- file.path(args$output, paste0("by_", seg_rank))
   dir.create(root, showWarnings = FALSE, recursive = TRUE)
-  plot_root <- file.path(args$plots %||% args$output, paste0("by_", seg_rank))
+  plot_root <- args$plots
   dir.create(plot_root, showWarnings = FALSE, recursive = TRUE)
 
   summary_tbl <- segment_summary(catalog)
@@ -205,17 +223,11 @@ segments_main <- function() {
 
   tiers <- stats::setNames(unname(.TIER_COLOUR[c("ltr-flanked", "orphan")]),
                            display_label(c("ltr-flanked", "orphan")))
-  overview <- segment_overview_plot(catalog)
-  save_stage_pdf(
-    list(key_page(sprintf("ERV loci by %s", seg_rank),
-                  paste("How the study's ERV loci divide among viral lineages at the",
-                        "segment rank. Each lineage has its own PDF beside this one."),
-                  colours = tiers, pages = page_titles(list(overview))),
-         overview),
-    file.path(plot_root, "overview.pdf"),
-    height = page_height_for(nrow(summary_tbl),
-                             per_species = cfg$plots$per_stratum %||% 0.18)
-  )
+  per_species <- cfg$plots$per_stratum %||% 0.18
+  overview_height <- page_height_for(nrow(summary_tbl), per_species = per_species)
+  write_overview_pdf(catalog, seg_rank, tiers,
+                     path = args$overview_pdf,
+                     height = overview_height)
 
   # Per-segment tables and pages. The registry is resolved once: it is the same
   # declaration the full panels use, filtered to entries that mean something for
@@ -225,7 +237,7 @@ segments_main <- function() {
   ctx <- panel_ctx(cfg, args$species_tree_dir %||% "", tree_dir = args$tree_dir %||% "")
   height <- page_height_for(max(length(ctx$species_order),
                                 length(unique(catalog$species))),
-                            per_species = cfg$plots$per_stratum %||% 0.18)
+                            per_species = per_species)
   log_section(sprintf("Panel mode '%s': %d pages per segment",
                       panel_mode, length(panel)))
   for (seg in summary_tbl$segment) {

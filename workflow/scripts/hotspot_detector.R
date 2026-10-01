@@ -16,7 +16,7 @@
 #   {parquet_dir}/{species}.manifest.yaml           provenance manifest
 #   {track_output_dir}/{species}.gff3              merged hotspot regions
 #   {track_output_dir}/{species}.bed               same regions, BED6
-#   {pdf_output_dir}/{species}.hotspots.pdf        key page, then per-label
+#   {out_pdf}                                      key page, then per-label
 #                                                   Manhattan and Q-Q pages, the
 #                                                   karyotype, the summary and
 #                                                   the per-hotspot composition
@@ -84,8 +84,8 @@ parser$add_argument("--csv_dir",          required = TRUE,
                     help = "Output dir for user-facing {species}.csv")
 parser$add_argument("--track_output_dir", required = TRUE,
                     help = "Output dir for {species}.gff3 / .bed")
-parser$add_argument("--pdf_output_dir",   required = TRUE,
-                    help = "Output dir for hotspot PDFs")
+parser$add_argument("--out_pdf",          required = TRUE,
+                    help = "Path of the hotspot PDF (the Snakefile names it)")
 parser$add_argument("--log", default = NULL,
                     help = "job log file; the Snakemake log: path")
 args <- parser$parse_args()
@@ -289,9 +289,7 @@ log_job(args$log, "hotspot_detector")
 
 .write_outputs <- function(args, inputs, layout, result, scans) {
   log_section("Phase 5: emitting tables, tracks, manifest")
-  # The PDF directory too: .write_plots() writes into it next.
-  for (dir in c(args$parquet_dir, args$csv_dir, args$track_output_dir,
-                args$pdf_output_dir)) {
+  for (dir in c(args$parquet_dir, args$csv_dir, args$track_output_dir)) {
     dir.create(dir, showWarnings = FALSE, recursive = TRUE)
   }
   paths <- .output_paths(args, inputs$species)
@@ -373,9 +371,7 @@ log_job(args$log, "hotspot_detector")
                               display_label(names(.STRUCTURE_COLOUR))),
     pages = page_titles(pages)
   )
-  save_stage_pdf(c(list(key), pages),
-                 file.path(args$pdf_output_dir,
-                           paste0(inputs$species, ".hotspots.pdf")))
+  save_stage_pdf(c(list(key), pages), args$out_pdf)
 }
 
 # -----------------------------------------------------------------------------

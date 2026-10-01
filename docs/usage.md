@@ -56,7 +56,7 @@ phase (the stage table lives in `workflow/scripts/stages.py`, ADR-020).
 | `--ranges-analysis` | `ranges_analysis` | Element-hit, orphan and flanking-LTR tracks, overlap matrices, stage tables |
 | `--domain-scan` | `domain_scanner` | Curated Pfam domains on element AND orphan loci (`hmmsearch --cut_ga`, ADR-015), plus `Pfam.version` |
 | `--classify` | `taxonomy_classify`, `taxonomy_orphans`, `taxonomy_plot_generator`, `loss_analysis` | Per-locus genus calls for both tiers, each with its nearest reference virus and amino-acid identity (ADR-024), `catalog.csv`, `tracks/taxonomy/`, `taxonomy.pdf`, `loss.pdf`. Runs the domain scan first. |
-| `--segment` | `taxonomy_segments` | The catalog split by taxon at `classification.segment_rank`, one PDF per segment + `overview.pdf` |
+| `--segment` | `taxonomy_segments` | The catalog split by taxon at `classification.segment_rank`, one PDF per segment in `results/plots/segments/`, plus `results/plots/segments.pdf` for all of them |
 | `--solo-ltr-detector` | `solo_ltr_detector` | Solo LTRs: tracks, tables, the evidence tree and one PDF per genome (`docs/solo_ltr.md`) |
 | `--hotspot-detection` | `hotspot_detector` | Hotspot CSV + GFF3 + one PDF per genome |
 | `--pair-detection` | `pair_detector` | Per-species probe-pair tables |

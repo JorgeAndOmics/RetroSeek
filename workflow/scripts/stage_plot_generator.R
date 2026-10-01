@@ -7,7 +7,7 @@
 # writes to `data/tables/ranges_analysis/` (homology_loci / ltr_structure /
 # reduction_multiplicity / counts / overlap / interaction tables).
 #
-# Output is ONE PDF (results/plots/ranges/integration/integration.pdf): a key
+# Output is ONE PDF (results/plots/integration.pdf): a key
 # page, then the refinement funnel, homology against the LTR elements, the
 # elements themselves, and what the reductions collapse. Each page's subtitle
 # ends with the range tier it shows.

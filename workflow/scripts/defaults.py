@@ -221,42 +221,22 @@ PATH_DICT["SOLO_BAIT_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_bait").resolve()
 PATH_DICT["SOLO_BLAST_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_blast").resolve()
 
 # === Results - Plots ===
-# Layout mirrors the pipeline stages so the filesystem is self-documenting:
+# One level deep: a stage that draws one PDF writes it straight into plots/, and
+# the Snakefile names it (the file list is in docs/visual_style.md, "Output").
+# Only the stages that fan out get a folder:
 #
 #   plots/
-#     ranges/                 the ranges_analysis stage (pre-classification)
-#       homology/             plot2sort: per-probe/virus/species hit distributions
-#       integration/          stage_plot_generator: hit<->LTR-element integration + reduction
-#     classification/         the taxonomy stage (per-locus assembly + calls)
-#       taxonomy/             taxonomy_plot_generator: calls, confidence, mosaic, tiers
-#       structure/            structural views of the assembly (completeness, structure_class)
-#       loss/                 loss_analysis: per-stage attrition funnel
-#       placement/            EPA-ng heat-trees, one per (genome, tier, gene)
-#       segments/by_<rank>/   the curated per-segment panel (taxonomy_segments)
-#     hotspot/                integration-hotspot enrichment (Manhattan / QQ / karyotype)
+#     solo_ltr/      one solo-LTR PDF per genome
+#     hotspots/      one hotspot PDF per genome
+#     segments/      one PDF per taxon segment (taxonomy_segments)
+#     placement/     EPA-ng heat-trees, one SVG per (genome, tier, gene)
 PATH_DICT["PLOT_DIR"] = (PATH_DICT["RESULTS_DIR"] / "plots").resolve()
-
-# --- Ranges stage ---
-PATH_DICT["RANGES_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "ranges").resolve()
-PATH_DICT["HOMOLOGY_PLOT_DIR"] = (PATH_DICT["RANGES_PLOT_DIR"] / "homology").resolve()
-PATH_DICT["INTEGRATION_PLOT_DIR"] = (
-    PATH_DICT["RANGES_PLOT_DIR"] / "integration"
-).resolve()
-
-# --- Classification stage ---
-PATH_DICT["CLASSIFICATION_PLOT_DIR"] = (
-    PATH_DICT["PLOT_DIR"] / "classification"
-).resolve()
-PATH_DICT["TAXONOMY_PLOT_DIR"] = (
-    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "taxonomy"
-).resolve()
-# Phylogenetic-placement figures (ADR-014): per-genome heat-trees plus the
-# cross-genome co-phylogeny comparison. Kept beside the taxonomy panels because
-# they answer the same question - which lineage is where - from the placement
-# evidence rather than from the assembled catalog.
-PATH_DICT["PLACEMENT_PLOT_DIR"] = (
-    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "placement"
-).resolve()
+PATH_DICT["SOLO_LTR_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "solo_ltr").resolve()
+PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspots").resolve()
+# A directory() output: Snakemake empties it before the rule reruns, so it must
+# never be PLOT_DIR itself, which holds every other stage's figures.
+PATH_DICT["SEGMENTS_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "segments").resolve()
+PATH_DICT["PLACEMENT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "placement").resolve()
 # gappa writes every artifact of a command into one --out-dir, mixing figures,
 # tables and trees. They are split back out by type here so the directory
 # contract holds: figures under plots/, CSVs under tables/, and the Newick and
@@ -264,30 +244,6 @@ PATH_DICT["PLACEMENT_PLOT_DIR"] = (
 PATH_DICT["PLACEMENT_TABLE_DIR"] = (
     PATH_DICT["TABLE_OUTPUT_DIR"] / "placement"
 ).resolve()
-# Structural views of the genus-founded ERV assembly (completeness, canonical
-# order, structure_class). Built by erv_like_plot_generator.R from the loci table;
-# the retired erv_like *tier* (ADR-007) is why the panel is now named 'structure'.
-PATH_DICT["STRUCTURE_PLOT_DIR"] = (
-    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "structure"
-).resolve()
-PATH_DICT["LOSS_PLOT_DIR"] = (PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "loss").resolve()
-# The curated per-segment panel (taxonomy_segments.R). A figure directory, so it
-# lives under plots/ beside the other classification panels; the per-segment
-# CSVs stay under TAXONOMY_SEGMENTS_DIR. The by_<rank>/ level is appended by the
-# script, which knows the configured segment_rank.
-PATH_DICT["SEGMENTS_PLOT_DIR"] = (
-    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "segments"
-).resolve()
-
-# Native solo-LTR detection: the detection funnel, the threshold calibration, and
-# the tree evidence. A classification panel because a solo is a catalogued
-# integration event, the same object the taxonomy panels describe.
-PATH_DICT["SOLO_LTR_PLOT_DIR"] = (
-    PATH_DICT["CLASSIFICATION_PLOT_DIR"] / "solo_ltr"
-).resolve()
-
-# --- Standalone analyses ---
-PATH_DICT["HOTSPOT_PLOT_DIR"] = (PATH_DICT["PLOT_DIR"] / "hotspot").resolve()
 
 # === Results - Tracks ===
 PATH_DICT["TRACK_DIR"] = (PATH_DICT["RESULTS_DIR"] / "tracks").resolve()

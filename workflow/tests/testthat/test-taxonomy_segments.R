@@ -241,3 +241,39 @@ test_that("the loci/combined split is preserved", {
   expect_equal(by_name[["source_yield"]]$data, "combined")
   expect_equal(by_name[["structure_class_composition"]]$data, "combined")
 })
+
+
+# ---------------------------------------------------------------------------
+# End to end: where the PDFs land (docs/visual_style.md, "Output")
+# ---------------------------------------------------------------------------
+# The overview goes exactly where --overview_pdf says (results/plots/segments.pdf
+# in the pipeline) and each segment's PDF sits directly in --plots, with no
+# by_<rank> level. The tables keep their by_<rank> level. A few seconds (a fresh
+# Rscript draws about ten pages); RETROSEEK_SKIP_SLOW_TESTS=1 skips it.
+test_that("the overview and the segment PDFs go where the pipeline says", {
+  skip_if(identical(Sys.getenv("RETROSEEK_SKIP_SLOW_TESTS"), "1"),
+          "slow end-to-end test")
+  dir <- withr::local_tempdir()
+  catalog <- .write_catalog(file.path(dir, "catalog.csv"))
+  config <- file.path(dir, "config.yaml")
+  writeLines(c("species:", "  Sp_one: 'Sp one'", "  Sp_two: 'Sp two'",
+               "classification:", "  segment_rank: genus",
+               "plots:", "  segment_panel: curated"), config)
+  out <- function(sub) file.path(dir, sub)
+  script <- normalizePath(file.path(.script_dir, "taxonomy", "taxonomy_segments.R"))
+  console <- suppressWarnings(system2(
+    file.path(R.home("bin"), "Rscript"),
+    c(shQuote(script), "--catalog", shQuote(catalog), "--config", shQuote(config),
+      "--output", shQuote(out("tables")), "--plots", shQuote(out("plots")),
+      "--overview_pdf", shQuote(out("segments.pdf")),
+      "--summary_csv", shQuote(out("summary.csv"))),
+    stdout = TRUE, stderr = TRUE
+  ))  # a non-zero exit is a warning here; the status is checked below
+  status <- attr(console, "status")
+  expect_null(status, info = paste(utils::tail(console, 15), collapse = "\n"))
+
+  expect_true(file.exists(out("segments.pdf")))
+  expect_setequal(list.files(out("plots")),
+                  c("Gammaretrovirus.pdf", "Betaretrovirus.pdf"))
+  expect_true(file.exists(out("tables/by_genus/Gammaretrovirus.csv")))
+})

@@ -7,7 +7,7 @@
 # sources the modules, prepares the joined per-probe-type frames and assembles
 # the pages.
 #
-# Output is ONE PDF (results/plots/ranges/homology/homology.pdf): a key page,
+# Output is ONE PDF (results/plots/homology.pdf): a key page,
 # two pages over every probe (ranges per host by lineage and by virus), then
 # the same ten pages for the main probe set and for the accessory set:
 # bitscore density and raincloud, query coverage, ranges per host, per virus

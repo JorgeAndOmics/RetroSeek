@@ -66,6 +66,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`results/plots` is one level deep.** Each stage's PDF sits directly in it
+  (`homology.pdf`, `integration.pdf`, `taxonomy.pdf`, `structure.pdf`,
+  `loss.pdf`, and the all-genome `solo_ltr.pdf` and `segments.pdf`). Only the
+  stages that write one file per genome, segment or tree keep a folder:
+  `solo_ltr/`, `hotspots/` (was `hotspot/`), `segments/` (no `by_<rank>/`
+  level) and `placement/`. The `ranges/` and `classification/` levels are gone.
+  `hotspot_detector.R` takes `--out_pdf` (was `--pdf_output_dir`), and
+  `taxonomy_segments.R` takes `--overview_pdf`. To keep an existing results
+  directory, `mv` its PDFs to the new paths: moving keeps their times, so a dry
+  run then has nothing to do instead of redrawing every stage.
 - **Three gene lists instead of one** (ADR-022). `parameters.main_probes` now only
   says which genes are main. Two new settings take over its other jobs:
   `classification.gene_priority` (which gene's call wins the locus call) and
