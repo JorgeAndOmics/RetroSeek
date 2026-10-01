@@ -14,6 +14,14 @@
 # the plot landed on top of each other.
 MAX_OVERLAID_PROBES <- 5L
 
+# The bitscore axis: log10 on request; otherwise a tick per 100 bitscore on one
+# panel, about four on a small panel, which has no room for more.
+.bitscore_x_scale <- function(x_scale, many, max_bs) {
+  if (identical(x_scale, "log10")) return(scale_x_log10())
+  scale_x_continuous(breaks = if (many) scales::breaks_extended(n = 4) else
+                       seq(0, max_bs, by = 100))
+}
+
 density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
                                   subset_label = NULL, colours = NULL) {
   if (nrow(data) == 0L) return(empty_plot())
@@ -36,11 +44,7 @@ density_bitscore_plot <- function(data, q1, median, q3, x_scale = "linear",
     labs(x = "Strongest HSP bitscore per range", y = "Density",
          fill = "Probe", colour = "Probe")
   if (many) p <- p + facet_wrap(~probe, ncol = 2, scales = "free_y")
-  p <- if (identical(x_scale, "log10")) {
-    p + scale_x_log10()
-  } else {
-    p + scale_x_continuous(breaks = seq(0, max_bs, by = 100))
-  }
+  p <- p + .bitscore_x_scale(x_scale, many, max_bs)
   add_titles(p,
              title    = "Bitscore density",
              subtitle = sprintf(paste(
