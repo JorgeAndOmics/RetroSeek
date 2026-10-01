@@ -29,6 +29,7 @@ from solo_annotator import (
     annotate_solos,
     assign_families,
     assign_family_classes,
+    class_rows,
     compute_solo_intact_ratio,
     family_ratio_rows,
     parse_library_locus,
@@ -37,6 +38,7 @@ from solo_annotator import (
     read_arm_families,
     read_family_classes,
     read_seed_arms,
+    repeat_group,
     write_solo_ltr_gff3,
     write_solo_table,
 )
@@ -648,3 +650,48 @@ def test_without_dfam_labels_the_class_is_blank(
 ) -> None:
     rows = family_ratio_rows([], arm_families)
     assert [r["ltr_family_class"] for r in rows] == ["", ""]
+
+
+# ---- solos per repeat group, with bait elements counted once (backlog 16) ----
+
+
+@pytest.mark.parametrize(
+    ("dfam_class", "group"),
+    [
+        ("LTR/ERVK", "ERV LTR"),
+        ("LTR/ERV1", "ERV LTR"),
+        ("LTR/ERVL", "ERV LTR"),
+        ("LTR/ERVL-MaLR", "Non-ERV LTR"),  # MaLR is an LTR element, not an ERV
+        ("LTR/Gypsy", "Non-ERV LTR"),
+        ("LINE/L1", "LINE"),
+        ("SINE/Alu", "SINE"),
+        ("DNA/hAT", "Other repeat"),
+        ("Unknown", "Other repeat"),
+        ("", "No Dfam label"),
+    ],
+)
+def test_a_dfam_class_falls_in_one_repeat_group(dfam_class: str, group: str) -> None:
+    assert repeat_group(dfam_class) == group
+
+
+def test_class_rows_count_an_element_split_over_two_families_once() -> None:
+    # e1's two arms sit in F001 and F003, both ERV LTR: one bait element, not two.
+    arm_families = {
+        "c|e1|L": ("Toyu_F001", "c", "e1"),
+        "c|e1|R": ("Toyu_F003", "c", "e1"),
+        "c|e2|L": ("Toyu_F002", "c", "e2"),
+        "c|e2|R": ("Toyu_F002", "c", "e2"),
+    }
+    classes = {"Toyu_F001": "LTR/ERVK", "Toyu_F002": "LINE/L1", "Toyu_F003": "LTR/ERV1"}
+    solos = [_solo("c", 1, 9), _solo("c", 11, 19), _solo("c", 21, 29)]
+    for solo, cls in zip(solos, ["LTR/ERVK", "LINE/L1", "LINE/L1"], strict=True):
+        solo.ltr_family_class = cls
+    rows = {r["repeat_group"]: r for r in class_rows(solos, arm_families, classes)}
+    assert rows["ERV LTR"]["families"] == 2
+    assert rows["ERV LTR"]["bait_elements"] == 1
+    assert rows["ERV LTR"]["solos"] == 1
+    assert rows["LINE"]["solos_per_bait_element"] == pytest.approx(2.0)
+    assert list(rows) == [
+        "ERV LTR",
+        "LINE",
+    ]  # groups in the fixed order, only those present

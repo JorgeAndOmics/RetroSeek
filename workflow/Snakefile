@@ -923,7 +923,8 @@ rule solo_annotator_setup:
         solo_parquet  = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.solo_ltr.parquet'),
         ratio_csv     = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ratio.csv'),
         ratio_parquet = os.path.join(defaults.PATH_DICT['SOLO_LTR_PARQUET_DIR'], '{genome}.ratio.parquet'),
-        family_ratio  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_ratio.csv')
+        family_ratio  = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_ratio.csv'),
+        class_ratio   = os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_by_class.csv')
     params:
         species  = lambda wildcards: defaults.SPECIES_DICT.get(
             wildcards.genome, wildcards.genome.replace('_', ' ')),
@@ -931,9 +932,8 @@ rule solo_annotator_setup:
         # for hotspots, so the two stages report on comparable units.
         group_by = 'segment',
         max_distance = _SOLO['orphan_pad'],
-        dfam_arg = lambda wildcards, input: (
-            f"--dfam-labels {shlex.quote(str(input.dfam))}" if input.dfam else ''
-        )
+        dfam_arg = (f"--dfam-labels {shlex.quote(rules.solo_family_dfam.output.labels)}"
+                    if _FAMILY_DFAM else '')
     log:
         job_log('solo_annotator', '{genome}')
     threads: 1
@@ -951,6 +951,7 @@ rule solo_annotator_setup:
             --output-ratio-parquet {output.ratio_parquet:q} \
             --candidates-csv {input.candidates:q} --families-csv {input.families:q} \
             --output-family-ratio {output.family_ratio:q} {params.dfam_arg} \
+            --output-class-ratio {output.class_ratio:q} \
             --group-by {params.group_by} \
             --nearest-locus-max-distance {params.max_distance}
         '''
@@ -1120,9 +1121,9 @@ rule solo_plot_summary:
             os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.candidates.csv'),
             genome=species_with_hits(wildcards)
         ),
-        # Per family, with its Dfam class: the per-class page and table.
-        family_ratios = lambda wildcards: expand(
-            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.ltr_family_ratio.csv'),
+        # Each genome's solos per repeat group: the per-class page and table.
+        class_ratios = lambda wildcards: expand(
+            os.path.join(defaults.PATH_DICT['SOLO_LTR_CSV_DIR'], '{genome}.solo_by_class.csv'),
             genome=species_with_hits(wildcards)
         ),
         species_tree = rules.species_tree_layout.output.tips

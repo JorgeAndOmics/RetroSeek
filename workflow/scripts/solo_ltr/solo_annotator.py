@@ -594,6 +594,74 @@ def assign_family_classes(solos: list[SoloLTR], classes: dict[str, str]) -> None
         solo.ltr_family_class = classes.get(solo.ltr_family, "")
 
 
+# Dfam classes folded into the few groups a reader needs to judge the solo counts
+# (backlog 16). solo_plots.R draws them in this order: keep its .REPEAT_GROUPS in
+# step with this list.
+REPEAT_GROUPS = [
+    "ERV LTR",
+    "Non-ERV LTR",
+    "LINE",
+    "SINE",
+    "Other repeat",
+    "No Dfam label",
+]
+_ERV_CLASSES = {"LTR/ERV1", "LTR/ERVK", "LTR/ERVL"}  # LTR/ERVL-MaLR is not an ERV
+CLASS_COLUMNS = [
+    "repeat_group",
+    "families",
+    "bait_elements",
+    "solos",
+    "solos_per_bait_element",
+]
+
+
+def repeat_group(dfam_class: str) -> str:
+    """A Dfam class ("LTR/ERVK", "LINE/L1") as its repeat group.
+
+    ERV LTR is ERV1, ERVK and ERVL; other LTR elements (MaLR, Gypsy, Copia) are
+    LTRs but not retroviruses. A blank class is "No Dfam label".
+    """
+    if not dfam_class:
+        return "No Dfam label"
+    if dfam_class in _ERV_CLASSES:
+        return "ERV LTR"
+    top = dfam_class.split("/", 1)[0]
+    if top == "LTR":
+        return "Non-ERV LTR"
+    return top if top in ("LINE", "SINE") else "Other repeat"
+
+
+def class_rows(
+    solos: list[SoloLTR],
+    arm_families: dict[str, tuple[str, str, str]],
+    classes: dict[str, str],
+) -> list[dict[str, object]]:
+    """Per repeat group: families, bait elements, solos and solos per bait element.
+
+    A bait element counts once per group even when its two arms fall in two
+    families of that group, which is why this is counted here, where each arm's
+    element is known, rather than summed from the per-family table.
+    """
+    families: dict[str, set[str]] = defaultdict(set)
+    elements: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for family, seqname, element in arm_families.values():
+        group = repeat_group(classes.get(family, ""))
+        families[group].add(family)
+        elements[group].add((seqname, element))
+    solos_in = Counter(repeat_group(solo.ltr_family_class) for solo in solos)
+    return [
+        {
+            "repeat_group": group,
+            "families": len(families[group]),
+            "bait_elements": len(elements[group]),
+            "solos": solos_in[group],
+            "solos_per_bait_element": round(solos_in[group] / len(elements[group]), 4),
+        }
+        for group in REPEAT_GROUPS
+        if group in elements
+    ]
+
+
 def family_ratio_rows(
     solos: list[SoloLTR],
     arm_families: dict[str, tuple[str, str, str]],
@@ -663,6 +731,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--output-family-ratio", type=Path, required=True)
     parser.add_argument(
+        "--output-class-ratio",
+        type=Path,
+        required=True,
+        help="Per repeat group of the bait family's Dfam class (solo_by_class).",
+    )
+    parser.add_argument(
         "--dfam-labels",
         type=Path,
         help="ltr_family_dfam.py output: each family's Dfam class (optional).",
@@ -709,12 +783,21 @@ def main(argv: list[str] | None = None) -> None:
         solos, loci, species=args.species, group_by=args.group_by
     )
     _write_frame(ratio, args.output_ratio_csv, args.output_ratio_parquet)
-    family_ratio = pd.DataFrame(
-        family_ratio_rows(solos, arm_families, classes), columns=FAMILY_RATIO_COLUMNS
+    _write_csv(
+        family_ratio_rows(solos, arm_families, classes),
+        FAMILY_RATIO_COLUMNS,
+        args.output_family_ratio,
     )
-    args.output_family_ratio.parent.mkdir(parents=True, exist_ok=True)
-    family_ratio.to_csv(args.output_family_ratio, index=False)
+    _write_csv(
+        class_rows(solos, arm_families, classes), CLASS_COLUMNS, args.output_class_ratio
+    )
     _log_summary(solos)
+
+
+def _write_csv(rows: list[dict[str, object]], columns: list[str], path: Path) -> None:
+    """One family-level table as CSV, with its header even when empty."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=columns).to_csv(path, index=False)
 
 
 def _log_summary(solos: list[SoloLTR]) -> None:

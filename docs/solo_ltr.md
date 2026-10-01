@@ -148,7 +148,7 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | file | what it is |
 |---|---|
 | `{genome}.solo_ltr.pdf` | twelve pages: funnel, identity by fate, length vs identity, distance to orphan, candidates per sequence, solos per seeding element, divergence as time, the drawn tree, tree enrichment against its null, the family census, the solo-only tree, and the largest family subtrees. Pages 8 to 12 only when `tree.enable` |
-| `all_species.solo_ltr.pdf` | two pages: solo:intact per genome against the published range, and the three fates per genome |
+| `all_species.solo_ltr.pdf` | three pages: solo candidates per intact locus against the published range, solo candidates by repeat class of their bait, and the three fates per genome |
 
 **Tables for people** (`results/tables/solo_ltr/`)
 
@@ -164,7 +164,8 @@ file is a declared Snakemake output, so a missing or stale one is rebuilt.
 | `{genome}.ltr_family_summary.csv` | one row per LTR family: arms, elements, representative, majority genus and purity, the members' most common nearest reference virus and their median identity to it (ADR-024), median arm-pair similarity (an age signal), and elements whose two arms fell in different families |
 | `{genome}.ltr_family_genus.csv` | family by genus: how many of each family's elements carry each genus call |
 | `{genome}.ltr_family_ratio.csv` | per LTR family: its Dfam class (blank without Dfam labels), its intact elements (the ones that supplied bait), its solos, and solos per intact element |
-| `solo_ltr_by_class.csv` | always written; per genome and repeat group of the bait family's Dfam class (ERV LTR = ERV1, ERVK, ERVL; other LTR = MaLR, Gypsy and the like; LINE; SINE; other repeat; no Dfam label): families, bait elements (summed over families; an element with its arms in two families of one group counts twice), solo candidates and solos per bait element. Page 2 of the all-species solo PDF. Most solo candidates sit in LINE or SINE families, whose bait arms are not retroviral LTRs; the ERV LTR group is the retroviral solo count. Without Dfam labels every row is "no Dfam label" |
+| `{genome}.solo_by_class.csv` | per repeat group of the bait family's Dfam class (ERV LTR = ERV1, ERVK, ERVL; non-ERV LTR = MaLR, Gypsy and the like; LINE; SINE; other repeat; no Dfam label): families, bait elements (each counted once per group), solo candidates and solos per bait element. Without Dfam labels every family is "no Dfam label" |
+| `solo_ltr_by_class.csv` | always written; every genome's `solo_by_class` stacked, with genome and species. Page 2 of the all-species solo PDF. Most solo candidates sit in LINE or SINE families, whose bait arms are not retroviral LTRs; the ERV LTR group is the retroviral solo count |
 | `pooled.ltr_families.csv`, `pooled.ltr_family_summary.csv` | the same families built over every genome's arms at once (`Pool_F001`...): each arm with its pooled family, and per family the genomes it spans and their arm counts |
 | `ltr_family_dfam.csv` | only with `solo_ltr.families.dfam`: one row per genome and family, with its best curated Dfam model (name, accession, class such as `LTR/ERVK`, E-value, bit score, coverage of the representative, Dfam release); blank where none matched |
 | `{genome}.tree_families.csv` | one row per LTR family cut from the tree: its kind (no intact member, with one, or no solos), what it holds, its diameter, and whether it is drawn |

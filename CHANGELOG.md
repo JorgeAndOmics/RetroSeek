@@ -11,10 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Solo counts by repeat class**: with Dfam labels on, every solo carries its
   family's class (`ltr_family_class`) and a new `solo_ltr_by_class.csv`, drawn in
-  the all-species solo PDF, splits solo candidates into ERV LTR, other LTR (MaLR,
-  Gypsy), LINE, SINE and other repeats. On the model genomes 83 to 98% of solo
+  the all-species solo PDF, splits solo candidates into ERV LTR, non-ERV LTR
+  (MaLR, Gypsy), LINE, SINE and other repeats (per genome:
+  `{genome}.solo_by_class.csv`). On the model genomes 83 to 98% of solo
   candidates sit in families whose bait arms are L1 or Alu copies; ERV LTR solos
-  per bait element are 0.4 to 7.2.
+  per bait element are 0.4 to 7.3.
 - **Nearest reference virus** (ADR-024): every locus, orphan and `catalog.csv`
   row names the reference virus its headline gene is closest to, with the
   amino-acid identity (`nearest_virus`, `nearest_virus_identity`,
