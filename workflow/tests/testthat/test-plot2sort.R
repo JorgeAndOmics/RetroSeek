@@ -446,6 +446,17 @@ test_that(
   }
 )
 
+test_that("add_titles leads the subtitle with the species, in italics", {
+  # A binomial is always italic (docs/visual_style.md); a probe set is not.
+  q <- add_titles(ggplot2::ggplot(), title = "Foo", subtitle = "Bar.",
+                  species = "Mus musculus")
+  expect_equal(q$labels$title, "Foo")
+  expect_true(is.call(q$labels$subtitle))
+  expect_match(paste(deparse(q$labels$subtitle), collapse = ""),
+               'italic("Mus musculus")', fixed = TRUE)
+  expect_match(paste(deparse(q$labels$subtitle), collapse = ""), '"Bar."', fixed = TRUE)
+})
+
 test_that("add_titles leaves title untouched when subset_label is NULL or empty", {
   p <- ggplot2::ggplot()
   q1 <- add_titles(p, "Foo", "Bar", subset_label = NULL)

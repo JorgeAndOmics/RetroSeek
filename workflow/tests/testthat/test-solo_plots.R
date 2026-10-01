@@ -60,7 +60,7 @@ test_that("funnel labels are words, never dash separators", {
   p <- funnel_plot(funnel, "Homo sapiens")
   labels <- levels(p$data$label)
   expect_false(any(grepl("^- | - |->", labels)))
-  expect_match(p$labels$subtitle, "^Homo sapiens\\. ")
+  expect_match(.subtitle_text(p), "^Homo sapiens\\. ")
 })
 
 test_that("empty inputs give a placeholder page rather than an error", {
@@ -166,5 +166,5 @@ test_that("the family subtrees page names only the kinds it draws", {
   segs <- data.table(family = "F1", x = 0, y = 1, xend = 1, yend = 1)
   p <- family_subtrees_plot(tips, segs, families, "Homo sapiens")
   expect_false(grepl("without", p$labels$title))
-  expect_match(p$labels$subtitle, "No family without an intact member")
+  expect_match(.subtitle_text(p), "No family without an intact member")
 })

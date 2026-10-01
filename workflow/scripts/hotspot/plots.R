@@ -64,11 +64,16 @@ sequences_to_draw <- function(seqlengths, min_length, max_n = 40L) {
   names(seqlengths)[names(seqlengths) %in% big]
 }
 
+# "1 hotspot", "27 sequences".
+.count_of <- function(n, one, many) {
+  paste(scales::comma(n), if (n == 1L) one else many)
+}
+
 # The caption naming what a genome-wide page leaves out, or NULL.
 .hidden_caption <- function(n_hidden) {
   if (n_hidden == 0L) return(NULL)
-  sprintf("%s shorter %s tested but not drawn.", scales::comma(n_hidden),
-          if (n_hidden == 1L) "sequence is" else "sequences are")
+  sprintf("%s tested but not drawn.",
+          .count_of(n_hidden, "shorter sequence is", "shorter sequences are"))
 }
 
 
@@ -119,7 +124,7 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL,
                      "Dashed line: q = %s."),
                display_label(label %||% "All"), format(threshold)
              ),
-             subset_label = species)
+             species = species)
 }
 
 
@@ -170,9 +175,10 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
           panel.grid.major.y = element_blank(),
           panel.spacing.y = unit(0.05, "lines"))
   add_titles(p, "Hotspots along the chromosomes",
-             sprintf("%d hotspots across %d sequences.", length(hotspots),
-                     length(seqlengths)),
-             subset_label = species)
+             sprintf("%s across %s.",
+                     .count_of(length(hotspots), "hotspot", "hotspots"),
+                     .count_of(length(seqlengths), "sequence", "sequences")),
+             species = species)
 }
 
 
@@ -196,7 +202,7 @@ plot_qq <- function(window_df, species = NULL, label = NULL) {
                      "on the dashed line mean a calibrated model."),
                display_label(label %||% "All")
              ),
-             subset_label = species)
+             species = species)
 }
 
 

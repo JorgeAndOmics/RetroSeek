@@ -304,7 +304,7 @@ segments_main <- function() {
     sub_loci <- sub %>% filter(as.character(.data$source) == "ltr-flanked")
     out <- segment_pages(sub, sub_loci, panel, ctx)
     key <- key_page(
-      sprintf("ERV loci: %s", display_label(seg)),
+      key_title("ERV loci:", display_label(seg)),
       paste(sprintf(paste("The taxonomy and structure pages, restricted to the %s",
                           "of this lineage. Hosts are rows in the order of the host tree."),
                     .loci_count(nrow(sub))), out$note %||% ""),

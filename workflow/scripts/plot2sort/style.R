@@ -304,6 +304,15 @@ display_label <- function(values) {
 # everything that is not a taxon name upright. Returns plotmath expressions,
 # which ggplot accepts anywhere it accepts labels.
 .NOT_A_TAXON <- "^(Other|Unassigned|Unclassified|unassigned|unclassified|No |Not )"
+# A key page title naming a taxon or species: "ERV loci: Alpharetrovirus" with
+# the name in bold italics. plotmath ignores the theme's bold for plain strings,
+# so the prefix is bold() too. A name that is no taxon ("Unassigned at genus")
+# keeps a plain string.
+key_title <- function(prefix, name) {
+  if (grepl(.NOT_A_TAXON, name)) return(paste(prefix, name))
+  bquote(bold(.(prefix)) ~ bolditalic(.(name)))
+}
+
 italic_labels <- function(values) {
   lapply(as.character(values), function(v) {
     if (grepl(.NOT_A_TAXON, v)) bquote(.(v)) else bquote(italic(.(v)))

@@ -116,7 +116,7 @@ funnel_plot <- function(funnel, species) {
                      "an intact element and those beside surviving coding sequence.",
                      "\nWhat remains are solo candidates; their bait class is on the",
                      "all-species page. Log scale."),
-    subset_label = species
+    species = species
   ) + labs(x = NULL, y = "Count (log scale)")
 }
 
@@ -144,7 +144,7 @@ identity_by_class_plot <- function(candidates, species, min_identity) {
     subtitle = sprintf(paste("Dashed line: the %.0f%% acceptance threshold.",
                              "Identity is an age filter, so the left tail is the",
                              "ancient material this method gives up."), min_identity),
-    subset_label = species
+    species = species
   ) + labs(x = "Percent identity to the bait arm", y = "Candidate loci", fill = NULL)
 }
 
@@ -172,7 +172,7 @@ length_scatter_plot <- function(candidates, species, min_hit_length) {
     subtitle = sprintf(paste("Dashed line: the %d bp minimum. Without it the method",
                              "accepts short partial matches and over-reports solos",
                              "by an order of magnitude."), min_hit_length),
-    subset_label = species
+    species = species
   ) + labs(x = "Candidate length (bp, log scale)", y = "Percent identity",
            colour = NULL)
 }
@@ -200,7 +200,7 @@ orphan_distance_plot <- function(candidates, species, orphan_pad) {
                              "inside it are monoLTRs beside surviving coding",
                              "sequence, not solos."),
                        format(orphan_pad, big.mark = ",")),
-    subset_label = species
+    species = species
   ) + labs(x = "Distance to nearest orphan (bp, log scale)", y = "Candidate loci")
 }
 
@@ -229,7 +229,7 @@ chromosome_density_plot <- function(candidates, species, top_n = 25) {
     p,
     title = "Candidate loci per sequence",
     subtitle = sprintf("The %d sequences carrying the most candidates.", top_n),
-    subset_label = species
+    species = species
   ) + labs(x = NULL, y = "Candidate loci", fill = NULL)
 }
 
@@ -255,7 +255,7 @@ family_abundance_plot <- function(candidates, species) {
                      "A steep curve means a few seeding elements account for most",
                      "\nof the candidates; the all-species page shows how many of",
                      "those arms are LINE or SINE copies rather than LTRs."),
-    subset_label = species
+    species = species
   ) + labs(x = "Seeding element, ranked", y = "Solo LTRs")
 }
 
@@ -281,7 +281,7 @@ divergence_age_plot <- function(candidates, species) {
     subtitle = paste("At 2.2e-9 substitutions/site/year. This is divergence from a",
                      "surviving relative, NOT insertion age:\na solo has one arm, so",
                      "the two-arm clock cannot be applied to it."),
-    subset_label = species
+    species = species
   ) + labs(x = "Divergence from the bait exemplar (My equivalent)", y = "Solo LTRs")
 }
 
@@ -331,7 +331,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek_blank()
   add_titles(p, title = "The LTR evidence tree",
-             subtitle = subtitle, subset_label = species) +
+             subtitle = subtitle, species = species) +
     labs(colour = NULL)
 }
 
@@ -376,7 +376,7 @@ tree_enrichment_plot <- function(summary_dt, species) {
       100 * ifelse(is.na(seed_control), 0, seed_control),
       100 * ifelse(is.na(control), 0, control)
     ),
-    subset_label = species
+    species = species
   ) + labs(x = NULL, y = "Tips with a same-class sister")
 }
 
@@ -549,7 +549,7 @@ family_census_plot <- function(families, species, top_n = 30) {
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 7),
           legend.position = "bottom")
   add_titles(p, title = "LTR families on the evidence tree",
-             subtitle = subtitle, subset_label = species) +
+             subtitle = subtitle, species = species) +
     labs(x = "Family", y = "Tips on the tree", fill = NULL)
 }
 
@@ -587,7 +587,7 @@ solo_tree_plot <- function(tips, segs, species, n_colours = 6) {
             "families coloured.\nSolos sharing a colour belong to one LTR family."),
       nrow(d), length(top)
     ),
-    subset_label = species
+    species = species
   ) +
     labs(colour = "Family")
 }
@@ -626,7 +626,7 @@ family_subtrees_plot <- function(tips, segs, families, species) {
     theme_retroseek_blank()
   words <- .subtrees_titles(unique(labels[family %in% tips$family, kind]))
   add_titles(p, title = words$title, subtitle = words$subtitle,
-             subset_label = species) +
+             species = species) +
     labs(colour = NULL)
 }
 
@@ -765,9 +765,7 @@ draw <- function(args) {
       ))
     }
     key <- key_page(
-      # One line, so plotmath can set the species in italics (house style).
-      # plotmath ignores the theme's bold for plain strings, so bold() it.
-      bquote(bold("Solo LTRs in") ~ bolditalic(.(species))),
+      key_title("Solo LTRs in", species),
       paste(
         "A solo LTR is what a provirus leaves behind when its two LTRs recombine",
         "and excise everything between them. This stage takes the LTR arms of every",

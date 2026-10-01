@@ -355,8 +355,8 @@ log_job(args$log, "hotspot_detector")
   called <- if (n_hotspots == 0L) {
     "No window passed, so there are no summary or composition pages."
   } else {
-    sprintf("%s were called; the composition page shows what each is made of.",
-            if (n_hotspots == 1L) "1 hotspot" else paste(scales::comma(n_hotspots), "hotspots"))
+    sprintf("Called: %s; the composition page shows what each is made of.",
+            .count_of(n_hotspots, "hotspot", "hotspots"))
   }
   paste(
     sprintf(paste("Windows of the genome holding more %s loci than a negative binomial",
@@ -389,7 +389,7 @@ log_job(args$log, "hotspot_detector")
   } else {
     character(0)
   }
-  key <- key_page(sprintf("Integration hotspots in %s", plot_species),
+  key <- key_page(key_title("Integration hotspots in", plot_species),
                   .key_description(opts, length(result$hotspots),
                                    sort(callable$label[!callable$tested])),
                   colours = colours, pages = page_titles(pages))

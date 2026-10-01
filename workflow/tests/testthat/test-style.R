@@ -288,3 +288,13 @@ test_that("a short page list stays one column", {
   blocks <- .page_list_blocks(key_page("Stage", "What it shows.", pages = c("A", "B")))
   expect_length(blocks, 1L)
 })
+
+
+test_that("a key page title puts the taxon in bold italics, a non-taxon upright", {
+  taxon <- key_title("ERV loci:", "Alpharetrovirus")
+  expect_true(is.call(taxon))
+  expect_match(paste(deparse(taxon), collapse = ""), 'bolditalic("Alpharetrovirus")',
+               fixed = TRUE)
+  expect_equal(key_title("ERV loci:", "Unassigned at genus"),
+               "ERV loci: Unassigned at genus")
+})

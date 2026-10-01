@@ -97,22 +97,28 @@ empty_plot <- function(label = "No data") {
 .is_blank <- function(x) is.null(x) || !nzchar(x)
 
 # The subtitle with `lead` (a genome, a probe set) in front, "Lead. Subtitle";
-# either alone when the other is blank.
-.lead_subtitle <- function(lead, subtitle) {
+# either alone when the other is blank. An italic lead (a species) needs
+# plotmath, the only way ggplot2 mixes faces in one line; plotmath cannot break
+# lines, so it is used only there, and species-led subtitles are one line.
+.lead_subtitle <- function(lead, subtitle, italic = FALSE) {
   if (.is_blank(lead)) return(subtitle)
-  if (.is_blank(subtitle)) return(lead)
-  paste0(lead, ". ", subtitle)
+  if (!italic) return(if (.is_blank(subtitle)) lead else paste0(lead, ". ", subtitle))
+  if (.is_blank(subtitle)) return(bquote(italic(.(lead))))
+  bquote(italic(.(lead)) * ". " * .(subtitle))
 }
 
+
 # Title and subtitle for a plot, in the house style (style.R): left-aligned,
-# sentence case. `subset_label` names what the page is about (a genome, a probe
-# set, a segment); it leads the subtitle rather than being glued onto the title
-# with a dash, so titles stay short and identical across genomes. Genome stems
-# must already be readable names here (display_species), never file names.
+# sentence case. What the page is about leads the subtitle rather than being
+# glued onto the title with a dash, so titles stay short and identical across
+# genomes: `species` (a readable binomial, from display_species(), drawn in
+# italics) or `subset_label` (a probe set, a segment; upright).
 # `warning_caption`, when supplied, stamps a caveat that travels with the page.
 add_titles <- function(p, title, subtitle, subset_label = NULL,
-                       warning_caption = NULL) {
-  p <- p + labs(title = title, subtitle = .lead_subtitle(subset_label, subtitle)) +
+                       warning_caption = NULL, species = NULL) {
+  lead <- if (.is_blank(species)) .lead_subtitle(subset_label, subtitle) else
+    .lead_subtitle(species, subtitle, italic = TRUE)
+  p <- p + labs(title = title, subtitle = lead) +
     # A void-theme page (sankey, placeholder) is otherwise transparent, which some
     # viewers compose on black and which hides the title.
     theme(plot.background = element_rect(fill = .PAPER, colour = NA))

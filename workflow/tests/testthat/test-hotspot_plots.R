@@ -98,6 +98,6 @@ test_that("the karyotype and the Manhattan page say what they leave out", {
 
 test_that("a lineage is named in words, not as a table value", {
   p <- plot_manhattan(.windows(), 0.05, "Mus musculus", "unassigned_at_genus")
-  expect_match(p$labels$subtitle, "Unassigned at genus loci per window")
-  expect_no_match(p$labels$subtitle, "unassigned_at_genus")
+  expect_match(.subtitle_text(p), "Unassigned at genus loci per window")
+  expect_no_match(.subtitle_text(p), "unassigned_at_genus")
 })
