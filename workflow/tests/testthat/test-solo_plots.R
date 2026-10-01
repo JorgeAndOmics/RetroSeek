@@ -115,3 +115,43 @@ test_that("the by-class page says so when no family has a Dfam label", {
   p <- solos_by_class_plot(solos_by_class(unlabelled), tree = NULL, order = .order)
   expect_match(p$labels$subtitle, "No family has a Dfam label")
 })
+
+
+# ---- review fixes (better_plots' read of the M6 PDFs, 2026-10-01) ----
+
+test_that("the ratio page claims nothing about ERVs and shades 10 to 100", {
+  p <- solo_intact_ratio_plot(.report, tree = NULL, order = .order)
+  expect_false(grepl("ERV", p$labels$title))
+  band <- ggplot_build(p)$data[[1]]
+  # Log scale: the band is drawn in log10 units.
+  expect_equal(c(band$ymin, band$ymax), c(1, 2))
+})
+
+test_that("the enrichment page draws Observed in a neutral colour", {
+  summary_dt <- data.table(
+    metric = c("same_class_sister_observed", "same_class_sister_null_mean",
+               "same_class_sister_null_sd"),
+    value = c("0.6", "0.3", "0.05")
+  )
+  built <- ggplot_build(tree_enrichment_plot(summary_dt, "Homo sapiens"))
+  fills <- unique(built$data[[1]]$fill)
+  expect_false(any(fills %in% .FATE_COLOUR))
+})
+
+test_that("the solo tree never gives a family a fate colour", {
+  tips <- data.table(family = paste0("F", rep(1:10, each = 2)), x = 1:20, y = 1:20)
+  built <- ggplot_build(solo_tree_plot(tips, NULL, "Homo sapiens"))
+  fills <- unique(built$data[[1]]$colour)
+  expect_false(any(fills %in% .FATE_COLOUR))
+})
+
+test_that("the family subtrees page names only the kinds it draws", {
+  families <- data.table(family = c("F1", "F2"), kind = c("with_intact", "no_intact"),
+                         n_solo = c(4L, 1L), n_mono = 0L, n_flank = c(2L, 0L))
+  tips <- data.table(family = "F1", class = c("SOLO", "SOLO", "FLANK"),
+                     x = 1:3, y = 1:3)
+  segs <- data.table(family = "F1", x = 0, y = 1, xend = 1, yend = 1)
+  p <- family_subtrees_plot(tips, segs, families, "Homo sapiens")
+  expect_false(grepl("without", p$labels$title))
+  expect_match(p$labels$subtitle, "no family without an intact member")
+})
