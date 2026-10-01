@@ -149,10 +149,6 @@ def table_dirs(name: str) -> tuple[Path, Path]:
     PATH_DICT["RANGES_ANALYSIS_TABLES_PARQUET_DIR"],
     PATH_DICT["RANGES_ANALYSIS_TABLES_CSV_DIR"],
 ) = table_dirs("ranges_analysis")
-(
-    PATH_DICT["PROBE_PAIRS_PARQUET_DIR"],
-    PATH_DICT["PROBE_PAIRS_CSV_DIR"],
-) = table_dirs("probe_pairs")
 # Solo-LTR detection (ADR-017): per-genome solo calls, the full candidate set
 # with each candidate's fate, the funnel counts, and the tree statistics.
 (

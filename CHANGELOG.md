@@ -172,6 +172,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Probe-pair detection** (`--pair-detection`, `pair_detector`, the settings
+  `parameters.probe_to_pair` and `parameters.pair_max_gap`, and the
+  `probe_pairs` tables). It listed every probe hit within 300 kb of an ENV hit:
+  up to 307,000 rows per genome that no stage, figure or table read, at a
+  distance that spans dozens of proviruses. The question it was meant to ask
+  (does one element carry genes of two lineages) is answered per locus by
+  `is_mosaic` and `mosaic_composition`. The validator names both settings if an
+  old config still carries them, and the launcher now stops on a retired stage
+  flag (`--pair-detection`, `--generate-circle-plots`) with the same kind of
+  message; before, a retired flag alone printed the help and exited 0.
 - **Circle plots** (`--generate-circle-plots`, `circle_plot_generator`): the stage
   had not run since April 2026 (it read per-locus scores a refactor replaced) and
   was never brought into the house style. Its config key

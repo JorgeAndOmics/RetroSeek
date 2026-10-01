@@ -209,13 +209,6 @@ STAGES: tuple[Stage, ...] = (
         tools=("Rscript",),
     ),
     Stage(
-        "--pair-detection",
-        "Analysis",
-        ("pair_detector",),
-        "Find nearby probe pairs (parameters.probe_to_pair).",
-        tools=("Rscript",),
-    ),
-    Stage(
         "--placement-trees",
         "Analysis",
         ("placement_trees",),
@@ -231,6 +224,17 @@ STAGES: tuple[Stage, ...] = (
         tools=("Rscript",),
     ),
 )
+
+# Stage flags that were removed, and what took their place. Without this table a
+# retired flag was silent: alone it printed the help and exited 0, beside a real
+# stage it reached Snakemake as an unknown option. Mirrors validator.RETIRED_KEYS.
+RETIRED_FLAGS: dict[str, str] = {
+    "--generate-circle-plots": "nothing: the circle-plot stage was removed",
+    "--pair-detection": (
+        "nothing: the probe-pair stage was removed; `is_mosaic` and "
+        "`mosaic_composition` in catalog.csv say which loci carry genes of two lineages"
+    ),
+}
 
 # `--downstream`: everything after the heavy discovery searches.
 DOWNSTREAM: tuple[str, ...] = tuple(
@@ -302,6 +306,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the documentation of one config field (or list them all) and exit.",
     )
     return parser
+
+
+def retired_flag_messages(unknown: list[str]) -> list[str]:
+    """One message per retired stage flag in `unknown`, naming what replaced it.
+
+    `unknown` is what argparse left over for Snakemake.
+    """
+    return [
+        f"{flag} was retired. Replaced by: {RETIRED_FLAGS[flag]}."
+        for flag in unknown
+        if flag in RETIRED_FLAGS
+    ]
+
+
+def parse_known(
+    parser: argparse.ArgumentParser, argv: list[str] | None = None
+) -> tuple[argparse.Namespace, list[str]]:
+    """`parser.parse_known_args`, stopping on a retired stage flag.
+
+    Both entry points (the root `RetroSeek` script and `RetroSeek.py`) parse
+    through here, so a retired flag gets its message before anything runs.
+    Exits 2 with the usage line and the message, the argparse convention.
+    """
+    args, unknown = parser.parse_known_args(argv)
+    retired = retired_flag_messages(unknown)
+    if retired:
+        parser.error(" ".join(retired))
+    return args, unknown
 
 
 def selected(args: argparse.Namespace) -> list[Stage]:

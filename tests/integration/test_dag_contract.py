@@ -53,10 +53,15 @@ def test_existing_rule_present(project_root: Path, rule_name: str) -> None:
         "ltr_retriever_setup",
         "solo_ltr_integrator_setup",
         "solo_intact_ratio_aggregate",
+        "pair_detector_setup",
+        "pair_detector",
     ],
 )
-def test_ltr_retriever_rule_is_gone(project_root: Path, rule_name: str) -> None:
-    """The LTR_retriever workstream is archived (ADR-017).
+def test_retired_rule_is_gone(project_root: Path, rule_name: str) -> None:
+    """Rules of retired workstreams stay gone.
+
+    The LTR_retriever route was archived by ADR-017; the probe-pair stage was
+    retired on 2026-10-01.
 
     Asserted as absence rather than deleted outright, so that a partial revert
     that reinstates one rule without the rest is caught.
