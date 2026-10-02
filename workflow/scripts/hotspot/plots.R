@@ -175,9 +175,14 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
 }
 
 
-#' Q-Q plot of -log10(p-values) for the NB series against the uniform null.
-plot_qq <- function(window_df, species = NULL, label = NULL) {
-  p <- window_df$pval_nb
+#' Q-Q plot of -log10 p-values for the NB series against the uniform null.
+#' With the label's fitted `theta`, p-values are randomised over their discrete
+#' step (randomised_nb_pvalues, hotspot/chromosomes.R): every empty window has
+#' p = 1, which bends a plain Q-Q plot below the line even for a calibrated model.
+#' Without it (an older call, a failed fit) the plain p-values are drawn.
+plot_qq <- function(window_df, species = NULL, label = NULL, theta = NA_real_) {
+  randomised <- !is.na(theta) && "mu_nb" %in% names(window_df)
+  p <- if (randomised) .randomised_window_p(window_df, theta) else window_df$pval_nb
   p <- p[!is.na(p) & p > 0]
   if (length(p) == 0L) return(empty_plot("No p-values to plot"))
   df <- tibble::tibble(
@@ -189,12 +194,45 @@ plot_qq <- function(window_df, species = NULL, label = NULL) {
     geom_point(size = 0.7, alpha = 0.7, colour = .DATA_COLOUR) +
     labs(x = expression(Expected ~ ~-log[10](p)),
          y = expression(Observed ~ ~-log[10](p)))
+  how <- if (randomised) "randomised p-values" else "observed p-values"
   add_titles(plot, "Is the model calibrated?",
-             sprintf(
-               paste("%s windows: observed p-values against the uniform null. Points",
-                     "on the dashed line mean a calibrated model."),
-               display_label(label %||% "All")
-             ),
+             sprintf(paste("%s windows: %s against the uniform null; on the dashed",
+                           "line, the model is calibrated."),
+                     display_label(label %||% "All"), how),
+             species = species)
+}
+
+# Randomised p-values for the windows the model scored (a mean and some bp).
+.randomised_window_p <- function(window_df, theta) {
+  scored <- !is.na(window_df$mu_nb) & window_df$effective_bp > 0
+  randomised_nb_pvalues(as.integer(window_df$count[scored]), window_df$mu_nb[scored],
+                        theta)
+}
+
+#' Page: chromosomes carrying more than their share of a lineage's loci, the
+#' excess the window test cannot see (each chromosome is its own baseline
+#' there). One dot per tested chromosome and label; filled when q < 0.05.
+#' NULL when nothing was tested, so the page is left out.
+plot_chromosome_rates <- function(chrom_df, species = NULL) {
+  if (!nrow(chrom_df)) return(NULL)
+  d <- chrom_df %>%
+    dplyr::mutate(called = .data$qval < 0.05,
+                  label = display_label(.data$label))
+  p <- ggplot(d, aes(x = .data$rate_ratio, y = .data$chrom)) +
+    geom_vline(xintercept = 1, colour = .INK_SOFT, linetype = "dashed") +
+    geom_point(aes(colour = .data$called), size = 2) +
+    scale_colour_manual(values = c(`TRUE` = .DATA_COLOUR, `FALSE` = .GREY_MID),
+                        labels = c(`TRUE` = "q below 0.05", `FALSE` = "Not called"),
+                        name = NULL) +
+    scale_x_log10() +
+    facet_wrap(~ .data$label) +
+    labs(x = "Loci against the chromosome's share of the genome (log scale)",
+         y = NULL) +
+    theme(axis.text.y = element_text(size = 7))
+  add_titles(p, "Chromosomes with more than their share",
+             paste("Each chromosome's loci against its share of the genome's; the",
+                   "window test cannot see this (each chromosome is its own",
+                   "baseline there)."),
              species = species)
 }
 

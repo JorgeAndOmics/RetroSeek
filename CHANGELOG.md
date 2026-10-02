@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Whole-chromosome hotspot test**: `{genome}.chromosomes.csv` and a page in each
+  hotspot PDF compare every chromosome's loci with its share of the genome (a
+  dispersion-corrected one-sided test, BH within a lineage). The window test gives
+  each chromosome its own baseline, so excess spread over a whole chromosome (Y is
+  3 to 8 times the genome rate in human and mouse) was invisible to it.
+- **Calibrated Q-Q pages**: hotspot Q-Q pages draw randomised p-values. Most
+  windows hold no loci and all of them have p = 1, which bent the plain Q-Q plot
+  below the line although the test is calibrated (a parametric bootstrap gives its
+  nominal false-call rate).
 - **`results/plots/highlights.pdf`**, drawn by `--generate-global-plots`: the
   headline findings in a few 16:9 pages (loci per host, the lineage mix, a
   lineage-by-host bubble matrix, and with `plots.focal_lineages` the focal
