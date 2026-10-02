@@ -33,6 +33,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 022   | [Three gene lists, one job each](ADR-022-three-gene-lists.md) | Accepted |
 | 023   | [LTR families from the solo-LTR bait arms](ADR-023-ltr-families.md) | Accepted |
 | 024   | [Nearest reference virus, with its identity](ADR-024-nearest-reference-virus.md) | Accepted |
+| 025   | [A placement weight floor for the gene call](ADR-025-placement-weight-floor.md) | Accepted |
 
 ## When to write a new ADR
 

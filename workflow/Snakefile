@@ -1560,6 +1560,7 @@ rule taxonomy_classify_setup:
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
+        placement_min_weight = _CLASSIFICATION.get('placement_min_weight', 0.0),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'taxonomy'),
@@ -1575,7 +1576,7 @@ rule taxonomy_classify_setup:
             --gene-priority {params.gene_priority:q} --gene-order {params.gene_order:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
+            --confidence-min {params.confidence_min} --placement-min-weight {params.placement_min_weight} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source ltr-flanked \
             --out-placement-dir {params.placement_dir:q} \
             --domains-parquet {input.domains:q} --domain-classes {input.dom_class:q} \
             --domains-scanned {input.scanned:q} \
@@ -1652,6 +1653,7 @@ rule taxonomy_orphans_setup:
         top_percent     = _CLASSIFICATION.get('top_percent', 0.10),
         min_orf         = _CLASSIFICATION.get('min_orf', 30),
         confidence_min  = _CLASSIFICATION.get('confidence_min', 0.5),
+        placement_min_weight = _CLASSIFICATION.get('placement_min_weight', 0.0),
         structure_full_min = _CLASSIFICATION.get('structure_full_min', 1.0),
         segment_rank = _CLASSIFICATION.get('segment_rank', 'genus'),
         workdir         = os.path.join(defaults.PATH_DICT['TMP_DIR'], 'orphans'),
@@ -1667,7 +1669,7 @@ rule taxonomy_orphans_setup:
             --gene-priority {params.gene_priority:q} --gene-order {params.gene_order:q} \
             --placement-genes {params.placement_genes:q} \
             --evalue {params.evalue} --top-percent {params.top_percent} --min-orf {params.min_orf} \
-            --confidence-min {params.confidence_min} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
+            --confidence-min {params.confidence_min} --placement-min-weight {params.placement_min_weight} --structure-full-min {params.structure_full_min} --segment-rank {params.segment_rank:q} --source orphan --gate-classified \
             --out-placement-dir {params.placement_dir:q} \
             --domains-parquet {input.domains:q} --domain-classes {input.dom_class:q} \
             --domains-scanned {input.scanned:q} \

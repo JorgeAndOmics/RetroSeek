@@ -171,6 +171,9 @@ classification:
   top_percent: 0.10
   min_orf: 30
   confidence_min: 0.5
+  # A phylogenetic placement beats the gene's blastx call only at or above this
+  # placement weight (aLWR); below it the blastx call stands (ADR-025). 0 = any.
+  placement_min_weight: 0.0
   # Minimum gene completeness (fraction of main_probes present) for a locus to be
   # catalogued as a 'full' ERV in structure_class. 1.0 = every main gene present.
   # A single-main-gene locus is always 'gene'; anything present but below this
