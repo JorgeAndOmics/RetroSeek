@@ -292,6 +292,7 @@ def classify(
     *,
     gene_priority: list[str] | None = None,
     gene_order: list[str] | None = None,
+    placement_min_weight: float = 0.0,
 ) -> list[dict[str, str]]:
     """Classify every locus of one genome's valid track; one record per locus.
 
@@ -338,6 +339,7 @@ def classify(
         gene_priority=gene_priority,
         gene_order=gene_order,
         best=best,
+        placement_min_weight=placement_min_weight,
     )
 
 
@@ -578,6 +580,7 @@ class _Assembly:
     source: str
     segment_rank: str
     best: dict[str, BestHit]  # region -> its best blastx hit (ADR-024)
+    placement_min_weight: float  # below it a placement yields to blastx (ADR-025)
 
 
 def _assemble(
@@ -597,6 +600,7 @@ def _assemble(
     gene_priority: list[str] | None = None,
     gene_order: list[str] | None = None,
     best: dict[str, BestHit] | None = None,
+    placement_min_weight: float = 0.0,
 ) -> list[dict[str, str]]:
     """One output record per locus, from its per-gene evidence.
 
@@ -621,6 +625,7 @@ def _assemble(
         source=source,
         segment_rank=segment_rank,
         best=best or {},
+        placement_min_weight=placement_min_weight,
     )
     return [_locus_record(lc, asm) for lc in loci]
 
@@ -628,12 +633,17 @@ def _assemble(
 def _gene_call(qid: str, gene: str, asm: _Assembly) -> dict[str, str]:
     """The call for one gene region of a locus.
 
-    Placement wins, but only when it resolves an axis taxon (ADR-008); a
+    Placement wins, but only when it resolves an axis taxon (ADR-008) with a
+    placement weight (aLWR) of at least ``placement_min_weight`` (ADR-025); a
     diagnostic gene is called by presence; anything else by weighted-LCA over
     its blastx hits.
     """
     pl = asm.placement.get(qid)
-    if pl and pl["taxon_call"] in asm.axis:
+    if (
+        pl
+        and pl["taxon_call"] in asm.axis
+        and float(pl["confidence"]) >= asm.placement_min_weight
+    ):
         return pl
     if gene in asm.diagnostic:
         node = asm.diagnostic[gene]
@@ -1053,6 +1063,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "confidence); at or above it is 'HC'. classification.confidence_min.",
     )
     p.add_argument(
+        "--placement-min-weight",
+        type=float,
+        default=0.0,
+        help="placement weight (aLWR) a placement needs to win over the gene's "
+        "blastx call; below it the blastx call stands. "
+        "classification.placement_min_weight.",
+    )
+    p.add_argument(
         "--structure-full-min",
         type=float,
         default=1.0,
@@ -1183,6 +1201,7 @@ def _classify_from_args(a: argparse.Namespace) -> list[dict[str, str]]:
         scanned_txt=a.domains_scanned,
         gene_priority=_comma_list(a.gene_priority),
         gene_order=_comma_list(a.gene_order),
+        placement_min_weight=a.placement_min_weight,
     )
 
 

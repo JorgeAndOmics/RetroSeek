@@ -104,6 +104,7 @@ classification_schema:
   top_percent:     num(min=0, max=1)
   min_orf:         int(min=0)
   confidence_min:  num(min=0, max=1, required=False)
+  placement_min_weight: num(min=0, max=1, required=False)
   structure_full_min: num(min=0, max=1, required=False)
   segment_rank: str(required=False)
   reference_taxa:  list(str(), required=False)

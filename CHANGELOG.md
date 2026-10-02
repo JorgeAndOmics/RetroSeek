@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Placement weight floor** (ADR-025): `classification.placement_min_weight`
+  lets a phylogenetic placement win over the gene's blastx call only at or above
+  that placement weight (aLWR). Default 0 keeps today's behaviour; weak
+  placements disagree with blastx a fifth of the time and drive most rare-lineage
+  calls.
 - **Whole-chromosome hotspot test**: `{genome}.chromosomes.csv` and a page in each
   hotspot PDF compare every chromosome's loci with its share of the genome (a
   dispersion-corrected one-sided test, BH within a lineage). The window test gives

@@ -11,6 +11,7 @@ test covers the gappa-output parser used by the placement branch.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, ClassVar
 
 import pandas as pd
 import pytest
@@ -1120,6 +1121,54 @@ class TestPlacementBranch:
         }
         (rec,) = tcl._assemble(loci, hits, placement, "v", ["POL"], {}, 0.1, _AXIS)
         assert (rec["taxon_call"], rec["method"]) == ("Betaretrovirus", "lca")
+
+
+class TestPlacementWeightFloor:
+    """A placement wins only at or above classification.placement_min_weight.
+
+    Below it the gene falls back to its blastx call: weak placements disagree
+    with blastx a fifth of the time (Workbench measurements/2026-10-02).
+    """
+
+    _LOCI: ClassVar[list[dict[str, Any]]] = [
+        {
+            "id": "L0",
+            "seqname": "c",
+            "start": 1,
+            "end": 9,
+            "strand": "+",
+            "parent": "P",
+            "genes": {"POL": (1, 9)},
+            "probe_label_set": "",
+        }
+    ]
+    _HITS: ClassVar[dict[str, list[tuple[str, float]]]] = {
+        "L0|POL": [("Betaretrovirus", 100.0)]
+    }
+
+    def _call(self, weight: str, floor: float | None) -> tuple[str, str]:
+        placement = {
+            "L0|POL": {
+                "taxon_call": "Gammaretrovirus",
+                "rank": "genus",
+                "confidence": weight,
+                "method": "placement",
+            }
+        }
+        kwargs = {} if floor is None else {"placement_min_weight": floor}
+        (rec,) = tcl._assemble(
+            self._LOCI, self._HITS, placement, "v", ["POL"], {}, 0.1, _AXIS, **kwargs
+        )
+        return rec["taxon_call"], rec["method"]
+
+    def test_a_placement_below_the_floor_yields_to_blastx(self) -> None:
+        assert self._call("0.650", 0.8) == ("Betaretrovirus", "lca")
+
+    def test_a_placement_at_the_floor_still_wins(self) -> None:
+        assert self._call("0.800", 0.8) == ("Gammaretrovirus", "placement")
+
+    def test_without_a_floor_any_placement_wins(self) -> None:
+        assert self._call("0.200", None) == ("Gammaretrovirus", "placement")
 
 
 class TestNearestVirus:
