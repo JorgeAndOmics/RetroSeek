@@ -118,7 +118,9 @@ empty_plot <- function(label = "No data") {
 .italic_lead <- function(species, subtitle) {
   if (.is_blank(subtitle)) return(bquote(italic(.(species))))
   if (grepl("\n", subtitle, fixed = TRUE)) return(.lead_subtitle(species, subtitle))
-  bquote(italic(.(species)) * ". " * .(subtitle))
+  # The full stop inside the italics: after an italic run plotmath leaves a gap
+  # that reads as "sapiens ." when the stop follows it upright.
+  bquote(italic(.(paste0(species, "."))) * " " * .(subtitle))
 }
 
 
