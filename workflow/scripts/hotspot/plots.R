@@ -224,9 +224,8 @@ plot_chromosome_rates <- function(chrom_df, species = NULL) {
     scale_colour_manual(values = c(`TRUE` = .DATA_COLOUR, `FALSE` = .GREY_MID),
                         labels = c(`TRUE` = "q below 0.05", `FALSE` = "Not called"),
                         name = NULL) +
-    scale_x_log10() +
     facet_wrap(~ .data$label) +
-    labs(x = "Loci against the chromosome's share of the genome (log scale)",
+    labs(x = "Loci against the chromosome's share of the genome (1 is its share)",
          y = NULL) +
     theme(axis.text.y = element_text(size = 7))
   add_titles(p, "Chromosomes with more than their share",

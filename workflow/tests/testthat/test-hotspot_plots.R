@@ -126,3 +126,10 @@ test_that("the chromosome page shows each tested chromosome, and none when untes
   expect_s3_class(p, "ggplot")
   expect_null(plot_chromosome_rates(d[0, ], "Mus musculus"))
 })
+
+test_that("a chromosome with no loci draws without a warning", {
+  d <- data.frame(label = "Betaretrovirus", chrom = c("chr1", "chr2"),
+                  observed = c(0L, 50L), expected = c(25, 25),
+                  rate_ratio = c(0, 2), pval = c(1, 0.001), qval = c(1, 0.002))
+  expect_no_warning(ggplot2::ggplot_build(plot_chromosome_rates(d, "Mus musculus")))
+})

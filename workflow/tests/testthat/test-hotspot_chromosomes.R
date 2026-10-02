@@ -50,3 +50,17 @@ test_that("a label with one chromosome or no loci is left untested", {
   empty <- transform(.windows(), count = 0L)
   expect_equal(nrow(chromosome_rate_test(empty)), 0L)
 })
+
+test_that("one locus on a chromosome expecting a tiny share is not called", {
+  # 1 observed against 0.06 expected: the exact chance of one or more is ~0.06,
+  # which a normal approximation would turn into p ~ 1e-4.
+  d <- .windows()
+  d$count <- 0L
+  d$count[seq(1, nrow(d), by = 2)] <- 1L  # 5 loci on every chromosome
+  short <- d$chrom == "chr02"
+  d$effective_bp[short] <- 5e3            # a hundredth of the others' size
+  d$count[short] <- c(1L, rep(0L, 9))
+  out <- chromosome_rate_test(d)
+  expect_lt(out$expected[out$chrom == "chr02"], 0.1)
+  expect_gt(out$pval[out$chrom == "chr02"], 0.01)
+})

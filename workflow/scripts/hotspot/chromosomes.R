@@ -40,7 +40,10 @@ randomised_nb_pvalues <- function(count, mu, theta, seed = 1L) {
 #' Loci cluster, so chromosome counts vary more than Poisson; the dispersion is
 #' the median Pearson contribution over the chromosomes (robust to the one
 #' chromosome being tested, which an overall estimate would let hide itself),
-#' never below 1. p from z = (O - E) / sqrt(dispersion x E); BH within a label.
+#' never below 1. p = P(X >= O) for X with mean E and variance dispersion x E
+#' (a negative binomial, or Poisson at dispersion 1); exact, because a normal
+#' approximation calls a single locus where 0.06 were expected (p 1e-4 instead
+#' of 0.06). BH within a label.
 #' @param window_df window table: label, chrom, effective_bp, count
 #' @return one row per label and chromosome: label, chrom, observed, expected,
 #'   rate_ratio, pval, qval. A label with fewer than two chromosomes or no
@@ -68,10 +71,20 @@ chromosome_rate_test <- function(window_df) {
   expected <- sum(observed) * bp / sum(bp)
   pearson <- (observed - expected)^2 / expected
   dispersion <- max(1, stats::median(pearson) / .CHISQ1_MEDIAN)
-  z <- (observed - expected) / sqrt(dispersion * expected)
-  pval <- stats::pnorm(z, lower.tail = FALSE)
+  pval <- .upper_tail(observed, expected, dispersion)
   data.frame(label = label, chrom = names(observed),
              observed = as.integer(observed), expected = as.numeric(expected),
              rate_ratio = as.numeric(observed / expected), pval = as.numeric(pval),
              qval = stats::p.adjust(pval, method = "BH"), row.names = NULL)
+}
+
+# P(X >= observed) with mean `expected` and variance dispersion x expected. A
+# negative binomial with size = mean / (dispersion - 1) has exactly that
+# variance; at dispersion 1 it is Poisson.
+.upper_tail <- function(observed, expected, dispersion) {
+  if (dispersion == 1) {
+    return(stats::ppois(observed - 1, expected, lower.tail = FALSE))
+  }
+  stats::pnbinom(observed - 1, mu = expected, size = expected / (dispersion - 1),
+                 lower.tail = FALSE)
 }
