@@ -345,7 +345,10 @@ rule ltr_index_generator:
 # =============================================================================
 rule ltr_harvester_setup:
     input:
-        rules.ltr_index_generator.input
+        # This genome's suffix array only. The whole-species aggregate used to sit
+        # here, so a new index for one genome reran LTRharvest and LTRdigest for all.
+        idx = expand(os.path.join(defaults.PATH_DICT['SPECIES_DB'], '{{genome}}', '{{genome}}.{ext}'),
+                     ext=LTR_INDEX_EXT)
     output:
         ltr_fasta       = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.fa'),
         ltr_gff3        = os.path.join(defaults.PATH_DICT['LTRHARVEST_DIR'], '{genome}.gff3'),

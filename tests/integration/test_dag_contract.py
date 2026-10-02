@@ -494,3 +494,19 @@ def test_heavy_rules_keep_their_commands(project_root: Path) -> None:
             + (following.start() if following else len(text))
         ]
         assert "job_log(" not in block, f"{rule} gained a job log"
+
+
+def test_ltr_harvest_reads_only_its_own_genome_index(project_root: Path) -> None:
+    """Each LTRharvest job depends on its own genome's suffix array, no other.
+
+    It used to take the whole-species aggregate (rules.ltr_index_generator.input),
+    so a new index for one genome reran LTRharvest and LTRdigest (24 to 40 h per
+    genome) for every genome (gotcha 19D).
+    """
+    text = _read_snakefile(project_root)
+    harvester = text[
+        text.index("rule ltr_harvester_setup") : text.index("rule ltr_digester_setup")
+    ]
+    inputs = harvester[: harvester.index("output:")]
+    assert "rules.ltr_index_generator" not in inputs
+    assert "'{{genome}}', '{{genome}}.{ext}'" in inputs
