@@ -113,8 +113,8 @@ empty_plot <- function(label = "No data") {
 
 # The same with an italic lead (a species). plotmath is the only way ggplot2
 # mixes faces in one line, and it cannot break lines, so a subtitle with a line
-# break keeps a plain lead (several solo pages break theirs over two or three
-# lines; backlog: shorten them, or adopt ggtext).
+# break keeps a plain lead. Pages keep their subtitles to one line and put any
+# further detail in the caption, which can break.
 .italic_lead <- function(species, subtitle) {
   if (.is_blank(subtitle)) return(bquote(italic(.(species))))
   if (grepl("\n", subtitle, fixed = TRUE)) return(.lead_subtitle(species, subtitle))

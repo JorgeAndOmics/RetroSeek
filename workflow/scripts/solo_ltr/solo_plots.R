@@ -310,9 +310,11 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
                             "solos and monoLTRs."), nrow(d))
   caption <- sprintf(
     paste(
-      "Every sampled solo's seed is on the tree. Seed control: %.0f%% of solos sit",
-      "within 0.1 substitutions/site of the arm that caught them. Arm control: %.0f%%.",
-      "\nSame-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."
+      paste("Every sampled solo's seed is on the tree. Seed control: %.0f%% of solos",
+            "sit within 0.1 substitutions/site of the arm that caught them. Arm",
+            "control: %.0f%%."),
+      "Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx).",
+      sep = "\n"
     ),
     100 * .summary_metric(summary_dt, "solos_near_seed_fraction"),
     100 * .summary_metric(summary_dt, "arm_sisterhood_fraction"),
