@@ -77,9 +77,10 @@ sequences_to_draw <- function(seqlengths, min_length, max_n = 40L) {
 #' Manhattan plot: genome-wide -log10(qval_nb) against stitched genomic position,
 #' chromosomes in alternating shades so neighbours stay apart. Dashed line at
 #' the significance threshold. `draw` (sequences_to_draw()) limits the x axis
-#' to the sequences worth a label; NULL draws every one.
+#' to the sequences worth a label; NULL draws every one. `chrom_labels`
+#' (chromosome_display_names()) names the axis; NULL keeps the accessions.
 plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL,
-                           draw = NULL) {
+                           draw = NULL, chrom_labels = NULL) {
   if (nrow(window_df) == 0L) return(empty_plot("No windows to plot"))
   n_hidden <- 0L
   if (!is.null(draw)) {
@@ -104,11 +105,12 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL,
                linetype = "dashed") +
     scale_colour_manual(values = c(`0` = .DATA_COLOUR, `1` = .GREY_MID),
                         guide = "none") +
-    scale_x_continuous(breaks = offsets$chrom_centre, labels = offsets$chrom,
+    scale_x_continuous(breaks = offsets$chrom_centre,
+                       labels = .chrom_display(offsets$chrom, chrom_labels),
                        expand = expansion(mult = 0.01)) +
     labs(x = NULL, y = expression(-log[10](q)), caption = .hidden_caption(n_hidden)) +
-    # Sequence names are a dense axis of accession codes: the one place a tilted
-    # label is the lesser evil.
+    # A dense axis (and accessions where no short name exists): the one place a
+    # tilted label is the lesser evil.
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
           panel.grid.major.x = element_blank())
   add_titles(p, "Where integrations cluster",
@@ -125,7 +127,8 @@ plot_manhattan <- function(window_df, threshold, species = NULL, label = NULL,
 #' overlaid in their lineage colour. Pure ggplot2 (faceted) rather than ggbio,
 #' so the module is robust to ggbio API drift across versions. `draw`
 #' (sequences_to_draw()) picks the bars; NULL draws every sequence.
-plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
+plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL,
+                           chrom_labels = NULL) {
   if (length(seqlengths) == 0L) return(empty_plot("No chromosomes"))
   n_hidden <- 0L
   if (!is.null(draw)) {
@@ -159,7 +162,8 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
                         name = NULL)
   }
   p <- p +
-    facet_grid(rows = vars(.data$chrom), switch = "y") +
+    facet_grid(rows = vars(.data$chrom), switch = "y",
+               labeller = as_labeller(function(x) .chrom_display(x, chrom_labels))) +
     scale_y_continuous(breaks = NULL, expand = expansion(mult = 0)) +
     scale_x_continuous(labels = scales::comma_format(suffix = " Mb")) +
     labs(x = NULL, y = NULL, caption = .hidden_caption(n_hidden)) +
@@ -175,9 +179,14 @@ plot_karyotype <- function(seqlengths, hotspots, species = NULL, draw = NULL) {
 }
 
 
-#' Q-Q plot of -log10(p-values) for the NB series against the uniform null.
-plot_qq <- function(window_df, species = NULL, label = NULL) {
-  p <- window_df$pval_nb
+#' Q-Q plot of -log10 p-values for the NB series against the uniform null.
+#' With the label's fitted `theta`, p-values are randomised over their discrete
+#' step (randomised_nb_pvalues, hotspot/chromosomes.R): every empty window has
+#' p = 1, which bends a plain Q-Q plot below the line even for a calibrated model.
+#' Without it (an older call, a failed fit) the plain p-values are drawn.
+plot_qq <- function(window_df, species = NULL, label = NULL, theta = NA_real_) {
+  randomised <- !is.na(theta) && "mu_nb" %in% names(window_df)
+  p <- if (randomised) .randomised_window_p(window_df, theta) else window_df$pval_nb
   p <- p[!is.na(p) & p > 0]
   if (length(p) == 0L) return(empty_plot("No p-values to plot"))
   df <- tibble::tibble(
@@ -189,12 +198,53 @@ plot_qq <- function(window_df, species = NULL, label = NULL) {
     geom_point(size = 0.7, alpha = 0.7, colour = .DATA_COLOUR) +
     labs(x = expression(Expected ~ ~-log[10](p)),
          y = expression(Observed ~ ~-log[10](p)))
+  how <- if (randomised) "randomised p-values" else "observed p-values"
   add_titles(plot, "Is the model calibrated?",
-             sprintf(
-               paste("%s windows: observed p-values against the uniform null. Points",
-                     "on the dashed line mean a calibrated model."),
-               display_label(label %||% "All")
-             ),
+             sprintf(paste("%s windows: %s against the uniform null; on the dashed",
+                           "line, the model is calibrated."),
+                     display_label(label %||% "All"), how),
+             species = species)
+}
+
+# Randomised p-values for the windows the model scored (a mean and some bp).
+.randomised_window_p <- function(window_df, theta) {
+  scored <- !is.na(window_df$mu_nb) & window_df$effective_bp > 0
+  randomised_nb_pvalues(as.integer(window_df$count[scored]), window_df$mu_nb[scored],
+                        theta)
+}
+
+#' Page: chromosomes carrying more than their share of a lineage's loci, the
+#' excess the window test cannot see (each chromosome is its own baseline
+#' there). One panel per lineage with at least one called chromosome (q below
+#' 0.05), a dot per chromosome. NULL when nothing was tested, so the page is
+#' left out; a placeholder when nothing was called.
+plot_chromosome_rates <- function(chrom_df, species = NULL, chrom_labels = NULL) {
+  if (!nrow(chrom_df)) return(NULL)
+  called_labels <- unique(chrom_df$label[chrom_df$qval < 0.05])
+  if (!length(called_labels)) {
+    return(empty_plot("No chromosome carries more than its share"))
+  }
+  d <- chrom_df %>%
+    dplyr::filter(.data$label %in% called_labels) %>%
+    dplyr::mutate(called = .data$qval < 0.05,
+                  chrom = .chrom_display(.data$chrom, chrom_labels),
+                  label = display_label(.data$label)) %>%
+    # The table's order (chr1 first) read top down; the y axis runs bottom up.
+    dplyr::mutate(chrom = factor(.data$chrom, levels = rev(unique(.data$chrom))))
+  p <- ggplot(d, aes(x = .data$rate_ratio, y = .data$chrom)) +
+    geom_vline(xintercept = 1, colour = .INK_SOFT, linetype = "dashed") +
+    geom_point(aes(colour = .data$called), size = 2) +
+    scale_colour_manual(values = c(`TRUE` = .DATA_COLOUR, `FALSE` = .GREY_MID),
+                        labels = c(`TRUE` = "q below 0.05", `FALSE` = "Not called"),
+                        name = NULL) +
+    facet_wrap(~ .data$label) +
+    labs(x = "Loci against the chromosome's share of the genome (1 is its share)",
+         y = NULL) +
+    theme(axis.text.y = element_text(size = 7))
+  add_titles(p, "Chromosomes with more than their share",
+             paste("Each chromosome's loci against its share of the genome's; the",
+                   "window test cannot see this (each chromosome is its own",
+                   "baseline there)."),
              species = species)
 }
 
@@ -302,3 +352,12 @@ plot_hotspot_composition <- function(hotspots, species = NULL, tier_note = NULL)
 # than `library(rlang)` - we already library(rlang) at the top, but keeping
 # this local fallback makes the module self-contained for unit testing).
 `%||%` <- function(x, y) if (is.null(x) || (length(x) == 1L && is.na(x))) y else x
+
+# Display names for chromosome accessions; an accession without one (or no
+# name table at all) shows as itself.
+.chrom_display <- function(chrom, chrom_labels) {
+  chrom <- as.character(chrom)
+  if (is.null(chrom_labels)) return(chrom)
+  shown <- unname(chrom_labels[chrom])
+  ifelse(is.na(shown), chrom, shown)
+}

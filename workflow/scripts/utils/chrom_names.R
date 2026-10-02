@@ -40,3 +40,26 @@ normalise_chrom_names <- function(headers) {
   }
   names_only
 }
+
+
+#' Short names for the figures: "chr1", "chrX", "chrMT".
+#'
+#' Only an assembled molecule gets one: its header names "chromosome <name>,"
+#' with the comma right after the name (NCBI style), or "mitochondrion". Patches,
+#' alternate loci and unlocalised scaffolds ("chromosome 1 unlocalized ...") keep
+#' their accession, so no two sequences share a label; a short name that would
+#' repeat falls back to the accessions too.
+#'
+#' @param headers character vector of FASTA header lines
+#' @return named character vector: accession -> display name
+chromosome_display_names <- function(headers) {
+  accession <- normalise_chrom_names(headers)
+  molecule <- regmatches(headers, regexec("\\bchromosome ([^ ,]+),", headers))
+  short <- vapply(molecule,
+                  function(m) if (length(m)) paste0("chr", m[2]) else NA_character_,
+                  character(1))
+  short[grepl("\\bmitochondrion\\b", headers)] <- "chrMT"
+  repeated <- short %in% short[duplicated(short)]
+  short[is.na(short) | repeated] <- accession[is.na(short) | repeated]
+  stats::setNames(short, accession)
+}

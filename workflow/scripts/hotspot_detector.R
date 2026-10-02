@@ -61,6 +61,7 @@ source(file.path(.script_dir, "hotspot", "masking.R"))
 source(file.path(.script_dir, "hotspot", "windowing.R"))
 source(file.path(.script_dir, "hotspot", "models.R"))
 source(file.path(.script_dir, "hotspot", "postprocess.R"))
+source(file.path(.script_dir, "hotspot", "chromosomes.R"))
 source(file.path(.script_dir, "hotspot", "plots.R"))
 source(file.path(.script_dir, "ranges",           "exporters.R"))
 
@@ -129,7 +130,8 @@ log_job(args$log, "hotspot_detector")
   overlap_frac <- assert_hits_on_genome(hits, genome$seqlengths)
   log_info("%.1f%% of hits map to genome contigs", 100 * overlap_frac)
   list(config = config, opts = opts, species = species, species_name = species_name,
-       seqs = genome$seqs, seqlengths = genome$seqlengths, hits = hits)
+       seqs = genome$seqs, seqlengths = genome$seqlengths, hits = hits,
+       chrom_labels = chromosome_display_names(genome$headers_raw))
 }
 
 # -----------------------------------------------------------------------------
@@ -257,7 +259,17 @@ log_job(args$log, "hotspot_detector")
              sum(.comp$n_loci), sum(.comp$n_full), sum(.comp$n_partial),
              sum(.comp$n_gene))
   }
-  list(windows = all_windows_df, hotspots = all_hotspots)
+  # Draw what the model treats as a chromosome: scaffolds it pools into
+  # "Unplaced" are tested but would only smear the genome-wide axes. The same
+  # sequences are tested as whole chromosomes. Each label's theta feeds its
+  # randomised Q-Q page.
+  draw <- sequences_to_draw(inputs$seqlengths,
+                            inputs$opts$window_size * inputs$opts$unplaced_min_factor)
+  drawn <- dplyr::filter(all_windows_df, .data$chrom %in% draw)
+  chromosomes <- chromosome_rate_test(drawn)
+  theta <- vapply(scans, function(s) s$diagnostics$theta %||% NA_real_, numeric(1))
+  list(windows = all_windows_df, hotspots = all_hotspots, draw = draw,
+       chromosomes = chromosomes, theta = theta)
 }
 
 # -----------------------------------------------------------------------------
@@ -283,7 +295,8 @@ log_job(args$log, "hotspot_detector")
     parquet  = file.path(args$parquet_dir,      paste0(species, ".parquet")),
     manifest = file.path(args$parquet_dir,      paste0(species, ".manifest.yaml")),
     gff      = file.path(args$track_output_dir, paste0(species, ".gff3")),
-    bed      = file.path(args$track_output_dir, paste0(species, ".bed"))
+    bed      = file.path(args$track_output_dir, paste0(species, ".bed")),
+    chromosomes = file.path(args$csv_dir,       paste0(species, ".chromosomes.csv"))
   )
 }
 
@@ -299,6 +312,9 @@ log_job(args$log, "hotspot_detector")
   # per-window CSV above answers "where is enrichment"; this one answers "what is
   # the enrichment made of", without parsing GFF3 attributes.
   readr::write_csv(as.data.frame(result$hotspots, row.names = NULL), paths$regions)
+  # Per-CHROMOSOME table: excess the window test absorbs into each chromosome's
+  # own baseline (hotspot/chromosomes.R).
+  readr::write_csv(result$chromosomes, paths$chromosomes)
 
   generator_version <- resolve_generator_version()
   track_exporter(result$hotspots, paths$gff, generator_version = generator_version)
@@ -328,11 +344,13 @@ log_job(args$log, "hotspot_detector")
 # model could test; a label with too few loci has no callable window, and a
 # page per such label would be a run of empty placeholders. They are named on
 # the key page instead.
-.label_pages <- function(windows_df, opts, plot_species, labels, draw) {
+.label_pages <- function(windows_df, opts, plot_species, labels, draw, theta,
+                         chrom_labels) {
   unlist(lapply(labels, function(lbl) {
     windows <- dplyr::filter(windows_df, .data$label == lbl)
-    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl, draw = draw),
-         plot_qq(windows, plot_species, lbl))
+    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl, draw = draw,
+                        chrom_labels = chrom_labels),
+         plot_qq(windows, plot_species, lbl, theta = theta[[lbl]]))
   }), recursive = FALSE)
 }
 
@@ -340,13 +358,17 @@ log_job(args$log, "hotspot_detector")
 # only when a hotspot was called (otherwise both would be the same empty page).
 .genome_pages <- function(inputs, opts, result, plot_species, draw, group_col) {
   karyotype <- plot_karyotype(inputs$seqlengths, result$hotspots, plot_species,
-                              draw = draw)
-  if (length(result$hotspots) == 0L) return(list(karyotype))
-  list(karyotype,
-       plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
-       plot_hotspot_composition(result$hotspots, plot_species,
-                                sprintf("The %s tier, grouped by %s.",
-                                        opts$input, group_col)))
+                              draw = draw, chrom_labels = inputs$chrom_labels)
+  chromosome_page <- plot_chromosome_rates(result$chromosomes, plot_species,
+                                           chrom_labels = inputs$chrom_labels)
+  pages <- Filter(Negate(is.null), list(karyotype, chromosome_page))
+  if (length(result$hotspots) == 0L) return(pages)
+  c(pages, list(
+    plot_summary_panel(result$hotspots, inputs$seqlengths, plot_species),
+    plot_hotspot_composition(result$hotspots, plot_species,
+                             sprintf("The %s tier, grouped by %s.", opts$input,
+                                     group_col))
+  ))
 }
 
 # The key page's description: what a hotspot is, how many were called, and the
@@ -378,13 +400,10 @@ log_job(args$log, "hotspot_detector")
   callable <- result$windows %>%
     dplyr::group_by(.data$label) %>%
     dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
-  # Draw what the model treats as a chromosome: scaffolds it pools into
-  # "Unplaced" are tested but would only smear the genome-wide axes.
-  draw <- sequences_to_draw(inputs$seqlengths,
-                            opts$window_size * opts$unplaced_min_factor)
   pages <- c(.label_pages(result$windows, opts, plot_species,
-                          callable$label[callable$tested], draw),
-             .genome_pages(inputs, opts, result, plot_species, draw, group_col))
+                          callable$label[callable$tested], result$draw, result$theta,
+                          inputs$chrom_labels),
+             .genome_pages(inputs, opts, result, plot_species, result$draw, group_col))
   # The structure colours belong to the composition page alone.
   colours <- if (length(result$hotspots)) {
     stats::setNames(unname(.STRUCTURE_COLOUR), display_label(names(.STRUCTURE_COLOUR)))

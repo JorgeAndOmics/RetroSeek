@@ -101,3 +101,50 @@ test_that("a lineage is named in words, not as a table value", {
   expect_match(.subtitle_text(p), "Unassigned at genus loci per window")
   expect_no_match(.subtitle_text(p), "unassigned_at_genus")
 })
+
+
+# ---------------------------------------------------------------------------
+# Q-Q with randomised p-values; the whole-chromosome page
+# ---------------------------------------------------------------------------
+source(file.path(.dir, "hotspot", "chromosomes.R"))
+
+test_that("with the model's theta the Q-Q page draws randomised p-values", {
+  w <- .windows()
+  w$mu_nb <- 0.5
+  w$effective_bp <- 500000
+  w$count <- c(3L, 0L, 0L, 1L, 0L, 2L, 0L, 0L)
+  p <- plot_qq(w, "Mus musculus", "Betaretrovirus", theta = 2)
+  expect_match(.subtitle_text(p), "randomised")
+  expect_equal(nrow(p$data), 8L)
+})
+
+test_that("the chromosome page shows each tested chromosome, and none when untested", {
+  d <- data.frame(label = "Betaretrovirus", chrom = c("chr1", "chr2"),
+                  observed = c(10L, 40L), expected = c(25, 25),
+                  rate_ratio = c(0.4, 1.6), pval = c(0.9, 0.01), qval = c(0.9, 0.02))
+  p <- plot_chromosome_rates(d, "Mus musculus")
+  expect_s3_class(p, "ggplot")
+  expect_null(plot_chromosome_rates(d[0, ], "Mus musculus"))
+})
+
+test_that("a chromosome with no loci draws without a warning", {
+  d <- data.frame(label = "Betaretrovirus", chrom = c("chr1", "chr2"),
+                  observed = c(0L, 50L), expected = c(25, 25),
+                  rate_ratio = c(0, 2), pval = c(1, 0.001), qval = c(1, 0.002))
+  expect_no_warning(ggplot2::ggplot_build(plot_chromosome_rates(d, "Mus musculus")))
+})
+
+test_that("the chromosome page keeps lineages with a call and names chromosomes", {
+  d <- data.frame(label = rep(c("Betaretrovirus", "Gammaretrovirus"), each = 2),
+                  chrom = c("CM1.1", "CM2.1", "CM1.1", "CM2.1"),
+                  observed = c(10L, 40L, 20L, 20L), expected = 25,
+                  rate_ratio = c(0.4, 1.6, 0.8, 0.8), pval = c(0.9, 0.01, 0.7, 0.7),
+                  qval = c(0.9, 0.02, 0.7, 0.7))
+  p <- plot_chromosome_rates(d, "Mus musculus",
+                             chrom_labels = c(CM1.1 = "chr1", CM2.1 = "chrX"))
+  expect_setequal(unique(as.character(p$data$label)), "Betaretrovirus")
+  # First chromosome on top: the y axis runs bottom up, so it is the last level.
+  expect_equal(levels(p$data$chrom), c("chrX", "chr1"))
+  quiet <- plot_chromosome_rates(transform(d, qval = 0.5), "Mus musculus")
+  expect_match(quiet$labels$title, "No chromosome")
+})

@@ -80,6 +80,7 @@ test_that("the detector writes every output and calls each lineage's cluster", {
   for (f in c("csv/Toyus_toyus.csv", "csv/Toyus_toyus.hotspots.csv",
               "pq/Toyus_toyus.parquet", "pq/Toyus_toyus.manifest.yaml",
               "tracks/Toyus_toyus.gff3", "tracks/Toyus_toyus.bed",
+              "csv/Toyus_toyus.chromosomes.csv",
               "pdf/toy.pdf")) {  # the PDF goes exactly where --out_pdf says
     expect_true(file.exists(out(f)), info = f)
   }

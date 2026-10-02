@@ -1342,6 +1342,7 @@ rule hotspot_detector_setup:
     output:
         hotspot_csv=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.csv'),
         hotspot_regions=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.hotspots.csv'),
+        hotspot_chromosomes=os.path.join(defaults.PATH_DICT['HOTSPOT_CSV_DIR'], '{genome}.chromosomes.csv'),
         hotspot_parquet=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.parquet'),
         hotspot_manifest=os.path.join(defaults.PATH_DICT['HOTSPOT_PARQUET_DIR'], '{genome}.manifest.yaml'),
         hotspot_pdf=os.path.join(defaults.PATH_DICT['HOTSPOT_PLOT_DIR'], '{genome}.hotspots.pdf'),
