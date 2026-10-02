@@ -19,14 +19,21 @@ ones.
 RetroSeek's probe search cannot find them. It looks for retroviral protein, and a
 solo LTR has none: the coding sequence is exactly what was excised.
 
+**What the raw counts include.** The bait is only as good as LTRharvest's elements,
+and some of those are two LINE or SINE copies that happen to look like an LTR pair.
+Their "arms" catch every copy of that repeat in the genome. On the model genomes
+most solo candidates come from such arms, so read solo counts per repeat class
+(`solo_ltr_by_class.csv`, ADR-023): the ERV LTR class is the retroviral solo count,
+and it is far smaller than the raw total.
+
 ## Why detection is a subtraction, not a classification
 
 There is no sequence feature that says "solo". A solo LTR is simply an LTR, and
 what makes it a solo is its *context*: no partner, no internal region.
 
-So the method does not ask "is this a solo?". It finds every copy of a
-known-retroviral LTR and then removes the copies that are demonstrably something
-else. Every LTR in the genome began as one of a pair flanking a provirus, which
+So the method does not ask "is this a solo?". It finds every copy of its bait
+arms (the LTRs of ERV-bearing elements) and then removes the copies that are
+demonstrably something else. Every LTR in the genome began as one of a pair flanking a provirus, which
 leaves exactly three possible fates, and that is what makes the subtraction
 complete:
 
