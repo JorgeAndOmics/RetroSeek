@@ -258,8 +258,9 @@ log_job(args$log, "hotspot_detector")
              sum(.comp$n_loci), sum(.comp$n_full), sum(.comp$n_partial),
              sum(.comp$n_gene))
   }
-  # The sequences the genome-wide pages draw (the model's own chromosomes) are
-  # also the ones tested as whole chromosomes; each label's theta feeds its
+  # Draw what the model treats as a chromosome: scaffolds it pools into
+  # "Unplaced" are tested but would only smear the genome-wide axes. The same
+  # sequences are tested as whole chromosomes. Each label's theta feeds its
   # randomised Q-Q page.
   draw <- sequences_to_draw(inputs$seqlengths,
                             inputs$opts$window_size * inputs$opts$unplaced_min_factor)
@@ -395,8 +396,6 @@ log_job(args$log, "hotspot_detector")
   callable <- result$windows %>%
     dplyr::group_by(.data$label) %>%
     dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
-  # Draw what the model treats as a chromosome: scaffolds it pools into
-  # "Unplaced" are tested but would only smear the genome-wide axes.
   pages <- c(.label_pages(result$windows, opts, plot_species,
                           callable$label[callable$tested], result$draw, result$theta),
              .genome_pages(inputs, opts, result, plot_species, result$draw, group_col))
