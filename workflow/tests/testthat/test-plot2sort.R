@@ -468,7 +468,7 @@ test_that("add_titles leads the subtitle with the species, in italics", {
   expect_equal(q$labels$title, "Foo")
   expect_true(is.call(q$labels$subtitle))
   expect_match(paste(deparse(q$labels$subtitle), collapse = ""),
-               'italic("Mus musculus")', fixed = TRUE)
+               'italic("Mus musculus.")', fixed = TRUE)
   expect_match(paste(deparse(q$labels$subtitle), collapse = ""), '"Bar."', fixed = TRUE)
 })
 
