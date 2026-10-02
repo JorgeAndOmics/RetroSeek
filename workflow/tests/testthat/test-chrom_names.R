@@ -90,3 +90,27 @@ test_that("a name that merely resembles an accession is not reinterpreted", {
   # the seqname BLAST writes into the tracks. Whatever the FASTA says, wins.
   expect_equal(normalise_chrom_names("CM050508.1extra"), "CM050508.1extra")
 })
+
+
+test_that("assembled chromosomes get short names, everything else its accession", {
+  headers <- c(
+    "CM000663.2 Homo sapiens chromosome 1, GRCh38 reference primary assembly",
+    "CM138289.1 Molossus molossus isolate mMolMol1 chromosome X, whole genome shotgun",
+    "KI270706.1 Homo sapiens chromosome 1 unlocalized genomic scaffold, GRCh38",
+    "KZ208915.1 Homo sapiens chromosome 17 genomic patch of type FIX, GRCh38.p14",
+    "J01415.2 Homo sapiens mitochondrion, complete genome",
+    "scaffold_9"
+  )
+  expect_equal(
+    chromosome_display_names(headers),
+    c(CM000663.2 = "chr1", CM138289.1 = "chrX", KI270706.1 = "KI270706.1",
+      KZ208915.1 = "KZ208915.1", J01415.2 = "chrMT", scaffold_9 = "scaffold_9")
+  )
+})
+
+test_that("a short name used twice falls back to the accessions", {
+  headers <- c("A.1 chromosome 2, first", "B.1 chromosome 2, second",
+               "C.1 chromosome 3, x")
+  expect_equal(chromosome_display_names(headers),
+               c(A.1 = "A.1", B.1 = "B.1", C.1 = "chr3"))
+})

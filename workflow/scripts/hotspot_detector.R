@@ -130,7 +130,8 @@ log_job(args$log, "hotspot_detector")
   overlap_frac <- assert_hits_on_genome(hits, genome$seqlengths)
   log_info("%.1f%% of hits map to genome contigs", 100 * overlap_frac)
   list(config = config, opts = opts, species = species, species_name = species_name,
-       seqs = genome$seqs, seqlengths = genome$seqlengths, hits = hits)
+       seqs = genome$seqs, seqlengths = genome$seqlengths, hits = hits,
+       chrom_labels = chromosome_display_names(genome$headers_raw))
 }
 
 # -----------------------------------------------------------------------------
@@ -343,10 +344,12 @@ log_job(args$log, "hotspot_detector")
 # model could test; a label with too few loci has no callable window, and a
 # page per such label would be a run of empty placeholders. They are named on
 # the key page instead.
-.label_pages <- function(windows_df, opts, plot_species, labels, draw, theta) {
+.label_pages <- function(windows_df, opts, plot_species, labels, draw, theta,
+                         chrom_labels) {
   unlist(lapply(labels, function(lbl) {
     windows <- dplyr::filter(windows_df, .data$label == lbl)
-    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl, draw = draw),
+    list(plot_manhattan(windows, opts$pvalue_threshold, plot_species, lbl, draw = draw,
+                        chrom_labels = chrom_labels),
          plot_qq(windows, plot_species, lbl, theta = theta[[lbl]]))
   }), recursive = FALSE)
 }
@@ -355,8 +358,9 @@ log_job(args$log, "hotspot_detector")
 # only when a hotspot was called (otherwise both would be the same empty page).
 .genome_pages <- function(inputs, opts, result, plot_species, draw, group_col) {
   karyotype <- plot_karyotype(inputs$seqlengths, result$hotspots, plot_species,
-                              draw = draw)
-  chromosome_page <- plot_chromosome_rates(result$chromosomes, plot_species)
+                              draw = draw, chrom_labels = inputs$chrom_labels)
+  chromosome_page <- plot_chromosome_rates(result$chromosomes, plot_species,
+                                           chrom_labels = inputs$chrom_labels)
   pages <- Filter(Negate(is.null), list(karyotype, chromosome_page))
   if (length(result$hotspots) == 0L) return(pages)
   c(pages, list(
@@ -397,7 +401,8 @@ log_job(args$log, "hotspot_detector")
     dplyr::group_by(.data$label) %>%
     dplyr::summarise(tested = any(!is.na(.data$qval_nb)), .groups = "drop")
   pages <- c(.label_pages(result$windows, opts, plot_species,
-                          callable$label[callable$tested], result$draw, result$theta),
+                          callable$label[callable$tested], result$draw, result$theta,
+                          inputs$chrom_labels),
              .genome_pages(inputs, opts, result, plot_species, result$draw, group_col))
   # The structure colours belong to the composition page alone.
   colours <- if (length(result$hotspots)) {

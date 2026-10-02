@@ -133,3 +133,17 @@ test_that("a chromosome with no loci draws without a warning", {
                   rate_ratio = c(0, 2), pval = c(1, 0.001), qval = c(1, 0.002))
   expect_no_warning(ggplot2::ggplot_build(plot_chromosome_rates(d, "Mus musculus")))
 })
+
+test_that("the chromosome page keeps lineages with a call and names chromosomes", {
+  d <- data.frame(label = rep(c("Betaretrovirus", "Gammaretrovirus"), each = 2),
+                  chrom = c("CM1.1", "CM2.1", "CM1.1", "CM2.1"),
+                  observed = c(10L, 40L, 20L, 20L), expected = 25,
+                  rate_ratio = c(0.4, 1.6, 0.8, 0.8), pval = c(0.9, 0.01, 0.7, 0.7),
+                  qval = c(0.9, 0.02, 0.7, 0.7))
+  p <- plot_chromosome_rates(d, "Mus musculus",
+                             chrom_labels = c(CM1.1 = "chr1", CM2.1 = "chrX"))
+  expect_setequal(unique(as.character(p$data$label)), "Betaretrovirus")
+  expect_setequal(as.character(p$data$chrom), c("chr1", "chrX"))
+  quiet <- plot_chromosome_rates(transform(d, qval = 0.5), "Mus musculus")
+  expect_match(quiet$labels$title, "No chromosome")
+})
