@@ -228,7 +228,9 @@ plot_chromosome_rates <- function(chrom_df, species = NULL, chrom_labels = NULL)
     dplyr::filter(.data$label %in% called_labels) %>%
     dplyr::mutate(called = .data$qval < 0.05,
                   chrom = .chrom_display(.data$chrom, chrom_labels),
-                  label = display_label(.data$label))
+                  label = display_label(.data$label)) %>%
+    # The table's order (chr1 first) read top down; the y axis runs bottom up.
+    dplyr::mutate(chrom = factor(.data$chrom, levels = rev(unique(.data$chrom))))
   p <- ggplot(d, aes(x = .data$rate_ratio, y = .data$chrom)) +
     geom_vline(xintercept = 1, colour = .INK_SOFT, linetype = "dashed") +
     geom_point(aes(colour = .data$called), size = 2) +

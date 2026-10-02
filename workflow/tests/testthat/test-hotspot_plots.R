@@ -143,7 +143,8 @@ test_that("the chromosome page keeps lineages with a call and names chromosomes"
   p <- plot_chromosome_rates(d, "Mus musculus",
                              chrom_labels = c(CM1.1 = "chr1", CM2.1 = "chrX"))
   expect_setequal(unique(as.character(p$data$label)), "Betaretrovirus")
-  expect_setequal(as.character(p$data$chrom), c("chr1", "chrX"))
+  # First chromosome on top: the y axis runs bottom up, so it is the last level.
+  expect_equal(levels(p$data$chrom), c("chrX", "chr1"))
   quiet <- plot_chromosome_rates(transform(d, qval = 0.5), "Mus musculus")
   expect_match(quiet$labels$title, "No chromosome")
 })
