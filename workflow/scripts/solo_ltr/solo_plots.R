@@ -113,12 +113,12 @@ funnel_plot <- function(funnel, species) {
   add_titles(
     p,
     title = "From raw LTR matches to solo LTRs",
-    subtitle = paste("Genomic matches to the bait arms, minus the copies that flank",
-                     "an intact element and those beside surviving coding sequence.",
-                     "\nWhat remains are solo candidates; their bait class is on the",
-                     "all-species page. Log scale."),
+    subtitle = paste("Bait-arm matches, minus the copies flanking an intact element",
+                     "or beside coding sequence. Log scale."),
     species = species
-  ) + labs(x = NULL, y = "Count (log scale)")
+  ) + labs(x = NULL, y = "Count (log scale)",
+           caption = paste("What remains are solo candidates; their bait class is on",
+                           "the all-species page."))
 }
 
 
@@ -252,12 +252,12 @@ family_abundance_plot <- function(candidates, species) {
   add_titles(
     p,
     title = "Solo LTRs per seeding element",
-    subtitle = paste("Elements ranked by how many solo candidates their arm caught.",
-                     "A steep curve means a few seeding elements account for most",
-                     "\nof the candidates; the all-species page shows how many of",
-                     "those arms are LINE or SINE copies rather than LTRs."),
+    subtitle = "Elements ranked by how many solo candidates their arm caught.",
     species = species
-  ) + labs(x = "Seeding element, ranked", y = "Solo LTRs")
+  ) + labs(x = "Seeding element, ranked", y = "Solo LTRs",
+           caption = paste("A steep curve means a few seeding elements account for",
+                           "most candidates; the all-species page shows how many of",
+                           "those arms are LINE or SINE copies rather than LTRs."))
 }
 
 
@@ -279,11 +279,11 @@ divergence_age_plot <- function(candidates, species) {
   add_titles(
     p,
     title = "Divergence from the bait exemplar, as time",
-    subtitle = paste("At 2.2e-9 substitutions/site/year. This is divergence from a",
-                     "surviving relative, NOT insertion age:\na solo has one arm, so",
-                     "the two-arm clock cannot be applied to it."),
+    subtitle = paste("At 2.2e-9 substitutions/site/year, from a surviving relative:",
+                     "NOT insertion age."),
     species = species
-  ) + labs(x = "Divergence from the bait exemplar (My equivalent)", y = "Solo LTRs")
+  ) + labs(x = "Divergence from the bait exemplar (My equivalent)", y = "Solo LTRs",
+           caption = "A solo has one arm: the two-arm clock cannot be applied to it.")
 }
 
 
@@ -306,14 +306,15 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
   d <- copy(tips)
   d[, fate := factor(class_to_fate[class], levels = .FATE_LEVELS)]
 
-  subtitle <- sprintf(
+  subtitle <- sprintf(paste("%d tips: both arms of sampled bait elements, sampled",
+                            "solos and monoLTRs."), nrow(d))
+  caption <- sprintf(
     paste(
-      "%d tips: both LTR arms of sampled bait elements (every sampled solo's",
-      "seed among them), sampled solos and monoLTRs.\nSeed control: %.0f%% of solos",
-      "sit within 0.1 substitutions/site of the arm that caught them. Arm control:",
-      "%.0f%%. Same-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."
+      "Every sampled solo's seed is on the tree. Seed control: %.0f%% of solos sit",
+      "within 0.1 substitutions/site of the arm that caught them. Arm control: %.0f%%.",
+      "\nSame-class sisters %.0f%% against a %.0f%% permutation null (%.2fx)."
     ),
-    nrow(d), 100 * .summary_metric(summary_dt, "solos_near_seed_fraction"),
+    100 * .summary_metric(summary_dt, "solos_near_seed_fraction"),
     100 * .summary_metric(summary_dt, "arm_sisterhood_fraction"),
     100 * .summary_metric(summary_dt, "same_class_sister_observed"),
     100 * .summary_metric(summary_dt, "same_class_sister_null_mean"),
@@ -332,7 +333,7 @@ ltr_tree_plot <- function(tips, segs, summary_dt, species) {
     scale_colour_manual(values = .FATE_COLOUR, labels = display_label, drop = FALSE) +
     theme_retroseek_blank()
   add_titles(p, title = "The LTR evidence tree",
-             subtitle = subtitle, species = species) +
+             subtitle = subtitle, species = species) + labs(caption = caption) +
     labs(colour = NULL)
 }
 
@@ -365,20 +366,18 @@ tree_enrichment_plot <- function(summary_dt, species) {
     scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
     theme_retroseek() +
     theme(legend.position = "none")
+  template <- paste("Controls: %.0f%% of solos sit beside the arm that caught them;",
+                    "%.0f%% of elements have their two arms as sisters (young bursts",
+                    "of near-identical copies blur this one).")
+  controls <- sprintf(template, 100 * ifelse(is.na(seed_control), 0, seed_control),
+                      100 * ifelse(is.na(control), 0, control))
   add_titles(
     p,
     title = "Do the three fates cluster on the tree?",
-    subtitle = sprintf(
-      paste("Tips whose sister group shares their class, against a",
-            "null that permutes the labels on a fixed topology.",
-            "\nControls: %.0f%% of solos sit beside the arm that caught",
-            "them; %.0f%% of elements have their two arms as sisters",
-            "(young bursts of near-identical copies blur this one)."),
-      100 * ifelse(is.na(seed_control), 0, seed_control),
-      100 * ifelse(is.na(control), 0, control)
-    ),
+    subtitle = paste("Tips whose sister group shares their class, against a",
+                     "permutation null on a fixed topology."),
     species = species
-  ) + labs(x = NULL, y = "Tips with a same-class sister")
+  ) + labs(x = NULL, y = "Tips with a same-class sister", caption = controls)
 }
 
 
@@ -549,12 +548,14 @@ family_census_plot <- function(families, species, top_n = 30) {
   n_no_intact <- sum(d$kind == "no_intact")
   solos_no_intact <- sum(d[kind == "no_intact", n_solo])
   subtitle <- sprintf(
-    paste(
-      "%d families contain solos; %d of them have no intact member and hold %d of",
-      "the %d sampled solos.\nShowing the %d largest. A family is a clade of the",
-      "evidence tree whose members are all within the configured distance."
-    ),
-    nrow(d), n_no_intact, solos_no_intact, sum(d$n_solo), min(top_n, nrow(d))
+    paste("%d families contain solos; %d have no intact member and hold %d of the",
+          "%d sampled solos."),
+    nrow(d), n_no_intact, solos_no_intact, sum(d$n_solo)
+  )
+  caption <- sprintf(
+    paste("Showing the %d largest. A family is a clade of the evidence tree whose",
+          "members are all within the configured distance."),
+    min(top_n, nrow(d))
   )
 
   d <- d[order(-n_tips)][seq_len(min(top_n, .N))]
@@ -576,7 +577,7 @@ family_census_plot <- function(families, species, top_n = 30) {
           legend.position = "bottom")
   add_titles(p, title = "LTR families on the evidence tree",
              subtitle = subtitle, species = species) +
-    labs(x = "Family", y = "Tips on the tree", fill = NULL)
+    labs(x = "Family", y = "Tips on the tree", fill = NULL, caption = caption)
 }
 
 
@@ -610,12 +611,13 @@ solo_tree_plot <- function(tips, segs, species, n_colours = 6) {
     p, title = "The solo-only tree",
     subtitle = sprintf(
       paste("The evidence tree pruned to its %d sampled solos; the largest %d",
-            "families coloured.\nSolos sharing a colour belong to one LTR family."),
+            "families coloured."),
       nrow(d), length(top)
     ),
     species = species
   ) +
-    labs(colour = "Family")
+    labs(colour = "Family",
+         caption = "Solos sharing a colour belong to one LTR family.")
 }
 
 
@@ -667,8 +669,7 @@ family_subtrees_plot <- function(tips, segs, families, species) {
   note <- if (both) {
     "\"No intact member\" means none among the sampled elements."
   } else if (length(known) == 1L) {
-    sprintf(paste("No family %s an intact member\nhas three or more tips here,",
-                  "so none is drawn."),
+    sprintf("No family %s an intact member has three tips or more.",
             if (known == "with_intact") "without" else "with")
   }
   title <- if (both) {

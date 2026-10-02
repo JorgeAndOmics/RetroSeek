@@ -179,3 +179,22 @@ test_that("the families page counts each genome's LTR families by repeat class",
   expect_match(families_by_class_plot(by_class[0], NULL, .order)$labels$title,
                "No per-class tables")
 })
+
+
+test_that("per-genome solo pages lead with the species in italics", {
+  # A subtitle with a line break keeps an upright lead (plotmath cannot break
+  # lines), so these pages keep one-line subtitles and put detail in the caption.
+  funnel <- data.table(stage = c("raw_hits", "accepted_hits", "merged_candidates",
+                                 "intact_flank", "mono_ltr_at_orphan", "solo"),
+                       count = c(1000, 800, 500, 100, 50, 350))
+  p <- funnel_plot(funnel, "Homo sapiens")
+  expect_true(is.call(p$labels$subtitle))
+  expect_false(is.null(p$labels$caption))
+  families <- data.table(family = c("F1", "F2"), kind = c("with_intact", "no_intact"),
+                         n_solo = c(4L, 1L), n_mono = 0L, n_flank = c(2L, 0L))
+  tips <- data.table(family = "F1", class = c("SOLO", "SOLO", "FLANK"),
+                     x = 1:3, y = 1:3)
+  segs <- data.table(family = "F1", x = 0, y = 1, xend = 1, yend = 1)
+  expect_true(is.call(family_subtrees_plot(tips, segs, families,
+                                           "Homo sapiens")$labels$subtitle))
+})
