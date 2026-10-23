@@ -510,3 +510,53 @@ def test_ltr_harvest_reads_only_its_own_genome_index(project_root: Path) -> None
     inputs = harvester[: harvester.index("output:")]
     assert "rules.ltr_index_generator" not in inputs
     assert "'{{genome}}', '{{genome}}.{ext}'" in inputs
+
+
+# ---------------------------------------------------------------------
+# Dfam filter of LTR elements (ADR-026)
+# ---------------------------------------------------------------------
+def _rule_text(project_root: Path, name: str) -> str:
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    start = text.index(f"rule {name}:")
+    end = text.find("\nrule ", start + 1)
+    return text[start:] if end == -1 else text[start:end]
+
+
+def test_the_ltr_arm_filter_rule_is_present(project_root: Path) -> None:
+    """The step that labels LTR arms with Dfam must stay between LTRdigest and ranges analysis."""
+    assert "ltr_arm_filter_setup" in _all_rules(project_root)
+
+
+def test_the_filter_reads_ltrdigest_hits_genome_and_dfam_models(
+    project_root: Path,
+) -> None:
+    """The filter needs the elements, the probe hits (to find ERV-bearing ones), the arms' genome and Dfam."""
+    rule = _rule_text(project_root, "ltr_arm_filter_setup")
+    assert "LTRDIGEST_DIR" in rule
+    assert "SEGMENTED_SPECIES_PARQUET_DIR" in rule
+    assert "SPECIES_DB" in rule
+    assert "rules.dfam_downloader.output.hmm" in rule
+
+
+def test_ranges_analysis_takes_the_verdicts_only_when_dfam_is_on(
+    project_root: Path,
+) -> None:
+    """Dfam off must leave the DAG as it was: no new job, no flag, nothing dropped."""
+    rule = _rule_text(project_root, "ranges_analysis_setup")
+    assert "ltr_arm_filter" in rule
+    assert "if _DFAM_FILTER else" in rule
+    assert "--ltr_arm_filter" in rule
+
+
+def test_one_dfam_switch_drives_the_labels_and_the_filter(project_root: Path) -> None:
+    """The filter and the family labels share solo_ltr.families.dfam: two switches could disagree."""
+    text = (project_root / "workflow" / "Snakefile").read_text()
+    assert text.count(".get('dfam'") == 1
+    assert "_FAMILY_DFAM = _DFAM_FILTER" in text
+
+
+def test_the_filter_does_not_depend_on_the_catalog(project_root: Path) -> None:
+    """The filter runs before the catalog exists: reading loci tables would make a cycle."""
+    rule = _rule_text(project_root, "ltr_arm_filter_setup")
+    assert "TAXONOMY_TABLES" not in rule
+    assert "loci.csv" not in rule

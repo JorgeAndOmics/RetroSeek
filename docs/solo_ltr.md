@@ -71,6 +71,19 @@ level down.
 Arms shorter than `solo_ltr.min_bait_length` are dropped. See "Why the length floor
 is not optional" below.
 
+#### Elements that are not LTR elements (the Dfam filter, ADR-026)
+
+LTRharvest pairs any two similar stretches, so two L1 3' ends or two Alus around an ERV
+probe hit make an "LTR element" whose arms would seed a search that then counts every
+L1 or Alu copy as a solo. With `solo_ltr.families.dfam` on, such elements never reach the
+bait: before `ranges_analysis`, `ltr_arm_filter.py` labels both arms of every element
+that overlaps a probe hit with Dfam (arms clustered at the family identity, one
+representative per family searched with the curated models) and drops the element when
+either arm is a non-LTR repeat. Arms Dfam cannot name stay, and so does every `LTR/*`
+class, ERV or not. On Desmodus, 9.6% of the 406 ERV-bearing elements were dropped, and
+the family-level labels matched direct per-arm labels for all 250 elements checked both
+ways. Their ERV hits are still reported, as orphans. With Dfam off nothing is filtered.
+
 ### Search
 
 `blastn` against the per-genome nucleotide database the pipeline already builds

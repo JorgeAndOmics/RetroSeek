@@ -548,6 +548,51 @@ rule species_segmenter:
 #    integrate homology hits with LTRdigest structure into the original /
 #    candidate / valid / orphans tiers (+ per-genome counts for the funnel).
 # =============================================================================
+# Dfam filter of LTR elements (ADR-026). One switch, solo_ltr.families.dfam, serves the
+# family labels of the solo stage and this filter: with Dfam on, every LTR element
+# that overlaps a probe hit has both arms labelled before ranges_analysis, and those
+# with a LINE, SINE, DNA or other non-LTR arm leave the LTR set (their ERV hits become
+# orphans); with Dfam off nothing is filtered and the DAG is as it was. Two switches
+# could disagree about whether Dfam is in use.
+_DFAM_FILTER = bool(((config.get('solo_ltr') or {}).get('families') or {}).get('dfam', False))
+
+
+# After LTRdigest and before ranges_analysis: label both arms of each probe-hit LTR
+# element with Dfam (arms clustered at the family identity, one representative per
+# family searched with the curated models) and list the elements to drop. Needs the
+# probe hits to know which elements are ERV-bearing, so it follows the BLAST stage;
+# it does not read the catalog, which is built after ranges_analysis.
+rule ltr_arm_filter_setup:
+    input:
+        ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3'),
+        species_segmented = os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'], '{genome}.parquet'),
+        original_fasta    = os.path.join(defaults.PATH_DICT['SPECIES_DB'],           '{genome}.fa'),
+        hmm               = rules.dfam_downloader.output.hmm
+    output:
+        verdicts = os.path.join(defaults.PATH_DICT['LTR_ARM_FILTER_DIR'], '{genome}.ltr_arm_filter.csv')
+    params:
+        # Read lazily: _FAMILY_IDENTITY is defined further down, with the solo block.
+        identity = lambda wildcards: _FAMILY_IDENTITY,
+        workdir  = lambda wildcards: os.path.join(defaults.PATH_DICT['TMP_DIR'], 'ltr_arm_filter', wildcards.genome)
+    log:
+        job_log('ltr_arm_filter', '{genome}')
+    threads: 8
+    shell:
+        '''
+        PYTHONPATH=scripts:scripts/solo_ltr python scripts/ltr_arm_filter.py --log {log:q} \
+            --ltrdigest-gff3 {input.ltr_gff3:q} --blast-parquet {input.species_segmented:q} \
+            --genome-fasta {input.original_fasta:q} --dfam-hmm {input.hmm:q} \
+            --identity {params.identity} --threads {threads} --workdir {params.workdir:q} \
+            --out-csv {output.verdicts:q}
+        '''
+
+
+rule ltr_arm_filter:
+    input:
+        lambda wildcards: expand(os.path.join(defaults.PATH_DICT['LTR_ARM_FILTER_DIR'], '{genome}.ltr_arm_filter.csv'),
+                                 genome=species_with_hits(wildcards)) if _DFAM_FILTER else []
+
+
 rule ranges_analysis_setup:
     input:
         # Per-genome scoping (A4): each invocation of this rule needs only
@@ -559,7 +604,11 @@ rule ranges_analysis_setup:
         original_fasta    = os.path.join(defaults.PATH_DICT['SPECIES_DB'],           '{genome}.fa'),
         species_segmented = os.path.join(defaults.PATH_DICT['SEGMENTED_SPECIES_PARQUET_DIR'],'{genome}.parquet'),
         ltr_gff3          = os.path.join(defaults.PATH_DICT['LTRDIGEST_DIR'],        '{genome}.gff3'),
-        probe_dict        = os.path.join(defaults.PATH_DICT['PROBE_DICT_PARQUET_DIR'], 'probe_dict.parquet')
+        probe_dict        = os.path.join(defaults.PATH_DICT['PROBE_DICT_PARQUET_DIR'], 'probe_dict.parquet'),
+        # Dfam filter (ADR-026): the elements to drop. Only when Dfam is on.
+        ltr_arm_filter    = lambda wildcards: (
+            [os.path.join(defaults.PATH_DICT['LTR_ARM_FILTER_DIR'], f'{wildcards.genome}.ltr_arm_filter.csv')]
+            if _DFAM_FILTER else [])
     output:
         original_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORIGINAL_DIR'], '{genome}.gff3'),
         orphans_tracks=os.path.join(defaults.PATH_DICT['TRACK_ORPHANS_DIR'], '{genome}.gff3'),
@@ -606,6 +655,8 @@ rule ranges_analysis_setup:
         element_hits_dir=defaults.PATH_DICT['TRACK_ELEMENT_HITS_DIR'],
         flanking_ltr_dir=defaults.PATH_DICT['FLANKING_LTR_DIR'],
         manifest_dir=defaults.PATH_DICT['MANIFEST_DIR'],
+        ltr_filter_arg=lambda wildcards, input: (
+            f'--ltr_arm_filter {shlex.quote(input.ltr_arm_filter[0])}' if input.ltr_arm_filter else ''),
     threads:
         workflow.cores   # Apparently doesn't take well to multicore
     log:
@@ -629,6 +680,7 @@ rule ranges_analysis_setup:
         --ranges_analysis_parquet_dir {params.ranges_analysis_parquet_dir:q} \
         --ranges_analysis_csv_dir {params.ranges_analysis_csv_dir:q} \
         --genome {wildcards.genome:q} \
+        {params.ltr_filter_arg} \
         --manifest {params.manifest_dir:q}/{wildcards.genome:q}.yaml
         '''
 
@@ -680,7 +732,7 @@ _SOLO_TREE = _SOLO['tree']
 # counted over the whole shorter arm.
 _FAMILIES = _SOLO.get('families') or {}
 _FAMILY_IDENTITY = _FAMILIES.get('identity', 0.8)
-_FAMILY_DFAM = bool(_FAMILIES.get('dfam', False))
+_FAMILY_DFAM = _DFAM_FILTER  # one switch for the labels and the LTR-element filter
 
 
 rule solo_bait_builder_setup:

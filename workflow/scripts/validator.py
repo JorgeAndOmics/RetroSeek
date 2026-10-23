@@ -179,6 +179,35 @@ def gene_list_notes(config: dict[str, object], probes: set[str] | None) -> list[
     return notes
 
 
+def dfam_filter_notes(
+    chosen: list[stages.Stage], config: dict[str, object]
+) -> list[str]:
+    """A note when ranges analysis will run with Dfam off, so no LTR element is filtered.
+
+    With Dfam on, elements whose LTR arms are LINE, SINE or DNA repeats leave the LTR
+    set before it is built (ADR-026). With it off they stay, and their arms seed the
+    solo-LTR search, which then counts every L1 or Alu copy as a solo LTR. The run
+    works either way, so this is a warning and never a stop. One note however many
+    chosen stages reach ranges analysis; a run that does not reach it gets none.
+
+    Args:
+        chosen: The stages this run asks for.
+        config: The loaded configuration; an unset switch counts as off.
+    """
+    if not any("ranges_analysis" in stage.targets for stage in chosen):
+        return []
+    solo = config.get("solo_ltr")
+    families = solo.get("families") if isinstance(solo, dict) else None
+    if isinstance(families, dict) and families.get("dfam"):
+        return []
+    return [
+        "Dfam is off (`solo_ltr.families.dfam`): LTR elements whose arms are LINE, "
+        "SINE or DNA repeats are not filtered out, so their arms seed the solo-LTR "
+        "search and inflate the solo counts. Set it to true and run --download-dfam "
+        "once to filter them (ADR-026)."
+    ]
+
+
 def probe_names(csv_file: str | Path) -> set[str] | None:
     """The probe table's gene names, upper-cased as the pipeline uses them.
 
@@ -449,7 +478,8 @@ def preflight(chosen: list[stages.Stage]) -> bool:
     that read the curated Pfam subset, the Pfam library itself. Schema problems
     are logged by `yaml_validator`, the others as errors, each check's before the
     next starts. Gene-list notes (a list not set, a name that is no probe) are
-    warnings and do not stop the run.
+    warnings and do not stop the run The same goes for
+    the Dfam note (Dfam off, so LTR elements are not filtered).
     """
     schema_ok = yaml_validator(
         yaml_schema=str(Path(defaults.PATH_DICT["CONFIG_DIR"]) / "schema.yaml"),
@@ -462,6 +492,8 @@ def preflight(chosen: list[stages.Stage]) -> bool:
     genomes_ok = _report(*ambiguous_genomes(species_db, defaults.SPECIES))
     genes_ok = _report(*gene_list_errors(defaults.config))
     for note in gene_list_notes(defaults.config, probe_names(defaults.PROBE_CSV)):
+        logger.warning(note)
+    for note in dfam_filter_notes(chosen, defaults.config):
         logger.warning(note)
     pfam_ok = _report(_pfam_library_problem(chosen))
     return schema_ok and tools_ok and genomes_ok and genes_ok and pfam_ok

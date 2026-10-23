@@ -90,6 +90,41 @@ extract_retrotransposons <- function(ltr_data, resize_bp = 0L) {
 }
 
 
+# First value of an attribute column. rtracklayer imports `Parent` as a list (the
+# GFF3 spec allows several parents) and `ID` as a character vector; an empty entry
+# (a repeat_region has no Parent) becomes NA.
+.first_value <- function(x) {
+  if (is.character(x)) return(x)
+  vapply(as.list(x),
+         function(v) if (length(v)) as.character(v[[1]]) else NA_character_,
+         character(1))
+}
+
+
+# Remove LTR elements, and everything that belongs to them, from the LTRdigest data.
+# This is how the Dfam filter (ADR-026) turns an element whose LTR arms are LINE,
+# SINE or DNA repeats into nothing: with the element gone, the ERV hits that sat in
+# it overlap no retrotransposon and fall out as orphans.
+#
+# What belongs to an element: its arms and protein matches (Parent = the element),
+# and the repeat_region that contains it with that container's target site
+# duplications. A container that still holds another element stays.
+remove_ltr_elements <- function(ltr_data, element_ids) {
+  if (length(element_ids) == 0L || length(ltr_data) == 0L) return(ltr_data)
+  id     <- .first_value(ltr_data$ID)
+  parent <- .first_value(ltr_data$Parent)
+  is_dropped  <- !is.na(id) & id %in% element_ids
+  is_element  <- ltr_data$type == "LTR_retrotransposon"
+  # Containers of dropped elements, minus any that also hold a surviving element.
+  containers <- setdiff(unique(parent[is_dropped]),
+                        c(NA_character_, parent[is_element & !is_dropped]))
+  gone <- is_dropped |
+    (!is.na(parent) & parent %in% c(element_ids, containers)) |
+    (!is.na(id) & id %in% containers)
+  ltr_data[!gone]
+}
+
+
 # Pull repeat_region features (the outer-bound LTR retrotransposon containers,
 # used for some overlap analyses).
 extract_repeat_regions <- function(ltr_data) {

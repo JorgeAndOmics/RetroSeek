@@ -340,3 +340,96 @@ test_that(
     expect_equal(as.character(GenomicRanges::seqnames(shared$a)), c("chr2", "chr1"))
   }
 )
+
+
+# ---------------------------------------------------------------------------
+# remove_ltr_elements: the Dfam filter (ADR-026) takes elements whose arms are
+# LINE/SINE/DNA out of the LTRdigest data, so their ERV hits become orphans.
+# Everything that belongs to an element goes with it: its arms, its protein
+# matches, and the repeat_region container with that container's TSDs. The
+# fixture is a real GFF3 import, so `Parent` has its true list type.
+# ---------------------------------------------------------------------------
+# One GFF3 row: sequence chr1, source LTRharvest, the given type, span, strand and
+# attributes. Built by a helper so the fixtures stay readable.
+.gff_row <- function(type, start, end, strand, attributes) {
+  paste("chr1", "LTRharvest", type, start, end, ".", strand, ".", attributes,
+        sep = "\t")
+}
+
+.import_gff3 <- function(rows) {
+  path <- tempfile(fileext = ".gff3")
+  writeLines(c("##gff-version 3", rows), path)
+  rtracklayer::import(path, format = "gff3")
+}
+
+.ltrdigest_fixture <- function() {
+  rows <- c(
+    .gff_row("repeat_region", 96, 905, "+", "ID=repeat_region1"),
+    .gff_row("target_site_duplication", 96, 100, "+", "Parent=repeat_region1"),
+    .gff_row("LTR_retrotransposon", 101, 900, "+",
+             "ID=LTR_retrotransposon1;Parent=repeat_region1"),
+    .gff_row("long_terminal_repeat", 101, 200, "+", "Parent=LTR_retrotransposon1"),
+    .gff_row("long_terminal_repeat", 801, 900, "+", "Parent=LTR_retrotransposon1"),
+    .gff_row("protein_match", 300, 500, "+",
+             "Parent=LTR_retrotransposon1;name=RVT_1"),
+    .gff_row("repeat_region", 2996, 3905, "-", "ID=repeat_region2"),
+    .gff_row("target_site_duplication", 2996, 3000, "-", "Parent=repeat_region2"),
+    .gff_row("LTR_retrotransposon", 3001, 3900, "-",
+             "ID=LTR_retrotransposon2;Parent=repeat_region2"),
+    .gff_row("long_terminal_repeat", 3001, 3100, "-", "Parent=LTR_retrotransposon2"),
+    .gff_row("long_terminal_repeat", 3801, 3900, "-", "Parent=LTR_retrotransposon2"),
+    .gff_row("protein_match", 3300, 3500, "-",
+             "Parent=LTR_retrotransposon2;name=RVT_1")
+  )
+  .import_gff3(rows)
+}
+
+test_that("remove_ltr_elements removes the element and everything that belongs to it", {
+  skip_if_not_installed("rtracklayer")
+  ltr <- .ltrdigest_fixture()
+  out <- remove_ltr_elements(ltr, "LTR_retrotransposon1")
+  expect_equal(length(ltr), 12L)
+  expect_equal(length(out), 6L)
+  expect_equal(sum(out$type == "LTR_retrotransposon"), 1L)
+  expect_equal(as.character(out$ID[out$type == "LTR_retrotransposon"]),
+               "LTR_retrotransposon2")
+  # Nothing of the dropped element is left: no arm, no domain, no container, no TSD.
+  parents <- vapply(as.list(out$Parent), function(p) if (length(p)) p[[1]] else "",
+                    character(1))
+  expect_false(any(parents %in% c("LTR_retrotransposon1", "repeat_region1")))
+  expect_false("repeat_region1" %in% as.character(out$ID))
+})
+
+test_that("remove_ltr_elements with no ids returns the data unchanged", {
+  skip_if_not_installed("rtracklayer")
+  ltr <- .ltrdigest_fixture()
+  expect_equal(length(remove_ltr_elements(ltr, character(0))), length(ltr))
+})
+
+test_that("remove_ltr_elements ignores ids that are not in the data", {
+  skip_if_not_installed("rtracklayer")
+  ltr <- .ltrdigest_fixture()
+  expect_equal(length(remove_ltr_elements(ltr, "LTR_retrotransposon99")), length(ltr))
+})
+
+test_that("remove_ltr_elements can remove every element", {
+  skip_if_not_installed("rtracklayer")
+  ltr <- .ltrdigest_fixture()
+  out <- remove_ltr_elements(ltr, c("LTR_retrotransposon1", "LTR_retrotransposon2"))
+  expect_equal(length(out), 0L)
+})
+
+test_that("remove_ltr_elements keeps a container that still holds another element", {
+  skip_if_not_installed("rtracklayer")
+  # Two elements in ONE repeat_region: dropping one must not orphan the other.
+  ltr <- .import_gff3(c(
+    .gff_row("repeat_region", 96, 1905, "+", "ID=repeat_region1"),
+    .gff_row("LTR_retrotransposon", 101, 900, "+",
+             "ID=LTR_retrotransposon1;Parent=repeat_region1"),
+    .gff_row("LTR_retrotransposon", 1001, 1900, "+",
+             "ID=LTR_retrotransposon2;Parent=repeat_region1")
+  ))
+  out <- remove_ltr_elements(ltr, "LTR_retrotransposon1")
+  expect_true("repeat_region1" %in% as.character(out$ID))
+  expect_equal(sum(out$type == "LTR_retrotransposon"), 1L)
+})

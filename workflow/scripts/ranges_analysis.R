@@ -66,6 +66,11 @@ parser$add_argument("--probe_dict",               required = TRUE,
                                  "genbank_seq populated). Used to compute",
                                  "per-hit query_coverage."))
 parser$add_argument("--config",                   required = TRUE)
+parser$add_argument("--ltr_arm_filter",           required = FALSE, default = NULL,
+                    help = paste("Per-element Dfam verdicts (ltr_arm_filter.py,",
+                                 "ADR-026). Elements marked drop leave the",
+                                 "LTRdigest data, so their hits become orphans.",
+                                 "Omitted when Dfam is off: nothing is dropped."))
 parser$add_argument("--original_ranges",          required = TRUE)
 parser$add_argument("--orphans_ranges",         required = TRUE,
                     help = paste("GFF3 of non-LTR-associated orphans (reduced",
@@ -138,6 +143,16 @@ main <- function(args) {
   .shared  <- share_seqlevels(gr, ltr_data)
   gr       <- .shared$a
   ltr_data <- .shared$b
+  # Dfam filter (ADR-026): elements whose LTR arms are LINE, SINE or DNA repeats
+  # leave the LTRdigest data here, before anything is sorted into LTR-flanked or
+  # orphan, so the ERV hits that sat in them fall out as orphans below.
+  dropped_elements <- load_dropped_elements(args$ltr_arm_filter)
+  ltr_data <- remove_ltr_elements(ltr_data, dropped_elements)
+  record_count("ltr_elements_dropped_dfam", length(dropped_elements))
+  if (length(dropped_elements) > 0L) {
+    log_info("Dfam filter: %d LTR elements dropped (a non-LTR arm)",
+             length(dropped_elements))
+  }
 
 
   # ----------------------------------------------------------------------------

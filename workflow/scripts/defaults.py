@@ -215,6 +215,13 @@ PATH_DICT["LTR_SCN_DIR"] = (PATH_DICT["DATA_DIR"] / "ltr_scn").resolve()
 # re-running blastn; gzip makes that affordable.
 PATH_DICT["SOLO_BAIT_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_bait").resolve()
 PATH_DICT["SOLO_BLAST_DIR"] = (PATH_DICT["DATA_DIR"] / "solo_blast").resolve()
+# Dfam filter of LTR elements (ADR-026): one CSV per genome with the Dfam class of
+# both arms of every probe-hit element and the verdict (drop or keep). It is both
+# user-facing evidence (what was dropped, and why) and the input of ranges_analysis,
+# so it is a results table with no parquet twin.
+PATH_DICT["LTR_ARM_FILTER_DIR"] = (
+    PATH_DICT["TABLE_OUTPUT_DIR"] / "ltr_arm_filter"
+).resolve()
 
 # === Results - Plots ===
 # One level deep: a stage that draws one PDF writes it straight into plots/, and

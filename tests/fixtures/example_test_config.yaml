@@ -112,7 +112,9 @@ solo_ltr:
   # 0.9 and above families shatter.
   families:
     identity: 0.8
-    # Label each family with its best curated Dfam model (needs --download-dfam).
+    # Use Dfam (needs --download-dfam): label each family with its best curated
+    # model, and drop LTR elements whose arms are LINE, SINE or DNA before the
+    # LTR set is built (ADR-026). false: no labels, nothing filtered.
     dfam: false
   tree:
     enable: true

@@ -34,6 +34,7 @@ Use [`ADR-000-template.md`](ADR-000-template.md) as the starting point. Keep eac
 | 023   | [LTR families from the solo-LTR bait arms](ADR-023-ltr-families.md) | Accepted |
 | 024   | [Nearest reference virus, with its identity](ADR-024-nearest-reference-virus.md) | Accepted |
 | 025   | [A placement weight floor for the gene call](ADR-025-placement-weight-floor.md) | Accepted |
+| 026   | [Drop LTR elements whose arms are LINE, SINE or DNA, using Dfam](ADR-026-dfam-ltr-element-filter.md) | Proposed |
 
 ## When to write a new ADR
 

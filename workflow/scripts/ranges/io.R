@@ -44,6 +44,29 @@ load_ltrdigest_gff3 <- function(path) {
 }
 
 
+# Elements the Dfam filter (ltr_arm_filter.py, ADR-026) says to drop: the `element`
+# of every row whose `drop` is True. NULL means the filter is off (Dfam disabled in
+# the config) and nothing is dropped. A path that does not exist is an error, not
+# "nothing to drop": the rule that writes the table is wired in only when the filter
+# is on, so a missing file means that rule did not run, and reading it as empty
+# would switch the filter off without a word. Python writes True/False, R TRUE/FALSE.
+load_dropped_elements <- function(path) {
+  if (is.null(path)) return(character(0))
+  if (!file.exists(path)) {
+    stop(sprintf("ltr_arm_filter table not found: %s (rerun the ltr_arm_filter rule)",
+                 path), call. = FALSE)
+  }
+  verdicts <- readr::read_csv(path, col_types = readr::cols(.default = "c"),
+                              show_col_types = FALSE)
+  missing <- setdiff(c("element", "drop"), names(verdicts))
+  if (length(missing) > 0L) {
+    stop(sprintf("%s has no %s column (written by ltr_arm_filter.py?)",
+                 path, paste(sQuote(missing), collapse = ", ")), call. = FALSE)
+  }
+  verdicts$element[toupper(verdicts$drop) == "TRUE"]
+}
+
+
 # Load probes CSV. Returns a list with:
 #   $df       - full tibble (one row per probe)
 #   $df_sum   - distinct (Name, Label, Abbreviation) tibble
