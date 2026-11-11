@@ -2,8 +2,10 @@
 # Module ranges/filtering.R
 # -----------------------------------------------------------------------------
 # Threshold-based filtering of the BLAST GRanges. Per-probe minimum lengths
-# are looked up by abbreviation; unknown probes get a fallback of 0 (no length
-# filter), matching the pre-refactor behaviour.
+# are looked up by probe name (the `probe` column: POL, GAG, ...) and compared
+# with the hit's genomic width, so they are in bp, not amino acids. Unknown
+# probes get a fallback of 0 (no length filter), matching the pre-refactor
+# behaviour.
 
 suppressMessages({
   library(GenomicRanges)

@@ -52,7 +52,7 @@ Per-genome detection of windows enriched for ERV integrations beyond chance. A s
 | `merge_option` | `virus` \| `label` | `virus` | How overlapping ranges group before `plyranges::reduce_ranges_directed`. **Strict enum** - typos fail validation. |
 | `main_probes` | list of strings | `[POL, GAG, ENV, PRO]` | Probe names treated as *main* (as opposed to *accessory*). Membership only: once `gene_order` and `classification.gene_priority` are set, the order means nothing (while either is missing, it stands in for that list). Drives the `probe_type` column on plot dataframes, the `probe_category` attribute on GFF3 tracks, the mosaic gene set, and the count `completeness` divides by. Upper case, each name once. See "The three gene lists" below. |
 | `gene_order` | ordered list of strings | `[GAG, PRO, POL, ENV]` | The genes 5' to 3' along a provirus, used only by `canonical_order`. Any probe name, main or accessory. Absent: `main_probes` in its written order, with a warning at launch. |
-| `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum alignment length in residues. Ranges shorter than the probe-specific threshold are filtered out. |
+| `probe_min_length` | map (string -> int) | `{ GAG: 200, POL: 400, ... }` | Per-probe minimum hit length in **bp**: the hit's span on the genome, not the protein alignment length (`POL: 400` is about 133 amino acids). Keys are probe names (`POL`, `GAG`, ...). A hit is kept only if it is longer than its probe's value; probes not listed get 0 (no length filter). The same value is the gap within which a probe's hits merge in range analysis. |
 
 #### The three gene lists
 
